@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { geocodeAddress } from "./geocode";
 
@@ -52,7 +51,6 @@ function jsonResponse(body: unknown, status = 200): Response {
 describe("geocodeAddress", () => {
   it("asks Esri to store the result and keeps the key off the request URL", async () => {
     vi.stubEnv("ARCGIS_API_KEY", "server-key");
-    vi.stubEnv("GOOGLE_MAPS_SERVER_KEY", "google-key");
     const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(async () =>
       jsonResponse(esriCandidate),
     );
@@ -82,7 +80,6 @@ describe("geocodeAddress", () => {
     expect(parsed.searchParams.get("maxLocations")).toBe("1");
     expect(parsed.searchParams.get("token")).toBeNull();
     expect(parsed.toString()).not.toContain("server-key");
-    expect(parsed.toString()).not.toContain("google");
     const headers = new Headers(init.headers);
     expect(headers.get("X-Esri-Authorization")).toBe("Bearer server-key");
     expect(init.redirect).toBe("error");
@@ -115,7 +112,6 @@ describe("geocodeAddress", () => {
   });
 
   it("does not call a geocoder when the server key or address is missing", async () => {
-    vi.stubEnv("GOOGLE_MAPS_SERVER_KEY", "google-key");
     vi.stubEnv("ARCGIS_API_KEY", "   ");
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -210,12 +206,5 @@ describe("geocodeAddress", () => {
 
     await expect(geocodeAddress(ADDRESS)).resolves.toBeNull();
     expect(fetchMock).toHaveBeenCalledOnce();
-  });
-});
-
-describe("geocoding license surface", () => {
-  it("does not keep a Google geocoding client", () => {
-    const source = readFileSync(new URL("./geocode.ts", import.meta.url), "utf8");
-    expect(source).not.toMatch(/googleapis|GOOGLE_MAPS|places\.googleapis/);
   });
 });

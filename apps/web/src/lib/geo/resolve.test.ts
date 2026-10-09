@@ -19,7 +19,6 @@ afterEach(() => {
 describe("resolvePropertyGeo", () => {
   it("names ARCGIS_API_KEY when stored geocoding is not configured", async () => {
     vi.stubEnv("ARCGIS_API_KEY", "  ");
-    vi.stubEnv("GOOGLE_MAPS_SERVER_KEY", "unused-google-key");
     const result = await resolvePropertyGeo("1 Main St, Austin, TX 78701");
     expect(result.geocode).toBeNull();
     expect(result.parcel).toBeNull();

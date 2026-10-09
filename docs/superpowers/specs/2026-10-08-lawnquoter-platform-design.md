@@ -36,7 +36,7 @@ Three background research passes (competitor features, user feedback, technical 
 - Funnel reporting (leads -> quotes -> close rate by source) is fragmented.
 
 **Hard technical constraints discovered**
-- Google Maps imagery cannot legally be the measurement canvas (ToS bans tracing and ML extraction; the Drawing Library was removed May 2026). Mapbox satellite is non-commercial-only for tracing. Use Esri World Imagery (tracing explicitly permitted) for the canvas, Google only for geocoding/autocomplete.
+- Google Maps imagery cannot legally be the measurement canvas (ToS bans tracing and ML extraction; the Drawing Library was removed May 2026). Mapbox satellite is non-commercial-only for tracing. Use Esri World Imagery (tracing explicitly permitted) for the canvas, and Esri stored geocoding (`forStorage=true`) for addresses that are persisted.
 - Supabase Edge Functions have a 2s CPU cap: PDF rendering and any ML go in Vercel functions or a container service.
 - SMS requires per-tenant A2P 10DLC brand registration (2-4 weeks lead time); plan the onboarding flow.
 - Service Autopilot and LMN have no public APIs; Jobber, QuickBooks Online, and Housecall Pro (MAX) do.
@@ -76,7 +76,7 @@ flowchart TB
     Esri[Esri World Imagery tiles]
     Regrid[Regrid parcels]
     Overture[Overture building footprints]
-    GoogleGeo[Google Geocoding and Places autocomplete]
+    EsriGeo[Esri stored geocoding]
   end
   subgraph ext [External services]
     Stripe[Stripe Connect]
@@ -95,7 +95,7 @@ flowchart TB
   Widget --> Esri
   Routes --> Regrid
   Routes --> Overture
-  Routes --> GoogleGeo
+  Routes --> EsriGeo
   Routes --> Stripe
   Routes --> Twilio
   Routes --> Resend

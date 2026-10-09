@@ -8,6 +8,15 @@ import type { StyleSpecification } from "maplibre-gl";
 export const ESRI_GEOCODE_ATTRIBUTION = "Powered by Esri";
 
 /**
+ * MapLibre's default attribution control is compact, which hides credits
+ * behind a tap. `compact: false` keeps the geocode and imagery credits visible.
+ */
+export const mapAttributionControl = {
+  compact: false,
+  customAttribution: ESRI_GEOCODE_ATTRIBUTION,
+} as const;
+
+/**
  * Esri World Imagery is the measurement canvas: Esri's terms permit tracing
  * features from it to create vector data. Google/Mapbox satellite do not.
  *
