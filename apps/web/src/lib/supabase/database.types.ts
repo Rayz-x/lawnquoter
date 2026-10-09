@@ -6,7 +6,33 @@ export type Database = {
   
   "public": {
           Tables: {
-            "accounts": {
+            "acceptances": {
+                  Row: {
+                    "accepted_at": string,"created_at": string,"disclosure_accepted": boolean,"document_hash": string,"id": string,"ip": unknown,"method": Database["public"]['Enums']["acceptance_method"],"org_id": string,"quote_id": string,"signer_email": string | null,"signer_name": string,"signwell_envelope_id": string | null,"user_agent": string | null,"version": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "accepted_at"?: string,"created_at"?: string,"disclosure_accepted"?: boolean,"document_hash": string,"id"?: string,"ip"?: unknown,"method"?: Database["public"]['Enums']["acceptance_method"],"org_id": string,"quote_id": string,"signer_email"?: string | null,"signer_name": string,"signwell_envelope_id"?: string | null,"user_agent"?: string | null,"version": number
+                  }
+                  Update: {
+                    "accepted_at"?: string,"created_at"?: string,"disclosure_accepted"?: boolean,"document_hash"?: string,"id"?: string,"ip"?: unknown,"method"?: Database["public"]['Enums']["acceptance_method"],"org_id"?: string,"quote_id"?: string,"signer_email"?: string | null,"signer_name"?: string,"signwell_envelope_id"?: string | null,"user_agent"?: string | null,"version"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "acceptances_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "acceptances_quote_id_fkey"
+      columns: ["quote_id"]
+isOneToOne: false
+      referencedRelation: "quotes"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"accounts": {
                   Row: {
                     "billing_address_line1": string | null,"billing_address_line2": string | null,"billing_city": string | null,"billing_email": string | null,"billing_postal_code": string | null,"billing_region": string | null,"company_name": string | null,"consolidated_invoicing": boolean,"created_at": string,"created_by": string | null,"email": string | null,"id": string,"lead_source": string | null,"name": string,"net_terms_days": number,"notes": string | null,"org_id": string,"parent_account_id": string | null,"phone": string | null,"po_required": boolean,"qbo_customer_id": string | null,"status": Database["public"]['Enums']["account_status"],"stripe_customer_id": string | null,"tags": (string)[],"tax_exempt": boolean,"tax_exempt_certificate": string | null,"type": Database["public"]['Enums']["account_type"],"updated_at": string
                   }
@@ -73,6 +99,32 @@ isOneToOne: false
       columns: ["property_id"]
 isOneToOne: false
       referencedRelation: "properties"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"audit_events": {
+                  Row: {
+                    "hash": string,"id": string,"kind": string,"occurred_at": string,"org_id": string,"payload": NonNullable<Json>,"prev_hash": string | null,"quote_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "hash": string,"id"?: string,"kind": string,"occurred_at"?: string,"org_id": string,"payload"?: NonNullable<Json>,"prev_hash"?: string | null,"quote_id"?: string | null
+                  }
+                  Update: {
+                    "hash"?: string,"id"?: string,"kind"?: string,"occurred_at"?: string,"org_id"?: string,"payload"?: NonNullable<Json>,"prev_hash"?: string | null,"quote_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "audit_events_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "audit_events_quote_id_fkey"
+      columns: ["quote_id"]
+isOneToOne: false
+      referencedRelation: "quotes"
       referencedColumns: ["id"]
     }
                   ]
@@ -259,6 +311,38 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"payment_intents": {
+                  Row: {
+                    "account_id": string | null,"amount": number,"created_at": string,"currency": string,"id": string,"kind": Database["public"]['Enums']["payment_kind"],"org_id": string,"quote_id": string | null,"receipt_email": string | null,"status": Database["public"]['Enums']["payment_status"],"stripe_customer_id": string | null,"stripe_payment_intent_id": string | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "account_id"?: string | null,"amount": number,"created_at"?: string,"currency"?: string,"id"?: string,"kind"?: Database["public"]['Enums']["payment_kind"],"org_id": string,"quote_id"?: string | null,"receipt_email"?: string | null,"status"?: Database["public"]['Enums']["payment_status"],"stripe_customer_id"?: string | null,"stripe_payment_intent_id"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "account_id"?: string | null,"amount"?: number,"created_at"?: string,"currency"?: string,"id"?: string,"kind"?: Database["public"]['Enums']["payment_kind"],"org_id"?: string,"quote_id"?: string | null,"receipt_email"?: string | null,"status"?: Database["public"]['Enums']["payment_status"],"stripe_customer_id"?: string | null,"stripe_payment_intent_id"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "payment_intents_account_id_fkey"
+      columns: ["account_id"]
+isOneToOne: false
+      referencedRelation: "accounts"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "payment_intents_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "payment_intents_quote_id_fkey"
+      columns: ["quote_id"]
+isOneToOne: false
+      referencedRelation: "quotes"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"price_lists": {
                   Row: {
@@ -582,11 +666,17 @@ isOneToOne: false
 "property_set_geometry":
 { Args: { "p_footprint"?: Json,"p_footprint_source"?: Database["public"]['Enums']["geo_source"],"p_imagery_date"?: string,"p_location"?: Json,"p_parcel"?: Json,"p_parcel_apn"?: string,"p_parcel_source"?: Database["public"]['Enums']["geo_source"],"p_property": string }; Returns: undefined
                            },
+"quote_accept":
+{ Args: { "p_disclosure"?: boolean,"p_signer_email"?: string,"p_signer_name": string,"p_token": string,"p_user_agent"?: string }; Returns: Json
+                           },
 "quote_create":
 { Args: { "p_account": string,"p_property"?: string,"p_title"?: string }; Returns: string
                            },
 "quote_current_version":
 { Args: { "p_quote": string }; Returns: string
+                           },
+"quote_decline":
+{ Args: { "p_reason"?: string,"p_token": string }; Returns: undefined
                            },
 "quote_public":
 { Args: { "p_token": string }; Returns: Json
@@ -596,7 +686,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "account_status": "lead"|"active"|"inactive","account_type": "residential"|"commercial","contact_role": "primary"|"billing"|"site"|"decision_maker"|"other","feature_category": "turf_front"|"turf_back"|"bed"|"hardscape"|"driveway"|"sidewalk"|"edging_line"|"fence_line"|"canopy"|"roof","feature_source": "auto"|"traced"|"manual"|"imported","geo_source": "regrid"|"county"|"overture"|"osm"|"traced"|"manual"|"unknown","item_state": "included"|"recommended"|"optional","measurement_status": "draft"|"current"|"archived","membership_status": "invited"|"active"|"disabled","option_tier": "none"|"good"|"better"|"best","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only","price_list_status": "draft"|"active"|"archived","quote_status": "draft"|"sent"|"viewed"|"accepted"|"declined"|"expired"|"changed","rule_type": "tier_matrix"|"assembly"|"catalog"|"program"|"snow"|"irrigation","service_kind": "mowing"|"fert"|"cleanup"|"snow"|"irrigation"|"install"|"other","slope_class": "flat"|"gentle"|"moderate"|"steep"
+            "acceptance_method": "click"|"signwell"|"wet","account_status": "lead"|"active"|"inactive","account_type": "residential"|"commercial","contact_role": "primary"|"billing"|"site"|"decision_maker"|"other","feature_category": "turf_front"|"turf_back"|"bed"|"hardscape"|"driveway"|"sidewalk"|"edging_line"|"fence_line"|"canopy"|"roof","feature_source": "auto"|"traced"|"manual"|"imported","geo_source": "regrid"|"county"|"overture"|"osm"|"traced"|"manual"|"unknown","item_state": "included"|"recommended"|"optional","measurement_status": "draft"|"current"|"archived","membership_status": "invited"|"active"|"disabled","option_tier": "none"|"good"|"better"|"best","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only","payment_kind": "deposit"|"balance"|"invoice"|"ach_verify","payment_status": "requires_action"|"processing"|"succeeded"|"failed"|"canceled"|"refunded","price_list_status": "draft"|"active"|"archived","quote_status": "draft"|"sent"|"viewed"|"accepted"|"declined"|"expired"|"changed","rule_type": "tier_matrix"|"assembly"|"catalog"|"program"|"snow"|"irrigation","service_kind": "mowing"|"fert"|"cleanup"|"snow"|"irrigation"|"install"|"other","slope_class": "flat"|"gentle"|"moderate"|"steep"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -712,7 +802,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "account_status": ["lead", "active", "inactive"],"account_type": ["residential", "commercial"],"contact_role": ["primary", "billing", "site", "decision_maker", "other"],"feature_category": ["turf_front", "turf_back", "bed", "hardscape", "driveway", "sidewalk", "edging_line", "fence_line", "canopy", "roof"],"feature_source": ["auto", "traced", "manual", "imported"],"geo_source": ["regrid", "county", "overture", "osm", "traced", "manual", "unknown"],"item_state": ["included", "recommended", "optional"],"measurement_status": ["draft", "current", "archived"],"membership_status": ["invited", "active", "disabled"],"option_tier": ["none", "good", "better", "best"],"org_role": ["owner", "admin", "sales", "dispatcher", "crew_lead", "crew", "read_only"],"price_list_status": ["draft", "active", "archived"],"quote_status": ["draft", "sent", "viewed", "accepted", "declined", "expired", "changed"],"rule_type": ["tier_matrix", "assembly", "catalog", "program", "snow", "irrigation"],"service_kind": ["mowing", "fert", "cleanup", "snow", "irrigation", "install", "other"],"slope_class": ["flat", "gentle", "moderate", "steep"]
+            "acceptance_method": ["click", "signwell", "wet"],"account_status": ["lead", "active", "inactive"],"account_type": ["residential", "commercial"],"contact_role": ["primary", "billing", "site", "decision_maker", "other"],"feature_category": ["turf_front", "turf_back", "bed", "hardscape", "driveway", "sidewalk", "edging_line", "fence_line", "canopy", "roof"],"feature_source": ["auto", "traced", "manual", "imported"],"geo_source": ["regrid", "county", "overture", "osm", "traced", "manual", "unknown"],"item_state": ["included", "recommended", "optional"],"measurement_status": ["draft", "current", "archived"],"membership_status": ["invited", "active", "disabled"],"option_tier": ["none", "good", "better", "best"],"org_role": ["owner", "admin", "sales", "dispatcher", "crew_lead", "crew", "read_only"],"payment_kind": ["deposit", "balance", "invoice", "ach_verify"],"payment_status": ["requires_action", "processing", "succeeded", "failed", "canceled", "refunded"],"price_list_status": ["draft", "active", "archived"],"quote_status": ["draft", "sent", "viewed", "accepted", "declined", "expired", "changed"],"rule_type": ["tier_matrix", "assembly", "catalog", "program", "snow", "irrigation"],"service_kind": ["mowing", "fert", "cleanup", "snow", "irrigation", "install", "other"],"slope_class": ["flat", "gentle", "moderate", "steep"]
           }
         }
 } as const

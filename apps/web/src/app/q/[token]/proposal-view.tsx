@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { AcceptForm } from "./accept-form";
 
 type Item = {
   id: string;
@@ -134,6 +135,7 @@ export function ProposalView({
         </div>
         <Button render={<a href={`/q/${token}/pdf`} />}>Download PDF</Button>
       </div>
+      <AcceptForm token={token} status={payload.status} />
       {payload.notes_customer ? <p className="mt-4 text-sm text-muted-foreground">{payload.notes_customer}</p> : null}
       <p className="mt-6 text-xs text-muted-foreground">
         {payload.org.phone} {payload.org.email ? `· ${payload.org.email}` : ""}

@@ -26,6 +26,19 @@ export default async function SettingsPage() {
             <OrgSettingsForm org={org} />
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Payments</CardTitle>
+            <CardDescription>
+              Stripe Connect Express for deposits, card on file, and ACH. SignWell is optional for formal commercial contracts.
+              Configure <code className="text-xs">STRIPE_SECRET_KEY</code> and <code className="text-xs">SIGNWELL_API_KEY</code> on the
+              server. Click-to-accept on public proposals is live without either.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            {process.env.STRIPE_SECRET_KEY ? "Stripe secret is configured." : "Stripe is not configured yet — acceptances still record an ESIGN audit trail."}
+          </CardContent>
+        </Card>
       </div>
     </>
   );
