@@ -2,23 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { brandStyleSheet, deriveBrandTheme } from "@/lib/brand/derive-brand-theme";
 import { headingFontOf, type PublicOrg } from "@/lib/brand/public-org";
+import type { PublicQuote } from "@/lib/quotes/public-quote";
 import { createClient } from "@/lib/supabase/server";
 import { headingSturdy } from "./heading-font";
 import { ProposalView } from "./proposal-view";
-
-type Item = {
-  id: string;
-  name: string;
-  description: string | null;
-  state: "included" | "recommended" | "optional";
-  option_group: string | null;
-  option_tier: string;
-  price: number;
-  range_low: number | null;
-  range_high: number | null;
-  photo_url: string | null;
-  selected: boolean;
-};
 
 function text(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
@@ -62,33 +49,14 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
   const supabase = await createClient();
   const { data } = await supabase.rpc("quote_public", { p_token: token });
   if (!data || typeof data !== "object") notFound();
-  const record = data as {
-    title?: string;
-    number?: number;
-    intro?: string | null;
-    notes_customer?: string | null;
-    expires_at?: string | null;
-    status?: string;
-    org?: unknown;
-    items?: Item[];
-  };
+  const record = data as PublicQuote;
   const org = orgFromPayload(record.org);
   const theme = deriveBrandTheme(org.brand_color);
-  const payload = {
-    title: record.title ?? "Quote",
-    number: record.number ?? 0,
-    intro: record.intro ?? null,
-    notes_customer: record.notes_customer ?? null,
-    expires_at: record.expires_at ?? null,
-    status: record.status ?? "sent",
-    org,
-    items: record.items ?? [],
-  };
 
   return (
     <div data-tenant-brand data-heading={headingFontOf(org.heading_font)} className={headingSturdy.variable}>
       <style>{brandStyleSheet(theme)}</style>
-      <ProposalView token={token} payload={payload} />
+      <ProposalView token={token} payload={{ ...record, org }} />
     </div>
   );
 }

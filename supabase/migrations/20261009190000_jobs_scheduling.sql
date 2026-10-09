@@ -861,17 +861,16 @@ create unique index if not exists visits_one_open_per_agreement_day
 
 -- Accepted line items for a quote.
 --
--- On main, quote_accept stores the resolved choice in
--- public.acceptances.selections: a jsonb array of quote_line_items ids from
--- private.resolve_quote_selection. Included lines and the options the
--- customer picked are in that array. Unchosen options are not.
+-- quote_accept stores the resolved choice in public.acceptances.selections:
+-- a jsonb array of quote_line_items ids from private.resolve_quote_selection.
+-- Included lines and the options the customer picked are in that array.
+-- Unchosen options are not.
 --
--- PR #8 (cursor/acceptance-nte-esign-0e0b, migration
--- 20261009180000_acceptance_not_to_exceed.sql) is still open. It keeps
--- `selections` as that same jsonb uuid array and adds not-to-exceed columns
--- (accepted_not_to_exceed, has_ranges, not_to_exceed_clause, disclosure_version).
--- A rebase onto #8 stays in this function: keep reading `selections` only.
--- Do not read accepted_total, price, or cost.
+-- 20261009180000_acceptance_not_to_exceed.sql (PR #8) keeps that array and
+-- adds accepted_not_to_exceed, has_ranges, not_to_exceed_clause, and
+-- disclosure_version. accepted_total stays the sum of selected point prices.
+-- This function keeps reading selections only. It does not read accepted_total,
+-- accepted_not_to_exceed, price, or cost.
 create or replace function private.accepted_quote_task_sources(p_quote uuid)
 returns table (
   item_id uuid,
