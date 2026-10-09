@@ -23,7 +23,7 @@ const sourceSerif = Source_Serif_4({
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   title: { default: "LawnQuoter", template: "%s | LawnQuoter" },
   description: "Lead-to-quote-to-job platform for lawn care and landscaping companies.",
 };

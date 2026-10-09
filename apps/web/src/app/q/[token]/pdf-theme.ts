@@ -11,7 +11,6 @@ Font.register({
   family: "Source Sans 3",
   fonts: [
     { src: path.join(fontsDir, "SourceSans3-Regular.ttf"), fontWeight: 400 },
-    { src: path.join(fontsDir, "SourceSans3-Italic.ttf"), fontWeight: 400, fontStyle: "italic" },
     { src: path.join(fontsDir, "SourceSans3-SemiBold.ttf"), fontWeight: 600 },
     { src: path.join(fontsDir, "SourceSans3-Bold.ttf"), fontWeight: 700 },
   ],

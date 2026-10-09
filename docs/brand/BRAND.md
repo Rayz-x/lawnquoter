@@ -98,22 +98,20 @@ Crew PWA: bump body to 18px and tap targets to ≥ 44px (`.hit-expand` already e
 
 ## 3. Logo
 
-Files in `logo/`. The mark is a rounded-square **Q** framing mowing stripes, with a brass tail.
+Files in `apps/web/public/brand`. The mark is a rounded-square **Q** framing mowing stripes, with a brass tail.
 
 | File | Use |
 |---|---|
 | `lq-lockup-light.svg` | Mark + wordmark on light backgrounds (wordmark `#121A16`) |
 | `lq-lockup-dark.svg` | On dark backgrounds (wordmark `#EBF1ED`) |
-| `lq-lockup-on-forest.svg` | On forest/brand-colored backgrounds (white wordmark) |
-| `lq-mark.svg` | App mark, avatars, ≥ 33px |
-| `lq-mark-small.svg` | 20–32px (no stripes, heavier strokes) |
-| `lq-mark-16.svg` | Pixel-hinted 16px (favicon) |
-| `*@4x.png`, `lq-mark-256.png` | Raster for @react-pdf and email |
+| `lq-mark.svg` | App mark, sidebar, avatars |
+| `lq-mark-16.svg` | Pixel-hinted 16px |
+| `lq-mark-256.png` | Raster mark for the quote PDF |
 
 Wordmarks are outlined paths (no font dependency).
 
 - **Clear space:** keep empty space around the logo equal to **¼ of the mark's height** on all sides (16px around a 64px mark). Nothing (text, edges, other logos) enters it.
-- **Minimum size:** lockup 24px tall on screen (≈ 0.3 in / 8 mm in print). Mark: 16px using `lq-mark-16.svg`; use `lq-mark-small.svg` up to 32px and `lq-mark.svg` above that.
+- **Minimum size:** lockup 24px tall on screen (≈ 0.3 in / 8 mm in print). Mark: 16px using `lq-mark-16.svg`; use `lq-mark.svg` above that. The app icon is the same drawing as the old small mark.
 - **Don't:** recolor the mark, put the forest tile on a busy photo, stretch it, add shadows/outlines, set "LawnQuoter" in a different font, or split it as "Lawn Quoter".
 - In the app header/sidebar: mark at 24px + "LawnQuoter" in Source Serif 4 700 at 17px is fine (live text) when the SVG lockup is too wide.
 
