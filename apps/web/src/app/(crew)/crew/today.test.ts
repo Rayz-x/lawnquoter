@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { orgToday } from "@/lib/scheduling/office-date";
 import {
   dayHeading,
   driveUrl,
@@ -6,7 +7,9 @@ import {
   listRows,
   newStopIds,
   officeTel,
+  offlineDayPack,
   packErrorMessage,
+  packIsFresh,
   parseDayPack,
   progressLabel,
   routeUpdateMessage,
@@ -20,7 +23,7 @@ const pack = {
   route: { id: "r1", date: "2026-10-09", status: "published", revision: 2 },
   visits: [
     visit("v1", "completed", 1, { budget_minutes: 20 }),
-    visit("v2", "skipped", 2, { skip_reason: "Weather", budget_minutes: 30 }),
+    visit("v2", "skipped", 2, { skip_reason: "weather", budget_minutes: 30 }),
     visit("v3", "scheduled", 3, {
       budget_minutes: 35,
       property: property({ gate_code: "4815", gate_width_in: 36, has_dogs: true, has_stairs: true, slope: "steep", lat: 40.1, lng: -89.2 }),
@@ -94,9 +97,13 @@ describe("day list rows", () => {
       upNext: { id: "v3" },
       rest: [{ id: "v2" }],
     });
+    const active = { ...stops[2]!, id: "active", status: "in_progress", number: 4, startedAt: "2026-10-09T14:00:00.000Z", budgetMinutes: 40 };
+    expect(stops[1]?.skipReason).toBe("Weather");
     expect(progressLabel(stops)).toBe("1 of 3 stops done");
+    expect(listRows([stops[2]!, { ...active, startedAt: "2026-10-09T14:30:00.000Z" }]).upNext?.id).toBe("active");
     expect(finishLabel(stops, new Date("2026-10-09T15:00:00.000Z"))).toMatch(/^Finish ≈ /);
     expect(finishLabel([{ ...stops[0]!, status: "completed" }], new Date())).toBeNull();
+    expect(finishLabel([active], new Date("2026-10-09T15:00:00.000Z"))).toBe("Running late");
   });
 
   it("describes sync, driving, and a route change", () => {
@@ -108,7 +115,15 @@ describe("day list rows", () => {
     expect(officeTel("217-555-0140")).toBe("tel:2175550140");
     expect(dayHeading("2026-10-09")).toContain("Oct");
     expect(newStopIds(["v1"], ["v1", "v8"])).toEqual(["v8"]);
-    expect(routeUpdateMessage([8], new Date("2026-10-09T14:31:00.000Z"))).toMatch(/Route updated .*stop 8 added/);
+    const at = new Date("2026-10-09T14:31:00.000Z");
+    expect(routeUpdateMessage([8], [], at)).toMatch(/Route updated .*stop 8 added/);
+    expect(routeUpdateMessage([], [4], at)).toMatch(/stop 4 removed/);
     expect(packErrorMessage("not allowed")).toBe("Ask the office to add you to a crew.");
+    const morning = new Date("2026-10-09T13:30:00.000Z");
+    expect(orgToday("America/Chicago", new Date("2026-10-09T04:30:00.000Z"))).toBe("2026-10-08");
+    expect(orgToday("America/Chicago", morning)).toBe("2026-10-09");
+    expect(packIsFresh("2026-10-07T12:00:00.000Z", morning)).toBe(false);
+    expect(offlineDayPack({ date: "2026-10-08", savedAt: morning.toISOString() }, "2026-10-09", morning)).toBeNull();
+    expect(offlineDayPack({ date: "2026-10-09", savedAt: morning.toISOString() }, "2026-10-09", morning)?.date).toBe("2026-10-09");
   });
 });

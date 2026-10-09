@@ -3,7 +3,6 @@
 import { CalendarDays, Inbox, Map, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes";
 import { useEffect, useState, type ReactNode } from "react";
 import { browserCrewStore } from "@/lib/crew/queue";
 import { clearCrewCaches, crewWorkerUrl } from "@/lib/crew/sw-policy";
@@ -20,7 +19,6 @@ export function CrewShell({ children, userId, orgId }: { children: ReactNode; us
   const pathname = usePathname();
   const waiting = useOutboxCount(userId, orgId);
   useCrewSync(userId, orgId);
-  useCrewDisplay();
   useEffect(() => {
     const build = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA;
     void navigator.serviceWorker
@@ -35,7 +33,10 @@ export function CrewShell({ children, userId, orgId }: { children: ReactNode; us
   useEffect(() => {
     const key = `${userId}:${orgId}`;
     const previous = localStorage.getItem("crew-cache-user");
-    if (previous && previous !== key) void clearCrewCaches();
+    if (previous && previous !== key) {
+      void clearCrewCaches();
+      void browserCrewStore().clearPacks();
+    }
     localStorage.setItem("crew-cache-user", key);
   }, [userId, orgId]);
 
@@ -46,25 +47,6 @@ export function CrewShell({ children, userId, orgId }: { children: ReactNode; us
       {tabs ? <CrewTabs pathname={pathname} waiting={waiting} /> : null}
     </div>
   );
-}
-
-function useCrewDisplay() {
-  const { setTheme } = useTheme();
-  useEffect(() => {
-    const root = document.documentElement;
-    const apply = () => {
-      const mode = localStorage.getItem("crew-display");
-      root.classList.toggle("sun", mode === "sun");
-      if (mode === "dark") setTheme("dark");
-      else if (mode === "light" || mode === "sun") setTheme("light");
-    };
-    apply();
-    window.addEventListener("crew-display", apply);
-    return () => {
-      root.classList.remove("sun");
-      window.removeEventListener("crew-display", apply);
-    };
-  }, [setTheme]);
 }
 
 function useOutboxCount(userId: string, orgId: string) {

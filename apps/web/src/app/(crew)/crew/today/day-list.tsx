@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { browserCrewStore, flushOutbox, loadDayPack, notifyCrewQueue, saveDayPack } from "@/lib/crew/queue";
-import { sendCrewSync } from "@/lib/crew/sync";
+import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
+import { orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/database.types";
 import {
@@ -14,29 +15,29 @@ import {
   finishLabel,
   listRows,
   newStopIds,
-  nextDisplayMode,
   officeTel,
+  offlineDayPack,
   packErrorMessage,
   parseDayPack,
   progressLabel,
   routeUpdateMessage,
   statusLabel,
   syncPill,
-  type CrewDisplayMode,
   type DayPackView,
   type DayStop,
 } from "../today";
 
-export function DayList({ date }: { date: string | null }) {
+export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId: string; orgId: string }) {
+  const [now, setNow] = useState(() => new Date());
+  const date = orgToday(timeZone, now);
   const [view, setView] = useState<DayPackView | null>(null);
   const [sending, setSending] = useState(false);
   const [waiting, setWaiting] = useState(0);
-  const [error, setError] = useState<string | null>(date ? null : "Could not load the route.");
+  const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [newIds, setNewIds] = useState<string[]>([]);
   const [showDone, setShowDone] = useState(false);
   const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
-  const display = useSyncExternalStore(subscribeDisplay, readDisplay, () => "light" as const);
 
   useEffect(() => {
     const store = browserCrewStore();
@@ -51,24 +52,44 @@ export function DayList({ date }: { date: string | null }) {
   }, []);
 
   useEffect(() => {
-    if (!date) return;
+    const tick = () => setNow(new Date());
+    const id = window.setInterval(tick, 60_000);
+    document.addEventListener("visibilitychange", tick);
+    return () => { window.clearInterval(id); document.removeEventListener("visibilitychange", tick); };
+  }, []);
+
+  useEffect(() => {
     const store = browserCrewStore();
     let stop = false;
     const refresh = async () => {
       setSending(true);
-      const cached = parseDayPack((await loadDayPack(store, date))?.pack);
+      const sessionKey = `${userId}:${orgId}`;
+      if (localStorage.getItem("crew-session") !== sessionKey) {
+        await store.clearPacks();
+        localStorage.setItem("crew-session", sessionKey);
+      }
+      const stored = await loadDayPack(store, date);
+      const row = offlineDayPack(stored ? { date: stored.date, savedAt: stored.saved_at, pack: stored.pack } : null, date, new Date());
+      if (stored && !row) await store.deletePack(date);
+      const cached = row ? parseDayPack(row.pack) : null;
       if (!stop && cached) setView(cached);
+      else if (!stop && !cached) setView(null);
       try {
-        await flushOutbox(store, sendCrewSync);
+        await flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto);
         notifyCrewQueue();
         const { data, error: rpcError } = await createClient().rpc("crew_day_pack", { p_date: date });
         if (rpcError) throw new Error(rpcError.message);
         const next = parseDayPack(data);
         if (!next) throw new Error("empty");
         const added = cached ? newStopIds(cached.stops.map((stop) => stop.id), next.stops.map((stop) => stop.id)) : [];
+        const removed = cached ? newStopIds(next.stops.map((stop) => stop.id), cached.stops.map((stop) => stop.id)) : [];
         const message = routeUpdateMessage(
           added.flatMap((id) => {
             const number = next.stops.find((stop) => stop.id === id)?.number;
+            return number ? [number] : [];
+          }),
+          removed.flatMap((id) => {
+            const number = cached?.stops.find((stop) => stop.id === id)?.number;
             return number ? [number] : [];
           }),
           new Date(),
@@ -95,7 +116,7 @@ export function DayList({ date }: { date: string | null }) {
       stop = true;
       window.removeEventListener("online", refresh);
     };
-  }, [date]);
+  }, [date, userId, orgId]);
 
   const rows = view ? listRows(view.stops) : null;
   const doneCount = view?.stops.filter((stop) => stop.status === "completed").length ?? 0;
@@ -112,9 +133,6 @@ export function DayList({ date }: { date: string | null }) {
         </div>
         <div className="flex items-center gap-2">
           <p className="rounded-full bg-muted px-3 py-2 text-[15px] font-semibold">{syncPill(waiting, sending)}</p>
-          <button type="button" className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-xl border px-3 text-[15px] font-semibold" onClick={() => cycleDisplay(display)}>
-            {display === "sun" ? "Sun" : display === "dark" ? "Dark" : "Light"}
-          </button>
         </div>
       </header>
       {!online ? <p className="mt-3 rounded-xl bg-warning/15 px-3 py-2 text-[15px] font-semibold text-warning">No signal. Your work is saved on this phone.</p> : null}
@@ -207,18 +225,3 @@ function subscribeOnline(notify: () => void) {
   };
 }
 
-function subscribeDisplay(notify: () => void) {
-  window.addEventListener("crew-display", notify);
-  return () => window.removeEventListener("crew-display", notify);
-}
-function readDisplay(): CrewDisplayMode {
-  const saved = localStorage.getItem("crew-display");
-  return saved === "dark" || saved === "sun" || saved === "light" ? saved : "light";
-}
-
-function cycleDisplay(mode: CrewDisplayMode): CrewDisplayMode {
-  const next = nextDisplayMode(mode);
-  localStorage.setItem("crew-display", next);
-  window.dispatchEvent(new Event("crew-display"));
-  return next;
-}

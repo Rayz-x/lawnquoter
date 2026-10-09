@@ -163,16 +163,6 @@
   --warning-foreground: oklch(0.189 0.028 79.8); /* #1A1205 */
 }
 
-.sun {
-  color-scheme: light;
-  --foreground: #05110a; --muted-foreground: #2c3832; --border: #5a6660; --input: #121a16;
-  --primary: #123d25; --primary-foreground: #ffffff; --ring: #123d25; --success: #0b5a2a;
-  --warning: #7a3b00; --destructive: #8e1b12; --muted: #eef2ef; --secondary: #e3eae5;
-  --background: #ffffff; --card: #ffffff;
-}
-.sun [data-crew-card] { border-width: 2px; box-shadow: none; }
-.sun [data-crew-meta] { font-weight: 600; }
-
 @layer base {
   *,
   *::before,

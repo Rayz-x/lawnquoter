@@ -10,6 +10,7 @@ export type DayStop = {
   address: string;
   lastName: string | null;
   budgetMinutes: number | null;
+  startedAt: string | null;
   skipReason: string | null;
   lat: number | null;
   lng: number | null;
@@ -43,7 +44,8 @@ function accessChips(property: Record<string, unknown>): AccessChip[] {
   if (property.has_stairs === true) chips.push({ label: "Stairs", warning: true });
   return chips;
 }
-
+const SKIP_LABELS: Record<string, string> = { gate_locked: "Gate locked", dog_loose: "Dog loose", customer_skip: "Customer skip", weather: "Weather", equipment: "Equipment", unsafe: "Unsafe", other: "Other" };
+function skipLabel(reason: string | null) { return reason ? (SKIP_LABELS[reason] ?? reason) : null; }
 function stopTitle(visit: Record<string, unknown>): string {
   const title = text(visit.title);
   if (title) return title;
@@ -53,7 +55,6 @@ function stopTitle(visit: Record<string, unknown>): string {
     .filter((label): label is string => Boolean(label))
     .join(" · ");
 }
-
 export function parseDayPack(data: unknown): DayPackView | null {
   const pack = record(data);
   if (!pack || typeof pack.date !== "string") return null;
@@ -75,7 +76,8 @@ export function parseDayPack(data: unknown): DayPackView | null {
       address,
       lastName: text(property.last_name),
       budgetMinutes: typeof visit.budget_minutes === "number" ? visit.budget_minutes : null,
-      skipReason: text(visit.skip_reason),
+      startedAt: text(visit.started_at),
+      skipReason: skipLabel(text(visit.skip_reason)),
       lat: typeof property.lat === "number" ? property.lat : null,
       lng: typeof property.lng === "number" ? property.lng : null,
       chips: accessChips(property),
@@ -89,30 +91,30 @@ export function parseDayPack(data: unknown): DayPackView | null {
     stops,
   };
 }
-
 export function listRows(stops: DayStop[]) {
   const done = stops.filter((stop) => stop.status === "completed");
-  const upNext = stops.find((stop) => !CLOSED.has(stop.status)) ?? null;
+  const upNext = stops.find((stop) => stop.status === "in_progress" || stop.status === "paused") ?? stops.find((stop) => !CLOSED.has(stop.status)) ?? null;
   const rest = stops.filter((stop) => stop.status !== "completed" && stop.id !== upNext?.id);
   return { done, upNext, rest };
 }
-
 export function progressLabel(stops: DayStop[]): string {
   const done = stops.filter((stop) => stop.status === "completed").length;
   return `${done} of ${stops.length} stops done`;
 }
-
 export function finishLabel(stops: DayStop[], now: Date): string | null {
-  const minutes = stops.filter((stop) => !CLOSED.has(stop.status)).reduce((sum, stop) => sum + (stop.budgetMinutes ?? 0), 0);
-  if (minutes <= 0) return null;
-  const clock = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(now.getTime() + minutes * 60_000));
-  return `Finish ≈ ${clock}`;
+  const open = stops.filter((stop) => !CLOSED.has(stop.status));
+  if (open.length === 0) return null;
+  const minutes = open.reduce((sum, stop) => {
+    const budget = stop.budgetMinutes ?? 0;
+    const elapsed = stop.status === "in_progress" && stop.startedAt ? Math.max(0, (now.getTime() - Date.parse(stop.startedAt)) / 60_000) : 0;
+    return sum + Math.max(0, budget - elapsed);
+  }, 0);
+  if (minutes <= 0) return "Running late";
+  return `Finish ≈ ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(now.getTime() + minutes * 60_000))}`;
 }
-
 export function dayHeading(iso: string): string {
   return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${iso}T12:00:00Z`));
 }
-
 export function syncPill(waiting: number, sending: boolean): string {
   if (sending) return "Sending…";
   if (waiting > 0) return `${waiting} waiting`;
@@ -135,11 +137,19 @@ export function newStopIds(previousIds: string[], nextIds: string[]): string[] {
   return nextIds.filter((id) => !seen.has(id));
 }
 
-export function routeUpdateMessage(numbers: number[], at: Date): string | null {
-  if (numbers.length === 0) return null;
-  const time = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(at);
-  if (numbers.length === 1) return `Route updated ${time}: stop ${numbers[0]} added`;
-  return `Route updated ${time}: ${numbers.length} stops added`;
+export function routeUpdateMessage(added: number[], removed: number[], at: Date): string | null {
+  const part = (numbers: number[], verb: string) => (numbers.length === 0 ? "" : numbers.length === 1 ? `stop ${numbers[0]} ${verb}` : `${numbers.length} stops ${verb}`);
+  const parts = [part(added, "added"), part(removed, "removed")].filter(Boolean);
+  if (parts.length === 0) return null;
+  return `Route updated ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(at)}: ${parts.join(", ")}`;
+}
+
+export function packIsFresh(savedAt: string, now: Date) {
+  const age = now.getTime() - Date.parse(savedAt);
+  return Number.isFinite(age) && age >= 0 && age <= 48 * 60 * 60 * 1000;
+}
+export function offlineDayPack<T extends { date: string; savedAt: string }>(pack: T | null, today: string, now: Date): T | null {
+  return pack && pack.date === today && packIsFresh(pack.savedAt, now) ? pack : null;
 }
 
 export function packErrorMessage(message: string): string {
@@ -159,9 +169,3 @@ export function statusLabel(status: string): string | null {
   return STATUS_LABELS[status] ?? null;
 }
 
-export const DISPLAY_MODES = ["light", "dark", "sun"] as const;
-export type CrewDisplayMode = (typeof DISPLAY_MODES)[number];
-
-export function nextDisplayMode(mode: CrewDisplayMode): CrewDisplayMode {
-  return DISPLAY_MODES[(DISPLAY_MODES.indexOf(mode) + 1) % DISPLAY_MODES.length] ?? "light";
-}
