@@ -3,6 +3,8 @@ import {
   CREW_TODAY_SELECTS,
   assembleStops,
   budgetMinutesLabel,
+  crewIdsFromMyCrews,
+  crewNameLabel,
   crewTodaySelectsAreFieldSafe,
   orgLocalDate,
   propertyAddress,
@@ -14,6 +16,20 @@ describe("crew today selects", () => {
     expect(CREW_TODAY_SELECTS.property).toBe("id, formatted_address, address_line1");
     expect(CREW_TODAY_SELECTS.visit).not.toMatch(/price|cost|phone|email|gate_code|access_notes/);
     expect(CREW_TODAY_SELECTS.task).toBe("visit_id, label, sort");
+    expect(Object.values(CREW_TODAY_SELECTS).join(" ")).not.toMatch(/gate_code|access_notes/);
+  });
+});
+
+describe("my crews", () => {
+  it("keeps crew ids and names for the signed-in user", () => {
+    const crews = [
+      { crew_id: "c1", name: "North" },
+      { crew_id: "c1", name: "North" },
+      { crew_id: "c2", name: "  South  " },
+      { crew_id: "", name: "Skip" },
+    ];
+    expect(crewIdsFromMyCrews(crews)).toEqual(["c1", "c2"]);
+    expect(crewNameLabel(crews)).toBe("North, South");
   });
 });
 

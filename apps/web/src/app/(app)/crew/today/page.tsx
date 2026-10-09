@@ -3,8 +3,17 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { requireOrg } from "@/lib/auth/session";
-import { createAdminClient, createClient } from "@/lib/supabase/server";
-import { CREW_TODAY_SELECTS, assembleStops, orgLocalDate, type CrewStop, type CrewVisitRow } from "../today";
+import { createClient } from "@/lib/supabase/server";
+import {
+  CREW_TODAY_SELECTS,
+  assembleStops,
+  crewIdsFromMyCrews,
+  crewNameLabel,
+  orgLocalDate,
+  type CrewStop,
+  type CrewVisitRow,
+  type MyCrew,
+} from "../today";
 
 export const metadata: Metadata = { title: "Today" };
 
@@ -21,18 +30,12 @@ export default async function CrewTodayPage() {
 
   const today = orgLocalDate(org.timezone);
 
-  // crew and crew_lead cannot select crew_members (office-only RLS). This read
-  // is limited to the signed-in user's own rows so the page can tell "not on a
-  // crew" from "no stops today" without exposing anyone else's membership.
-  const admin = createAdminClient();
-  const { data: memberships, error: memberError } = await admin
-    .from("crew_members")
-    .select(CREW_TODAY_SELECTS.membership)
-    .eq("org_id", session.orgId)
-    .eq("profile_id", session.userId);
-  if (memberError) return <CrewTodayState title="Couldn't load today's stops" />;
+  const { data: myCrews, error: crewError } = await readMyCrews(supabase);
+  if (crewError) return <CrewTodayState title="Couldn't load today's stops" />;
 
-  const crewIds = [...new Set((memberships ?? []).map((row) => row.crew_id))];
+  const crews = myCrews ?? [];
+  const crewIds = crewIdsFromMyCrews(crews);
+  const crewLabel = crewNameLabel(crews);
   if (crewIds.length === 0) {
     return (
       <CrewTodayState
@@ -49,10 +52,10 @@ export default async function CrewTodayPage() {
     .eq("date", today)
     .neq("status", "draft")
     .in("crew_id", crewIds);
-  if (routeError) return <CrewTodayState title="Couldn't load today's stops" />;
+  if (routeError) return <CrewTodayState title="Couldn't load today's stops" header={crewLabel} />;
 
   const routeIds = (routes ?? []).map((route) => route.id);
-  if (routeIds.length === 0) return <CrewTodayState title="No stops today" />;
+  if (routeIds.length === 0) return <CrewTodayState title="No stops today" header={crewLabel} />;
 
   const { data: visits, error: visitError } = await supabase
     .from("visits")
@@ -60,8 +63,8 @@ export default async function CrewTodayPage() {
     .eq("org_id", session.orgId)
     .eq("scheduled_date", today)
     .in("route_id", routeIds);
-  if (visitError) return <CrewTodayState title="Couldn't load today's stops" />;
-  if (!visits || visits.length === 0) return <CrewTodayState title="No stops today" />;
+  if (visitError) return <CrewTodayState title="Couldn't load today's stops" header={crewLabel} />;
+  if (!visits || visits.length === 0) return <CrewTodayState title="No stops today" header={crewLabel} />;
 
   const propertyIds = [...new Set(visits.map((visit) => visit.property_id))];
   const visitIds = visits.map((visit) => visit.id);
@@ -70,16 +73,27 @@ export default async function CrewTodayPage() {
     supabase.from("properties").select(CREW_TODAY_SELECTS.property).eq("org_id", session.orgId).in("id", propertyIds),
     supabase.from("visit_tasks").select(CREW_TODAY_SELECTS.task).eq("org_id", session.orgId).in("visit_id", visitIds),
   ]);
-  if (propertyError || taskError) return <CrewTodayState title="Couldn't load today's stops" />;
+  if (propertyError || taskError) return <CrewTodayState title="Couldn't load today's stops" header={crewLabel} />;
 
   const stops = assembleStops(visits satisfies CrewVisitRow[], properties ?? [], tasks ?? []);
-  return <CrewTodayList stops={stops} />;
+  return <CrewTodayList stops={stops} crewLabel={crewLabel} />;
 }
 
-function CrewTodayList({ stops }: { stops: CrewStop[] }) {
+/**
+ * public.my_crews() is added on the scheduling branch and is not in the generated
+ * Database types yet. The cast stays limited to that no-argument call and its rows.
+ */
+function readMyCrews(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const client = supabase as unknown as {
+    rpc(fn: "my_crews"): Promise<{ data: MyCrew[] | null; error: { message: string } | null }>;
+  };
+  return client.rpc("my_crews");
+}
+
+function CrewTodayList({ stops, crewLabel }: { stops: CrewStop[]; crewLabel: string }) {
   return (
     <>
-      <PageHeader title="Today" description="Your crew's stops" />
+      <PageHeader title="Today" description={crewLabel || "Your crew's stops"} />
       <div className="page-body">
         <ul className="flex flex-col gap-3">
           {stops.map((stop) => (
@@ -104,10 +118,18 @@ function CrewTodayList({ stops }: { stops: CrewStop[] }) {
   );
 }
 
-function CrewTodayState({ title, description }: { title: string; description?: string }) {
+function CrewTodayState({
+  title,
+  description,
+  header,
+}: {
+  title: string;
+  description?: string;
+  header?: string;
+}) {
   return (
     <>
-      <PageHeader title="Today" description="Your crew's stops" />
+      <PageHeader title="Today" description={header || "Your crew's stops"} />
       <div className="page-body">
         <Empty>
           <EmptyHeader>
