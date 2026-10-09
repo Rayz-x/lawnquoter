@@ -1,3 +1,5 @@
+import { CrewSignOut } from "@/components/crew/sign-out";
+
 export default function CrewMePage() {
   return (
     <section className="flex flex-col gap-4 px-4 pt-[max(1rem,env(safe-area-inset-top,0px))]">
@@ -6,6 +8,7 @@ export default function CrewMePage() {
       <a href="/dashboard" className="inline-flex min-h-12 items-center text-[17px] font-semibold text-primary">
         Office
       </a>
+      <CrewSignOut />
     </section>
   );
 }
