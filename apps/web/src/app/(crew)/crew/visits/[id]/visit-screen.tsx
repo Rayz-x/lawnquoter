@@ -14,6 +14,7 @@ import {
   activeAddress, applyClock, budgetLabel, cachedLiveLead, crewIdFromPack, elapsedMs, formatElapsed, liveLeadFromPack, patchVisitPack, projectVisit, readClock, saveLeadForPack, visitFromPack, visitsInPack, writeClock,
   type ClockAction, type Segment, type VisitClock, type VisitDetail,
 } from "../visit";
+import { VisitPhotos, type VisitPhotosHandle } from "./visit-photos";
 
 const ACTIONS = new Set(["visit_start", "visit_pause", "visit_resume", "visit_finish", "visit_set_crew_size"]);
 
@@ -33,6 +34,13 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
   const [error, setError] = useState<string | null>(null);
   const [showGate, setShowGate] = useState(false);
   const [lead, setLead] = useState(false);
+  const photos = useRef<VisitPhotosHandle | null>(null);
+  const [afterFor, setAfterFor] = useState(visitId);
+  const [afterReady, setAfterReady] = useState(false);
+  if (afterFor !== visitId) {
+    setAfterFor(visitId);
+    setAfterReady(false);
+  }
 
   useEffect(() => {
     if (clock?.status !== "in_progress") return;
@@ -148,6 +156,7 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
   const ratio = detail.budgetMinutes ? Math.min(1, elapsed / (detail.budgetMinutes * 60_000)) : 0;
   const crewSize = clock.crewSize ?? 1;
   const closed = clock.status === "cancelled" || detail.status === "cancelled";
+  const needAfter = (clock.status === "in_progress" || clock.status === "paused") && !afterReady;
 
   return (
     <section className="flex flex-1 flex-col px-4 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-28">
@@ -193,6 +202,7 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
           ) : null}
         </div>
       ) : null}
+      {clock.status === "in_progress" || clock.status === "paused" ? <VisitPhotos visitId={visitId} userId={userId} orgId={orgId} onAfter={setAfterReady} pickRef={photos} /> : null}
       {blocked ? <p className="mt-4 text-[17px] font-semibold">Finish {blocked} first?</p> : null}
       {!lead ? <p className="mt-4 text-[17px]">The crew lead starts and finishes stops.</p> : null}
       {error ? <p className="mt-3 text-[15px] font-semibold text-destructive">{error}</p> : null}
@@ -200,7 +210,11 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
         {lead && clock.status === "scheduled" && !closed ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={saving || Boolean(blocked)} onClick={() => void act("visit_start")}>Start job</button> : null}
         {lead && clock.status === "in_progress" ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_pause")}>Pause</button> : null}
         {lead && clock.status === "paused" ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_resume")}>Resume</button> : null}
-        {lead && (clock.status === "in_progress" || clock.status === "paused") ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => void act("visit_finish")}>Finish job</button> : null}
+        {lead && (clock.status === "in_progress" || clock.status === "paused") ? (
+          needAfter
+            ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => photos.current?.pickAfter()}>Take an after photo to finish</button>
+            : <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => void act("visit_finish")}>Finish job</button>
+        ) : null}
       </div>
     </section>
   );
