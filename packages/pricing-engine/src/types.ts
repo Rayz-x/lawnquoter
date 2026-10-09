@@ -161,7 +161,7 @@ export type PricingRule = z.infer<typeof pricingRuleSchema>;
 
 export const modifiersSchema = z.object({
   slope: z
-    .record(z.string(), z.object({ pricePct: z.number().default(0), hoursPct: z.number().default(0) }))
+    .record(z.string(), z.object({ pricePct: z.number().default(0), hoursPct: z.number().default(0), costPct: z.number().optional() }))
     .optional(),
   narrowGateInches: z.number().positive().default(48),
   narrowGate: z.object({ extraHours: z.number().nonnegative(), extraPrice: z.number().nonnegative().default(0) }).optional(),

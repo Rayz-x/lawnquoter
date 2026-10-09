@@ -52,6 +52,15 @@ export async function saveMeasurement(
     .single();
   if (!property) return fail("Property not found");
 
+  const { data: measurement } = await supabase
+    .from("measurements")
+    .select("id")
+    .eq("id", measurementId)
+    .eq("property_id", propertyId)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (!measurement) return fail("Measurement not found");
+
   const { error: replaceError } = await supabase.rpc("measurement_replace_features", {
     p_measurement: measurementId,
     p_features: parsed.data,

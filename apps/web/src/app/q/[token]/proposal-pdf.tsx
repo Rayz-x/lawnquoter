@@ -1,4 +1,5 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { selectionFromIds, sumSelected, type SelectableItem } from "@/lib/quotes/selection";
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 11, fontFamily: "Helvetica" },
@@ -12,6 +13,7 @@ const styles = StyleSheet.create({
 
 export function ProposalPdf({
   payload,
+  selectedIds,
 }: {
   payload: {
     title: string;
@@ -19,11 +21,12 @@ export function ProposalPdf({
     intro: string | null;
     notes_customer: string | null;
     org: { name: string };
-    items: Array<{ name: string; price: number; state: string; description: string | null }>;
+    items: Array<SelectableItem & { name: string; description: string | null; state: string }>;
   };
+  selectedIds: string[] | null;
 }) {
-  const included = payload.items.filter((i) => i.state === "included");
-  const total = included.reduce((s, i) => s + Number(i.price), 0);
+  const picked = new Set(selectionFromIds(payload.items, selectedIds));
+  const total = sumSelected(payload.items, picked, "price");
   return (
     <Document>
       <Page size="LETTER" style={styles.page}>
@@ -31,13 +34,16 @@ export function ProposalPdf({
         <Text style={styles.title}>{payload.title}</Text>
         <Text style={styles.muted}>Quote #{payload.number}</Text>
         {payload.intro ? <Text style={styles.intro}>{payload.intro}</Text> : null}
-        {included.map((i) => (
-          <View key={i.name} style={styles.row}>
+        {payload.items.map((item) => (
+          <View key={item.id} style={styles.row}>
             <View>
-              <Text>{i.name}</Text>
-              {i.description ? <Text style={styles.muted}>{i.description}</Text> : null}
+              <Text>
+                {item.name}
+                {picked.has(item.id) ? "" : " (not selected)"}
+              </Text>
+              {item.description ? <Text style={styles.muted}>{item.description}</Text> : null}
             </View>
-            <Text>${Number(i.price).toFixed(2)}</Text>
+            <Text>${Number(item.price ?? 0).toFixed(2)}</Text>
           </View>
         ))}
         <Text style={styles.total}>Total ${total.toFixed(2)}</Text>

@@ -44,11 +44,25 @@ const itemSchema = z.object({
   notes_crew: z.string().max(2000).optional().or(z.literal("")),
 });
 
+async function editableVersion(quoteId: string, versionId: string, orgId: string) {
+  const supabase = await createClient();
+  const { data: version } = await supabase
+    .from("quote_versions")
+    .select("id, quote_id, frozen")
+    .eq("id", versionId)
+    .eq("org_id", orgId)
+    .maybeSingle();
+  if (!version || version.quote_id !== quoteId) return { supabase, error: "Quote version not found" as const };
+  if (version.frozen) return { supabase, error: "This proposal is frozen. Revise it before editing." as const };
+  return { supabase, error: null };
+}
+
 export async function addLineItem(quoteId: string, versionId: string, fd: FormData): Promise<ActionResult> {
   const session = await requireOrg();
   const parsed = itemSchema.safeParse(Object.fromEntries(fd));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
-  const supabase = await createClient();
+  const { supabase, error: versionError } = await editableVersion(quoteId, versionId, session.orgId);
+  if (versionError) return fail(versionError);
   const { error } = await supabase.from("quote_line_items").insert({
     org_id: session.orgId,
     version_id: versionId,
@@ -77,6 +91,15 @@ export async function addLineItem(quoteId: string, versionId: string, fd: FormDa
 export async function deleteLineItem(quoteId: string, id: string): Promise<ActionResult> {
   const session = await requireOrg();
   const supabase = await createClient();
+  const { data: item } = await supabase
+    .from("quote_line_items")
+    .select("id, version_id, quote_versions(quote_id, frozen)")
+    .eq("id", id)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  const version = item?.quote_versions;
+  if (!item || !version || version.quote_id !== quoteId) return fail("Line item not found");
+  if (version.frozen) return fail("This proposal is frozen. Revise it before editing.");
   const { error } = await supabase.from("quote_line_items").delete().eq("id", id).eq("org_id", session.orgId);
   if (error) return fail(error.message);
   revalidatePath(`/quotes/${quoteId}`);
@@ -95,14 +118,26 @@ export async function updateQuoteMeta(id: string, fd: FormData): Promise<ActionR
     .safeParse(Object.fromEntries(fd));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
   const supabase = await createClient();
+  const { data: quote } = await supabase
+    .from("quotes")
+    .select("status")
+    .eq("id", id)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (!quote) return fail("Quote not found");
+  const customerFacing = quote.status === "draft" || quote.status === "changed";
   const { error } = await supabase
     .from("quotes")
-    .update({
-      title: parsed.data.title,
-      intro: parsed.data.intro || null,
-      notes_customer: parsed.data.notes_customer || null,
-      notes_internal: parsed.data.notes_internal || null,
-    })
+    .update(
+      customerFacing
+        ? {
+            title: parsed.data.title,
+            intro: parsed.data.intro || null,
+            notes_customer: parsed.data.notes_customer || null,
+            notes_internal: parsed.data.notes_internal || null,
+          }
+        : { notes_internal: parsed.data.notes_internal || null },
+    )
     .eq("id", id)
     .eq("org_id", session.orgId);
   if (error) return fail(error.message);
@@ -113,17 +148,32 @@ export async function updateQuoteMeta(id: string, fd: FormData): Promise<ActionR
 export async function sendQuote(id: string): Promise<ActionResult<{ url: string }>> {
   const session = await requireOrg();
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const { data: quote } = await supabase
     .from("quotes")
-    .update({ status: "sent", sent_at: new Date().toISOString() })
+    .select("status, public_token")
     .eq("id", id)
     .eq("org_id", session.orgId)
-    .select("public_token")
-    .single();
-  if (error || !data) return fail(error?.message ?? "Could not send");
+    .maybeSingle();
+  if (!quote) return fail("Quote not found");
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  if (quote.status === "accepted" || quote.status === "declined" || quote.status === "expired") {
+    return { ok: true, data: { url: `${base}/q/${quote.public_token}` } };
+  }
+  const { data: token, error } = await supabase.rpc("quote_send", { p_quote: id });
+  if (error || !token) return fail(error?.message ?? "Could not send");
   revalidatePath(`/quotes/${id}`);
-  return { ok: true, data: { url: `${base}/q/${data.public_token}` } };
+  return { ok: true, data: { url: `${base}/q/${token}` } };
+}
+
+export async function reviseQuote(id: string): Promise<ActionResult<{ versionId: string }>> {
+  const session = await requireOrg();
+  const supabase = await createClient();
+  const { data: versionId, error } = await supabase.rpc("quote_revise", { p_quote: id });
+  if (error || !versionId) return fail(error?.message ?? "Could not revise");
+  const { data: quote } = await supabase.from("quotes").select("id").eq("id", id).eq("org_id", session.orgId).maybeSingle();
+  if (!quote) return fail("Quote not found");
+  revalidatePath(`/quotes/${id}`);
+  return { ok: true, data: { versionId } };
 }
 
 export async function addPricedService(quoteId: string, versionId: string, fd: FormData): Promise<ActionResult> {
@@ -131,18 +181,19 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
   const parsed = z
     .object({
       name: z.string().min(1),
-      price: z.coerce.number(),
-      hours: z.coerce.number(),
-      cost: z.coerce.number(),
-      range_low: z.coerce.number().optional().or(z.literal("")),
-      range_high: z.coerce.number().optional().or(z.literal("")),
+      price: z.coerce.number().nonnegative(),
+      hours: z.coerce.number().nonnegative(),
+      cost: z.coerce.number().nonnegative(),
+      range_low: z.coerce.number().nonnegative().optional().or(z.literal("")),
+      range_high: z.coerce.number().nonnegative().optional().or(z.literal("")),
       state: z.enum(["included", "recommended", "optional"]).default("included"),
       option_group: z.string().optional().or(z.literal("")),
       option_tier: z.enum(["none", "good", "better", "best"]).default("none"),
     })
     .safeParse(Object.fromEntries(fd));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
-  const supabase = await createClient();
+  const { supabase, error: versionError } = await editableVersion(quoteId, versionId, session.orgId);
+  if (versionError) return fail(versionError);
   const { error } = await supabase.from("quote_line_items").insert({
     org_id: session.orgId,
     version_id: versionId,

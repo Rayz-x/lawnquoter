@@ -28,5 +28,7 @@ export function priceAssembly(rule: AssemblyRule, quantities: QuantityMap, compl
   const withOverhead = cost * (1 + rule.overheadPct);
   const margin = Math.min(0.95, Math.max(0, rule.targetMarginPct));
   const price = margin >= 1 ? withOverhead : withOverhead / (1 - margin);
-  return { ...line(price, hours, cost), breakdown };
+  const priced = line(price, hours, cost);
+  breakdown.push({ label: "Sell price", price: priced.price, hours: 0, cost: 0 });
+  return { ...priced, breakdown };
 }

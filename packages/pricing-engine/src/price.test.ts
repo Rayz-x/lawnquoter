@@ -29,14 +29,22 @@ describe("tier matrix", () => {
     expect(r.cost).toBe(24);
   });
 
-  it("uses combined front+back turf", () => {
-    const r = priceLine({
+  it("uses a combined turf total when only one side was traced", () => {
+    const partial = priceLine({
+      rule: mow,
+      quantities: { turf_front_sqft: 3000, turf_sqft: 8000 },
+      modifiers,
+      context: {},
+    });
+    expect(partial.price).toBe(55);
+
+    const split = priceLine({
       rule: mow,
       quantities: { turf_front_sqft: 3000, turf_back_sqft: 3000 },
       modifiers,
       context: {},
     });
-    expect(r.price).toBe(55);
+    expect(split.price).toBe(55);
   });
 
   it("applies the every-N-over-X tail", () => {
@@ -67,6 +75,14 @@ describe("assembly", () => {
     expect(r.cost).toBe(184.5);
     expect(r.hours).toBe(1.5);
     expect(r.price).toBe(353.63);
+    expect(r.breakdown.reduce((sum, row) => sum + row.price, 0)).toBe(353.63);
+  });
+
+  it("applies complexity to labor and equipment, not materials", () => {
+    const r = priceLine({ rule: install, quantities: { each: 2 }, modifiers, context: { complexity: 2 } });
+    // labor 2h * 40 = 80, equipment 1h * 25 = 25, material stays 132
+    expect(r.hours).toBe(3);
+    expect(r.cost).toBe(237);
   });
 });
 
@@ -121,6 +137,10 @@ describe("snow and irrigation", () => {
       ],
     };
     expect(priceLine({ rule, quantities: { inches: 3 }, modifiers, context: {} }).price).toBe(75);
+    expect(priceLine({ rule, quantities: { inches: 0.5 }, modifiers, context: {} }).price).toBe(0);
+    expect(() => priceLine({ rule: { ...rule, inchTiers: [] }, quantities: { inches: 3 }, modifiers, context: {} })).toThrow(
+      /inch tiers/,
+    );
   });
 
   it("prices irrigation by zone and sets duration", () => {
@@ -144,6 +164,8 @@ describe("modifiers and confidence", () => {
     expect(r.breakdown.some((b) => b.label.startsWith("Slope"))).toBe(true);
     expect(r.breakdown.some((b) => b.label.startsWith("Narrow gate"))).toBe(true);
     expect(r.breakdown.some((b) => b.label.startsWith("First cut"))).toBe(true);
+    const slope = r.breakdown.find((b) => b.label.startsWith("Slope"));
+    expect(slope?.cost).toBeCloseTo(18 * 0.25, 2);
   });
 
   it("returns a range when confidence is low", () => {
@@ -174,6 +196,26 @@ describe("mass update and csv", () => {
     const next = scaleRule(mow, 1.1);
     if (next.type !== "tier_matrix") throw new Error("expected tier");
     expect(next.rows[0]?.price).toBe(44);
+  });
+
+  it("scales assembly rates", () => {
+    const install: AssemblyRule = {
+      type: "assembly",
+      quantityKey: "each",
+      items: [
+        { kind: "labor", name: "Crew", hourlyRate: 40, hoursPerUnit: 1 },
+        { kind: "material", name: "Mulch", unitCost: 10, qtyPerUnit: 1, wastePct: 0 },
+      ],
+      overheadPct: 0,
+      targetMarginPct: 0,
+    };
+    const next = scaleRule(install, 1.1);
+    if (next.type !== "assembly") throw new Error("expected assembly");
+    const labor = next.items.find((item) => item.kind === "labor");
+    const material = next.items.find((item) => item.kind === "material");
+    if (labor?.kind !== "labor" || material?.kind !== "material") throw new Error("expected items");
+    expect(labor.hourlyRate).toBe(44);
+    expect(material.unitCost).toBe(11);
   });
 
   it("parses a materials csv", () => {

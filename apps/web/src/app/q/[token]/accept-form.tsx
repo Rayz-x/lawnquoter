@@ -10,7 +10,15 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { acceptQuote, declineQuote } from "./actions";
 
-export function AcceptForm({ token, status }: { token: string; status: string }) {
+export function AcceptForm({
+  token,
+  status,
+  selectedIds,
+}: {
+  token: string;
+  status: string;
+  selectedIds: string[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(status === "accepted");
@@ -20,6 +28,9 @@ export function AcceptForm({ token, status }: { token: string; status: string })
   }
   if (status === "declined") {
     return <p className="rounded-lg border p-4 text-sm">This proposal was declined.</p>;
+  }
+  if (status === "expired") {
+    return <p className="rounded-lg border p-4 text-sm">This proposal has expired. Ask the company for an updated quote.</p>;
   }
 
   return (
@@ -31,13 +42,16 @@ export function AcceptForm({ token, status }: { token: string; status: string })
         startTransition(async () => {
           const r = await acceptQuote(token, fd);
           if (r.ok) {
-            toast.success("Accepted");
+            toast.success(r.data.already ? "This proposal was already accepted" : "Accepted");
             setDone(true);
             router.refresh();
           } else toast.error(r.error);
         });
       }}
     >
+      {selectedIds.map((id) => (
+        <input key={id} type="hidden" name="selected" value={id} />
+      ))}
       <h2 className="font-medium">Accept this proposal</h2>
       <p className="text-xs text-muted-foreground">
         By clicking Accept you agree this is your electronic signature under the ESIGN Act. We store your name, time, IP,

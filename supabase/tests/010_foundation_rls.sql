@@ -1,4 +1,4 @@
-select plan(20);
+select plan(22);
 
 -- Fixtures -------------------------------------------------------------------
 select tests.create_user('owner-a@example.com', 'Owner A')  as owner_a \gset
@@ -127,6 +127,14 @@ select is(
   ),
   'object',
   'hook returns object claims when the user has no membership'
+);
+
+select tests.authenticate_as(:'owner_a'::uuid, :'org_a'::uuid, 'owner');
+select throws_ok(
+  format($$ update public.memberships set status = 'disabled' where user_id = %L::uuid $$, :'owner_a'),
+  '42501',
+  null,
+  'owner membership cannot be disabled'
 );
 
 select * from finish();
