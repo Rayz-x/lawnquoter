@@ -164,7 +164,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               </div>
             </CardContent>
           </Card>
-          <QuoteMetaForm quote={quote} />
+          <QuoteMetaForm quote={quote} editable={editable} />
           {editable && versionId ? (
             <PriceFromCatalog
               quoteId={quote.id}
