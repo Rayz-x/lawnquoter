@@ -77,8 +77,8 @@ select throws_ok(
 
 -- Crew can read but not write ---------------------------------------------------
 select tests.authenticate_as(:'crew1'::uuid, :'org1'::uuid, 'crew');
-select is((select count(*) from public.accounts), 2::bigint, 'crew sees org accounts');
-select is((select count(*) from public.properties), 1::bigint, 'crew sees org properties');
+select is((select count(*) from public.accounts), 0::bigint, 'crew does not see customer accounts');
+select is((select count(*) from public.properties), 0::bigint, 'crew does not see properties until a visit is routed to their crew');
 select throws_ok(
   format($$ insert into public.accounts (org_id, name) values (%L, 'Crew made this') $$, :'org1'),
   '42501',

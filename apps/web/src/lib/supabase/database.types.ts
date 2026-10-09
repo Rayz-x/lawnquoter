@@ -8,14 +8,14 @@ export type Database = {
           Tables: {
             "acceptances": {
                   Row: {
-                    "accepted_at": string,"accepted_total": number | null,"created_at": string,"disclosure_accepted": boolean,"document_hash": string,"id": string,"ip": unknown,"method": Database["public"]['Enums']["acceptance_method"],"org_id": string,"quote_id": string,"selections": Json,"signer_email": string | null,"signer_name": string,"signwell_envelope_id": string | null,"user_agent": string | null,"version": number
+                    "accepted_at": string,"accepted_total": number | null,"created_at": string,"disclosure_accepted": boolean,"document_hash": string,"id": string,"ip": unknown,"method": Database["public"]['Enums']["acceptance_method"],"org_id": string,"quote_id": string,"selections": NonNullable<Json>,"signer_email": string | null,"signer_name": string,"signwell_envelope_id": string | null,"user_agent": string | null,"version": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "accepted_at"?: string,"accepted_total"?: number | null,"created_at"?: string,"disclosure_accepted"?: boolean,"document_hash": string,"id"?: string,"ip"?: unknown,"method"?: Database["public"]['Enums']["acceptance_method"],"org_id": string,"quote_id": string,"selections"?: Json,"signer_email"?: string | null,"signer_name": string,"signwell_envelope_id"?: string | null,"user_agent"?: string | null,"version": number
+                    "accepted_at"?: string,"accepted_total"?: number | null,"created_at"?: string,"disclosure_accepted"?: boolean,"document_hash": string,"id"?: string,"ip"?: unknown,"method"?: Database["public"]['Enums']["acceptance_method"],"org_id": string,"quote_id": string,"selections"?: NonNullable<Json>,"signer_email"?: string | null,"signer_name": string,"signwell_envelope_id"?: string | null,"user_agent"?: string | null,"version": number
                   }
                   Update: {
-                    "accepted_at"?: string,"accepted_total"?: number | null,"created_at"?: string,"disclosure_accepted"?: boolean,"document_hash"?: string,"id"?: string,"ip"?: unknown,"method"?: Database["public"]['Enums']["acceptance_method"],"org_id"?: string,"quote_id"?: string,"selections"?: Json,"signer_email"?: string | null,"signer_name"?: string,"signwell_envelope_id"?: string | null,"user_agent"?: string | null,"version"?: number
+                    "accepted_at"?: string,"accepted_total"?: number | null,"created_at"?: string,"disclosure_accepted"?: boolean,"document_hash"?: string,"id"?: string,"ip"?: unknown,"method"?: Database["public"]['Enums']["acceptance_method"],"org_id"?: string,"quote_id"?: string,"selections"?: NonNullable<Json>,"signer_email"?: string | null,"signer_name"?: string,"signwell_envelope_id"?: string | null,"user_agent"?: string | null,"version"?: number
                   }
                   Relationships: [
                     {
@@ -102,6 +102,50 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"agreements": {
+                  Row: {
+                    "account_id": string,"created_at": string,"end_date": string | null,"frequency": Database["public"]['Enums']["agreement_frequency"] | null,"id": string,"kind": Database["public"]['Enums']["agreement_kind"],"notes_office": string | null,"org_id": string,"preferred_dow": number | null,"property_id": string,"quote_id": string | null,"quote_version_id": string | null,"service_kind": string | null,"start_date": string,"status": Database["public"]['Enums']["agreement_status"],"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "account_id": string,"created_at"?: string,"end_date"?: string | null,"frequency"?: Database["public"]['Enums']["agreement_frequency"] | null,"id"?: string,"kind": Database["public"]['Enums']["agreement_kind"],"notes_office"?: string | null,"org_id": string,"preferred_dow"?: number | null,"property_id": string,"quote_id"?: string | null,"quote_version_id"?: string | null,"service_kind"?: string | null,"start_date": string,"status"?: Database["public"]['Enums']["agreement_status"],"updated_at"?: string
+                  }
+                  Update: {
+                    "account_id"?: string,"created_at"?: string,"end_date"?: string | null,"frequency"?: Database["public"]['Enums']["agreement_frequency"] | null,"id"?: string,"kind"?: Database["public"]['Enums']["agreement_kind"],"notes_office"?: string | null,"org_id"?: string,"preferred_dow"?: number | null,"property_id"?: string,"quote_id"?: string | null,"quote_version_id"?: string | null,"service_kind"?: string | null,"start_date"?: string,"status"?: Database["public"]['Enums']["agreement_status"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "agreements_account_id_fkey"
+      columns: ["account_id"]
+isOneToOne: false
+      referencedRelation: "accounts"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agreements_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agreements_property_id_fkey"
+      columns: ["property_id"]
+isOneToOne: false
+      referencedRelation: "properties"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agreements_quote_id_fkey"
+      columns: ["quote_id"]
+isOneToOne: false
+      referencedRelation: "quotes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "agreements_quote_version_id_fkey"
+      columns: ["quote_version_id"]
+isOneToOne: false
+      referencedRelation: "quote_versions"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"audit_events": {
                   Row: {
                     "hash": string,"id": string,"kind": string,"occurred_at": string,"org_id": string,"payload": NonNullable<Json>,"prev_hash": string | null,"quote_id": string | null
@@ -154,6 +198,64 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"crew_members": {
+                  Row: {
+                    "created_at": string,"crew_id": string,"id": string,"org_id": string,"profile_id": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"crew_id": string,"id"?: string,"org_id": string,"profile_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"crew_id"?: string,"id"?: string,"org_id"?: string,"profile_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "crew_members_crew_id_fkey"
+      columns: ["crew_id"]
+isOneToOne: false
+      referencedRelation: "crews"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "crew_members_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "crew_members_profile_id_fkey"
+      columns: ["profile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"crews": {
+                  Row: {
+                    "active": boolean,"created_at": string,"default_lead_id": string | null,"id": string,"name": string,"org_id": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "active"?: boolean,"created_at"?: string,"default_lead_id"?: string | null,"id"?: string,"name": string,"org_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "active"?: boolean,"created_at"?: string,"default_lead_id"?: string | null,"id"?: string,"name"?: string,"org_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "crews_default_lead_id_fkey"
+      columns: ["default_lead_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "crews_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"equipment_rates": {
                   Row: {
                     "created_at": string,"hourly_rate": number,"id": string,"name": string,"org_id": string,"updated_at": string
@@ -171,6 +273,44 @@ isOneToOne: false
       columns: ["org_id"]
 isOneToOne: false
       referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"jobs": {
+                  Row: {
+                    "agreement_id": string | null,"created_at": string,"id": string,"org_id": string,"property_id": string,"quote_id": string | null,"require_after_photo": boolean,"status": Database["public"]['Enums']["job_status"],"title": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "agreement_id"?: string | null,"created_at"?: string,"id"?: string,"org_id": string,"property_id": string,"quote_id"?: string | null,"require_after_photo"?: boolean,"status"?: Database["public"]['Enums']["job_status"],"title": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "agreement_id"?: string | null,"created_at"?: string,"id"?: string,"org_id"?: string,"property_id"?: string,"quote_id"?: string | null,"require_after_photo"?: boolean,"status"?: Database["public"]['Enums']["job_status"],"title"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "jobs_agreement_id_fkey"
+      columns: ["agreement_id"]
+isOneToOne: false
+      referencedRelation: "agreements"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "jobs_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "jobs_property_id_fkey"
+      columns: ["property_id"]
+isOneToOne: false
+      referencedRelation: "properties"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "jobs_quote_id_fkey"
+      columns: ["quote_id"]
+isOneToOne: false
+      referencedRelation: "quotes"
       referencedColumns: ["id"]
     }
                   ]
@@ -602,6 +742,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"routes": {
+                  Row: {
+                    "created_at": string,"crew_id": string,"date": string,"id": string,"org_id": string,"published_at": string | null,"status": Database["public"]['Enums']["route_status"],"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"crew_id": string,"date": string,"id"?: string,"org_id": string,"published_at"?: string | null,"status"?: Database["public"]['Enums']["route_status"],"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"crew_id"?: string,"date"?: string,"id"?: string,"org_id"?: string,"published_at"?: string | null,"status"?: Database["public"]['Enums']["route_status"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "routes_crew_id_fkey"
+      columns: ["crew_id"]
+isOneToOne: false
+      referencedRelation: "crews"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "routes_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"services": {
                   Row: {
                     "active": boolean,"created_at": string,"description": string | null,"id": string,"kind": Database["public"]['Enums']["service_kind"],"name": string,"org_id": string,"slug": string,"sort": number,"updated_at": string
@@ -619,6 +785,82 @@ isOneToOne: false
       columns: ["org_id"]
 isOneToOne: false
       referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"visit_tasks": {
+                  Row: {
+                    "client_id": string | null,"created_at": string,"done_at": string | null,"id": string,"is_extra": boolean,"label": string,"not_done_reason": string | null,"org_id": string,"quantity_text": string | null,"sort": number,"source_line_item_id": string | null,"updated_at": string,"visit_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "client_id"?: string | null,"created_at"?: string,"done_at"?: string | null,"id"?: string,"is_extra"?: boolean,"label": string,"not_done_reason"?: string | null,"org_id": string,"quantity_text"?: string | null,"sort"?: number,"source_line_item_id"?: string | null,"updated_at"?: string,"visit_id": string
+                  }
+                  Update: {
+                    "client_id"?: string | null,"created_at"?: string,"done_at"?: string | null,"id"?: string,"is_extra"?: boolean,"label"?: string,"not_done_reason"?: string | null,"org_id"?: string,"quantity_text"?: string | null,"sort"?: number,"source_line_item_id"?: string | null,"updated_at"?: string,"visit_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "visit_tasks_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "visit_tasks_source_line_item_id_fkey"
+      columns: ["source_line_item_id"]
+isOneToOne: false
+      referencedRelation: "quote_line_items"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "visit_tasks_visit_id_fkey"
+      columns: ["visit_id"]
+isOneToOne: false
+      referencedRelation: "visits"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"visits": {
+                  Row: {
+                    "agreement_id": string | null,"budget_minutes": number | null,"client_id": string | null,"completed_at": string | null,"created_at": string,"crew_size": number,"id": string,"job_id": string,"note_office": string | null,"org_id": string,"property_id": string,"reopen_until": string | null,"require_after_photo": boolean,"route_id": string | null,"scheduled_date": string,"skip_reason": Database["public"]['Enums']["visit_skip_reason"] | null,"sort": number,"started_at": string | null,"status": Database["public"]['Enums']["visit_status"],"updated_at": string,"window_end": string | null,"window_start": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "agreement_id"?: string | null,"budget_minutes"?: number | null,"client_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"crew_size"?: number,"id"?: string,"job_id": string,"note_office"?: string | null,"org_id": string,"property_id": string,"reopen_until"?: string | null,"require_after_photo"?: boolean,"route_id"?: string | null,"scheduled_date": string,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
+                  }
+                  Update: {
+                    "agreement_id"?: string | null,"budget_minutes"?: number | null,"client_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"crew_size"?: number,"id"?: string,"job_id"?: string,"note_office"?: string | null,"org_id"?: string,"property_id"?: string,"reopen_until"?: string | null,"require_after_photo"?: boolean,"route_id"?: string | null,"scheduled_date"?: string,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "visits_agreement_id_fkey"
+      columns: ["agreement_id"]
+isOneToOne: false
+      referencedRelation: "agreements"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "visits_job_id_fkey"
+      columns: ["job_id"]
+isOneToOne: false
+      referencedRelation: "jobs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "visits_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "visits_property_id_fkey"
+      columns: ["property_id"]
+isOneToOne: false
+      referencedRelation: "properties"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "visits_route_id_fkey"
+      columns: ["route_id"]
+isOneToOne: false
+      referencedRelation: "routes"
       referencedColumns: ["id"]
     }
                   ]
@@ -670,7 +912,7 @@ isOneToOne: false
 { Args: { "p_footprint"?: Json,"p_footprint_source"?: Database["public"]['Enums']["geo_source"],"p_imagery_date"?: string,"p_location"?: Json,"p_parcel"?: Json,"p_parcel_apn"?: string,"p_parcel_source"?: Database["public"]['Enums']["geo_source"],"p_property": string }; Returns: undefined
                            },
 "quote_accept":
-{ Args: { "p_disclosure"?: boolean,"p_ip"?: string,"p_selected"?: string[],"p_signer_email"?: string,"p_signer_name": string,"p_token": string,"p_user_agent"?: string }; Returns: Json
+{ Args: { "p_disclosure"?: boolean,"p_ip"?: string,"p_selected"?: (string)[],"p_signer_email"?: string,"p_signer_name": string,"p_token": string,"p_user_agent"?: string }; Returns: Json
                            },
 "quote_create":
 { Args: { "p_account": string,"p_property"?: string,"p_title"?: string }; Returns: string
@@ -695,7 +937,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "acceptance_method": "click"|"signwell"|"wet","account_status": "lead"|"active"|"inactive","account_type": "residential"|"commercial","contact_role": "primary"|"billing"|"site"|"decision_maker"|"other","feature_category": "turf_front"|"turf_back"|"bed"|"hardscape"|"driveway"|"sidewalk"|"edging_line"|"fence_line"|"canopy"|"roof","feature_source": "auto"|"traced"|"manual"|"imported","geo_source": "regrid"|"county"|"overture"|"osm"|"traced"|"manual"|"unknown","item_state": "included"|"recommended"|"optional","measurement_status": "draft"|"current"|"archived","membership_status": "invited"|"active"|"disabled","option_tier": "none"|"good"|"better"|"best","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only","payment_kind": "deposit"|"balance"|"invoice"|"ach_verify","payment_status": "requires_action"|"processing"|"succeeded"|"failed"|"canceled"|"refunded","price_list_status": "draft"|"active"|"archived","quote_status": "draft"|"sent"|"viewed"|"accepted"|"declined"|"expired"|"changed","rule_type": "tier_matrix"|"assembly"|"catalog"|"program"|"snow"|"irrigation","service_kind": "mowing"|"fert"|"cleanup"|"snow"|"irrigation"|"install"|"other","slope_class": "flat"|"gentle"|"moderate"|"steep"
+            "acceptance_method": "click"|"signwell"|"wet","account_status": "lead"|"active"|"inactive","account_type": "residential"|"commercial","agreement_frequency": "weekly"|"biweekly"|"monthly"|"custom","agreement_kind": "one_time"|"recurring","agreement_status": "active"|"paused"|"ended","contact_role": "primary"|"billing"|"site"|"decision_maker"|"other","feature_category": "turf_front"|"turf_back"|"bed"|"hardscape"|"driveway"|"sidewalk"|"edging_line"|"fence_line"|"canopy"|"roof","feature_source": "auto"|"traced"|"manual"|"imported","geo_source": "regrid"|"county"|"overture"|"osm"|"traced"|"manual"|"unknown","item_state": "included"|"recommended"|"optional","job_status": "unscheduled"|"scheduled"|"in_progress"|"completed"|"cancelled","measurement_status": "draft"|"current"|"archived","membership_status": "invited"|"active"|"disabled","option_tier": "none"|"good"|"better"|"best","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only","payment_kind": "deposit"|"balance"|"invoice"|"ach_verify","payment_status": "requires_action"|"processing"|"succeeded"|"failed"|"canceled"|"refunded","price_list_status": "draft"|"active"|"archived","quote_status": "draft"|"sent"|"viewed"|"accepted"|"declined"|"expired"|"changed","route_status": "draft"|"published"|"in_progress"|"done","rule_type": "tier_matrix"|"assembly"|"catalog"|"program"|"snow"|"irrigation","service_kind": "mowing"|"fert"|"cleanup"|"snow"|"irrigation"|"install"|"other","slope_class": "flat"|"gentle"|"moderate"|"steep","visit_skip_reason": "gate_locked"|"dog_loose"|"customer_skip"|"weather"|"equipment"|"unsafe"|"other","visit_status": "scheduled"|"in_progress"|"paused"|"completed"|"skipped"|"cant_complete"|"cancelled"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -811,7 +1053,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "acceptance_method": ["click", "signwell", "wet"],"account_status": ["lead", "active", "inactive"],"account_type": ["residential", "commercial"],"contact_role": ["primary", "billing", "site", "decision_maker", "other"],"feature_category": ["turf_front", "turf_back", "bed", "hardscape", "driveway", "sidewalk", "edging_line", "fence_line", "canopy", "roof"],"feature_source": ["auto", "traced", "manual", "imported"],"geo_source": ["regrid", "county", "overture", "osm", "traced", "manual", "unknown"],"item_state": ["included", "recommended", "optional"],"measurement_status": ["draft", "current", "archived"],"membership_status": ["invited", "active", "disabled"],"option_tier": ["none", "good", "better", "best"],"org_role": ["owner", "admin", "sales", "dispatcher", "crew_lead", "crew", "read_only"],"payment_kind": ["deposit", "balance", "invoice", "ach_verify"],"payment_status": ["requires_action", "processing", "succeeded", "failed", "canceled", "refunded"],"price_list_status": ["draft", "active", "archived"],"quote_status": ["draft", "sent", "viewed", "accepted", "declined", "expired", "changed"],"rule_type": ["tier_matrix", "assembly", "catalog", "program", "snow", "irrigation"],"service_kind": ["mowing", "fert", "cleanup", "snow", "irrigation", "install", "other"],"slope_class": ["flat", "gentle", "moderate", "steep"]
+            "acceptance_method": ["click", "signwell", "wet"],"account_status": ["lead", "active", "inactive"],"account_type": ["residential", "commercial"],"agreement_frequency": ["weekly", "biweekly", "monthly", "custom"],"agreement_kind": ["one_time", "recurring"],"agreement_status": ["active", "paused", "ended"],"contact_role": ["primary", "billing", "site", "decision_maker", "other"],"feature_category": ["turf_front", "turf_back", "bed", "hardscape", "driveway", "sidewalk", "edging_line", "fence_line", "canopy", "roof"],"feature_source": ["auto", "traced", "manual", "imported"],"geo_source": ["regrid", "county", "overture", "osm", "traced", "manual", "unknown"],"item_state": ["included", "recommended", "optional"],"job_status": ["unscheduled", "scheduled", "in_progress", "completed", "cancelled"],"measurement_status": ["draft", "current", "archived"],"membership_status": ["invited", "active", "disabled"],"option_tier": ["none", "good", "better", "best"],"org_role": ["owner", "admin", "sales", "dispatcher", "crew_lead", "crew", "read_only"],"payment_kind": ["deposit", "balance", "invoice", "ach_verify"],"payment_status": ["requires_action", "processing", "succeeded", "failed", "canceled", "refunded"],"price_list_status": ["draft", "active", "archived"],"quote_status": ["draft", "sent", "viewed", "accepted", "declined", "expired", "changed"],"route_status": ["draft", "published", "in_progress", "done"],"rule_type": ["tier_matrix", "assembly", "catalog", "program", "snow", "irrigation"],"service_kind": ["mowing", "fert", "cleanup", "snow", "irrigation", "install", "other"],"slope_class": ["flat", "gentle", "moderate", "steep"],"visit_skip_reason": ["gate_locked", "dog_loose", "customer_skip", "weather", "equipment", "unsafe", "other"],"visit_status": ["scheduled", "in_progress", "paused", "completed", "skipped", "cant_complete", "cancelled"]
           }
         }
 } as const

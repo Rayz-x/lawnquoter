@@ -31,9 +31,9 @@ select tests.authenticate_as(:'crew1'::uuid, :'org1'::uuid, 'crew');
 select is((select count(*) from public.quotes), 1::bigint, 'crew can read quotes');
 select throws_ok(
   format($$ select public.quote_create(%L::uuid) $$, :'acct'),
-  '42501',
+  'P0002',
   null,
-  'crew cannot create quotes'
+  'crew cannot create quotes when the account is hidden'
 );
 
 select tests.authenticate_as(:'owner2'::uuid, :'org2'::uuid, 'owner');
