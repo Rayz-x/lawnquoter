@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient as createBareClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { orgRoleSchema } from "@lawnquoter/shared";
+import { isHttpUrl } from "@/lib/brand/urls";
 import { requireOrg } from "@/lib/auth/session";
 import { supabasePublishableKey, supabaseUrl } from "@/lib/supabase/env";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
@@ -14,18 +15,19 @@ const orgSettingsSchema = z.object({
   name: z.string().trim().min(1).max(120),
   phone: z.string().trim().max(40).optional().or(z.literal("")),
   email: z.string().trim().email().optional().or(z.literal("")),
-  website: z.string().trim().max(200).optional().or(z.literal("")),
+  website: z
+    .string()
+    .trim()
+    .max(200)
+    .refine((value) => value === "" || isHttpUrl(value), "Enter a website that starts with http:// or https://.")
+    .optional()
+    .or(z.literal("")),
   address_line1: z.string().trim().max(200).optional().or(z.literal("")),
   address_line2: z.string().trim().max(200).optional().or(z.literal("")),
   city: z.string().trim().max(100).optional().or(z.literal("")),
   region: z.string().trim().max(100).optional().or(z.literal("")),
   postal_code: z.string().trim().max(20).optional().or(z.literal("")),
   timezone: z.string().trim().min(1).max(64),
-  brand_color: z
-    .string()
-    .regex(/^#[0-9a-fA-F]{6}$/)
-    .optional()
-    .or(z.literal("")),
 });
 
 function emptyToNull<T extends Record<string, unknown>>(obj: T): T {

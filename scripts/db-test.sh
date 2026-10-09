@@ -56,6 +56,10 @@ for f in "$TESTS_DIR"/_shim/*.sql; do
 done
 "${PSQL[@]}" -c "alter database lawnquoter_test set search_path = public, extensions;" >/dev/null 2>&1 || true
 
+# Migrations run as the connecting user. The shim does not change storage
+# ownership. A superuser cannot ALTER storage.objects because of the event
+# trigger; a role that does not own the table gets "must be owner" directly.
+
 echo "==> applying migrations"
 for f in $(ls "$MIGRATIONS_DIR"/*.sql | sort); do
   echo "    $(basename "$f")"
