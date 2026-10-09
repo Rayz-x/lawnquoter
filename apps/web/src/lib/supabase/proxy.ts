@@ -12,9 +12,11 @@ const PUBLIC_PREFIXES = [
   "/portal",
   // Linked from every page. A login redirect is HTML, which the browser reports as a manifest syntax error.
   "/manifest.webmanifest",
+  "/crew/manifest.webmanifest",
+  "/sw.js",
 ];
 
-function isPublicPath(pathname: string) {
+export function isPublicPath(pathname: string) {
   if (pathname === "/") return true;
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));
 }

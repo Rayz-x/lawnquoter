@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { PageHeader } from "@/components/app-shell/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { requireOrg } from "@/lib/auth/session";
@@ -82,7 +81,7 @@ export default async function CrewTodayPage() {
 function CrewTodayList({ stops, crewLabel }: { stops: CrewStop[]; crewLabel: string }) {
   return (
     <>
-      <PageHeader title="Today" description={crewLabel || "Your crew's stops"} />
+      <CrewHeading title="Today" description={crewLabel || "Your crew's stops"} />
       <div className="page-body">
         <ul className="flex flex-col gap-3">
           {stops.map((stop) => (
@@ -107,6 +106,15 @@ function CrewTodayList({ stops, crewLabel }: { stops: CrewStop[]; crewLabel: str
   );
 }
 
+function CrewHeading({ title, description }: { title: string; description?: string }) {
+  return (
+    <header className="px-4 pt-[max(1rem,env(safe-area-inset-top,0px))]">
+      <h1 className="text-2xl font-bold">{title}</h1>
+      {description ? <p className="mt-1 text-[15px] text-muted-foreground">{description}</p> : null}
+    </header>
+  );
+}
+
 function CrewTodayState({
   title,
   description,
@@ -118,7 +126,7 @@ function CrewTodayState({
 }) {
   return (
     <>
-      <PageHeader title="Today" description={header || "Your crew's stops"} />
+      <CrewHeading title="Today" description={header || "Your crew's stops"} />
       <div className="page-body">
         <Empty>
           <EmptyHeader>
