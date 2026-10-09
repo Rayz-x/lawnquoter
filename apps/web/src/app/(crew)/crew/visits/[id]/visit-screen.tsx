@@ -6,12 +6,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { driveUrl, officeTel, packIsFresh, statusLabel } from "@/app/(crew)/crew/today";
-import { browserCrewStore, enqueueMutation, flushOutbox, loadDayPack, saveDayPack, type OutboxRow } from "@/lib/crew/queue";
+import { browserCrewStore, enqueueMutation, flushOutbox, loadDayPack, saveDayPack, scopeKey, type OutboxRow } from "@/lib/crew/queue";
 import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
 import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/database.types";
 import {
-  activeAddress, applyClock, budgetLabel, cachedLiveLead, crewIdFromPack, elapsedMs, formatElapsed, leadFromReads, patchVisitPack, projectVisit, readClock, rememberLiveLead, visitFromPack, visitsInPack, writeClock,
+  activeAddress, applyClock, budgetLabel, cachedLiveLead, crewIdFromPack, elapsedMs, formatElapsed, patchVisitPack, projectVisit, readClock, saveLeadForPack, visitFromPack, visitsInPack, writeClock,
   type ClockAction, type Segment, type VisitClock, type VisitDetail,
 } from "../visit";
 import { VisitActions } from "./visit-actions";
@@ -21,7 +21,7 @@ const ACTIONS = new Set(["visit_start", "visit_pause", "visit_resume", "visit_fi
 
 export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visitId: string; timeZone: string; userId: string; orgId: string; onBack?: () => void }) {
   const router = useRouter();
-  const scope = `${userId}:${orgId}`;
+  const scope = scopeKey(userId, orgId);
   const revision = useRef(0);
   const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
   const [now, setNow] = useState(() => new Date());
@@ -34,8 +34,8 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showGate, setShowGate] = useState(false);
-  const photos = useRef<VisitPhotosHandle | null>(null);
   const [lead, setLead] = useState(false);
+  const photos = useRef<VisitPhotosHandle | null>(null);
   const [afterFor, setAfterFor] = useState(visitId);
   const [afterReady, setAfterReady] = useState(false);
   if (afterFor !== visitId) {
@@ -74,8 +74,7 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
           supabase.from("memberships").select("role, status").eq("user_id", userId).eq("org_id", orgId).maybeSingle(),
         ]);
         if (!crewError && !memberError && crewId) {
-          live = leadFromReads(userId, crewId, crews, membership);
-          rememberLiveLead(localStorage, userId, orgId, crewId, live);
+          live = saveLeadForPack(localStorage, userId, orgId, row?.pack, crews, membership) === true;
         }
       } catch {
         live = cachedLiveLead(localStorage, userId, orgId, crewId) === true;
@@ -204,12 +203,12 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
       {lead && (clock.status === "in_progress" || clock.status === "paused") ? <VisitPhotos visitId={visitId} userId={userId} orgId={orgId} onAfter={setAfterReady} pickRef={photos} /> : null}
       {lead && canAct ? <VisitActions visitId={visitId} userId={userId} orgId={orgId} onLeave={() => { if (onBack) onBack(); else router.push("/crew/today"); }} /> : null}
       {blocked ? <p className="mt-4 text-[17px] font-semibold">Finish {blocked} first?</p> : null}
+      {!lead ? <p className="mt-4 text-[17px]">The crew lead starts and finishes stops.</p> : null}
       {error ? <p className="mt-3 text-[15px] font-semibold text-destructive">{error}</p> : null}
       <div className="fixed inset-x-0 bottom-0 z-10 flex gap-2 bg-background px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
         {lead && clock.status === "scheduled" && !closed ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={saving || Boolean(blocked)} onClick={() => void act("visit_start")}>Start job</button> : null}
         {lead && clock.status === "in_progress" ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_pause")}>Pause</button> : null}
         {lead && clock.status === "paused" ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_resume")}>Resume</button> : null}
-        {!lead && !closed && (clock.status === "scheduled" || clock.status === "in_progress" || clock.status === "paused") ? <p className="flex min-h-14 flex-1 items-center text-[17px]">The crew lead starts and finishes stops.</p> : null}
         {lead && (clock.status === "in_progress" || clock.status === "paused") ? (
           needAfter
             ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => photos.current?.pickAfter()}>Take an after photo to finish</button>

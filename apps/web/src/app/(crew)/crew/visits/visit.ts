@@ -1,3 +1,5 @@
+import { scopeKey } from "@/lib/crew/queue";
+
 export type Segment = { kind: "job" | "pause"; startedAt: string; endedAt: string | null };
 export type VisitClock = { status: string; startedAt: string | null; crewSize: number | null; segments: Segment[]; applied: string[] };
 export type VisitTask = { label: string; quantity: string | null; note: string | null };
@@ -185,7 +187,11 @@ export function leadFromReads(userId: string, crewId: string | null, crews: unkn
 }
 
 function leadScope(userId: string, orgId: string): string {
-  return JSON.stringify([userId, orgId]);
+  return scopeKey(userId, orgId);
+}
+
+export function clearLiveLead(storage: Box) {
+  storage.removeItem(LEAD_KEY);
 }
 
 export function cachedLiveLead(storage: Box, userId: string, orgId: string, crewId: string | null): boolean | null {
@@ -207,4 +213,12 @@ export function rememberLiveLead(storage: Box, userId: string, orgId: string, cr
     parsed = {};
   }
   storage.setItem(LEAD_KEY, JSON.stringify({ ...parsed, [leadScope(userId, orgId)]: { crewId, lead } }));
+}
+
+export function saveLeadForPack(storage: Box, userId: string, orgId: string, pack: unknown, crews: unknown, membership: unknown): boolean | null {
+  const crewId = crewIdFromPack(pack);
+  if (!crewId) return null;
+  const live = leadFromReads(userId, crewId, crews, membership);
+  rememberLiveLead(storage, userId, orgId, crewId, live);
+  return live;
 }

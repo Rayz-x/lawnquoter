@@ -11,6 +11,7 @@ import {
   photoStoragePath,
   purgeExpiredPacks,
   saveDayPack,
+  scopeKey,
   syncItems,
   type SyncResult,
 } from "./queue";
@@ -20,6 +21,11 @@ const scope = { userId: "user-1", orgId: "org-1" };
 const who = { user_id: scope.userId, org_id: scope.orgId };
 
 describe("crew outbox", () => {
+  it("keeps user keys from colliding", () => {
+    expect(scopeKey("a:b", "c")).not.toBe(scopeKey("a", "b:c"));
+    expect(scopeKey("a:b", "c")).toBe(JSON.stringify(["a:b", "c"]));
+  });
+
   it("writes one client id and keeps the original time", async () => {
     const store = createMemoryCrewStore();
     const row = await enqueueMutation(

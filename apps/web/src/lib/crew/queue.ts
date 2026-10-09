@@ -19,6 +19,11 @@ export type CrewPayload = { [key: string]: Json | undefined };
 
 export type CrewScope = { userId: string; orgId: string };
 
+/** Ids can contain ":", so a joined string is not a safe storage key. */
+export function scopeKey(userId: string, orgId: string): string {
+  return JSON.stringify([userId, orgId]);
+}
+
 export type OutboxRow = {
   client_id: string;
   kind: CrewMutationKind;

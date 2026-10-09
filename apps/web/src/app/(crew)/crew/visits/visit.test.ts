@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeAddress, applyClock, budgetLabel, cachedLiveLead, elapsedMs, formatElapsed, isLiveCrewLead, leadFromReads, patchVisitPack, projectVisit, readClock, rememberLiveLead, visitFromPack, writeClock, type VisitClock } from "./visit";
+import { activeAddress, applyClock, budgetLabel, cachedLiveLead, clearLiveLead, elapsedMs, formatElapsed, isLiveCrewLead, leadFromReads, patchVisitPack, projectVisit, readClock, rememberLiveLead, saveLeadForPack, visitFromPack, writeClock, type VisitClock } from "./visit";
 
 const at = "2026-10-09T14:00:00.000Z";
 const pack = {
@@ -89,13 +89,24 @@ describe("visit detail timer", () => {
   });
 
   it("treats only the live crew lead as able to run the timer", () => {
-    const crews = [{ id: "crew-1", default_lead_id: "lead" }];
+    const crews = [{ id: "crew-1", default_lead_id: "lead" }, { id: "crew-2", default_lead_id: "other" }];
+    const member = { role: "crew_lead", status: "active" };
     expect(isLiveCrewLead({ userId: "lead", crewId: "crew-1", defaultLeadId: "lead", role: "crew_lead", status: "active" })).toBe(true);
-    expect(leadFromReads("lead", "crew-1", crews, { role: "crew_lead", status: "active" })).toBe(true);
+    expect(leadFromReads("lead", "crew-1", crews, member)).toBe(true);
     expect(leadFromReads("mate", "crew-1", crews, { role: "crew", status: "active" })).toBe(false);
+    expect(leadFromReads("lead", "crew-1", crews, { role: "crew_lead", status: "disabled" })).toBe(false);
+    expect(leadFromReads("lead", "crew-2", crews, member)).toBe(false);
     const box = { map: new Map<string, string>(), getItem(key: string) { return this.map.get(key) ?? null; }, setItem(key: string, value: string) { this.map.set(key, value); }, removeItem(key: string) { this.map.delete(key); } };
     rememberLiveLead(box, "a:b", "c", "crew-1", true);
     expect(cachedLiveLead(box, "a", "b:c", "crew-1")).toBeNull();
     expect(cachedLiveLead(box, "a:b", "c", "crew-1")).toBe(true);
+    clearLiveLead(box);
+    expect(cachedLiveLead(box, "a:b", "c", "crew-1")).toBeNull();
+    const downloaded = { crew: { id: "crew-1" } };
+    expect(saveLeadForPack(box, "lead", "org", downloaded, crews, member)).toBe(true);
+    expect(cachedLiveLead(box, "lead", "org", "crew-1")).toBe(true);
+    expect(saveLeadForPack(box, "mate", "org", downloaded, crews, { role: "crew", status: "active" })).toBe(false);
+    expect(cachedLiveLead(box, "mate", "org", "crew-1")).toBe(false);
+    expect(saveLeadForPack(box, "lead", "org", {}, crews, member)).toBeNull();
   });
 });
