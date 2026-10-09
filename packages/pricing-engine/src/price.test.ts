@@ -165,7 +165,8 @@ describe("modifiers and confidence", () => {
     expect(r.breakdown.some((b) => b.label.startsWith("Narrow gate"))).toBe(true);
     expect(r.breakdown.some((b) => b.label.startsWith("First cut"))).toBe(true);
     const slope = r.breakdown.find((b) => b.label.startsWith("Slope"));
-    expect(slope?.cost).toBeCloseTo(18 * 0.25, 2);
+    // Steep slope cost follows extra hours (hoursPct 0.4), same as bagging, not the 0.25 price percent.
+    expect(slope?.cost).toBeCloseTo(18 * 0.4, 2);
   });
 
   it("returns a range when confidence is low", () => {

@@ -1,4 +1,4 @@
-select plan(25);
+select plan(34);
 
 select tests.create_user('integrity-owner@example.com', 'Integrity Owner') as owner \gset
 select tests.create_org('Integrity', 'integrity', :'owner'::uuid) as org \gset
@@ -164,7 +164,10 @@ select throws_ok(
   'a hash mismatch raises proposal changed'
 );
 
--- Deleting a sent quote must cascade through the frozen-version trigger.
+-- Deleting a sent quote must still cascade through the frozen-version trigger.
+-- A sent quote has no acceptance. Its operational audit rows are not signature
+-- evidence, so they go away with the quote. Accepted quotes are different:
+-- the quote, the acceptance, and the audit rows have to stay.
 select tests.authenticate_as(:'owner'::uuid, :'org'::uuid, 'owner');
 select public.quote_create(:'acct'::uuid, null, 'Delete me') as dq \gset
 select public.quote_current_version(:'dq'::uuid) as dvid \gset
@@ -186,5 +189,71 @@ select is((select count(*) from public.quote_versions where id = :'dvid'::uuid),
 select is((select count(*) from public.quote_line_items where version_id = :'dvid'::uuid), 0::bigint, 'line items are deleted');
 select is((select count(*) from public.quote_sections where version_id = :'dvid'::uuid), 0::bigint, 'sections are deleted');
 select is((select count(*) from public.audit_events where quote_id = :'dq'::uuid), 0::bigint, 'audit events are deleted');
+
+-- An accepted quote is evidence. Deleting it must fail and leave the rows.
+select tests.authenticate_as(:'owner'::uuid, :'org'::uuid, 'owner');
+select throws_ok(
+  format($$ delete from public.quotes where id = %L::uuid $$, :'qid'),
+  '55000',
+  'accepted quotes cannot be deleted',
+  'deleting an accepted quote fails'
+);
+select is(
+  (select count(*) from public.quotes where id = :'qid'::uuid),
+  1::bigint,
+  'the accepted quote remains'
+);
+select is(
+  (select count(*) from public.acceptances where quote_id = :'qid'::uuid),
+  1::bigint,
+  'the acceptance row remains'
+);
+select ok(
+  exists (
+    select 1 from public.audit_events
+    where quote_id = :'qid'::uuid and kind = 'quote.accepted'
+  ),
+  'the accepted quote audit event remains'
+);
+select is(
+  (
+    select confdeltype
+    from pg_constraint
+    where conrelid = 'public.acceptances'::regclass
+      and conname = 'acceptances_quote_id_fkey'
+  ),
+  'a',
+  'deleting a quote does not cascade to acceptances'
+);
+select is(
+  (
+    select confdeltype
+    from pg_constraint
+    where conrelid = 'public.audit_events'::regclass
+      and conname = 'audit_events_quote_id_fkey'
+  ),
+  'a',
+  'deleting a quote does not cascade to audit events'
+);
+select tests.clear_auth();
+select throws_ok(
+  format($$ delete from public.quotes where id = %L::uuid $$, :'qid'),
+  '55000',
+  'accepted quotes cannot be deleted',
+  'the table owner cannot delete an accepted quote either'
+);
+
+-- A draft has no acceptance and no audit events, so it still deletes.
+select tests.authenticate_as(:'owner'::uuid, :'org'::uuid, 'owner');
+select public.quote_create(:'acct'::uuid, null, 'Draft delete') as draftq \gset
+select lives_ok(
+  format($$ delete from public.quotes where id = %L::uuid $$, :'draftq'),
+  'a draft quote with no acceptance still deletes'
+);
+select is(
+  (select count(*) from public.quotes where id = :'draftq'::uuid),
+  0::bigint,
+  'the draft quote is gone'
+);
 
 select * from finish();
