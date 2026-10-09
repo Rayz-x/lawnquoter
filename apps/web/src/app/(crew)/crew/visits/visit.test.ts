@@ -80,6 +80,14 @@ describe("visit detail timer", () => {
     expect(readClock(box, "other:org", "v1")).toBeNull();
   });
 
+  it("does not leave a skipped stop in progress", () => {
+    const detail = visitFromPack(pack, "v2");
+    const stored: VisitClock = { status: "in_progress", startedAt: at, crewSize: 1, applied: ["a"], segments: [{ kind: "job", startedAt: at, endedAt: null }] };
+    const skipped = { ...detail!, status: "skipped" };
+    expect(projectVisit(skipped, stored, [{ kind: "job", startedAt: at, endedAt: null }], [{ clientId: "a", kind: "visit_start", at }]).status).toBe("skipped");
+    expect(activeAddress([skipped], "other")).toBeNull();
+  });
+
   it("treats only the live crew lead as able to run the timer", () => {
     const crews = [{ id: "crew-1", default_lead_id: "lead" }, { id: "crew-2", default_lead_id: "other" }];
     const member = { role: "crew_lead", status: "active" };

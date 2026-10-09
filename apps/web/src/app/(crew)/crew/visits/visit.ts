@@ -96,9 +96,12 @@ export function applyClock(clock: VisitClock, action: ClockAction): VisitClock {
   return { ...clock, applied };
 }
 
+const TERMINAL = new Set(["completed", "skipped", "cant_complete", "cancelled"]);
+
 export function projectVisit(detail: VisitDetail, stored: VisitClock | null, entries: Segment[] | null, pending: ClockAction[]): VisitClock {
   const seeded = seedClock(detail);
-  const base: VisitClock = entries && entries.length > 0 ? { ...seeded, segments: entries, applied: [] } : (stored ?? seeded);
+  const closed = TERMINAL.has(detail.status);
+  const base: VisitClock = !closed && entries && entries.length > 0 ? { ...seeded, segments: entries, applied: [] } : closed ? seeded : (stored ?? seeded);
   return pending.reduce((clock, action) => applyClock(clock, action), base);
 }
 
@@ -130,7 +133,7 @@ export function activeAddress(visits: VisitDetail[], visitId: string): string | 
   return visits.find((visit) => visit.id !== visitId && (visit.status === "in_progress" || visit.status === "paused"))?.address ?? null;
 }
 
-export function patchVisitPack(data: unknown, visitId: string, patch: { status?: string; started_at?: string; crew_size?: number }): unknown {
+export function patchVisitPack(data: unknown, visitId: string, patch: { status?: string; started_at?: string; crew_size?: number; skip_reason?: string }): unknown {
   const pack = record(data);
   if (!pack || !Array.isArray(pack.visits)) return data;
   return { ...pack, visits: pack.visits.map((value) => (record(value)?.id === visitId ? { ...record(value), ...patch } : value)) };

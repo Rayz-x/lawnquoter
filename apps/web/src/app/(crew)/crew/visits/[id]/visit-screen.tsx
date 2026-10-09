@@ -14,6 +14,7 @@ import {
   activeAddress, applyClock, budgetLabel, cachedLiveLead, crewIdFromPack, elapsedMs, formatElapsed, liveLeadFromPack, patchVisitPack, projectVisit, readClock, saveLeadForPack, visitFromPack, visitsInPack, writeClock,
   type ClockAction, type Segment, type VisitClock, type VisitDetail,
 } from "../visit";
+import { VisitActions } from "./visit-actions";
 import { VisitPhotos, type VisitPhotosHandle } from "./visit-photos";
 
 const ACTIONS = new Set(["visit_start", "visit_pause", "visit_resume", "visit_finish", "visit_set_crew_size"]);
@@ -157,6 +158,7 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
   const crewSize = clock.crewSize ?? 1;
   const closed = clock.status === "cancelled" || detail.status === "cancelled";
   const needAfter = (clock.status === "in_progress" || clock.status === "paused") && !afterReady;
+  const canAct = !closed && (clock.status === "scheduled" || clock.status === "in_progress" || clock.status === "paused");
 
   return (
     <section className="flex flex-1 flex-col px-4 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-28">
@@ -202,7 +204,8 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
           ) : null}
         </div>
       ) : null}
-      {clock.status === "in_progress" || clock.status === "paused" ? <VisitPhotos visitId={visitId} userId={userId} orgId={orgId} onAfter={setAfterReady} pickRef={photos} /> : null}
+      {lead && (clock.status === "in_progress" || clock.status === "paused") ? <VisitPhotos visitId={visitId} userId={userId} orgId={orgId} onAfter={setAfterReady} pickRef={photos} /> : null}
+      {lead && canAct ? <VisitActions visitId={visitId} userId={userId} orgId={orgId} onLeave={() => { if (onBack) onBack(); else router.push("/crew/today"); }} /> : null}
       {blocked ? <p className="mt-4 text-[17px] font-semibold">Finish {blocked} first?</p> : null}
       {!lead ? <p className="mt-4 text-[17px]">The crew lead starts and finishes stops.</p> : null}
       {error ? <p className="mt-3 text-[15px] font-semibold text-destructive">{error}</p> : null}
