@@ -8,6 +8,28 @@
 -- Writes: owner, admin, dispatcher. convert_accepted_quote and
 -- update_agreement_schedule also allow sales. anon has no EXECUTE.
 
+-- Why a visit was cancelled. The dispatcher's words stay on visit_office_notes.
+-- office is that cancel. schedule_changed is a cadence edit. The remaining
+-- values are the skip reasons skip_visit already writes.
+alter table public.visits
+  add column cancel_reason text;
+
+alter table public.visits
+  add constraint visits_cancel_reason_known check (
+    cancel_reason is null
+    or cancel_reason in (
+      'schedule_changed',
+      'office',
+      'gate_locked',
+      'dog_loose',
+      'customer_skip',
+      'weather',
+      'equipment',
+      'unsafe',
+      'other'
+    )
+  );
+
 -- Accepted line items for a quote.
 --
 -- quote_accept stores the resolved choice in public.acceptances.selections:
@@ -682,7 +704,8 @@ begin
 
   update public.visits
   set status = 'cancelled',
-      skip_reason = null
+      skip_reason = null,
+      cancel_reason = 'office'
   where id = v_visit.id;
 
   insert into public.visit_office_notes (visit_id, org_id, note)
@@ -1033,9 +1056,9 @@ begin
 
   -- A day, frequency, kind, or start-date change must not leave the old series
   -- scheduled. Visits that still fall on the new cadence stay. Future
-  -- unassigned visits cancelled earlier for schedule_changed are opened again
-  -- when they land on the new cadence, so the occurrence key does not block
-  -- the return trip. Assigned visits stay on their route. One-time cancels
+  -- unassigned visits cancelled with cancel_reason schedule_changed are
+  -- opened again when they land on the new cadence and that week has no
+  -- other live visit. Assigned visits stay on their route. One-time cancels
   -- the future unassigned series and does not generate a replacement.
   if v_changed then
     v_today := private.org_local_today(a.org_id);
@@ -1046,53 +1069,44 @@ begin
         + ((p_preferred_dow - extract(dow from p_start_date)::integer + 7) % 7);
     end if;
 
-    with cancelled as (
-      update public.visits v
-      set status = 'cancelled'
-      where v.org_id = a.org_id
-        and v.agreement_id = a.id
-        and v.status = 'scheduled'::public.visit_status
-        and v.route_id is null
-        and v.occurrence_date >= v_today
-        and not (
-          v_kind = 'recurring'::public.agreement_kind
-          and v.occurrence_date >= p_start_date
-          and (a.end_date is null or v.occurrence_date <= a.end_date)
-          and (
-            (
-              v_frequency = 'monthly'::public.agreement_frequency
-              and exists (
-                select 1
-                from generate_series(0, 600) as n
-                where (p_start_date + make_interval(months => n))::date = v.occurrence_date
-              )
-            )
-            or (
-              v_frequency in ('weekly'::public.agreement_frequency, 'biweekly'::public.agreement_frequency)
-              and v_anchor is not null
-              and v_step is not null
-              and v.occurrence_date >= v_anchor
-              and ((v.occurrence_date - v_anchor) % v_step) = 0
+    update public.visits v
+    set status = 'cancelled',
+        cancel_reason = 'schedule_changed'
+    where v.org_id = a.org_id
+      and v.agreement_id = a.id
+      and v.status = 'scheduled'::public.visit_status
+      and v.route_id is null
+      and v.occurrence_date >= v_today
+      and not (
+        v_kind = 'recurring'::public.agreement_kind
+        and v.occurrence_date >= p_start_date
+        and (a.end_date is null or v.occurrence_date <= a.end_date)
+        and (
+          (
+            v_frequency = 'monthly'::public.agreement_frequency
+            and exists (
+              select 1
+              from generate_series(0, 600) as n
+              where (p_start_date + make_interval(months => n))::date = v.occurrence_date
             )
           )
+          or (
+            v_frequency in ('weekly'::public.agreement_frequency, 'biweekly'::public.agreement_frequency)
+            and v_anchor is not null
+            and v_step is not null
+            and v.occurrence_date >= v_anchor
+            and ((v.occurrence_date - v_anchor) % v_step) = 0
+          )
         )
-      returning v.id, v.org_id
-    )
-    insert into public.visit_office_notes (visit_id, org_id, note)
-    select c.id, c.org_id, 'schedule_changed'
-    from cancelled c
-    on conflict (visit_id) do update
-      set note = case
-        when length(coalesce(public.visit_office_notes.note, '')) > 0
-        then public.visit_office_notes.note || E'\n' || excluded.note
-        else excluded.note
-      end;
+      );
 
     update public.visits v
-    set status = 'scheduled'
+    set status = 'scheduled',
+        cancel_reason = null
     where v.org_id = a.org_id
       and v.agreement_id = a.id
       and v.status = 'cancelled'::public.visit_status
+      and v.cancel_reason = 'schedule_changed'
       and v.route_id is null
       and v.occurrence_date >= v_today
       and v_kind = 'recurring'::public.agreement_kind
@@ -1115,14 +1129,15 @@ begin
           and ((v.occurrence_date - v_anchor) % v_step) = 0
         )
       )
-      and exists (
+      and not exists (
         select 1
-        from public.visit_office_notes n
-        where n.visit_id = v.id
-          and (
-            n.note = 'schedule_changed'
-            or right(n.note, char_length(E'\nschedule_changed')) = E'\nschedule_changed'
-          )
+        from public.visits existing
+        where existing.org_id = v.org_id
+          and existing.agreement_id = v.agreement_id
+          and existing.status <> 'cancelled'::public.visit_status
+          and existing.occurrence_date is distinct from v.occurrence_date
+          and date_trunc('week', existing.occurrence_date::timestamp)
+            = date_trunc('week', v.occurrence_date::timestamp)
       );
 
     if v_kind = 'recurring'::public.agreement_kind
