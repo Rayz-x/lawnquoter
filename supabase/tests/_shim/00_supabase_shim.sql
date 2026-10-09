@@ -20,7 +20,19 @@ begin
 end
 $$;
 
-grant anon, authenticated, service_role, supabase_auth_admin to current_user;
+-- Tests SET ROLE to anon/authenticated. supabase_auth_admin is a reserved role on
+-- the Supabase Postgres image: only a superuser may grant membership in it, and
+-- the CI login is not one. Skip that membership; the other grants are required.
+grant anon, authenticated, service_role to current_user;
+
+do $$
+begin
+  grant supabase_auth_admin to current_user;
+exception
+  when insufficient_privilege then
+    null;
+end
+$$;
 
 create schema if not exists extensions;
 grant usage on schema extensions to public;
