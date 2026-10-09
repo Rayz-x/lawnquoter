@@ -335,7 +335,7 @@ select is((select count(*) from public.equipment_rates), 0::bigint, 'crew cannot
 select is((select count(*) from public.materials), 0::bigint, 'crew cannot read material costs');
 select is((select count(*) from public.payment_intents), 0::bigint, 'crew cannot read payment amounts');
 select is((select count(*) from public.property_access), 0::bigint, 'crew cannot read unassigned gate codes');
-select is((select count(*) from public.properties), 1::bigint, 'crew can still see the property');
+select is((select count(*) from public.properties), 0::bigint, 'crew does not see a property until a visit is routed to their crew');
 
 select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
 select is((select count(*) from public.quotes), 0::bigint, 'crew_lead cannot read quotes');
@@ -352,7 +352,7 @@ select is((select count(*) from public.equipment_rates), 0::bigint, 'crew_lead c
 select is((select count(*) from public.materials), 0::bigint, 'crew_lead cannot read material costs');
 select is((select count(*) from public.payment_intents), 0::bigint, 'crew_lead cannot read payment amounts');
 select is((select count(*) from public.property_access), 0::bigint, 'crew_lead cannot read unassigned gate codes');
-select is((select count(*) from public.properties), 1::bigint, 'crew_lead can still see the property');
+select is((select count(*) from public.properties), 0::bigint, 'crew_lead does not see a property until a visit is routed to their crew');
 
 select tests.authenticate_as(:'crew'::uuid, :'org'::uuid, 'admin');
 select is((select count(*) from public.pricing_rules), 0::bigint, 'a spoofed admin claim does not reveal pricing rules');
