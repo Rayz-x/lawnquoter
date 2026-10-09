@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { driveUrl, officeTel, packIsFresh, statusLabel } from "@/app/(crew)/crew/today";
-import { browserCrewStore, enqueueMutation, flushOutbox, loadDayPack, saveDayPack, type OutboxRow } from "@/lib/crew/queue";
+import { browserCrewStore, enqueueMutation, flushOutbox, loadDayPack, saveDayPack, scopeKey, type OutboxRow } from "@/lib/crew/queue";
 import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
 import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/database.types";
@@ -19,7 +19,7 @@ const ACTIONS = new Set(["visit_start", "visit_pause", "visit_resume", "visit_fi
 
 export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visitId: string; timeZone: string; userId: string; orgId: string; onBack?: () => void }) {
   const router = useRouter();
-  const scope = `${userId}:${orgId}`;
+  const scope = scopeKey(userId, orgId);
   const revision = useRef(0);
   const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
   const [now, setNow] = useState(() => new Date());

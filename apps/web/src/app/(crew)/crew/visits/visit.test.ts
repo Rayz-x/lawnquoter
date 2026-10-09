@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeAddress, applyClock, budgetLabel, cachedLiveLead, elapsedMs, formatElapsed, isLiveCrewLead, leadFromReads, patchVisitPack, projectVisit, readClock, rememberLiveLead, saveLeadForPack, visitFromPack, writeClock, type VisitClock } from "./visit";
+import { activeAddress, applyClock, budgetLabel, cachedLiveLead, clearLiveLead, elapsedMs, formatElapsed, isLiveCrewLead, leadFromReads, patchVisitPack, projectVisit, readClock, rememberLiveLead, saveLeadForPack, visitFromPack, writeClock, type VisitClock } from "./visit";
 
 const at = "2026-10-09T14:00:00.000Z";
 const pack = {
@@ -92,6 +92,8 @@ describe("visit detail timer", () => {
     rememberLiveLead(box, "a:b", "c", "crew-1", true);
     expect(cachedLiveLead(box, "a", "b:c", "crew-1")).toBeNull();
     expect(cachedLiveLead(box, "a:b", "c", "crew-1")).toBe(true);
+    clearLiveLead(box);
+    expect(cachedLiveLead(box, "a:b", "c", "crew-1")).toBeNull();
     const downloaded = { crew: { id: "crew-1" } };
     expect(saveLeadForPack(box, "lead", "org", downloaded, crews, member)).toBe(true);
     expect(cachedLiveLead(box, "lead", "org", "crew-1")).toBe(true);
