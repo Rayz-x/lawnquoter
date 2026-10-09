@@ -1,4 +1,4 @@
-select plan(49);
+select plan(50);
 
 -- EXECUTE grants --------------------------------------------------------------
 select ok(
@@ -46,6 +46,11 @@ select ok(
   'only supabase_auth_admin can execute the access token hook'
 );
 select ok(
+  not has_function_privilege('anon', 'public.property_clear_geometry(uuid)', 'execute')
+  and has_function_privilege('authenticated', 'public.property_clear_geometry(uuid)', 'execute'),
+  'anon cannot execute property_clear_geometry'
+);
+select ok(
   exists (
     select 1
     from pg_default_acl a
@@ -54,11 +59,14 @@ select ok(
       and not exists (
         select 1
         from aclexplode(a.defaclacl) x
-        where x.grantee = 0
-          and x.privilege_type = 'EXECUTE'
+        where x.privilege_type = 'EXECUTE'
+          and (
+            x.grantee = 0
+            or x.grantee = (select oid from pg_roles where rolname = 'anon')
+          )
       )
   ),
-  'new functions are not executable by PUBLIC'
+  'new functions are not executable by anon or PUBLIC'
 );
 select case
   when to_regprocedure('public.rls_auto_enable()') is null then

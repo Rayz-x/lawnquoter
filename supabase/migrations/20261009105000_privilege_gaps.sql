@@ -646,6 +646,10 @@ grant execute on function private.can_read_pricing(uuid) to authenticated, servi
 grant execute on function private.can_read_property_access(uuid, uuid) to authenticated, service_role;
 grant execute on function private.handle_new_auth_user() to supabase_auth_admin;
 
+-- Security invoker, so the definer sweep above does not touch it. Hosted
+-- default privileges still granted anon EXECUTE. authenticated keeps its grant.
+revoke execute on function public.property_clear_geometry(uuid) from anon;
+
 -- Live-only drift. The function is not created here; revoke it when present.
 do $$
 begin
@@ -655,6 +659,9 @@ begin
 end
 $$;
 
--- A schema-scoped revoke does not replace Postgres' built-in
--- GRANT EXECUTE TO PUBLIC. A global default ACL does.
-alter default privileges revoke execute on functions from public;
+-- Future functions in public are not executable by anon or PUBLIC.
+-- quote_public, quote_accept, and quote_decline keep the explicit grants above.
+-- A schema-scoped revoke does not replace Postgres' built-in GRANT EXECUTE
+-- TO PUBLIC, so the global default ACL covers that case too.
+alter default privileges in schema public revoke execute on functions from anon, public;
+alter default privileges revoke execute on functions from anon, public;
