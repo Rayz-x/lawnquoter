@@ -149,19 +149,24 @@ const propertySchema = z.object({
   zone: optionalText(60),
 });
 
-type PropertyValues = Omit<z.infer<typeof propertySchema>, "slope" | "gate_width_in"> & {
+type PropertyValues = Omit<z.infer<typeof propertySchema>, "slope" | "gate_width_in" | "gate_code" | "access_notes"> & {
   slope: "flat" | "gentle" | "moderate" | "steep" | null;
   gate_width_in: number | null;
 };
 
-function parseProperty(fd: FormData): { success: true; data: PropertyValues } | { success: false; error: string } {
+type PropertyAccessValues = { gate_code: string | null; access_notes: string | null };
+
+function parseProperty(
+  fd: FormData,
+): { success: true; data: PropertyValues; access: PropertyAccessValues } | { success: false; error: string } {
   const parsed = propertySchema.safeParse({
     ...Object.fromEntries(fd),
     has_stairs: checkbox(fd, "has_stairs"),
     has_dogs: checkbox(fd, "has_dogs"),
   });
   if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
-  const { slope, gate_width_in, ...rest } = parsed.data;
+  const { slope, gate_width_in, gate_code, access_notes, ...rest } = parsed.data;
+  const access = emptyToNull({ gate_code, access_notes });
   return {
     success: true,
     data: {
@@ -169,7 +174,34 @@ function parseProperty(fd: FormData): { success: true; data: PropertyValues } | 
       slope: slope ? slope : null,
       gate_width_in: gate_width_in === "" || gate_width_in === undefined ? null : Number(gate_width_in),
     },
+    access: {
+      gate_code: access.gate_code ?? null,
+      access_notes: access.access_notes ?? null,
+    },
   };
+}
+
+/** Gate codes live in property_access so crew cannot read them from properties. */
+async function savePropertyAccess(
+  propertyId: string,
+  orgId: string,
+  access: PropertyAccessValues,
+): Promise<string | null> {
+  const supabase = await createClient();
+  if (!access.gate_code && !access.access_notes) {
+    const { error } = await supabase.from("property_access").delete().eq("property_id", propertyId).eq("org_id", orgId);
+    return error?.message ?? null;
+  }
+  const { error } = await supabase.from("property_access").upsert(
+    {
+      property_id: propertyId,
+      org_id: orgId,
+      gate_code: access.gate_code,
+      access_notes: access.access_notes,
+    },
+    { onConflict: "property_id" },
+  );
+  return error?.message ?? null;
 }
 
 /**
@@ -195,6 +227,8 @@ export async function createProperty(accountId: string, fd: FormData): Promise<A
     .select("id")
     .single();
   if (error) return fail(error.message);
+  const accessError = await savePropertyAccess(data.id, session.orgId, parsed.access);
+  if (accessError) return fail(accessError);
 
   const warnings = await resolveAndStoreGeometry(data.id, parsed.data);
   revalidatePath(`/accounts/${accountId}`);
@@ -220,6 +254,8 @@ export async function updateProperty(id: string, fd: FormData): Promise<ActionRe
     .eq("id", id)
     .eq("org_id", session.orgId);
   if (error) return fail(error.message);
+  const accessError = await savePropertyAccess(id, session.orgId, parsed.access);
+  if (accessError) return fail(accessError);
 
   const addressChanged =
     !before ||

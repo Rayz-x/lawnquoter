@@ -47,6 +47,13 @@ const query = {
     updates.push(values);
     return query;
   },
+  // Empty gate codes delete the property_access row. The geocode tests leave those fields blank.
+  delete() {
+    return query;
+  },
+  upsert() {
+    return query;
+  },
   maybeSingle: async () => ({ data: before, error: null }),
   then(resolve: (value: { data: null; error: null }) => unknown, reject?: (reason: unknown) => unknown) {
     return Promise.resolve({ data: null, error: null }).then(resolve, reject);

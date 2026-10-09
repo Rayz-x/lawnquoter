@@ -12,7 +12,15 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Tables } from "@/lib/supabase/types";
 import { createProperty, updateProperty } from "../actions";
 
-export function PropertyForm({ accountId, property }: { accountId: string; property?: Tables<"properties"> }) {
+export function PropertyForm({
+  accountId,
+  property,
+  access,
+}: {
+  accountId: string;
+  property?: Tables<"properties">;
+  access?: { gate_code: string | null; access_notes: string | null } | null;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -99,7 +107,7 @@ export function PropertyForm({ accountId, property }: { accountId: string; prope
         <div className="grid gap-3 sm:grid-cols-2">
           <Field>
             <FieldLabel htmlFor="gate_code">Gate code</FieldLabel>
-            <Input id="gate_code" name="gate_code" defaultValue={property?.gate_code ?? ""} />
+            <Input id="gate_code" name="gate_code" defaultValue={access?.gate_code ?? ""} />
           </Field>
           <Field>
             <FieldLabel htmlFor="zone">Route zone</FieldLabel>
@@ -108,7 +116,7 @@ export function PropertyForm({ accountId, property }: { accountId: string; prope
         </div>
         <Field>
           <FieldLabel htmlFor="access_notes">Access notes (customer-visible)</FieldLabel>
-          <Textarea id="access_notes" name="access_notes" rows={2} defaultValue={property?.access_notes ?? ""} />
+          <Textarea id="access_notes" name="access_notes" rows={2} defaultValue={access?.access_notes ?? ""} />
         </Field>
         <Field>
           <FieldLabel htmlFor="crew_notes">Crew notes (internal)</FieldLabel>

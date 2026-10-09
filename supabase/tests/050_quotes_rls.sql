@@ -28,7 +28,7 @@ select tests.authenticate_anon();
 select is((public.quote_public(:'tok'::uuid) ->> 'title'), 'Spring mow', 'anon can read a sent quote by token');
 
 select tests.authenticate_as(:'crew1'::uuid, :'org1'::uuid, 'crew');
-select is((select count(*) from public.quotes), 1::bigint, 'crew can read quotes');
+select is((select count(*) from public.quotes), 0::bigint, 'crew cannot read quotes');
 select throws_ok(
   format($$ select public.quote_create(%L::uuid) $$, :'acct'),
   '42501',
