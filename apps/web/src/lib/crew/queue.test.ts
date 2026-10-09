@@ -122,6 +122,53 @@ describe("crew outbox", () => {
     expect((await bare.listOutbox())[0]?.needs_office).toBe(true);
   });
 
+  it("retries an unexpected sync error and parks a known one", async () => {
+    const store = createMemoryCrewStore();
+    await enqueueMutation(store, { kind: "visit_pause", visit_id: "v", client_id: "a", ...who }, now);
+    const first = await flushOutbox(store, async () => [{ client_id: "a", status: "error", message: "could not apply that change" }], scope);
+    expect(first).toMatchObject({ sent: 0, pending: 1 });
+    expect((await store.listOutbox())[0]?.needs_office).toBe(false);
+    const second = await flushOutbox(store, async () => [{ client_id: "a", status: "applied", message: null }], scope);
+    expect(second).toEqual({ sent: 1, pending: 0 });
+  });
+
+  it("hands a repeated generic error to the office so later work can send", async () => {
+    const store = createMemoryCrewStore();
+    await enqueueMutation(store, { kind: "visit_set_note", visit_id: "v", client_id: "bad", ...who }, now);
+    await enqueueMutation(store, { kind: "visit_finish", visit_id: "v2", client_id: "finish", ...who }, now);
+    const reject = async () => [{ client_id: "bad", status: "error" as const, message: "could not apply that change" }];
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      await flushOutbox(store, reject, scope);
+      expect((await store.listOutbox()).find((row) => row.client_id === "bad")?.needs_office).toBe(false);
+    }
+    await flushOutbox(store, reject, scope);
+    expect((await store.listOutbox()).find((row) => row.client_id === "bad")).toMatchObject({ attempts: 5, needs_office: true });
+    const seen: string[] = [];
+    const sent = await flushOutbox(store, async (items) => {
+      seen.push(...items.map((item) => item.client_id));
+      return items.map((item) => ({ client_id: item.client_id, status: "applied" as const, message: null }));
+    }, scope);
+    expect(seen).toEqual(["finish"]);
+    expect(sent).toEqual({ sent: 1, pending: 1 });
+  });
+
+  it("hands an unmatched upsell to the office and still finishes", async () => {
+    const store = createMemoryCrewStore();
+    await enqueueMutation(store, { kind: "enhancement_create", visit_id: "v", client_id: "enh", payload: { tag: "mulch", photo_client_id: "missing" }, ...who }, now);
+    await enqueueMutation(store, { kind: "visit_finish", visit_id: "v", client_id: "fin", ...who }, new Date(now.getTime() + 1));
+    const sent = await flushOutbox(store, async (items) => {
+      return items.map((item) =>
+        item.client_id === "enh"
+          ? { client_id: item.client_id, status: "error" as const, message: "enhancement photo must belong to this visit" }
+          : { client_id: item.client_id, status: "applied" as const, message: null },
+      );
+    }, scope, now, async () => undefined, async () => "photo-row");
+    expect(sent).toEqual({ sent: 1, pending: 1 });
+    expect(await store.listOutbox()).toMatchObject([
+      { client_id: "enh", needs_office: true, last_error: "enhancement photo must belong to this visit" },
+    ]);
+  });
+
   it("parses crew_sync results", () => {
     expect(parseSyncResults({ results: [{ client_id: "a", status: "applied", message: null }, { status: "nope" }] })).toEqual([
       { client_id: "a", status: "applied", message: null },

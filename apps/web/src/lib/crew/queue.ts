@@ -168,17 +168,23 @@ export function syncItems(rows: OutboxRow[], deviceNow: string, scope: CrewScope
 export function applySyncResults(rows: OutboxRow[], results: SyncResult[]) {
   const byId = new Map(rows.map((row) => [row.client_id, row]));
   const remove: string[] = [];
-  let failed: OutboxRow | null = null;
+  const parked: OutboxRow[] = [];
   for (const result of results) {
     const row = byId.get(result.client_id);
     if (!row) continue;
     if (result.status === "error") {
-      failed = { ...row, attempts: row.attempts + 1, last_error: result.message, needs_office: true };
-      break;
+      const attempts = row.attempts + 1;
+      parked.push({
+        ...row,
+        attempts,
+        last_error: result.message,
+        needs_office: result.message !== "could not apply that change" || attempts >= 5,
+      });
+      continue;
     }
     remove.push(row.client_id);
   }
-  return { remove, failed };
+  return { remove, failed: parked[0] ?? null, parked };
 }
 
 export function parseSyncResults(data: unknown): SyncResult[] {
@@ -318,8 +324,9 @@ async function flushOutboxOnce(
       }
       return { sent, pending: (await store.listOutbox()).length };
     }
-    const { remove, failed } = applySyncResults(rows, results);
-    await store.settle(remove, failed);
+    const { remove, failed, parked } = applySyncResults(rows, results);
+    await store.settle(remove, null);
+    for (const row of parked) await store.settle([], row);
     sent += remove.length;
     pending = (await store.listOutbox()).length;
     if (failed || halted || !deferred) break;
