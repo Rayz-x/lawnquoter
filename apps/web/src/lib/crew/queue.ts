@@ -1,0 +1,288 @@
+import type { Json } from "@/lib/supabase/database.types";
+
+export const CREW_MUTATION_KINDS = [
+  "visit_start",
+  "visit_pause",
+  "visit_resume",
+  "visit_finish",
+  "visit_skip",
+  "visit_reopen",
+  "visit_set_crew_size",
+  "visit_set_note",
+  "visit_task_set",
+  "visit_photo_record",
+  "enhancement_create",
+] as const;
+
+export type CrewMutationKind = (typeof CREW_MUTATION_KINDS)[number];
+export type CrewPayload = { [key: string]: Json | undefined };
+
+export type OutboxRow = {
+  client_id: string;
+  kind: CrewMutationKind;
+  visit_id: string;
+  payload: CrewPayload;
+  occurred_at: string;
+  created_at: string;
+  attempts: number;
+  last_error: string | null;
+};
+
+export type SyncItem = {
+  client_id: string;
+  kind: CrewMutationKind;
+  visit_id: string;
+  occurred_at: string;
+  device_now: string;
+  payload: CrewPayload;
+};
+
+export type SyncResult = {
+  client_id: string;
+  status: "applied" | "replayed" | "error";
+  message: string | null;
+};
+
+export type DayPackRecord = {
+  date: string;
+  saved_at: string;
+  pack: Json;
+};
+
+export type CrewStore = {
+  listOutbox(): Promise<OutboxRow[]>;
+  putOutbox(row: OutboxRow): Promise<void>;
+  deleteOutbox(clientId: string): Promise<void>;
+  listPacks(): Promise<DayPackRecord[]>;
+  putPack(row: DayPackRecord): Promise<void>;
+  deletePack(date: string): Promise<void>;
+  clear(): Promise<void>;
+};
+
+const PACK_KEEP = 2;
+const PACK_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+
+export function newOutboxRow(
+  input: { client_id?: string; kind: string; visit_id: string; payload?: CrewPayload; occurred_at?: string },
+  now: Date,
+): OutboxRow {
+  if (!CREW_MUTATION_KINDS.includes(input.kind as CrewMutationKind)) throw new Error("Unknown crew mutation");
+  return {
+    client_id: input.client_id ?? crypto.randomUUID(),
+    kind: input.kind as CrewMutationKind,
+    visit_id: input.visit_id,
+    payload: input.payload ?? {},
+    occurred_at: input.occurred_at ?? now.toISOString(),
+    created_at: now.toISOString(),
+    attempts: 0,
+    last_error: null,
+  };
+}
+
+/** Persists the row before returning. Confirm the action only after this resolves. */
+export async function enqueueMutation(store: CrewStore, input: Parameters<typeof newOutboxRow>[0], now = new Date()) {
+  const row = newOutboxRow(input, now);
+  await store.putOutbox(row);
+  return row;
+}
+
+export function syncItems(rows: OutboxRow[], deviceNow: string): SyncItem[] {
+  return [...rows]
+    .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.client_id.localeCompare(b.client_id))
+    .map((row) => ({
+      client_id: row.client_id,
+      kind: row.kind,
+      visit_id: row.visit_id,
+      occurred_at: row.occurred_at,
+      device_now: deviceNow,
+      payload: row.payload,
+    }));
+}
+
+export function applySyncResults(rows: OutboxRow[], results: SyncResult[]) {
+  const byId = new Map(rows.map((row) => [row.client_id, row]));
+  const remove: string[] = [];
+  let failed: OutboxRow | null = null;
+  for (const result of results) {
+    const row = byId.get(result.client_id);
+    if (!row) continue;
+    if (result.status === "error") {
+      failed = { ...row, attempts: row.attempts + 1, last_error: result.message };
+      break;
+    }
+    remove.push(row.client_id);
+  }
+  return { remove, failed };
+}
+
+export function parseSyncResults(data: unknown): SyncResult[] {
+  const results = data && typeof data === "object" && "results" in data ? data.results : null;
+  if (!Array.isArray(results)) return [];
+  return results.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as { client_id?: unknown; status?: unknown; message?: unknown };
+    if (typeof row.client_id !== "string") return [];
+    if (row.status !== "applied" && row.status !== "replayed" && row.status !== "error") return [];
+    return [{ client_id: row.client_id, status: row.status, message: typeof row.message === "string" ? row.message : null }];
+  });
+}
+
+export function packDatesToDrop(packs: DayPackRecord[], now: Date): string[] {
+  const ranked = [...packs].sort((a, b) => b.saved_at.localeCompare(a.saved_at));
+  return ranked
+    .filter((pack, index) => index >= PACK_KEEP || now.getTime() - Date.parse(pack.saved_at) > PACK_MAX_AGE_MS)
+    .map((pack) => pack.date);
+}
+
+export function outboxBlocksSignOut(rows: OutboxRow[]) {
+  return rows.length > 0;
+}
+
+let flushChain: Promise<unknown> = Promise.resolve();
+
+export function flushOutbox(store: CrewStore, send: (items: SyncItem[]) => Promise<SyncResult[]>, now = new Date()) {
+  const run = flushChain.then(() => flushOutboxOnce(store, send, now));
+  flushChain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+async function flushOutboxOnce(store: CrewStore, send: (items: SyncItem[]) => Promise<SyncResult[]>, now: Date) {
+  const rows = await store.listOutbox();
+  const items = syncItems(rows, now.toISOString());
+  if (items.length === 0) return { sent: 0, pending: 0 };
+  let results: SyncResult[];
+  try {
+    results = await send(items);
+  } catch (error) {
+    const row = rows.find((item) => item.client_id === items[0]?.client_id);
+    if (row) {
+      await store.putOutbox({
+        ...row,
+        attempts: row.attempts + 1,
+        last_error: error instanceof Error ? error.message : "Could not send",
+      });
+    }
+    return { sent: 0, pending: rows.length };
+  }
+  const { remove, failed } = applySyncResults(rows, results);
+  for (const clientId of remove) await store.deleteOutbox(clientId);
+  if (failed) await store.putOutbox(failed);
+  return { sent: remove.length, pending: rows.length - remove.length };
+}
+
+export async function saveDayPack(store: CrewStore, date: string, pack: Json, now = new Date()) {
+  await store.putPack({ date, saved_at: now.toISOString(), pack });
+  for (const drop of packDatesToDrop(await store.listPacks(), now)) await store.deletePack(drop);
+}
+
+export async function loadDayPack(store: CrewStore, date: string) {
+  return (await store.listPacks()).find((pack) => pack.date === date) ?? null;
+}
+
+export async function purgeExpiredPacks(store: CrewStore, now = new Date()) {
+  for (const drop of packDatesToDrop(await store.listPacks(), now)) await store.deletePack(drop);
+}
+
+export function createMemoryCrewStore(): CrewStore {
+  const outbox = new Map<string, OutboxRow>();
+  const packs = new Map<string, DayPackRecord>();
+  return {
+    async listOutbox() {
+      return [...outbox.values()];
+    },
+    async putOutbox(row) {
+      outbox.set(row.client_id, row);
+    },
+    async deleteOutbox(clientId) {
+      outbox.delete(clientId);
+    },
+    async listPacks() {
+      return [...packs.values()];
+    },
+    async putPack(row) {
+      packs.set(row.date, row);
+    },
+    async deletePack(date) {
+      packs.delete(date);
+    },
+    async clear() {
+      outbox.clear();
+      packs.clear();
+    },
+  };
+}
+
+const DB_NAME = "lawnquoter-crew";
+const DB_VERSION = 1;
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains("outbox")) db.createObjectStore("outbox", { keyPath: "client_id" });
+      if (!db.objectStoreNames.contains("packs")) db.createObjectStore("packs", { keyPath: "date" });
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function transactionDone(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error("IndexedDB aborted"));
+  });
+}
+
+async function run<T>(names: string | string[], mode: IDBTransactionMode, fn: (tx: IDBTransaction) => Promise<T>): Promise<T> {
+  const db = await openDb();
+  const tx = db.transaction(names, mode);
+  const done = transactionDone(tx);
+  try {
+    const result = await fn(tx);
+    await done;
+    return result;
+  } catch (error) {
+    await done.catch(() => undefined);
+    throw error;
+  }
+}
+
+export function createIdbCrewStore(): CrewStore {
+  return {
+    listOutbox: () => run("outbox", "readonly", (tx) => requestToPromise(tx.objectStore("outbox").getAll() as IDBRequest<OutboxRow[]>)),
+    putOutbox: (row) => run("outbox", "readwrite", async (tx) => void tx.objectStore("outbox").put(row)),
+    deleteOutbox: (clientId) => run("outbox", "readwrite", async (tx) => void tx.objectStore("outbox").delete(clientId)),
+    listPacks: () => run("packs", "readonly", (tx) => requestToPromise(tx.objectStore("packs").getAll() as IDBRequest<DayPackRecord[]>)),
+    putPack: (row) => run("packs", "readwrite", async (tx) => void tx.objectStore("packs").put(row)),
+    deletePack: (date) => run("packs", "readwrite", async (tx) => void tx.objectStore("packs").delete(date)),
+    clear: () =>
+      run(["outbox", "packs"], "readwrite", async (tx) => {
+        tx.objectStore("outbox").clear();
+        tx.objectStore("packs").clear();
+      }),
+  };
+}
+
+let browserStore: CrewStore | undefined;
+
+export function browserCrewStore(): CrewStore {
+  browserStore ??= createIdbCrewStore();
+  return browserStore;
+}
+
+export function notifyCrewQueue() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("crew-queue"));
+}
