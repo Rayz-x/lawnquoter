@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect, useState, type ReactNode } from "react";
+import { clearClocks } from "@/app/(crew)/crew/visits/visit";
 import { browserCrewStore } from "@/lib/crew/queue";
 import { clearCrewCaches, crewWorkerUrl } from "@/lib/crew/sw-policy";
 import { useCrewSync } from "@/lib/crew/use-crew-sync";
@@ -38,6 +39,7 @@ export function CrewShell({ children, userId, orgId }: { children: ReactNode; us
     if (previous && previous !== key) {
       void clearCrewCaches();
       void browserCrewStore().clearPacks();
+      clearClocks(localStorage);
     }
     localStorage.setItem("crew-cache-user", key);
   }, [userId, orgId]);
