@@ -2,13 +2,13 @@
 
 import { useEffect } from "react";
 import { browserCrewStore, flushOutbox, notifyCrewQueue, purgeExpiredPacks } from "./queue";
-import { sendCrewSync } from "./sync";
+import { sendCrewSync, uploadVisitPhoto } from "./sync";
 
-export function useCrewSync() {
+export function useCrewSync(userId: string, orgId: string) {
   useEffect(() => {
     const store = browserCrewStore();
     const flush = () => {
-      void flushOutbox(store, sendCrewSync).then(() => notifyCrewQueue());
+      void flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto).then(() => notifyCrewQueue());
       void purgeExpiredPacks(store);
     };
     const onMessage = (event: MessageEvent) => {
@@ -30,5 +30,5 @@ export function useCrewSync() {
       navigator.serviceWorker?.removeEventListener("message", onMessage);
       window.clearInterval(timer);
     };
-  }, []);
+  }, [userId, orgId]);
 }
