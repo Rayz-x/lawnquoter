@@ -500,58 +500,6 @@ isOneToOne: true
       referencedColumns: ["id"]
     }
                   ]
-                },"quote_amounts": {
-                  Row: {
-                    "deposit_amount": number | null,"org_id": string,"quote_id": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "deposit_amount"?: number | null,"org_id": string,"quote_id": string
-                  }
-                  Update: {
-                    "deposit_amount"?: number | null,"org_id"?: string,"quote_id"?: string
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "quote_amounts_org_id_fkey"
-      columns: ["org_id"]
-isOneToOne: false
-      referencedRelation: "orgs"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "quote_amounts_quote_id_fkey"
-      columns: ["quote_id"]
-isOneToOne: true
-      referencedRelation: "quotes"
-      referencedColumns: ["id"]
-    }
-                  ]
-                },"quote_line_item_amounts": {
-                  Row: {
-                    "cost": number,"hours": number,"line_item_id": string,"org_id": string,"price": number,"range_high": number | null,"range_low": number | null
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "cost"?: number,"hours"?: number,"line_item_id": string,"org_id": string,"price"?: number,"range_high"?: number | null,"range_low"?: number | null
-                  }
-                  Update: {
-                    "cost"?: number,"hours"?: number,"line_item_id"?: string,"org_id"?: string,"price"?: number,"range_high"?: number | null,"range_low"?: number | null
-                  }
-                  Relationships: [
-                    {
-      foreignKeyName: "quote_line_item_amounts_line_item_id_fkey"
-      columns: ["line_item_id"]
-isOneToOne: true
-      referencedRelation: "quote_line_items"
-      referencedColumns: ["id"]
-    },{
-      foreignKeyName: "quote_line_item_amounts_org_id_fkey"
-      columns: ["org_id"]
-isOneToOne: false
-      referencedRelation: "orgs"
-      referencedColumns: ["id"]
-    }
-                  ]
                 },"quote_line_items": {
                   Row: {
                     "cost": number,"description": string | null,"hours": number,"id": string,"name": string,"notes_crew": string | null,"notes_customer": string | null,"option_group": string | null,"option_tier": Database["public"]['Enums']["option_tier"],"org_id": string,"photo_url": string | null,"price": number,"qty": number,"range_high": number | null,"range_low": number | null,"section_id": string | null,"selected": boolean,"service_id": string | null,"sort": number,"state": Database["public"]['Enums']["item_state"],"unit": string,"version_id": string

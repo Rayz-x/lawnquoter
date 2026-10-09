@@ -39,10 +39,24 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     versionId
       ? supabase
           .from("quote_line_items")
-          .select("id, name, state, option_group, option_tier, selected")
+          .select("id, name, state, option_group, option_tier, selected, price, hours, cost, range_low, range_high")
           .eq("version_id", versionId)
           .order("sort")
-      : Promise.resolve({ data: [] as { id: string; name: string; state: string; option_group: string | null; option_tier: string; selected: boolean }[] }),
+      : Promise.resolve({
+          data: [] as {
+            id: string;
+            name: string;
+            state: string;
+            option_group: string | null;
+            option_tier: string;
+            selected: boolean;
+            price: number;
+            hours: number;
+            cost: number;
+            range_low: number | null;
+            range_high: number | null;
+          }[],
+        }),
     supabase.from("pricing_rules").select("id, name, rule_type, config, service_id").eq("org_id", session.orgId).eq("active", true),
     supabase.from("price_lists").select("modifiers").eq("org_id", session.orgId).eq("status", "active").maybeSingle(),
     quote.property_id
@@ -55,30 +69,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
       : Promise.resolve({ data: null }),
   ]);
 
-  const itemRows = items ?? [];
-  const { data: amounts } = itemRows.length
-    ? await supabase
-        .from("quote_line_item_amounts")
-        .select("line_item_id, price, hours, cost, range_low, range_high")
-        .in(
-          "line_item_id",
-          itemRows.map((item) => item.id),
-        )
-    : { data: [] };
-  const amountById = new Map((amounts ?? []).map((amount) => [amount.line_item_id, amount]));
-  const lines = itemRows.map((item) => {
-    const amount = amountById.get(item.id);
-    return {
-      ...item,
-      price: amount?.price ?? null,
-      hours: amount?.hours ?? null,
-      cost: amount?.cost ?? null,
-      range_low: amount?.range_low ?? null,
-      range_high: amount?.range_high ?? null,
-      priced: amount != null,
-    };
-  });
-  const pricesVisible = lines.every((line) => line.priced);
+  const lines = items ?? [];
 
   const modifiers = (list?.modifiers as Modifiers | null) ?? defaultModifiers();
   const quantities: Record<string, number> = {};
@@ -151,15 +142,15 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
                       {i.state}
                       {i.option_group ? ` · ${i.option_group} / ${i.option_tier}` : ""}
                       {picked.includes(i.id) ? "" : " · not in default total"}
-                      {i.priced && i.range_low != null && i.range_high != null
+                      {i.range_low != null && i.range_high != null
                         ? ` · range ${formatMoneyRange(Number(i.range_low), Number(i.range_high))}`
                         : ""}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-heading tabular-nums">{i.priced ? formatMoney(Number(i.price)) : "—"}</div>
+                    <div className="font-heading tabular-nums">{formatMoney(Number(i.price))}</div>
                     <div className="text-xs text-muted-foreground tabular-nums">
-                      {i.priced ? `${Number(i.hours).toFixed(2)}h · ${formatMoney(Number(i.cost))} cost` : "Price hidden"}
+                      {`${Number(i.hours).toFixed(2)}h · ${formatMoney(Number(i.cost))} cost`}
                     </div>
                   </div>
                 </div>
@@ -185,20 +176,20 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               <div className="flex justify-between">
                 <span>Price</span>
                 <span className="font-heading text-xl font-semibold tabular-nums">
-                  {pricesVisible ? formatMoney(total, { cents: true }) : "—"}
+                  {formatMoney(total, { cents: true })}
                 </span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Hours</span>
-                <span>{pricesVisible ? hours.toFixed(2) : "—"}</span>
+                <span>{hours.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Cost</span>
-                <span className="font-heading tabular-nums">{pricesVisible ? formatMoney(cost, { cents: true }) : "—"}</span>
+                <span className="font-heading tabular-nums">{formatMoney(cost, { cents: true })}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Margin</span>
-                <span>{pricesVisible && total > 0 ? `${Math.round(((total - cost) / total) * 100)}%` : "—"}</span>
+                <span>{total > 0 ? `${Math.round(((total - cost) / total) * 100)}%` : "—"}</span>
               </div>
             </CardContent>
           </Card>

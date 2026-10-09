@@ -1,4 +1,4 @@
-select plan(50);
+select plan(78);
 
 -- EXECUTE grants --------------------------------------------------------------
 select ok(
@@ -67,6 +67,41 @@ select ok(
       )
   ),
   'new functions are not executable by anon or PUBLIC'
+);
+select ok(
+  (
+    select bool_and(
+      exists (
+        select 1
+        from aclexplode(p.proacl) x
+        join pg_roles r on r.oid = x.grantee
+        where r.rolname = 'authenticated'
+          and x.privilege_type = 'EXECUTE'
+      )
+      and exists (
+        select 1
+        from aclexplode(p.proacl) x
+        join pg_roles r on r.oid = x.grantee
+        where r.rolname = 'service_role'
+          and x.privilege_type = 'EXECUTE'
+      )
+    )
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'private'
+      and p.proname in (
+        'current_org_id',
+        'current_org_role',
+        'is_org_member',
+        'has_org_role',
+        'is_org_admin',
+        'can_edit_customers',
+        'can_edit_pricing',
+        'can_read_pricing',
+        'can_read_property_access'
+      )
+  ),
+  'RLS helpers have an explicit execute grant for authenticated and service_role'
 );
 select case
   when to_regprocedure('public.rls_auto_enable()') is null then
@@ -241,13 +276,19 @@ select is(
   'a member can read the webhook-written payment intent'
 );
 
--- Crew cannot read prices, costs, or gate codes ------------------------------
+-- Field roles cannot obtain prices, including through quote_public ----------
+select tests.clear_auth();
+select tests.create_user('invite-lead@example.com', 'Invite Lead') as lead \gset
+select tests.create_user('invite-reader@example.com', 'Invite Reader') as reader \gset
+select tests.add_member(:'org'::uuid, :'lead'::uuid, 'crew_lead');
+select tests.add_member(:'org'::uuid, :'reader'::uuid, 'read_only');
+
 select tests.authenticate_as(:'owner'::uuid, :'org'::uuid, 'owner');
 insert into public.accounts (org_id, name) values (:'org'::uuid, 'Pat') returning id as acct \gset
 select public.quote_create(:'acct'::uuid, null, 'Priced') as qid \gset
 select public.quote_current_version(:'qid'::uuid) as vid \gset
-insert into public.quote_line_items (org_id, version_id, name, state, price, cost)
-values (:'org'::uuid, :'vid'::uuid, 'Mow', 'included', 80, 30)
+insert into public.quote_line_items (org_id, version_id, name, state, price, cost, notes_crew)
+values (:'org'::uuid, :'vid'::uuid, 'Mow', 'included', 80, 30, 'bring the 21')
 returning id as line \gset
 update public.quotes set deposit_amount = 15 where id = :'qid'::uuid;
 insert into public.services (org_id, name, slug) values (:'org'::uuid, 'Mow', 'mow') returning id as svc \gset
@@ -260,51 +301,92 @@ values (:'org'::uuid, :'acct'::uuid, '1 Gate St', 'Town', 'IL', '60601')
 returning id as prop \gset
 insert into public.property_access (property_id, org_id, gate_code, access_notes)
 values (:'prop'::uuid, :'org'::uuid, '4321', 'side door');
+insert into public.labor_rates (org_id, name, hourly_rate) values (:'org'::uuid, 'Crew', 25);
+insert into public.equipment_rates (org_id, name, hourly_rate) values (:'org'::uuid, 'Mower', 15);
+insert into public.materials (org_id, name, unit_cost) values (:'org'::uuid, 'Mulch', 40);
+select public.quote_send(:'qid'::uuid) as sent_token \gset
+select public_token as tok from public.quotes where id = :'qid'::uuid \gset
+
+select tests.authenticate_anon();
+select is(
+  (public.quote_public(:'tok'::uuid) -> 'items' -> 0 ->> 'price')::numeric,
+  80::numeric,
+  'anon can still read the public proposal price'
+);
+select set_config(
+  'request.headers',
+  '{"x-forwarded-for":"203.0.113.9","user-agent":"pgtap"}',
+  true
+) as ignored_headers \gset
+select public.quote_accept(:'tok'::uuid, 'Pat Customer', null, true) as accepted \gset
 
 select tests.authenticate_as(:'crew'::uuid, :'org'::uuid, 'crew');
-select throws_ok(
-  $$ select price from public.quote_line_items $$,
-  '42501',
-  null,
-  'crew cannot read line-item prices'
-);
-select throws_ok(
-  $$ select cost from public.quote_line_items $$,
-  '42501',
-  null,
-  'crew cannot read line-item costs'
-);
-select throws_ok(
-  $$ select deposit_amount from public.quotes $$,
-  '42501',
-  null,
-  'crew cannot read quote deposit amounts'
-);
-select is((select count(*) from public.quote_line_item_amounts), 0::bigint, 'crew cannot read line-item amount rows');
-select is((select count(*) from public.quote_amounts), 0::bigint, 'crew cannot read quote amount rows');
+select is((select count(*) from public.quotes), 0::bigint, 'crew cannot read quotes');
+select is((select count(*) from public.quote_versions), 0::bigint, 'crew cannot read quote versions');
+select is((select count(*) from public.quote_sections), 0::bigint, 'crew cannot read quote sections');
+select is((select count(*) from public.quote_line_items), 0::bigint, 'crew cannot read quote line items');
+select is((select count(*) from public.acceptances), 0::bigint, 'crew cannot read acceptances');
+select is((select count(*) from public.audit_events), 0::bigint, 'crew cannot read audit events');
+select is(public.quote_public(:'tok'::uuid), null, 'crew cannot obtain prices through quote_public');
 select is((select count(*) from public.price_lists), 0::bigint, 'crew cannot read price lists');
 select is((select count(*) from public.pricing_rules), 0::bigint, 'crew cannot read pricing rules');
+select is((select count(*) from public.labor_rates), 0::bigint, 'crew cannot read labor rates');
+select is((select count(*) from public.equipment_rates), 0::bigint, 'crew cannot read equipment rates');
+select is((select count(*) from public.materials), 0::bigint, 'crew cannot read material costs');
+select is((select count(*) from public.payment_intents), 0::bigint, 'crew cannot read payment amounts');
 select is((select count(*) from public.property_access), 0::bigint, 'crew cannot read unassigned gate codes');
 select is((select count(*) from public.properties), 1::bigint, 'crew can still see the property');
+
+select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
+select is((select count(*) from public.quotes), 0::bigint, 'crew_lead cannot read quotes');
+select is((select count(*) from public.quote_versions), 0::bigint, 'crew_lead cannot read quote versions');
+select is((select count(*) from public.quote_sections), 0::bigint, 'crew_lead cannot read quote sections');
+select is((select count(*) from public.quote_line_items), 0::bigint, 'crew_lead cannot read quote line items');
+select is((select count(*) from public.acceptances), 0::bigint, 'crew_lead cannot read acceptances');
+select is((select count(*) from public.audit_events), 0::bigint, 'crew_lead cannot read audit events');
+select is(public.quote_public(:'tok'::uuid), null, 'crew_lead cannot obtain prices through quote_public');
+select is((select count(*) from public.price_lists), 0::bigint, 'crew_lead cannot read price lists');
+select is((select count(*) from public.pricing_rules), 0::bigint, 'crew_lead cannot read pricing rules');
+select is((select count(*) from public.labor_rates), 0::bigint, 'crew_lead cannot read labor rates');
+select is((select count(*) from public.equipment_rates), 0::bigint, 'crew_lead cannot read equipment rates');
+select is((select count(*) from public.materials), 0::bigint, 'crew_lead cannot read material costs');
+select is((select count(*) from public.payment_intents), 0::bigint, 'crew_lead cannot read payment amounts');
+select is((select count(*) from public.property_access), 0::bigint, 'crew_lead cannot read unassigned gate codes');
+select is((select count(*) from public.properties), 1::bigint, 'crew_lead can still see the property');
 
 select tests.authenticate_as(:'crew'::uuid, :'org'::uuid, 'admin');
 select is((select count(*) from public.pricing_rules), 0::bigint, 'a spoofed admin claim does not reveal pricing rules');
 
 select tests.authenticate_as(:'owner'::uuid, :'org'::uuid, 'owner');
 select is(
-  (select price from public.quote_line_item_amounts where line_item_id = :'line'::uuid),
+  (select price from public.quote_line_items where id = :'line'::uuid),
   80::numeric,
   'owner can read the line price'
 );
 select is(
-  (select cost from public.quote_line_item_amounts where line_item_id = :'line'::uuid),
+  (select cost from public.quote_line_items where id = :'line'::uuid),
   30::numeric,
   'owner can read the line cost'
 );
 select is(
-  (select deposit_amount from public.quote_amounts where quote_id = :'qid'::uuid),
+  (select deposit_amount from public.quotes where id = :'qid'::uuid),
   15::numeric,
   'owner can read the quote deposit'
+);
+select is(
+  (select accepted_total from public.acceptances where quote_id = :'qid'::uuid),
+  80::numeric,
+  'owner can read the accepted total'
+);
+select is(
+  (select jsonb_array_length(selections) from public.acceptances where quote_id = :'qid'::uuid),
+  1,
+  'owner can read acceptance selections'
+);
+select is(
+  (select (payload -> 'accepted_total')::numeric from public.audit_events where quote_id = :'qid'::uuid and kind = 'quote.accepted'),
+  80::numeric,
+  'owner can read the accepted total in the audit payload'
 );
 select is(
   (select gate_code from public.property_access where property_id = :'prop'::uuid),
@@ -315,6 +397,18 @@ select is(
   (select access_notes from public.property_access where property_id = :'prop'::uuid),
   'side door',
   'owner can read access notes'
+);
+select is(
+  (select hourly_rate from public.labor_rates where org_id = :'org'::uuid),
+  25::numeric,
+  'owner can read labor rates'
+);
+
+select tests.authenticate_as(:'reader'::uuid, :'org'::uuid, 'read_only');
+select is(
+  (select price from public.quote_line_items where id = :'line'::uuid),
+  80::numeric,
+  'read_only can read the line price'
 );
 
 select tests.authenticate_as(:'sales'::uuid, :'org'::uuid, 'sales');
