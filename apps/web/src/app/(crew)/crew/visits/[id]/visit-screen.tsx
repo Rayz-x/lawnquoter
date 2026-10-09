@@ -11,7 +11,7 @@ import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
 import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/database.types";
 import {
-  activeAddress, applyClock, budgetLabel, cachedLiveLead, crewIdFromPack, elapsedMs, formatElapsed, patchVisitPack, projectVisit, readClock, saveLeadForPack, visitFromPack, visitsInPack, writeClock,
+  activeAddress, applyClock, budgetLabel, cachedLiveLead, crewIdFromPack, elapsedMs, formatElapsed, liveLeadFromPack, patchVisitPack, projectVisit, readClock, saveLeadForPack, visitFromPack, visitsInPack, writeClock,
   type ClockAction, type Segment, type VisitClock, type VisitDetail,
 } from "../visit";
 import { VisitPhotos, type VisitPhotosHandle } from "./visit-photos";
@@ -66,17 +66,21 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
       }
       const crewId = row ? crewIdFromPack(row.pack) : null;
       let live = cachedLiveLead(localStorage, userId, orgId, crewId) === true;
-      try {
-        const supabase = createClient();
-        const [{ data: crews, error: crewError }, { data: membership, error: memberError }] = await Promise.all([
-          supabase.rpc("my_crews"),
-          supabase.from("memberships").select("role, status").eq("user_id", userId).eq("org_id", orgId).maybeSingle(),
-        ]);
-        if (!crewError && !memberError && crewId) {
-          live = saveLeadForPack(localStorage, userId, orgId, row?.pack, crews, membership) === true;
+      if (liveLeadFromPack(row?.pack) !== null && crewId) {
+        live = saveLeadForPack(localStorage, userId, orgId, row?.pack, null, null) === true;
+      } else {
+        try {
+          const supabase = createClient();
+          const [{ data: crews, error: crewError }, { data: membership, error: memberError }] = await Promise.all([
+            supabase.rpc("my_crews"),
+            supabase.from("memberships").select("role, status").eq("user_id", userId).eq("org_id", orgId).maybeSingle(),
+          ]);
+          if (!crewError && !memberError && crewId) {
+            live = saveLeadForPack(localStorage, userId, orgId, row?.pack, crews, membership) === true;
+          }
+        } catch {
+          live = cachedLiveLead(localStorage, userId, orgId, crewId) === true;
         }
-      } catch {
-        live = cachedLiveLead(localStorage, userId, orgId, crewId) === true;
       }
       if (stop || seen !== revision.current) return;
       setLead(live);
