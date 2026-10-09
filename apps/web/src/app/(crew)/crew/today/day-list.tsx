@@ -4,7 +4,7 @@ import { TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
-import { browserCrewStore, flushOutbox, loadDayPack, notifyCrewQueue, saveDayPack } from "@/lib/crew/queue";
+import { browserCrewStore, flushOutbox, loadDayPack, notifyCrewQueue, saveDayPack, scopeKey } from "@/lib/crew/queue";
 import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
 import { orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/client";
@@ -43,14 +43,16 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
   useEffect(() => {
     const store = browserCrewStore();
     let stop = false;
-    const count = () => void store.listOutbox().then((rows) => { if (!stop) setWaiting(rows.length); });
+    const count = () => void store.listOutbox().then((rows) => {
+      if (!stop) setWaiting(rows.filter((row) => row.user_id === userId && row.org_id === orgId).length);
+    });
     count();
     window.addEventListener("crew-queue", count);
     return () => {
       stop = true;
       window.removeEventListener("crew-queue", count);
     };
-  }, []);
+  }, [userId, orgId]);
 
   useEffect(() => {
     const tick = () => setNow(new Date());
@@ -64,7 +66,7 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
     let stop = false;
     const refresh = async () => {
       setSending(true);
-      const sessionKey = `${userId}:${orgId}`;
+      const sessionKey = scopeKey(userId, orgId);
       if (localStorage.getItem("crew-session") !== sessionKey) {
         await store.clearPacks();
         localStorage.setItem("crew-session", sessionKey);
