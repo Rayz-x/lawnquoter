@@ -1,6 +1,13 @@
 import type { StyleSpecification } from "maplibre-gl";
 
 /**
+ * Required wherever a stored ArcGIS geocode is drawn. Esri's location-services
+ * terms require the "Powered by Esri" text; the World Geocoding service
+ * metadata does not add a separate data-provider string.
+ */
+export const ESRI_GEOCODE_ATTRIBUTION = "Powered by Esri";
+
+/**
  * Esri World Imagery is the measurement canvas: Esri's terms permit tracing
  * features from it to create vector data. Google/Mapbox satellite do not.
  *
