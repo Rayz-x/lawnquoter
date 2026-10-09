@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { VisitScreen } from "../visits/[id]/visit-screen";
-import { browserCrewStore, flushOutbox, loadDayPack, notifyCrewQueue, saveDayPack } from "@/lib/crew/queue";
+import { saveLeadForPack } from "../visits/visit";
+import { browserCrewStore, flushOutbox, loadDayPack, notifyCrewQueue, saveDayPack, scopeKey } from "@/lib/crew/queue";
 import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
 import { orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/client";
@@ -45,14 +46,16 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
   useEffect(() => {
     const store = browserCrewStore();
     let stop = false;
-    const count = () => void store.listOutbox().then((rows) => { if (!stop) setWaiting(rows.length); });
+    const count = () => void store.listOutbox().then((rows) => {
+      if (!stop) setWaiting(rows.filter((row) => row.user_id === userId && row.org_id === orgId).length);
+    });
     count();
     window.addEventListener("crew-queue", count);
     return () => {
       stop = true;
       window.removeEventListener("crew-queue", count);
     };
-  }, []);
+  }, [userId, orgId]);
 
   useEffect(() => {
     const tick = () => setNow(new Date());
@@ -66,7 +69,7 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
     let stop = false;
     const refresh = async () => {
       setSending(true);
-      const sessionKey = `${userId}:${orgId}`;
+      const sessionKey = scopeKey(userId, orgId);
       if (localStorage.getItem("crew-session") !== sessionKey) {
         await store.clearPacks();
         localStorage.setItem("crew-session", sessionKey);
@@ -102,6 +105,16 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
           toast(message);
         }
         await saveDayPack(store, date, data as Json);
+        try {
+          const supabase = createClient();
+          const [{ data: crews, error: crewError }, { data: membership, error: memberError }] = await Promise.all([
+            supabase.rpc("my_crews"),
+            supabase.from("memberships").select("role, status").eq("user_id", userId).eq("org_id", orgId).maybeSingle(),
+          ]);
+          if (!crewError && !memberError) saveLeadForPack(localStorage, userId, orgId, data, crews, membership);
+        } catch {
+          // A failed lead read leaves the last saved flag in place.
+        }
         if (!stop) {
           setView(next);
           setError(null);

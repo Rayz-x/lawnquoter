@@ -1,3 +1,5 @@
+import { scopeKey } from "@/lib/crew/queue";
+
 export type Segment = { kind: "job" | "pause"; startedAt: string; endedAt: string | null };
 export type VisitClock = { status: string; startedAt: string | null; crewSize: number | null; segments: Segment[]; applied: string[] };
 export type VisitTask = { label: string; quantity: string | null; note: string | null };
@@ -155,4 +157,65 @@ export function writeClock(storage: Box, scope: string, visitId: string, clock: 
 
 export function clearClocks(storage: Box) {
   storage.removeItem(CLOCK_KEY);
+}
+
+const LEAD_KEY = "crew-live-lead";
+
+export function isLiveCrewLead(input: { userId: string; crewId: string | null; defaultLeadId: string | null; role: string | null; status: string | null }): boolean {
+  return input.crewId !== null && input.defaultLeadId === input.userId && input.role === "crew_lead" && input.status === "active";
+}
+
+export function crewIdFromPack(data: unknown): string | null {
+  const id = record(record(data)?.crew)?.id;
+  return typeof id === "string" && id ? id : null;
+}
+
+export function leadFromReads(userId: string, crewId: string | null, crews: unknown, membership: unknown): boolean {
+  const rows = Array.isArray(crews) ? crews : [];
+  const crew = rows.map((value) => record(value)).find((row) => row?.id === crewId);
+  const member = record(membership);
+  return isLiveCrewLead({
+    userId,
+    crewId,
+    defaultLeadId: typeof crew?.default_lead_id === "string" ? crew.default_lead_id : null,
+    role: typeof member?.role === "string" ? member.role : null,
+    status: typeof member?.status === "string" ? member.status : null,
+  });
+}
+
+function leadScope(userId: string, orgId: string): string {
+  return scopeKey(userId, orgId);
+}
+
+export function clearLiveLead(storage: Box) {
+  storage.removeItem(LEAD_KEY);
+}
+
+export function cachedLiveLead(storage: Box, userId: string, orgId: string, crewId: string | null): boolean | null {
+  if (!crewId) return null;
+  try {
+    const parsed = JSON.parse(storage.getItem(LEAD_KEY) ?? "{}") as Record<string, { crewId?: string; lead?: boolean }>;
+    const row = parsed[leadScope(userId, orgId)];
+    return row && row.crewId === crewId && typeof row.lead === "boolean" ? row.lead : null;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberLiveLead(storage: Box, userId: string, orgId: string, crewId: string, lead: boolean) {
+  let parsed: Record<string, { crewId: string; lead: boolean }> = {};
+  try {
+    parsed = JSON.parse(storage.getItem(LEAD_KEY) ?? "{}") as Record<string, { crewId: string; lead: boolean }>;
+  } catch {
+    parsed = {};
+  }
+  storage.setItem(LEAD_KEY, JSON.stringify({ ...parsed, [leadScope(userId, orgId)]: { crewId, lead } }));
+}
+
+export function saveLeadForPack(storage: Box, userId: string, orgId: string, pack: unknown, crews: unknown, membership: unknown): boolean | null {
+  const crewId = crewIdFromPack(pack);
+  if (!crewId) return null;
+  const live = leadFromReads(userId, crewId, crews, membership);
+  rememberLiveLead(storage, userId, orgId, crewId, live);
+  return live;
 }
