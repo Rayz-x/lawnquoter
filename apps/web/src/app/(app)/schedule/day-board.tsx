@@ -17,7 +17,8 @@ export type BoardVisit = {
   customer: string;
   address: string;
   status: string;
-  sort: number;
+  scheduledDate: string;
+  overdue: boolean;
   budgetMinutes: number | null;
   windowLabel: string | null;
 };
@@ -32,10 +33,6 @@ export type BoardColumn = {
 
 function label(value: string): string {
   return value.replaceAll("_", " ");
-}
-
-function nextSort(visits: BoardVisit[]): number {
-  return visits.reduce((max, visit) => Math.max(max, visit.sort + 1), 0);
 }
 
 function moveIds(ids: string[], index: number, delta: number): string[] {
@@ -80,7 +77,9 @@ export function DayBoard({
         <CardHeader>
           <CardTitle>Unassigned</CardTitle>
           <CardDescription>
-            {unassigned.length === 0 ? "Every visit this day has a crew." : `${unassigned.length} still need a crew.`}
+            {unassigned.length === 0
+              ? "No visits are waiting, including overdue ones."
+              : `${unassigned.length} waiting, including other days and overdue visits. Assigning places them on this day.`}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -88,7 +87,7 @@ export function DayBoard({
             <Empty>
               <EmptyHeader>
                 <EmptyTitle>None waiting</EmptyTitle>
-                <EmptyDescription>Visits without a crew for this day show up here.</EmptyDescription>
+                <EmptyDescription>Visits without a crew, from any day, show up here. Overdue work stays until it is finished or cancelled.</EmptyDescription>
               </EmptyHeader>
             </Empty>
           ) : (
@@ -102,16 +101,9 @@ export function DayBoard({
                       visit={visit}
                       date={date}
                       crews={crews}
-                      sort={columns.reduce<Record<string, number>>((acc, column) => {
-                        acc[column.crewId] = nextSort(column.visits);
-                        return acc;
-                      }, {})}
                       pending={pending}
-                      onAssign={(crewId, sort) =>
-                        run(
-                          () => assignVisit({ visitId: visit.id, crewId, date, sort }),
-                          "Visit assigned",
-                        )
+                      onAssign={(crewId) =>
+                        run(() => assignVisit({ visitId: visit.id, crewId, date }), "Visit assigned")
                       }
                     />
                   )
@@ -199,14 +191,10 @@ export function DayBoard({
                               visit={visit}
                               date={date}
                               crews={crews.filter((crew) => crew.id !== column.crewId)}
-                              sort={columns.reduce<Record<string, number>>((acc, item) => {
-                                acc[item.crewId] = nextSort(item.visits);
-                                return acc;
-                              }, {})}
                               pending={pending}
                               label="Move to"
-                              onAssign={(crewId, sort) =>
-                                run(() => assignVisit({ visitId: visit.id, crewId, date, sort }), "Visit moved")
+                              onAssign={(crewId) =>
+                                run(() => assignVisit({ visitId: visit.id, crewId, date }), "Visit moved")
                               }
                             />
                           ) : null}
@@ -251,10 +239,14 @@ function VisitCard({ visit, children }: { visit: BoardVisit; children?: ReactNod
           <div className="text-muted-foreground">{visit.customer}</div>
           <div className="text-muted-foreground">{visit.address}</div>
         </div>
-        <Badge variant="outline" className="capitalize">
-          {label(visit.status)}
-        </Badge>
+        <div className="flex flex-col items-end gap-1">
+          {visit.overdue ? <Badge variant="destructive">Overdue</Badge> : null}
+          <Badge variant="outline" className="capitalize">
+            {label(visit.status)}
+          </Badge>
+        </div>
       </div>
+      <p className="text-xs text-muted-foreground tabular-nums">{visit.scheduledDate}</p>
       {visit.budgetMinutes != null || visit.windowLabel ? (
         <p className="text-xs text-muted-foreground tabular-nums">
           {visit.windowLabel ? visit.windowLabel : null}
@@ -271,7 +263,6 @@ function AssignControls({
   visit,
   date,
   crews,
-  sort,
   pending,
   label: fieldLabel = "Assign to",
   onAssign,
@@ -279,10 +270,9 @@ function AssignControls({
   visit: BoardVisit;
   date: string;
   crews: { id: string; name: string }[];
-  sort: Record<string, number>;
   pending: boolean;
   label?: string;
-  onAssign: (crewId: string, sort: number) => void;
+  onAssign: (crewId: string) => void;
 }) {
   const [crewId, setCrewId] = useState(crews[0]?.id ?? "");
   if (crews.length === 0) return null;
@@ -301,7 +291,7 @@ function AssignControls({
           ))}
         </NativeSelect>
       </div>
-      <Button type="button" size="sm" disabled={pending} onClick={() => onAssign(selected, sort[selected] ?? 0)}>
+      <Button type="button" size="sm" disabled={pending} onClick={() => onAssign(selected)}>
         {fieldLabel === "Move to" ? "Move" : "Assign"}
       </Button>
     </div>
