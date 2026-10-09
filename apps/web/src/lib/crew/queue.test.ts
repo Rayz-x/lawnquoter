@@ -116,6 +116,16 @@ describe("crew outbox", () => {
     expect((await bare.listOutbox())[0]?.needs_office).toBe(true);
   });
 
+  it("retries an unexpected sync error and parks a known one", async () => {
+    const store = createMemoryCrewStore();
+    await enqueueMutation(store, { kind: "visit_pause", visit_id: "v", client_id: "a", ...who }, now);
+    const first = await flushOutbox(store, async () => [{ client_id: "a", status: "error", message: "could not apply that change" }], scope);
+    expect(first).toMatchObject({ sent: 0, pending: 1 });
+    expect((await store.listOutbox())[0]?.needs_office).toBe(false);
+    const second = await flushOutbox(store, async () => [{ client_id: "a", status: "applied", message: null }], scope);
+    expect(second).toEqual({ sent: 1, pending: 0 });
+  });
+
   it("parses crew_sync results", () => {
     expect(parseSyncResults({ results: [{ client_id: "a", status: "applied", message: null }, { status: "nope" }] })).toEqual([
       { client_id: "a", status: "applied", message: null },

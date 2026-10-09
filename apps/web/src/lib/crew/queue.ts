@@ -167,7 +167,12 @@ export function applySyncResults(rows: OutboxRow[], results: SyncResult[]) {
     const row = byId.get(result.client_id);
     if (!row) continue;
     if (result.status === "error") {
-      failed = { ...row, attempts: row.attempts + 1, last_error: result.message, needs_office: true };
+      failed = {
+        ...row,
+        attempts: row.attempts + 1,
+        last_error: result.message,
+        needs_office: result.message !== "could not apply that change",
+      };
       break;
     }
     remove.push(row.client_id);
