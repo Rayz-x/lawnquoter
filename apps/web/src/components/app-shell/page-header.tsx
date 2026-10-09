@@ -19,7 +19,7 @@ export function PageHeader({
       <SidebarTrigger className="hit-expand -ms-1" />
       <Separator orientation="vertical" className="me-2 h-4" />
       <div className="flex min-w-0 flex-1 flex-col justify-center">
-        <h1 className="text-sm font-semibold leading-snug [overflow-wrap:anywhere]">{title}</h1>
+        <h1 className="font-sans text-sm font-semibold leading-snug tracking-normal [overflow-wrap:anywhere]">{title}</h1>
         {description ? (
           <p className="text-xs text-muted-foreground [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-clip">
             {description}

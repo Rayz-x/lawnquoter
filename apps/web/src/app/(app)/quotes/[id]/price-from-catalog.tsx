@@ -29,8 +29,10 @@ export function PriceFromCatalog({
             <div>
               <div className="font-medium">{r.name}</div>
               <div className="tabular-nums text-xs text-muted-foreground">
-                ${r.priced.price.toFixed(2)}
-                {r.priced.range ? ` · $${r.priced.range.low.toFixed(0)}–$${r.priced.range.high.toFixed(0)}` : ""}
+                <span className="font-heading text-foreground">${r.priced.price.toFixed(2)}</span>
+                {r.priced.range
+                  ? ` · $${r.priced.range.low.toFixed(0)} – $${r.priced.range.high.toFixed(0)}`
+                  : ""}
                 {" · "}
                 {r.priced.hours.toFixed(2)}h
               </div>

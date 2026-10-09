@@ -23,7 +23,7 @@ export default async function DashboardPage() {
             <Card key={t.title}>
               <CardHeader>
                 <CardDescription>{t.title}</CardDescription>
-                <CardTitle className="text-3xl tabular-nums">{t.value}</CardTitle>
+                <CardTitle className="font-heading text-3xl font-bold tabular-nums">{t.value}</CardTitle>
                 <CardDescription>{t.description}</CardDescription>
               </CardHeader>
             </Card>

@@ -56,8 +56,10 @@ export function PreviewCard({ rules, modifiers }: { rules: { name: string; rule:
             <div key={r.name} className="rounded-md border p-3">
               <div className="font-medium">{r.name}</div>
               <div className="tabular-nums text-muted-foreground">
-                ${r.line.price.toFixed(2)}
-                {r.line.range ? ` · range $${r.line.range.low.toFixed(2)}–$${r.line.range.high.toFixed(2)}` : ""}
+                <span className="font-heading text-foreground">${r.line.price.toFixed(2)}</span>
+                {r.line.range
+                  ? ` · range $${r.line.range.low.toFixed(2)} – $${r.line.range.high.toFixed(2)}`
+                  : ""}
                 {" · "}
                 {r.line.hours.toFixed(2)} hrs · cost ${r.line.cost.toFixed(2)}
               </div>

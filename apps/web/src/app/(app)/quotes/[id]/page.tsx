@@ -117,12 +117,12 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
                       {i.state}
                       {i.option_group ? ` · ${i.option_group} / ${i.option_tier}` : ""}
                       {picked.includes(i.id) ? "" : " · not in default total"}
-                      {i.range_low != null ? ` · range $${Number(i.range_low).toFixed(0)}–$${Number(i.range_high).toFixed(0)}` : ""}
+                      {i.range_low != null ? ` · range $${Number(i.range_low).toFixed(0)} – $${Number(i.range_high).toFixed(0)}` : ""}
                     </div>
                   </div>
-                  <div className="text-right tabular-nums">
-                    ${Number(i.price).toFixed(2)}
-                    <div className="text-xs text-muted-foreground">
+                  <div className="text-right">
+                    <div className="font-heading tabular-nums">${Number(i.price).toFixed(2)}</div>
+                    <div className="text-xs text-muted-foreground tabular-nums">
                       {Number(i.hours).toFixed(2)}h · ${Number(i.cost).toFixed(2)} cost
                     </div>
                   </div>
@@ -148,7 +148,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             <CardContent className="text-sm tabular-nums">
               <div className="flex justify-between">
                 <span>Price</span>
-                <span className="font-medium">${total.toFixed(2)}</span>
+                <span className="font-heading text-xl font-semibold tabular-nums">${total.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Hours</span>
@@ -156,7 +156,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Cost</span>
-                <span>${cost.toFixed(2)}</span>
+                <span className="font-heading">${cost.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Margin</span>

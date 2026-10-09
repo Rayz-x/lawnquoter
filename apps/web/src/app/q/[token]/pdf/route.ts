@@ -14,7 +14,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
     number: number;
     intro: string | null;
     notes_customer: string | null;
-    org: { name: string };
+    org: { name: string; brand_color?: string | null };
     items: Array<SelectableItem & { name: string; description: string | null; state: string }>;
   };
   const requested = new URL(req.url).searchParams.get("selected");

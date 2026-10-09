@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
@@ -72,9 +73,9 @@ export function ProposalView({
       <p className="text-sm font-medium" style={{ color: brand }}>
         {payload.org.name}
       </p>
-      <h1 className="mt-1 text-2xl font-semibold">{payload.title}</h1>
+      <h1 className="mt-1 text-3xl font-bold">{payload.title}</h1>
       <p className="text-sm text-muted-foreground">Quote #{payload.number}</p>
-      {payload.intro ? <p className="mt-4 text-sm leading-relaxed">{payload.intro}</p> : null}
+      {payload.intro ? <p className="mt-4 text-lg leading-7">{payload.intro}</p> : null}
 
       <div className="mt-6 flex flex-col gap-4">
         {groups.map((g) => {
@@ -97,7 +98,7 @@ export function ProposalView({
                         <span className="min-w-0 font-medium capitalize [overflow-wrap:anywhere]">
                           {o.option_tier === "none" ? o.name : o.option_tier}
                         </span>
-                        <span className="shrink-0 tabular-nums">${Number(o.price).toFixed(0)}</span>
+                        <span className="shrink-0 font-heading tabular-nums">${Number(o.price).toFixed(0)}</span>
                       </div>
                       {o.description ? <p className="text-xs text-muted-foreground">{o.description}</p> : null}
                     </div>
@@ -120,8 +121,10 @@ export function ProposalView({
               <div className="min-w-0 flex-1">
                 <div className="flex justify-between gap-2">
                   <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{i.name}</span>
-                  <span className="shrink-0 tabular-nums">
-                    {i.range_low != null ? `$${Number(i.range_low).toFixed(0)}–$${Number(i.range_high).toFixed(0)}` : `$${Number(i.price).toFixed(0)}`}
+                  <span className="shrink-0 font-heading tabular-nums">
+                    {i.range_low != null
+                      ? `$${Number(i.range_low).toFixed(0)} – $${Number(i.range_high).toFixed(0)}`
+                      : `$${Number(i.price).toFixed(0)}`}
                   </span>
                 </div>
                 {i.description ? <p className="text-xs text-muted-foreground">{i.description}</p> : null}
@@ -141,14 +144,20 @@ export function ProposalView({
       <div className="sticky bottom-0 mt-8 flex items-center justify-between gap-3 border-t bg-background py-4 [padding-block-end:calc(1rem+env(safe-area-inset-bottom,0px))]">
         <div>
           <div className="text-xs text-muted-foreground">Live total</div>
-          <div className="text-2xl font-semibold tabular-nums">${total.toFixed(2)}</div>
+          <div className="font-heading text-2xl font-bold tabular-nums">${total.toFixed(2)}</div>
         </div>
-        <Button render={<a href={`/q/${token}/pdf?selected=${selectedIds.join(",")}`} />}>Download PDF</Button>
+        <Button size="lg" render={<a href={`/q/${token}/pdf?selected=${selectedIds.join(",")}`} />}>
+          Download PDF
+        </Button>
       </div>
       <AcceptForm token={token} status={payload.status} selectedIds={selectedIds} />
       {payload.notes_customer ? <p className="mt-4 text-sm text-muted-foreground">{payload.notes_customer}</p> : null}
       <p className="mt-6 text-xs text-muted-foreground">
         {payload.org.phone} {payload.org.email ? `· ${payload.org.email}` : ""}
+      </p>
+      <p className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
+        <Image src="/brand/lq-mark-16.svg" alt="" width={16} height={16} unoptimized className="size-4" />
+        Powered by LawnQuoter
       </p>
     </main>
   );

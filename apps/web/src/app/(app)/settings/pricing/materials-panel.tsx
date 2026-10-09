@@ -40,7 +40,7 @@ export function MaterialsPanel({
                   <TableCell className="text-muted-foreground">{m.sku ?? "—"}</TableCell>
                   <TableCell>{m.name}</TableCell>
                   <TableCell>{m.unit}</TableCell>
-                  <TableCell className="text-right tabular-nums">${Number(m.unit_cost).toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-heading tabular-nums">${Number(m.unit_cost).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
