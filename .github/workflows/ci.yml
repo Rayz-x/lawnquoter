@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: Lint, typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci
+          SUPABASE_SECRET_KEY: sb_secret_ci
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+  database:
+    name: Migrations + pgTAP RLS tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        # Supabase's Postgres image ships postgis, pgtap, the auth schema and roles.
+        image: supabase/postgres:17.6.1.016
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install psql
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Create test database
+        run: psql "postgres://postgres:postgres@127.0.0.1:5432/postgres" -c "create database lawnquoter_test;"
+      - name: Run migrations and tests
+        run: bash scripts/db-test.sh
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/lawnquoter_test
+          PG_BIN: /usr/bin

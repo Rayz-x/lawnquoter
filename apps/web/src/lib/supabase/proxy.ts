@@ -1,0 +1,49 @@
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+import { supabasePublishableKey, supabaseUrl } from "./env";
+
+const PUBLIC_PREFIXES = ["/login", "/auth", "/q/", "/widget", "/api/public", "/api/webhooks", "/portal"];
+
+function isPublicPath(pathname: string) {
+  if (pathname === "/") return true;
+  return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));
+}
+
+/** Refreshes the Supabase session cookie and redirects unauthenticated app traffic to /login. */
+export async function updateSession(request: NextRequest) {
+  let response = NextResponse.next({ request });
+
+  const supabase = createServerClient(supabaseUrl(), supabasePublishableKey(), {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.next({ request });
+        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+      },
+    },
+  });
+
+  // getClaims validates the JWT locally (asymmetric keys) without a network round-trip.
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  const { pathname } = request.nextUrl;
+
+  if (!claims && !isPublicPath(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  if (claims && pathname === "/login") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
+  return response;
+}

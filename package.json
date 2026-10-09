@@ -1,0 +1,21 @@
+{
+  "name": "lawnquoter",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@12.10.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:test": "bash scripts/db-test.sh",
+    "db:reset": "bash scripts/db-reset.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0"
+  }
+}
