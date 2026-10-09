@@ -2,8 +2,21 @@
 -- payment intents, server-captured acceptance evidence, and crew denial of
 -- prices, costs, and gate codes.
 --
+-- Version is 20261009105000 so this sorts after 20261009104008 (PR #9,
+-- property_clear_geometry) and does not collide with PR #8, which also
+-- used 20261009180000. That timestamp is in the future relative to the
+-- hosted database and would break migration ordering.
+--
 -- quote_public is intentionally not replaced. An open branding migration
 -- redefines that function; this file only adjusts its grants.
+--
+-- REBASE: PR #8 (acceptance NTE, 20261009180000_acceptance_not_to_exceed.sql)
+-- also replaces public.quote_accept. Whichever of these two migrations lands
+-- second must merge both function bodies. Keep this file's request-header
+-- capture (ignore p_ip and p_user_agent; read x-forwarded-for and user-agent
+-- from request.headers) together with PR #8's required signer email, the
+-- not-to-exceed cap, the clause, and the acceptance hash. Do not drop either
+-- side when resolving the conflict.
 
 -- ---------------------------------------------------------------------------
 -- Who may see prices and property-access secrets
