@@ -405,6 +405,16 @@ begin
       v_org, v_agreement, v_job, v_property,
       0, d, d, 'scheduled', v_crew_size, v_budget
     from unnest(v_dates) as d
+    where not exists (
+      select 1
+      from public.visits existing
+      where existing.org_id = v_org
+        and existing.agreement_id = v_agreement
+        and existing.status <> 'cancelled'::public.visit_status
+        and existing.occurrence_date is distinct from d
+        and date_trunc('week', existing.occurrence_date::timestamp)
+          = date_trunc('week', d::timestamp)
+    )
     on conflict (org_id, agreement_id, occurrence_date) where agreement_id is not null
     do nothing
     returning id
@@ -1011,7 +1021,8 @@ begin
   v_kind := p_kind::public.agreement_kind;
   v_changed := a.kind is distinct from v_kind
     or a.frequency is distinct from v_frequency
-    or a.preferred_dow is distinct from p_preferred_dow;
+    or a.preferred_dow is distinct from p_preferred_dow
+    or a.start_date is distinct from p_start_date;
 
   update public.agreements
   set kind = v_kind,
@@ -1020,11 +1031,12 @@ begin
       start_date = p_start_date
   where id = a.id;
 
-  -- A day, frequency, or kind change must not leave the old series scheduled.
-  -- Visits that still fall on the new cadence stay, because the occurrence
-  -- key would otherwise keep a cancelled row and block regeneration. Assigned
-  -- visits stay on their route. One-time cancels the future unassigned series
-  -- and does not generate a replacement.
+  -- A day, frequency, kind, or start-date change must not leave the old series
+  -- scheduled. Visits that still fall on the new cadence stay. Future
+  -- unassigned visits cancelled earlier for schedule_changed are opened again
+  -- when they land on the new cadence, so the occurrence key does not block
+  -- the return trip. Assigned visits stay on their route. One-time cancels
+  -- the future unassigned series and does not generate a replacement.
   if v_changed then
     v_today := private.org_local_today(a.org_id);
     if v_kind = 'recurring'::public.agreement_kind
@@ -1075,6 +1087,43 @@ begin
         then public.visit_office_notes.note || E'\n' || excluded.note
         else excluded.note
       end;
+
+    update public.visits v
+    set status = 'scheduled'
+    where v.org_id = a.org_id
+      and v.agreement_id = a.id
+      and v.status = 'cancelled'::public.visit_status
+      and v.route_id is null
+      and v.occurrence_date >= v_today
+      and v_kind = 'recurring'::public.agreement_kind
+      and v.occurrence_date >= p_start_date
+      and (a.end_date is null or v.occurrence_date <= a.end_date)
+      and (
+        (
+          v_frequency = 'monthly'::public.agreement_frequency
+          and exists (
+            select 1
+            from generate_series(0, 600) as n
+            where (p_start_date + make_interval(months => n))::date = v.occurrence_date
+          )
+        )
+        or (
+          v_frequency in ('weekly'::public.agreement_frequency, 'biweekly'::public.agreement_frequency)
+          and v_anchor is not null
+          and v_step is not null
+          and v.occurrence_date >= v_anchor
+          and ((v.occurrence_date - v_anchor) % v_step) = 0
+        )
+      )
+      and exists (
+        select 1
+        from public.visit_office_notes n
+        where n.visit_id = v.id
+          and (
+            n.note = 'schedule_changed'
+            or right(n.note, char_length(E'\nschedule_changed')) = E'\nschedule_changed'
+          )
+      );
 
     if v_kind = 'recurring'::public.agreement_kind
        and exists (

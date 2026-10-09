@@ -1,7 +1,7 @@
 -- Scheduling RPCs: convert, generate, assign, reorder, publish, crews.
 -- Quote price and cost denial stays in the privilege-gaps tests.
 
-select plan(151);
+select plan(161);
 
 select ok(
   not has_function_privilege('anon', 'public.convert_accepted_quote(uuid, text, text, integer, date)', 'execute'),
@@ -1070,6 +1070,132 @@ select is(
   (select status::text from public.visits where id = :'visit_keep'::uuid),
   'scheduled',
   'an assigned visit stays when the agreement becomes one-time'
+);
+
+select tests.clear_auth();
+insert into public.agreements (
+  org_id, account_id, property_id, kind, frequency, preferred_dow, start_date, status
+) values (
+  :'org'::uuid, :'acct'::uuid, :'prop'::uuid, 'recurring', 'weekly', :dow_today, :'today'::date, 'active'
+) returning id as agr_back \gset
+insert into public.jobs (org_id, agreement_id, property_id, title)
+values (:'org'::uuid, :'agr_back'::uuid, :'prop'::uuid, 'Round trip')
+returning id as job_back \gset
+select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
+select public.generate_agreement_visits(:'agr_back'::uuid, (:'today'::date + 21)) as back_created \gset
+select id as visit_customer
+from public.visits
+where agreement_id = :'agr_back'::uuid
+  and occurrence_date = :'today'::date + 21
+\gset
+select public.cancel_visit(:'visit_customer'::uuid, 'customer called');
+select id as visit_held
+from public.visits
+where agreement_id = :'agr_back'::uuid
+  and occurrence_date = :'today'::date + 7
+\gset
+select public.assign_visit(:'visit_held'::uuid, :'crew_id'::uuid, :'today'::date) as back_route \gset
+select lives_ok(
+  format(
+    $$ select public.update_agreement_schedule(%L, 'recurring', 'weekly', %s, %L) $$,
+    :'agr_back', :dow_other, :'today'
+  ),
+  'the preferred day can move off the original weekday'
+);
+select is(
+  (
+    select count(*)
+    from public.visits
+    where agreement_id = :'agr_back'::uuid
+      and status = 'scheduled'
+      and occurrence_date is distinct from :'today'::date + 7
+      and date_trunc('week', occurrence_date::timestamp) = date_trunc('week', (:'today'::date + 7)::timestamp)
+  ),
+  0::bigint,
+  'a week that already has an assigned visit does not get a second visit'
+);
+select ok(
+  (
+    select count(*)
+    from public.visits
+    where agreement_id = :'agr_back'::uuid
+      and route_id is null
+      and status = 'scheduled'
+      and extract(dow from occurrence_date)::integer = :dow_other
+  ) > 0,
+  'weeks without an active visit are generated on the new day'
+);
+select lives_ok(
+  format(
+    $$ select public.update_agreement_schedule(%L, 'recurring', 'weekly', %s, %L) $$,
+    :'agr_back', :dow_today, :'today'
+  ),
+  'changing the preferred day back reopens the cancelled series'
+);
+select is(
+  (
+    select status::text
+    from public.visits
+    where agreement_id = :'agr_back'::uuid
+      and occurrence_date = :'today'::date + 14
+  ),
+  'scheduled',
+  'a visit cancelled for the schedule change is open again'
+);
+select is(
+  (select status::text from public.visits where id = :'visit_customer'::uuid),
+  'cancelled',
+  'a visit cancelled by the office stays cancelled'
+);
+
+select tests.clear_auth();
+insert into public.agreements (
+  org_id, account_id, property_id, kind, frequency, preferred_dow, start_date, status
+) values (
+  :'org'::uuid, :'acct'::uuid, :'prop'::uuid, 'recurring', 'weekly', :dow_today, :'today'::date, 'active'
+) returning id as agr_start \gset
+insert into public.jobs (org_id, agreement_id, property_id, title)
+values (:'org'::uuid, :'agr_start'::uuid, :'prop'::uuid, 'Start move')
+returning id as job_start \gset
+select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
+select public.generate_agreement_visits(:'agr_start'::uuid, (:'today'::date + 14)) as start_created \gset
+select lives_ok(
+  format(
+    $$ select public.update_agreement_schedule(%L, 'recurring', 'weekly', %s, %L) $$,
+    :'agr_start', :dow_today, (:'today'::date + 7)
+  ),
+  'a start-date change is a schedule change'
+);
+select is(
+  (
+    select status::text
+    from public.visits
+    where agreement_id = :'agr_start'::uuid
+      and occurrence_date = :'today'::date
+  ),
+  'cancelled',
+  'moving the start date cancels the visit before the new start'
+);
+select is(
+  (
+    select note
+    from public.visit_office_notes n
+    join public.visits v on v.id = n.visit_id
+    where v.agreement_id = :'agr_start'::uuid
+      and v.occurrence_date = :'today'::date
+  ),
+  'schedule_changed',
+  'a start-date change records schedule_changed'
+);
+select is(
+  (
+    select status::text
+    from public.visits
+    where agreement_id = :'agr_start'::uuid
+      and occurrence_date = :'today'::date + 7
+  ),
+  'scheduled',
+  'a visit on the new start date stays scheduled'
 );
 
 select * from finish();
