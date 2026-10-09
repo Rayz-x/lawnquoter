@@ -18,7 +18,7 @@ import {
 } from "terra-draw";
 import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
 import type { StudioFeature } from "@/lib/geo/features";
-import { imageryStyle } from "./basemap";
+import { ESRI_GEOCODE_ATTRIBUTION, imageryStyle, mapAttributionControl } from "./basemap";
 
 export type DrawMode = "static" | "polygon" | "linestring" | "freehand" | "select" | "cut";
 
@@ -47,7 +47,7 @@ export function MeasureMap({ location, parcel, footprint, features, mode, catego
       style: imageryStyle(),
       center: location?.type === "Point" ? location.coordinates : [-98.5, 39.8],
       zoom: location ? 18 : 3,
-      attributionControl: { compact: true },
+      attributionControl: mapAttributionControl,
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     mapRef.current = map;
@@ -127,7 +127,13 @@ export function MeasureMap({ location, parcel, footprint, features, mode, catego
       const set = (id: string, data: GeoJSON.FeatureCollection) => {
         const src = map.getSource(id) as maplibregl.GeoJSONSource | undefined;
         if (src) src.setData(data);
-        else map.addSource(id, { type: "geojson", data });
+        else
+          map.addSource(id, {
+            type: "geojson",
+            data,
+            // The context source draws the stored geocode pin.
+            ...(id === "ctx" ? { attribution: ESRI_GEOCODE_ATTRIBUTION } : {}),
+          });
       };
       set("ctx", ctx);
       set("drawn", drawn);

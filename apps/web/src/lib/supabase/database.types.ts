@@ -660,6 +660,9 @@ isOneToOne: false
               "account_id": string,"distance_m": number,"formatted_address": string,"id": string,"lot_sqft": number
             }[]
                            },
+"property_clear_geometry":
+{ Args: { "p_property": string }; Returns: undefined
+                           },
 "property_geometry":
 { Args: { "p_property": string }; Returns: Json
                            },
