@@ -358,6 +358,166 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"quote_line_items": {
+                  Row: {
+                    "cost": number,"description": string | null,"hours": number,"id": string,"name": string,"notes_crew": string | null,"notes_customer": string | null,"option_group": string | null,"option_tier": Database["public"]['Enums']["option_tier"],"org_id": string,"photo_url": string | null,"price": number,"qty": number,"range_high": number | null,"range_low": number | null,"section_id": string | null,"selected": boolean,"service_id": string | null,"sort": number,"state": Database["public"]['Enums']["item_state"],"unit": string,"version_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "cost"?: number,"description"?: string | null,"hours"?: number,"id"?: string,"name": string,"notes_crew"?: string | null,"notes_customer"?: string | null,"option_group"?: string | null,"option_tier"?: Database["public"]['Enums']["option_tier"],"org_id": string,"photo_url"?: string | null,"price"?: number,"qty"?: number,"range_high"?: number | null,"range_low"?: number | null,"section_id"?: string | null,"selected"?: boolean,"service_id"?: string | null,"sort"?: number,"state"?: Database["public"]['Enums']["item_state"],"unit"?: string,"version_id": string
+                  }
+                  Update: {
+                    "cost"?: number,"description"?: string | null,"hours"?: number,"id"?: string,"name"?: string,"notes_crew"?: string | null,"notes_customer"?: string | null,"option_group"?: string | null,"option_tier"?: Database["public"]['Enums']["option_tier"],"org_id"?: string,"photo_url"?: string | null,"price"?: number,"qty"?: number,"range_high"?: number | null,"range_low"?: number | null,"section_id"?: string | null,"selected"?: boolean,"service_id"?: string | null,"sort"?: number,"state"?: Database["public"]['Enums']["item_state"],"unit"?: string,"version_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "quote_line_items_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quote_line_items_section_id_fkey"
+      columns: ["section_id"]
+isOneToOne: false
+      referencedRelation: "quote_sections"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quote_line_items_service_id_fkey"
+      columns: ["service_id"]
+isOneToOne: false
+      referencedRelation: "services"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quote_line_items_version_id_fkey"
+      columns: ["version_id"]
+isOneToOne: false
+      referencedRelation: "quote_versions"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"quote_sections": {
+                  Row: {
+                    "id": string,"org_id": string,"sort": number,"title": string,"version_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "id"?: string,"org_id": string,"sort"?: number,"title"?: string,"version_id": string
+                  }
+                  Update: {
+                    "id"?: string,"org_id"?: string,"sort"?: number,"title"?: string,"version_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "quote_sections_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quote_sections_version_id_fkey"
+      columns: ["version_id"]
+isOneToOne: false
+      referencedRelation: "quote_versions"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"quote_templates": {
+                  Row: {
+                    "config": NonNullable<Json>,"created_at": string,"id": string,"intro": string | null,"name": string,"org_id": string,"service_kind": Database["public"]['Enums']["service_kind"] | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "config"?: NonNullable<Json>,"created_at"?: string,"id"?: string,"intro"?: string | null,"name": string,"org_id": string,"service_kind"?: Database["public"]['Enums']["service_kind"] | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "config"?: NonNullable<Json>,"created_at"?: string,"id"?: string,"intro"?: string | null,"name"?: string,"org_id"?: string,"service_kind"?: Database["public"]['Enums']["service_kind"] | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "quote_templates_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"quote_versions": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"frozen": boolean,"id": string,"org_id": string,"quote_id": string,"version": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"frozen"?: boolean,"id"?: string,"org_id": string,"quote_id": string,"version": number
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"frozen"?: boolean,"id"?: string,"org_id"?: string,"quote_id"?: string,"version"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "quote_versions_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quote_versions_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quote_versions_quote_id_fkey"
+      columns: ["quote_id"]
+isOneToOne: false
+      referencedRelation: "quotes"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"quotes": {
+                  Row: {
+                    "account_id": string,"created_at": string,"created_by": string | null,"current_version": number,"deposit_amount": number | null,"expires_at": string | null,"id": string,"intro": string | null,"notes_customer": string | null,"notes_internal": string | null,"number": number,"org_id": string,"property_id": string | null,"public_token": string,"sent_at": string | null,"status": Database["public"]['Enums']["quote_status"],"template_id": string | null,"title": string,"updated_at": string,"viewed_at": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "account_id": string,"created_at"?: string,"created_by"?: string | null,"current_version"?: number,"deposit_amount"?: number | null,"expires_at"?: string | null,"id"?: string,"intro"?: string | null,"notes_customer"?: string | null,"notes_internal"?: string | null,"number": number,"org_id": string,"property_id"?: string | null,"public_token"?: string,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["quote_status"],"template_id"?: string | null,"title"?: string,"updated_at"?: string,"viewed_at"?: string | null
+                  }
+                  Update: {
+                    "account_id"?: string,"created_at"?: string,"created_by"?: string | null,"current_version"?: number,"deposit_amount"?: number | null,"expires_at"?: string | null,"id"?: string,"intro"?: string | null,"notes_customer"?: string | null,"notes_internal"?: string | null,"number"?: number,"org_id"?: string,"property_id"?: string | null,"public_token"?: string,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["quote_status"],"template_id"?: string | null,"title"?: string,"updated_at"?: string,"viewed_at"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "quotes_account_id_fkey"
+      columns: ["account_id"]
+isOneToOne: false
+      referencedRelation: "accounts"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quotes_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quotes_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quotes_property_id_fkey"
+      columns: ["property_id"]
+isOneToOne: false
+      referencedRelation: "properties"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "quotes_template_id_fkey"
+      columns: ["template_id"]
+isOneToOne: false
+      referencedRelation: "quote_templates"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"services": {
                   Row: {
                     "active": boolean,"created_at": string,"description": string | null,"id": string,"kind": Database["public"]['Enums']["service_kind"],"name": string,"org_id": string,"slug": string,"sort": number,"updated_at": string
@@ -422,12 +582,21 @@ isOneToOne: false
 "property_set_geometry":
 { Args: { "p_footprint"?: Json,"p_footprint_source"?: Database["public"]['Enums']["geo_source"],"p_imagery_date"?: string,"p_location"?: Json,"p_parcel"?: Json,"p_parcel_apn"?: string,"p_parcel_source"?: Database["public"]['Enums']["geo_source"],"p_property": string }; Returns: undefined
                            },
+"quote_create":
+{ Args: { "p_account": string,"p_property"?: string,"p_title"?: string }; Returns: string
+                           },
+"quote_current_version":
+{ Args: { "p_quote": string }; Returns: string
+                           },
+"quote_public":
+{ Args: { "p_token": string }; Returns: Json
+                           },
 "set_active_org":
 { Args: { "p_org": string }; Returns: undefined
                            }
           }
           Enums: {
-            "account_status": "lead"|"active"|"inactive","account_type": "residential"|"commercial","contact_role": "primary"|"billing"|"site"|"decision_maker"|"other","feature_category": "turf_front"|"turf_back"|"bed"|"hardscape"|"driveway"|"sidewalk"|"edging_line"|"fence_line"|"canopy"|"roof","feature_source": "auto"|"traced"|"manual"|"imported","geo_source": "regrid"|"county"|"overture"|"osm"|"traced"|"manual"|"unknown","measurement_status": "draft"|"current"|"archived","membership_status": "invited"|"active"|"disabled","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only","price_list_status": "draft"|"active"|"archived","rule_type": "tier_matrix"|"assembly"|"catalog"|"program"|"snow"|"irrigation","service_kind": "mowing"|"fert"|"cleanup"|"snow"|"irrigation"|"install"|"other","slope_class": "flat"|"gentle"|"moderate"|"steep"
+            "account_status": "lead"|"active"|"inactive","account_type": "residential"|"commercial","contact_role": "primary"|"billing"|"site"|"decision_maker"|"other","feature_category": "turf_front"|"turf_back"|"bed"|"hardscape"|"driveway"|"sidewalk"|"edging_line"|"fence_line"|"canopy"|"roof","feature_source": "auto"|"traced"|"manual"|"imported","geo_source": "regrid"|"county"|"overture"|"osm"|"traced"|"manual"|"unknown","item_state": "included"|"recommended"|"optional","measurement_status": "draft"|"current"|"archived","membership_status": "invited"|"active"|"disabled","option_tier": "none"|"good"|"better"|"best","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only","price_list_status": "draft"|"active"|"archived","quote_status": "draft"|"sent"|"viewed"|"accepted"|"declined"|"expired"|"changed","rule_type": "tier_matrix"|"assembly"|"catalog"|"program"|"snow"|"irrigation","service_kind": "mowing"|"fert"|"cleanup"|"snow"|"irrigation"|"install"|"other","slope_class": "flat"|"gentle"|"moderate"|"steep"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -543,7 +712,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "account_status": ["lead", "active", "inactive"],"account_type": ["residential", "commercial"],"contact_role": ["primary", "billing", "site", "decision_maker", "other"],"feature_category": ["turf_front", "turf_back", "bed", "hardscape", "driveway", "sidewalk", "edging_line", "fence_line", "canopy", "roof"],"feature_source": ["auto", "traced", "manual", "imported"],"geo_source": ["regrid", "county", "overture", "osm", "traced", "manual", "unknown"],"measurement_status": ["draft", "current", "archived"],"membership_status": ["invited", "active", "disabled"],"org_role": ["owner", "admin", "sales", "dispatcher", "crew_lead", "crew", "read_only"],"price_list_status": ["draft", "active", "archived"],"rule_type": ["tier_matrix", "assembly", "catalog", "program", "snow", "irrigation"],"service_kind": ["mowing", "fert", "cleanup", "snow", "irrigation", "install", "other"],"slope_class": ["flat", "gentle", "moderate", "steep"]
+            "account_status": ["lead", "active", "inactive"],"account_type": ["residential", "commercial"],"contact_role": ["primary", "billing", "site", "decision_maker", "other"],"feature_category": ["turf_front", "turf_back", "bed", "hardscape", "driveway", "sidewalk", "edging_line", "fence_line", "canopy", "roof"],"feature_source": ["auto", "traced", "manual", "imported"],"geo_source": ["regrid", "county", "overture", "osm", "traced", "manual", "unknown"],"item_state": ["included", "recommended", "optional"],"measurement_status": ["draft", "current", "archived"],"membership_status": ["invited", "active", "disabled"],"option_tier": ["none", "good", "better", "best"],"org_role": ["owner", "admin", "sales", "dispatcher", "crew_lead", "crew", "read_only"],"price_list_status": ["draft", "active", "archived"],"quote_status": ["draft", "sent", "viewed", "accepted", "declined", "expired", "changed"],"rule_type": ["tier_matrix", "assembly", "catalog", "program", "snow", "irrigation"],"service_kind": ["mowing", "fert", "cleanup", "snow", "irrigation", "install", "other"],"slope_class": ["flat", "gentle", "moderate", "steep"]
           }
         }
 } as const

@@ -14,6 +14,7 @@
     "@base-ui/react": "^1.8.0",
     "@lawnquoter/pricing-engine": "workspace:*",
     "@lawnquoter/shared": "workspace:*",
+    "@react-pdf/renderer": "^4.9.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.58.0",
     "@turf/area": "^7.4.0",
