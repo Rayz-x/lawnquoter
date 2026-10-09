@@ -1,20 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { resolvePdfBrand } from "./pdf-brand";
+import { contrast, deriveBrandTheme, pdfBrand } from "@/lib/brand/derive-brand-theme";
 
-describe("resolvePdfBrand", () => {
-  it("keeps forest and white ink when the tenant color is missing or invalid", () => {
-    for (const color of [null, undefined, "", "green", "#fff", "#12345G"]) {
-      expect(resolvePdfBrand(color)).toEqual({ primary: "#1E5235", onPrimary: "#FFFFFF" });
+describe("pdfBrand", () => {
+  it("uses Groundwork forest and white ink when the tenant color is missing or invalid", () => {
+    for (const color of [null, undefined, "", "green", "#12345G"]) {
+      expect(pdfBrand(deriveBrandTheme(color))).toMatchObject({
+        fill: "#1E5235",
+        onFill: "#FFFFFF",
+        text: "#1E5235",
+      });
     }
   });
 
-  it("uses white ink on a dark tenant color", () => {
-    expect(resolvePdfBrand("#1E5235")).toEqual({ primary: "#1E5235", onPrimary: "#FFFFFF" });
-    expect(resolvePdfBrand("#000000")).toEqual({ primary: "#000000", onPrimary: "#FFFFFF" });
+  it("keeps white ink on a dark tenant color", () => {
+    expect(pdfBrand(deriveBrandTheme("#1E5235"))).toMatchObject({ fill: "#1E5235", onFill: "#FFFFFF", text: "#1E5235" });
+    expect(pdfBrand(deriveBrandTheme("#000000")).onFill).toBe("#FFFFFF");
   });
 
-  it("uses dark ink when white would miss 4.5:1", () => {
-    expect(resolvePdfBrand("#F4F6F4")).toEqual({ primary: "#F4F6F4", onPrimary: "#121A16" });
-    expect(resolvePdfBrand("#ffffff")).toEqual({ primary: "#ffffff", onPrimary: "#121A16" });
+  it("uses the derived text shade, not the raw fill, for a light yellow", () => {
+    const brand = pdfBrand(deriveBrandTheme("#F7D84A"));
+    expect(brand.fill).toBe("#F7D84A");
+    expect(brand.text).toBe("#877300");
+    expect(brand.onFill).toBe("#121A16");
+    expect(contrast(brand.text, "#FFFFFF")).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("does not print a near-white fill", () => {
+    const brand = pdfBrand(deriveBrandTheme("#F4F6F4"));
+    expect(contrast(brand.onFill, brand.fill)).toBeGreaterThanOrEqual(4.5);
+    expect(brand.text).not.toBe("#F4F6F4");
   });
 });

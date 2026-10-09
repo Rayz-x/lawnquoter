@@ -229,6 +229,16 @@
     letter-spacing: -0.01em;
   }
 
+  [data-heading="clean"] :is(h1, h2, h3),
+  [data-heading="clean"] .font-heading {
+    font-family: var(--font-source-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  [data-heading="sturdy"] :is(h1, h2, h3),
+  [data-heading="sturdy"] .font-heading {
+    font-family: var(--font-heading-sturdy), ui-serif, Georgia, serif;
+  }
+
   .num,
   [data-numeric] {
     font-variant-numeric: tabular-nums;

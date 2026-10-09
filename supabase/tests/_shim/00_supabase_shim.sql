@@ -110,3 +110,69 @@ end
 $$;
 
 grant usage on schema public to anon, authenticated, service_role;
+
+-- Minimal storage surface for vanilla Postgres. The Supabase image already has
+-- these tables, so this block leaves them alone.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.tables
+    where table_schema = 'storage' and table_name = 'buckets'
+  ) then
+    return;
+  end if;
+
+  execute 'create schema if not exists storage';
+  execute 'grant usage on schema storage to anon, authenticated, service_role';
+  execute $table$
+    create table storage.buckets (
+      id text primary key,
+      name text not null,
+      owner uuid,
+      created_at timestamptz default now(),
+      updated_at timestamptz default now(),
+      public boolean default false,
+      avif_autodetection boolean default false,
+      file_size_limit bigint,
+      allowed_mime_types text[],
+      owner_id text
+    )
+  $table$;
+  execute $table$
+    create table storage.objects (
+      id uuid primary key default gen_random_uuid(),
+      bucket_id text references storage.buckets (id),
+      name text,
+      owner uuid,
+      created_at timestamptz default now(),
+      updated_at timestamptz default now(),
+      last_accessed_at timestamptz default now(),
+      metadata jsonb,
+      version text,
+      owner_id text,
+      user_metadata jsonb,
+      unique (bucket_id, name)
+    )
+  $table$;
+  execute $fn$
+    create function storage.foldername(name text)
+    returns text[]
+    language plpgsql
+    as $body$
+    declare
+      _parts text[];
+    begin
+      select string_to_array(name, '/') into _parts;
+      return _parts[1:array_length(_parts, 1) - 1];
+    end
+    $body$
+  $fn$;
+  execute 'alter table storage.objects enable row level security';
+  execute 'alter table storage.objects force row level security';
+  execute 'alter table storage.buckets enable row level security';
+  execute 'alter table storage.buckets force row level security';
+  execute 'grant select on storage.buckets to anon, authenticated, service_role';
+  execute 'grant select, insert, update, delete on storage.objects to authenticated, service_role';
+  execute 'grant select on storage.objects to anon';
+end
+$$;
