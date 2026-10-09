@@ -179,7 +179,7 @@ describe("day packs", () => {
     expect(result).toMatchObject({ sent: 2, pending: 0 });
   });
 
-  it("sends an upsell with its photo client id so finish is not blocked", async () => {
+  it("hands an unmatched upsell to the office and still finishes", async () => {
     const store = createMemoryCrewStore();
     await enqueueMutation(store, {
       client_id: "enh-1",
@@ -194,12 +194,16 @@ describe("day packs", () => {
       visit_id: "v",
       ...who,
     }, new Date(now.getTime() + 1));
-    const batches: { kind: string; photo?: string }[][] = [];
     const sent = await flushOutbox(store, async (items) => {
-      batches.push(items.map((item) => ({ kind: item.kind, photo: typeof item.payload.photo_client_id === "string" ? item.payload.photo_client_id : undefined })));
-      return items.map((item) => ({ client_id: item.client_id, status: "applied" as const, message: null }));
+      return items.map((item) =>
+        item.client_id === "enh-1"
+          ? { client_id: item.client_id, status: "error" as const, message: "enhancement photo must belong to this visit" }
+          : { client_id: item.client_id, status: "applied" as const, message: null },
+      );
     }, scope, now, async () => undefined);
-    expect(batches).toEqual([[{ kind: "enhancement_create", photo: "photo-gone" }, { kind: "visit_finish" }]]);
-    expect(sent).toEqual({ sent: 2, pending: 0 });
+    expect(sent).toEqual({ sent: 1, pending: 1 });
+    expect(await store.listOutbox()).toMatchObject([
+      { client_id: "enh-1", needs_office: true, last_error: "enhancement photo must belong to this visit" },
+    ]);
   });
 });
