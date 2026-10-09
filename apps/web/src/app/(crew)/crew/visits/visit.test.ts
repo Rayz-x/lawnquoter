@@ -108,5 +108,7 @@ describe("visit detail timer", () => {
     expect(saveLeadForPack(box, "mate", "org", downloaded, crews, { role: "crew", status: "active" })).toBe(false);
     expect(cachedLiveLead(box, "mate", "org", "crew-1")).toBe(false);
     expect(saveLeadForPack(box, "lead", "org", {}, crews, member)).toBeNull();
+    expect(saveLeadForPack(box, "mate", "org", { crew: { id: "crew-1" }, is_live_lead: true }, [], { role: "crew", status: "active" })).toBe(true);
+    expect(saveLeadForPack(box, "lead", "org", { crew: { id: "crew-1" }, is_live_lead: false }, crews, member)).toBe(false);
   });
 });

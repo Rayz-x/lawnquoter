@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { VisitScreen } from "../visits/[id]/visit-screen";
-import { saveLeadForPack } from "../visits/visit";
+import { liveLeadFromPack, saveLeadForPack } from "../visits/visit";
 import { browserCrewStore, flushOutbox, loadDayPack, notifyCrewQueue, saveDayPack, scopeKey } from "@/lib/crew/queue";
 import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
 import { orgToday } from "@/lib/scheduling/office-date";
@@ -105,15 +105,19 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
           toast(message);
         }
         await saveDayPack(store, date, data as Json);
-        try {
-          const supabase = createClient();
-          const [{ data: crews, error: crewError }, { data: membership, error: memberError }] = await Promise.all([
-            supabase.rpc("my_crews"),
-            supabase.from("memberships").select("role, status").eq("user_id", userId).eq("org_id", orgId).maybeSingle(),
-          ]);
-          if (!crewError && !memberError) saveLeadForPack(localStorage, userId, orgId, data, crews, membership);
-        } catch {
-          // A failed lead read leaves the last saved flag in place.
+        if (liveLeadFromPack(data) !== null) {
+          saveLeadForPack(localStorage, userId, orgId, data, null, null);
+        } else {
+          try {
+            const supabase = createClient();
+            const [{ data: crews, error: crewError }, { data: membership, error: memberError }] = await Promise.all([
+              supabase.rpc("my_crews"),
+              supabase.from("memberships").select("role, status").eq("user_id", userId).eq("org_id", orgId).maybeSingle(),
+            ]);
+            if (!crewError && !memberError) saveLeadForPack(localStorage, userId, orgId, data, crews, membership);
+          } catch {
+            // A failed lead read leaves the last saved flag in place.
+          }
         }
         if (!stop) {
           setView(next);

@@ -215,10 +215,16 @@ export function rememberLiveLead(storage: Box, userId: string, orgId: string, cr
   storage.setItem(LEAD_KEY, JSON.stringify({ ...parsed, [leadScope(userId, orgId)]: { crewId, lead } }));
 }
 
+export function liveLeadFromPack(pack: unknown): boolean | null {
+  const flagged = record(pack)?.is_live_lead;
+  return typeof flagged === "boolean" ? flagged : null;
+}
+
 export function saveLeadForPack(storage: Box, userId: string, orgId: string, pack: unknown, crews: unknown, membership: unknown): boolean | null {
   const crewId = crewIdFromPack(pack);
   if (!crewId) return null;
-  const live = leadFromReads(userId, crewId, crews, membership);
+  const flagged = liveLeadFromPack(pack);
+  const live = flagged === null ? leadFromReads(userId, crewId, crews, membership) : flagged;
   rememberLiveLead(storage, userId, orgId, crewId, live);
   return live;
 }
