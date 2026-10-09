@@ -6,7 +6,7 @@
 -- Quote price and cost denial is covered by the privilege-gaps tests; this
 -- file does not duplicate them.
 
-select plan(97);
+select plan(103);
 
 -- Gate codes live on property_access. These helpers read that table.
 create or replace function tests.note_property_access(p_org uuid, p_property uuid, p_code text, p_notes text)
@@ -611,6 +611,90 @@ select is(
   + (select count(*) from public.jobs where id = :'job_agr_del'::uuid),
   0::bigint,
   'deleting an agreement cascades its job and visits'
+);
+
+insert into public.agreements (org_id, account_id, property_id, kind, start_date)
+values (:'org1'::uuid, :'acct'::uuid, :'prop_mine'::uuid, 'one_time', :'today'::date)
+returning id as agr_live \gset
+insert into public.jobs (org_id, agreement_id, property_id, title)
+values (:'org1'::uuid, :'agr_live'::uuid, :'prop_mine'::uuid, 'Live job')
+returning id as job_live \gset
+insert into public.visits (org_id, agreement_id, job_id, property_id, occurrence_date, status)
+values (
+  :'org1'::uuid, :'agr_live'::uuid, :'job_live'::uuid, :'prop_mine'::uuid, :'today'::date, 'in_progress'
+);
+select tests.authenticate_as(:'dispatcher1'::uuid, :'org1'::uuid, 'dispatcher');
+select throws_ok(
+  format($$ delete from public.jobs where id = %L $$, :'job_live'),
+  '22023',
+  null,
+  'a dispatcher cannot delete a job that has an in-progress visit'
+);
+select is(
+  (select count(*) from public.jobs where id = :'job_live'::uuid),
+  1::bigint,
+  'the job with an in-progress visit remains'
+);
+
+select tests.clear_auth();
+insert into public.visits (org_id, agreement_id, job_id, property_id, occurrence_date, status)
+values (
+  :'org1'::uuid, :'agr_live'::uuid, :'job_live'::uuid, :'prop_mine'::uuid, (:'today'::date + 1), 'skipped'
+);
+select tests.authenticate_as(:'dispatcher1'::uuid, :'org1'::uuid, 'dispatcher');
+select throws_ok(
+  format($$ delete from public.agreements where id = %L $$, :'agr_live'),
+  '22023',
+  null,
+  'a dispatcher cannot delete an agreement that has a skipped visit'
+);
+select is(
+  (select count(*) from public.agreements where id = :'agr_live'::uuid),
+  1::bigint,
+  'the agreement with a skipped visit remains'
+);
+
+select tests.clear_auth();
+insert into public.agreements (org_id, account_id, property_id, kind, start_date)
+values (:'org1'::uuid, :'acct'::uuid, :'prop_mine'::uuid, 'one_time', :'today'::date)
+returning id as agr_cancelled \gset
+insert into public.jobs (org_id, agreement_id, property_id, title)
+values (:'org1'::uuid, :'agr_cancelled'::uuid, :'prop_mine'::uuid, 'Cancelled only')
+returning id as job_cancelled \gset
+insert into public.visits (org_id, agreement_id, job_id, property_id, occurrence_date, status)
+values (
+  :'org1'::uuid, :'agr_cancelled'::uuid, :'job_cancelled'::uuid, :'prop_mine'::uuid, :'today'::date, 'cancelled'
+) returning id as visit_cancelled \gset
+select tests.authenticate_as(:'dispatcher1'::uuid, :'org1'::uuid, 'dispatcher');
+delete from public.jobs where id = :'job_cancelled'::uuid;
+select is(
+  (select count(*) from public.visits where id = :'visit_cancelled'::uuid),
+  0::bigint,
+  'a dispatcher can delete a job whose visits are only cancelled'
+);
+
+select tests.clear_auth();
+select tests.create_user('cascade-owner@example.com', 'Cascade Owner') as org_cascade_owner \gset
+select tests.create_org('Cascade Org', 'cascade-org', :'org_cascade_owner'::uuid) as org_cascade \gset
+insert into public.accounts (org_id, name) values (:'org_cascade'::uuid, 'Cascade Account') returning id as acct_cascade \gset
+insert into public.properties (org_id, account_id, address_line1, city, region, postal_code)
+values (:'org_cascade'::uuid, :'acct_cascade'::uuid, '9 Cascade', 'Springfield', 'IL', '62704')
+returning id as prop_cascade \gset
+insert into public.agreements (org_id, account_id, property_id, kind, start_date)
+values (:'org_cascade'::uuid, :'acct_cascade'::uuid, :'prop_cascade'::uuid, 'one_time', :'today'::date)
+returning id as agr_org_del \gset
+insert into public.jobs (org_id, agreement_id, property_id, title)
+values (:'org_cascade'::uuid, :'agr_org_del'::uuid, :'prop_cascade'::uuid, 'Org cascade')
+returning id as job_org_del \gset
+insert into public.visits (org_id, agreement_id, job_id, property_id, occurrence_date, status)
+values (
+  :'org_cascade'::uuid, :'agr_org_del'::uuid, :'job_org_del'::uuid, :'prop_cascade'::uuid, :'today'::date, 'in_progress'
+) returning id as visit_org_del \gset
+delete from public.orgs where id = :'org_cascade'::uuid;
+select is(
+  (select count(*) from public.visits where id = :'visit_org_del'::uuid),
+  0::bigint,
+  'deleting an org still cascades a job that has an in-progress visit'
 );
 
 select tests.authenticate_anon();

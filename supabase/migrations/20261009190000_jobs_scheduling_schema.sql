@@ -977,6 +977,58 @@ create trigger visits_reject_agreement_delete
   before delete on public.visits
   for each row execute function private.visits_reject_agreement_delete();
 
+-- A dispatcher may delete an agreement or a job, and that cascades to visits.
+-- Completed, in-progress, paused, skipped, and cant_complete visits must stay.
+-- Only scheduled and cancelled visits may disappear with the parent. Deleting
+-- the org still cascades: that nested delete is already inside another trigger.
+create or replace function private.reject_parent_delete_with_live_visits()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if pg_trigger_depth() > 1 then
+    return old;
+  end if;
+
+  if tg_table_name = 'agreements' and exists (
+    select 1
+    from public.visits v
+    where v.agreement_id = old.id
+      and v.status not in (
+        'scheduled'::public.visit_status,
+        'cancelled'::public.visit_status
+      )
+  ) then
+    raise exception 'an agreement with a visit that is not scheduled or cancelled cannot be deleted'
+      using errcode = '22023';
+  end if;
+
+  if tg_table_name = 'jobs' and exists (
+    select 1
+    from public.visits v
+    where v.job_id = old.id
+      and v.status not in (
+        'scheduled'::public.visit_status,
+        'cancelled'::public.visit_status
+      )
+  ) then
+    raise exception 'a job with a visit that is not scheduled or cancelled cannot be deleted'
+      using errcode = '22023';
+  end if;
+
+  return old;
+end;
+$$;
+
+create trigger agreements_reject_live_visit_delete
+  before delete on public.agreements
+  for each row execute function private.reject_parent_delete_with_live_visits();
+
+create trigger jobs_reject_live_visit_delete
+  before delete on public.jobs
+  for each row execute function private.reject_parent_delete_with_live_visits();
+
 -- Status, sort, route, and date changes on a published route bump revision.
 -- The later PWA treats that bump as the signal that a stop disappeared: crew
 -- select hides cancelled visits, so the crew can no longer open that stop.
@@ -1066,10 +1118,12 @@ $validate_timezones$;
 
 revoke all on function private.reject_completed_status() from public, anon;
 revoke all on function private.visits_reject_agreement_delete() from public, anon;
+revoke all on function private.reject_parent_delete_with_live_visits() from public, anon;
 revoke all on function private.bump_published_route_revision() from public, anon;
 revoke all on function private.orgs_reject_invalid_timezone() from public, anon;
 grant execute on function private.reject_completed_status() to authenticated, service_role;
 grant execute on function private.visits_reject_agreement_delete() to authenticated, service_role;
+grant execute on function private.reject_parent_delete_with_live_visits() to authenticated, service_role;
 grant execute on function private.bump_published_route_revision() to authenticated, service_role;
 grant execute on function private.orgs_reject_invalid_timezone() to authenticated, service_role;
 
