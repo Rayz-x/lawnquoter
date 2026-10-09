@@ -20,28 +20,10 @@ begin
 end
 $$;
 
--- Tests impersonate anon/authenticated. On the Supabase Postgres image,
--- supabase_auth_admin is reserved and only a superuser may grant membership.
--- The CI login is not a superuser, so ignore that refusal.
-do $$
-declare
-  r text;
-begin
-  foreach r in array array['anon', 'authenticated', 'service_role', 'supabase_auth_admin']
-  loop
-    begin
-      execute format('grant %I to current_user', r);
-    exception
-      when insufficient_privilege then
-        null;
-      when others then
-        if sqlerrm not like '%reserved%' then
-          raise;
-        end if;
-    end;
-  end loop;
-end
-$$;
+-- Do not GRANT these roles here. On the Supabase image postgres is already a
+-- member of anon/authenticated/service_role, and repeating the grant crashes
+-- the backend. supabase_auth_admin is reserved and cannot be granted.
+-- Superusers can SET ROLE without membership; the image's postgres role is already a member.
 
 -- Migrations install PostGIS into this schema. It already exists on the Supabase image.
 do $$
