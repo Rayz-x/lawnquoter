@@ -906,14 +906,14 @@ isOneToOne: false
                   ]
                 },"visits": {
                   Row: {
-                    "agreement_id": string | null,"budget_minutes": number | null,"client_id": string | null,"completed_at": string | null,"created_at": string,"crew_size": number,"id": string,"job_id": string,"occurrence_date": string,"org_id": string,"property_id": string,"reopen_until": string | null,"route_id": string | null,"scheduled_date": string | null,"skip_reason": Database["public"]['Enums']["visit_skip_reason"] | null,"sort": number,"started_at": string | null,"status": Database["public"]['Enums']["visit_status"],"updated_at": string,"window_end": string | null,"window_start": string | null
+                    "agreement_id": string | null,"budget_minutes": number | null,"cancel_reason": string | null,"client_id": string | null,"completed_at": string | null,"created_at": string,"crew_size": number,"id": string,"job_id": string,"occurrence_date": string,"org_id": string,"property_id": string,"reopen_until": string | null,"route_id": string | null,"scheduled_date": string | null,"skip_reason": Database["public"]['Enums']["visit_skip_reason"] | null,"sort": number,"started_at": string | null,"status": Database["public"]['Enums']["visit_status"],"updated_at": string,"window_end": string | null,"window_start": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "agreement_id"?: string | null,"budget_minutes"?: number | null,"client_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"crew_size"?: number,"id"?: string,"job_id": string,"occurrence_date": string,"org_id": string,"property_id": string,"reopen_until"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
+                    "agreement_id"?: string | null,"budget_minutes"?: number | null,"cancel_reason"?: string | null,"client_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"crew_size"?: number,"id"?: string,"job_id": string,"occurrence_date": string,"org_id": string,"property_id": string,"reopen_until"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
                   }
                   Update: {
-                    "agreement_id"?: string | null,"budget_minutes"?: number | null,"client_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"crew_size"?: number,"id"?: string,"job_id"?: string,"occurrence_date"?: string,"org_id"?: string,"property_id"?: string,"reopen_until"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
+                    "agreement_id"?: string | null,"budget_minutes"?: number | null,"cancel_reason"?: string | null,"client_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"crew_size"?: number,"id"?: string,"job_id"?: string,"occurrence_date"?: string,"org_id"?: string,"property_id"?: string,"reopen_until"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
                   }
                   Relationships: [
                     {
@@ -957,6 +957,21 @@ isOneToOne: false
             "accept_org_invite":
 { Args: { "p_token": string }; Returns: string
                            },
+"add_crew_member":
+{ Args: { "p_crew_id": string,"p_profile_id": string }; Returns: undefined
+                           },
+"assign_visit":
+{ Args: { "p_crew_id": string,"p_service_date": string,"p_sort"?: number,"p_visit_id": string }; Returns: string
+                           },
+"cancel_visit":
+{ Args: { "p_reason": string,"p_visit_id": string }; Returns: undefined
+                           },
+"convert_accepted_quote":
+{ Args: { "p_frequency"?: string,"p_kind"?: string,"p_preferred_dow"?: number,"p_quote_id": string,"p_start_date"?: string }; Returns: Json
+                           },
+"create_crew":
+{ Args: { "p_name": string }; Returns: string
+                           },
 "create_org":
 { Args: { "p_name": string,"p_slug": string,"p_timezone"?: string }; Returns: string
                            },
@@ -975,6 +990,9 @@ isOneToOne: false
 "gen_salt":
 { Args: { "": string }; Returns: string
                            },
+"generate_agreement_visits":
+{ Args: { "p_agreement_id": string,"p_through": string }; Returns: number
+                           },
 "measurement_ensure":
 { Args: { "p_property": string }; Returns: string
                            },
@@ -983,6 +1001,9 @@ isOneToOne: false
                            },
 "measurement_replace_features":
 { Args: { "p_features": Json,"p_measurement": string }; Returns: undefined
+                           },
+"my_crews":
+{ Args: Record<PropertyKey, never>; Returns: Json
                            },
 "pgp_armor_headers":
 { Args: { "": string }; Returns: Record<string, unknown>[]
@@ -1000,6 +1021,9 @@ isOneToOne: false
                            },
 "property_set_geometry":
 { Args: { "p_footprint"?: Json,"p_footprint_source"?: Database["public"]['Enums']["geo_source"],"p_imagery_date"?: string,"p_location"?: Json,"p_parcel"?: Json,"p_parcel_apn"?: string,"p_parcel_source"?: Database["public"]['Enums']["geo_source"],"p_property": string }; Returns: undefined
+                           },
+"publish_route":
+{ Args: { "p_route_id": string }; Returns: string
                            },
 "quote_accept":
 { Args: { "p_disclosure"?: boolean,"p_ip"?: string,"p_selected"?: (string)[],"p_signer_email"?: string,"p_signer_name": string,"p_token": string,"p_user_agent"?: string }; Returns: Json
@@ -1025,11 +1049,23 @@ isOneToOne: false
 "quote_send":
 { Args: { "p_quote": string }; Returns: string
                            },
+"reorder_route_visits":
+{ Args: { "p_route_id": string,"p_visit_ids": (string)[] }; Returns: undefined
+                           },
 "revoke_org_invite":
 { Args: { "p_id": string }; Returns: undefined
                            },
 "set_active_org":
 { Args: { "p_org": string }; Returns: undefined
+                           },
+"set_crew_lead":
+{ Args: { "p_crew_id": string,"p_profile_id": string }; Returns: undefined
+                           },
+"skip_visit":
+{ Args: { "p_reason": string,"p_visit_id": string }; Returns: undefined
+                           },
+"update_agreement_schedule":
+{ Args: { "p_agreement_id": string,"p_frequency"?: string,"p_kind": string,"p_preferred_dow"?: number,"p_start_date"?: string }; Returns: undefined
                            }
           }
           Enums: {
