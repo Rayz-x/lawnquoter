@@ -274,22 +274,13 @@ async function resolveAndStoreGeometry(
       p_footprint_source: geo.footprint?.source ?? undefined,
     });
   } else if (options?.clearOnMiss) {
-    // property_set_geometry treats null as "keep the current value", so a miss
-    // has to null the geography columns directly. SQL NULL is valid here.
-    await supabase
-      .from("properties")
-      .update({
-        place_id: null,
-        location: null,
-        parcel: null,
-        footprint: null,
-        parcel_apn: null,
-        parcel_source: "unknown",
-        footprint_source: "unknown",
-        lot_sqft: null,
-        building_sqft: null,
-      })
-      .eq("id", propertyId);
+    const { error } = await supabase.rpc("property_clear_geometry", { p_property: propertyId });
+    if (error) {
+      return [
+        ...geo.warnings,
+        "Saved the new address, but the previous map pin could not be cleared.",
+      ];
+    }
   }
   return geo.warnings;
 }
