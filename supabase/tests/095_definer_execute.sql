@@ -50,6 +50,8 @@ select is(
     'create_crew',
     'create_org',
     'create_org_invite',
+    'crew_day_pack',
+    'crew_sync',
     'generate_agreement_visits',
     'my_crews',
     'publish_route',
