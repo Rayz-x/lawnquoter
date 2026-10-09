@@ -6,7 +6,7 @@
 -- Quote price and cost denial is covered by the privilege-gaps tests; this
 -- file does not duplicate them.
 
-select plan(94);
+select plan(97);
 
 -- Gate codes live on property_access. These helpers read that table.
 create or replace function tests.note_property_access(p_org uuid, p_property uuid, p_code text, p_notes text)
@@ -527,6 +527,15 @@ select throws_ok(
   'a visit on an agreement cannot be deleted'
 );
 select throws_ok(
+  format(
+    $$ delete from public.crew_members where crew_id = %L and profile_id = %L $$,
+    :'crew_north', :'lead_a'
+  ),
+  '23514',
+  null,
+  'the default lead cannot be removed'
+);
+select throws_ok(
   format($$ update public.visits set status = 'completed' where id = %L $$, :'visit_mine'),
   '42501', null, 'dispatcher cannot mark a visit completed directly'
 );
@@ -566,6 +575,42 @@ select is((select count(*) from public.visits), 0::bigint, 'crew without a live 
 select tests.expect_property_access(
   false, :'org1'::uuid, :'prop_mine'::uuid,
   'property access helper denies a crew member who is not on the crew'
+);
+
+select tests.clear_auth();
+insert into public.agreements (org_id, account_id, property_id, kind, start_date)
+values (:'org1'::uuid, :'acct'::uuid, :'prop_mine'::uuid, 'one_time', :'today'::date)
+returning id as agr_job_del \gset
+insert into public.jobs (org_id, agreement_id, property_id, title)
+values (:'org1'::uuid, :'agr_job_del'::uuid, :'prop_mine'::uuid, 'Cascade job')
+returning id as job_del \gset
+insert into public.visits (org_id, agreement_id, job_id, property_id, occurrence_date, status)
+values (
+  :'org1'::uuid, :'agr_job_del'::uuid, :'job_del'::uuid, :'prop_mine'::uuid, :'today'::date, 'scheduled'
+) returning id as visit_job_del \gset
+delete from public.jobs where id = :'job_del'::uuid;
+select is(
+  (select count(*) from public.visits where id = :'visit_job_del'::uuid),
+  0::bigint,
+  'deleting a job cascades its visits'
+);
+
+insert into public.agreements (org_id, account_id, property_id, kind, start_date)
+values (:'org1'::uuid, :'acct'::uuid, :'prop_mine'::uuid, 'one_time', :'today'::date)
+returning id as agr_del \gset
+insert into public.jobs (org_id, agreement_id, property_id, title)
+values (:'org1'::uuid, :'agr_del'::uuid, :'prop_mine'::uuid, 'Cascade agreement')
+returning id as job_agr_del \gset
+insert into public.visits (org_id, agreement_id, job_id, property_id, occurrence_date, status)
+values (
+  :'org1'::uuid, :'agr_del'::uuid, :'job_agr_del'::uuid, :'prop_mine'::uuid, :'today'::date, 'scheduled'
+) returning id as visit_agr_del \gset
+delete from public.agreements where id = :'agr_del'::uuid;
+select is(
+  (select count(*) from public.visits where id = :'visit_agr_del'::uuid)
+  + (select count(*) from public.jobs where id = :'job_agr_del'::uuid),
+  0::bigint,
+  'deleting an agreement cascades its job and visits'
 );
 
 select tests.authenticate_anon();

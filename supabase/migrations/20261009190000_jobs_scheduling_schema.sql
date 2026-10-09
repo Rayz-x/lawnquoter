@@ -93,7 +93,7 @@ create trigger agreements_set_updated_at
 create table public.jobs (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.orgs(id) on delete cascade,
-  agreement_id uuid references public.agreements(id) on delete restrict,
+  agreement_id uuid references public.agreements(id) on delete cascade,
   property_id uuid not null references public.properties(id) on delete restrict,
   quote_id uuid references public.quotes(id) on delete set null,
   title text not null check (length(btrim(title)) between 1 and 200),
@@ -177,8 +177,8 @@ create trigger routes_set_updated_at
 create table public.visits (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.orgs(id) on delete cascade,
-  agreement_id uuid references public.agreements(id) on delete restrict,
-  job_id uuid not null references public.jobs(id) on delete restrict,
+  agreement_id uuid references public.agreements(id) on delete cascade,
+  job_id uuid not null references public.jobs(id) on delete cascade,
   property_id uuid not null references public.properties(id) on delete restrict,
   route_id uuid references public.routes(id) on delete set null,
   sort integer not null default 0,
@@ -952,14 +952,20 @@ create trigger visits_reject_completed
   before insert or update of status on public.visits
   for each row execute function private.reject_completed_status();
 
--- A visit that belongs to an agreement is an occurrence. Deleting it lets the
--- next generate recreate that date. Cancel or skip instead, which keeps the row.
+-- A visit that belongs to an agreement is an occurrence. Deleting it directly
+-- lets the next generate recreate that date. Cancel or skip instead, which
+-- keeps the row. Deleting the job or the agreement cascades, and that nested
+-- delete is allowed: pg_trigger_depth() is 1 for a direct delete and higher
+-- while a foreign-key cascade is already running.
 create or replace function private.visits_reject_agreement_delete()
 returns trigger
 language plpgsql
 set search_path = ''
 as $$
 begin
+  if pg_trigger_depth() > 1 then
+    return old;
+  end if;
   if old.agreement_id is not null then
     raise exception 'visits on an agreement are cancelled, not deleted' using errcode = '42501';
   end if;
