@@ -154,6 +154,31 @@ describe("day packs", () => {
     expect(await store.listPacks()).toEqual([]);
   });
 
+  it("sends an upsell only after its photo is applied", async () => {
+    const store = createMemoryCrewStore();
+    const photo = await enqueuePhoto(store, { visit_id: "v", ...who, bytes: new Blob(["a"]), photo_kind: "upsell" }, now);
+    await enqueueMutation(store, {
+      client_id: "enh-1",
+      kind: "enhancement_create",
+      visit_id: "v",
+      ...who,
+      payload: { tag: "mulch", note: "beds", photo_client_id: photo.client_id },
+    }, new Date(now.getTime() + 1));
+    const batches: string[][] = [];
+    const result = await flushOutbox(
+      store,
+      async (items) => {
+        batches.push(items.map((item) => item.kind));
+        return items.map((item) => ({ client_id: item.client_id, status: "applied" as const, message: null }));
+      },
+      scope,
+      now,
+      async () => undefined,
+    );
+    expect(batches).toEqual([["visit_photo_record"], ["enhancement_create"]]);
+    expect(result).toMatchObject({ sent: 2, pending: 0 });
+  });
+
   it("hands an unmatched upsell to the office and still finishes", async () => {
     const store = createMemoryCrewStore();
     await enqueueMutation(store, {

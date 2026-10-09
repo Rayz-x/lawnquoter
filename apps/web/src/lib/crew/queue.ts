@@ -220,6 +220,10 @@ export function flushOutbox(
   return run;
 }
 
+function enhancementPhotoClientId(payload: CrewPayload): string | null {
+  return typeof payload.photo_client_id === "string" ? payload.photo_client_id : null;
+}
+
 async function flushOutboxOnce(
   store: CrewStore,
   send: (items: SyncItem[]) => Promise<SyncResult[]>,
@@ -227,57 +231,81 @@ async function flushOutboxOnce(
   now: Date,
   upload?: PhotoUpload,
 ) {
-  const rows = await store.listOutbox();
-  const items = syncItems(rows, now.toISOString(), scope);
-  const ready: SyncItem[] = [];
-  let halted = false;
-  for (const item of items) {
-    if (item.kind !== "visit_photo_record") {
+  let sent = 0;
+  let pending = (await store.listOutbox()).length;
+  for (let pass = 0; pass < 4; pass += 1) {
+    const rows = await store.listOutbox();
+    const items = syncItems(rows, now.toISOString(), scope);
+    const ready: SyncItem[] = [];
+    let halted = false;
+    let deferred = false;
+    for (const item of items) {
+      const photoClientId = item.kind === "enhancement_create" ? enhancementPhotoClientId(item.payload) : null;
+      if (photoClientId) {
+        const photo = rows.find((row) => row.client_id === photoClientId && row.kind === "visit_photo_record");
+        if (photo?.needs_office) {
+          const row = rows.find((entry) => entry.client_id === item.client_id);
+          if (row) await store.settle([], { ...row, attempts: row.attempts + 1, last_error: "The upsell photo needs the office.", needs_office: true });
+          continue;
+        }
+        if (photo) {
+          deferred = true;
+          break;
+        }
+      }
+      if (item.kind !== "visit_photo_record") {
+        ready.push(item);
+        continue;
+      }
+      const row = rows.find((entry) => entry.client_id === item.client_id);
+      if (!row) continue;
+      const bytes = await store.getPhoto(item.client_id);
+      if (!bytes || !upload) {
+        await store.settle([], { ...row, attempts: row.attempts + 1, last_error: "The photo file is missing.", needs_office: true });
+        halted = true;
+        break;
+      }
+      try {
+        await upload(row, bytes);
+      } catch (error) {
+        await store.settle([], {
+          ...row,
+          attempts: row.attempts + 1,
+          last_error: error instanceof Error ? error.message : "Could not upload the photo",
+          needs_office: false,
+        });
+        halted = true;
+        break;
+      }
       ready.push(item);
-      continue;
     }
-    const row = rows.find((entry) => entry.client_id === item.client_id);
-    if (!row) continue;
-    const bytes = await store.getPhoto(item.client_id);
-    if (!bytes || !upload) {
-      await store.settle([], { ...row, attempts: row.attempts + 1, last_error: "The photo file is missing.", needs_office: true });
-      halted = true;
+    if (ready.length === 0) {
+      pending = (await store.listOutbox()).length;
       break;
     }
+    let results: SyncResult[];
     try {
-      await upload(row, bytes);
+      results = await send(ready);
     } catch (error) {
-      await store.settle([], {
-        ...row,
-        attempts: row.attempts + 1,
-        last_error: error instanceof Error ? error.message : "Could not upload the photo",
-        needs_office: false,
-      });
-      halted = true;
-      break;
+      const row = rows.find((item) => item.client_id === ready[0]?.client_id);
+      if (row && !halted) {
+        await store.settle([], {
+          ...row,
+          attempts: row.attempts + 1,
+          last_error: error instanceof Error ? error.message : "Could not send",
+          needs_office: false,
+        });
+      }
+      return { sent, pending: (await store.listOutbox()).length };
     }
-    ready.push(item);
+    const { remove, failed, parked } = applySyncResults(rows, results);
+    await store.settle(remove, null);
+    for (const row of parked) await store.settle([], row);
+    sent += remove.length;
+    pending = (await store.listOutbox()).length;
+    if (failed || halted || !deferred) break;
   }
-  if (ready.length === 0) return { sent: 0, pending: (await store.listOutbox()).length };
-  let results: SyncResult[];
-  try {
-    results = await send(ready);
-  } catch (error) {
-    const row = rows.find((item) => item.client_id === ready[0]?.client_id);
-    if (row && !halted) {
-      await store.settle([], {
-        ...row,
-        attempts: row.attempts + 1,
-        last_error: error instanceof Error ? error.message : "Could not send",
-        needs_office: false,
-      });
-    }
-    return { sent: 0, pending: (await store.listOutbox()).length };
-  }
-  const { remove, parked } = applySyncResults(rows, results);
-  await store.settle(remove, null);
-  for (const row of parked) await store.settle([], row);
-  return { sent: remove.length, pending: (await store.listOutbox()).length };
+  return { sent, pending };
 }
 
 export async function saveDayPack(store: CrewStore, date: string, pack: Json, now = new Date()) {
