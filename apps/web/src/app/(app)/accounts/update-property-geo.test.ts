@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const updates: Array<Record<string, unknown>> = [];
-const rpc = vi.fn(async () => ({ data: null, error: null }));
+const rpc = vi.fn<
+  (fn: string, args?: Record<string, unknown>) => Promise<{ data: null; error: { message: string } | null }>
+>(async () => ({ data: null, error: null }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
@@ -68,7 +70,8 @@ function propertyForm(addressLine1 = "100 Oak St") {
 
 beforeEach(() => {
   updates.length = 0;
-  rpc.mockClear();
+  rpc.mockReset();
+  rpc.mockResolvedValue({ data: null, error: null });
   resolvePropertyGeo.mockReset();
 });
 
@@ -84,15 +87,30 @@ describe("updateProperty geocode miss", () => {
     const result = await updateProperty("property-1", propertyForm());
 
     expect(result).toEqual({ ok: true, data: { warnings: ["Address could not be geocoded."] } });
-    expect(updates).toContainEqual(
-      expect.objectContaining({
-        place_id: null,
-        location: null,
-        parcel: null,
-        footprint: null,
-      }),
-    );
-    expect(rpc).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith("property_clear_geometry", { p_property: "property-1" });
+    expect(updates.some((update) => Object.hasOwn(update, "location"))).toBe(false);
+  });
+
+  it("warns when the stale pin cannot be cleared", async () => {
+    resolvePropertyGeo.mockResolvedValue({
+      geocode: null,
+      parcel: null,
+      footprint: null,
+      warnings: ["Address could not be geocoded."],
+    });
+    rpc.mockResolvedValue({ data: null, error: { message: "permission denied" } });
+
+    const result = await updateProperty("property-1", propertyForm());
+
+    expect(result).toEqual({
+      ok: true,
+      data: {
+        warnings: [
+          "Address could not be geocoded.",
+          "Saved the new address, but the previous map pin could not be cleared.",
+        ],
+      },
+    });
   });
 
   it("keeps the existing pin when the address is unchanged", async () => {
