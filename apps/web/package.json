@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
+    "@lawnquoter/pricing-engine": "workspace:*",
     "@lawnquoter/shared": "workspace:*",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.58.0",

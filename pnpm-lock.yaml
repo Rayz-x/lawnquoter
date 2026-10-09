@@ -175,6 +175,9 @@ importers:
       '@base-ui/react':
         specifier: ^1.8.0
         version: 1.8.0(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@lawnquoter/pricing-engine':
+        specifier: workspace:*
+        version: link:../../packages/pricing-engine
       '@lawnquoter/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -280,6 +283,22 @@ importers:
         version: 1.4.0
       typescript:
         specifier: ^5
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(supports-color@7.2.0)
+
+  packages/pricing-engine:
+    dependencies:
+      '@lawnquoter/shared':
+        specifier: workspace:*
+        version: link:../shared
+      zod:
+        specifier: ^4.1.0
+        version: 4.6.5
+    devDependencies:
+      typescript:
+        specifier: ^5.9.0
         version: 5.9.3
       vitest:
         specifier: ^3.2.0

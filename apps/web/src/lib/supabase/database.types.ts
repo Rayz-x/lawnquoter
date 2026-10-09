@@ -102,6 +102,66 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"equipment_rates": {
+                  Row: {
+                    "created_at": string,"hourly_rate": number,"id": string,"name": string,"org_id": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"hourly_rate": number,"id"?: string,"name": string,"org_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"hourly_rate"?: number,"id"?: string,"name"?: string,"org_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "equipment_rates_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"labor_rates": {
+                  Row: {
+                    "burden_pct": number,"created_at": string,"hourly_rate": number,"id": string,"name": string,"org_id": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "burden_pct"?: number,"created_at"?: string,"hourly_rate": number,"id"?: string,"name": string,"org_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "burden_pct"?: number,"created_at"?: string,"hourly_rate"?: number,"id"?: string,"name"?: string,"org_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "labor_rates_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"materials": {
+                  Row: {
+                    "created_at": string,"id": string,"name": string,"org_id": string,"sku": string | null,"unit": string,"unit_cost": number,"updated_at": string,"vendor": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: string,"name": string,"org_id": string,"sku"?: string | null,"unit"?: string,"unit_cost"?: number,"updated_at"?: string,"vendor"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: string,"name"?: string,"org_id"?: string,"sku"?: string | null,"unit"?: string,"unit_cost"?: number,"updated_at"?: string,"vendor"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "materials_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"measurement_features": {
                   Row: {
                     "area_sqft": number | null,"category": Database["public"]['Enums']["feature_category"],"created_at": string,"geom": unknown,"id": string,"label": string | null,"length_ft": number | null,"measurement_id": string,"notes": string | null,"org_id": string,"source": Database["public"]['Enums']["feature_source"],"updated_at": string
@@ -200,6 +260,58 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"price_lists": {
+                  Row: {
+                    "created_at": string,"effective_from": string | null,"id": string,"modifiers": NonNullable<Json>,"name": string,"notes": string | null,"org_id": string,"status": Database["public"]['Enums']["price_list_status"],"updated_at": string,"version": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"effective_from"?: string | null,"id"?: string,"modifiers"?: NonNullable<Json>,"name": string,"notes"?: string | null,"org_id": string,"status"?: Database["public"]['Enums']["price_list_status"],"updated_at"?: string,"version"?: number
+                  }
+                  Update: {
+                    "created_at"?: string,"effective_from"?: string | null,"id"?: string,"modifiers"?: NonNullable<Json>,"name"?: string,"notes"?: string | null,"org_id"?: string,"status"?: Database["public"]['Enums']["price_list_status"],"updated_at"?: string,"version"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "price_lists_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"pricing_rules": {
+                  Row: {
+                    "active": boolean,"config": NonNullable<Json>,"created_at": string,"id": string,"name": string,"org_id": string,"price_list_id": string,"rule_type": Database["public"]['Enums']["rule_type"],"service_id": string,"sort": number,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "active"?: boolean,"config": NonNullable<Json>,"created_at"?: string,"id"?: string,"name": string,"org_id": string,"price_list_id": string,"rule_type": Database["public"]['Enums']["rule_type"],"service_id": string,"sort"?: number,"updated_at"?: string
+                  }
+                  Update: {
+                    "active"?: boolean,"config"?: NonNullable<Json>,"created_at"?: string,"id"?: string,"name"?: string,"org_id"?: string,"price_list_id"?: string,"rule_type"?: Database["public"]['Enums']["rule_type"],"service_id"?: string,"sort"?: number,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "pricing_rules_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pricing_rules_price_list_id_fkey"
+      columns: ["price_list_id"]
+isOneToOne: false
+      referencedRelation: "price_lists"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "pricing_rules_service_id_fkey"
+      columns: ["service_id"]
+isOneToOne: false
+      referencedRelation: "services"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"profiles": {
                   Row: {
                     "active_org_id": string | null,"avatar_path": string | null,"created_at": string,"email": string | null,"full_name": string | null,"id": string,"phone": string | null,"updated_at": string
@@ -240,6 +352,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "properties_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"services": {
+                  Row: {
+                    "active": boolean,"created_at": string,"description": string | null,"id": string,"kind": Database["public"]['Enums']["service_kind"],"name": string,"org_id": string,"slug": string,"sort": number,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "active"?: boolean,"created_at"?: string,"description"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["service_kind"],"name": string,"org_id": string,"slug": string,"sort"?: number,"updated_at"?: string
+                  }
+                  Update: {
+                    "active"?: boolean,"created_at"?: string,"description"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["service_kind"],"name"?: string,"org_id"?: string,"slug"?: string,"sort"?: number,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "services_org_id_fkey"
       columns: ["org_id"]
 isOneToOne: false
       referencedRelation: "orgs"
@@ -295,7 +427,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "account_status": "lead"|"active"|"inactive","account_type": "residential"|"commercial","contact_role": "primary"|"billing"|"site"|"decision_maker"|"other","feature_category": "turf_front"|"turf_back"|"bed"|"hardscape"|"driveway"|"sidewalk"|"edging_line"|"fence_line"|"canopy"|"roof","feature_source": "auto"|"traced"|"manual"|"imported","geo_source": "regrid"|"county"|"overture"|"osm"|"traced"|"manual"|"unknown","measurement_status": "draft"|"current"|"archived","membership_status": "invited"|"active"|"disabled","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only","slope_class": "flat"|"gentle"|"moderate"|"steep"
+            "account_status": "lead"|"active"|"inactive","account_type": "residential"|"commercial","contact_role": "primary"|"billing"|"site"|"decision_maker"|"other","feature_category": "turf_front"|"turf_back"|"bed"|"hardscape"|"driveway"|"sidewalk"|"edging_line"|"fence_line"|"canopy"|"roof","feature_source": "auto"|"traced"|"manual"|"imported","geo_source": "regrid"|"county"|"overture"|"osm"|"traced"|"manual"|"unknown","measurement_status": "draft"|"current"|"archived","membership_status": "invited"|"active"|"disabled","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only","price_list_status": "draft"|"active"|"archived","rule_type": "tier_matrix"|"assembly"|"catalog"|"program"|"snow"|"irrigation","service_kind": "mowing"|"fert"|"cleanup"|"snow"|"irrigation"|"install"|"other","slope_class": "flat"|"gentle"|"moderate"|"steep"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -411,7 +543,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "account_status": ["lead", "active", "inactive"],"account_type": ["residential", "commercial"],"contact_role": ["primary", "billing", "site", "decision_maker", "other"],"feature_category": ["turf_front", "turf_back", "bed", "hardscape", "driveway", "sidewalk", "edging_line", "fence_line", "canopy", "roof"],"feature_source": ["auto", "traced", "manual", "imported"],"geo_source": ["regrid", "county", "overture", "osm", "traced", "manual", "unknown"],"measurement_status": ["draft", "current", "archived"],"membership_status": ["invited", "active", "disabled"],"org_role": ["owner", "admin", "sales", "dispatcher", "crew_lead", "crew", "read_only"],"slope_class": ["flat", "gentle", "moderate", "steep"]
+            "account_status": ["lead", "active", "inactive"],"account_type": ["residential", "commercial"],"contact_role": ["primary", "billing", "site", "decision_maker", "other"],"feature_category": ["turf_front", "turf_back", "bed", "hardscape", "driveway", "sidewalk", "edging_line", "fence_line", "canopy", "roof"],"feature_source": ["auto", "traced", "manual", "imported"],"geo_source": ["regrid", "county", "overture", "osm", "traced", "manual", "unknown"],"measurement_status": ["draft", "current", "archived"],"membership_status": ["invited", "active", "disabled"],"org_role": ["owner", "admin", "sales", "dispatcher", "crew_lead", "crew", "read_only"],"price_list_status": ["draft", "active", "archived"],"rule_type": ["tier_matrix", "assembly", "catalog", "program", "snow", "irrigation"],"service_kind": ["mowing", "fert", "cleanup", "snow", "irrigation", "install", "other"],"slope_class": ["flat", "gentle", "moderate", "steep"]
           }
         }
 } as const
