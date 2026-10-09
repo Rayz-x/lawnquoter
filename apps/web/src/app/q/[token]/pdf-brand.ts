@@ -1,6 +1,5 @@
 import { pdfColors } from "./pdf-colors";
 
-
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
 function channel(value: number) {
