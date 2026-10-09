@@ -1,20 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  ENHANCEMENT_TAGS, SKIP_REASONS, readEnhancements, sendReadyEnhancements, skipNeedsPhoto, writeEnhancements,
-  type PendingEnhancement,
-} from "@/lib/crew/field";
+import { ENHANCEMENT_TAGS, SKIP_REASONS, lookupVisitPhoto, queueEnhancement, skipNeedsPhoto } from "@/lib/crew/field";
 import { downscalePhoto } from "@/lib/crew/photo";
-import { browserCrewStore, enqueueMutation, enqueuePhoto, flushOutbox, notifyCrewQueue, saveDayPack } from "@/lib/crew/queue";
+import { browserCrewStore, enqueueMutation, enqueuePhoto, flushOutbox, saveDayPack } from "@/lib/crew/queue";
 import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
-import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/database.types";
 import { patchVisitPack, visitFromPack } from "../visit";
 
 export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: string; userId: string; orgId: string; onLeave(): void }) {
-  const scope = `${userId}:${orgId}`;
   const issue = useRef<HTMLInputElement>(null);
   const upsell = useRef<HTMLInputElement>(null);
   const [sheet, setSheet] = useState<"problem" | "upsell" | null>(null);
@@ -25,27 +20,6 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
   const [upsellFile, setUpsellFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let stop = false;
-    const resolve = async () => {
-      const store = browserCrewStore();
-      const pending = readEnhancements(localStorage, scope);
-      if (pending.length === 0) return;
-      const left = await sendReadyEnhancements(store, { userId, orgId }, pending, lookupPhoto);
-      if (stop) return;
-      writeEnhancements(localStorage, scope, left);
-      if (left.length !== pending.length) void flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto).then(() => notifyCrewQueue());
-    };
-    void resolve();
-    window.addEventListener("crew-queue", resolve);
-    window.addEventListener("online", resolve);
-    return () => {
-      stop = true;
-      window.removeEventListener("crew-queue", resolve);
-      window.removeEventListener("online", resolve);
-    };
-  }, [scope, userId, orgId]);
 
   async function confirmSkip() {
     if (!reason || busy) return;
@@ -62,7 +36,7 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
       const packs = await store.listPacks();
       const row = packs.find((pack) => visitFromPack(pack.pack, visitId));
       if (row) await saveDayPack(store, row.date, patchVisitPack(row.pack, visitId, { status: "skipped", skip_reason: reason }) as Json);
-      void flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto);
+      void flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto, lookupVisitPhoto);
       window.dispatchEvent(new Event("crew-pack"));
       toast("Stop skipped. It sends when you have signal.");
       onLeave();
@@ -79,19 +53,15 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
     setError(null);
     try {
       const store = browserCrewStore();
-      const item: PendingEnhancement = {
-        clientId: crypto.randomUUID(), visitId, userId, orgId, tag, note, photoClientId: null,
-      };
+      const item = { clientId: crypto.randomUUID(), visitId, userId, orgId, tag, note };
       if (upsellFile) {
         const jpeg = await downscalePhoto(upsellFile);
         const row = await enqueuePhoto(store, { visit_id: visitId, user_id: userId, org_id: orgId, bytes: jpeg, photo_kind: "upsell", taken_at: new Date().toISOString() });
-        item.photoClientId = row.client_id;
-        writeEnhancements(localStorage, scope, [...readEnhancements(localStorage, scope), item]);
-        void flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto).then(() => notifyCrewQueue());
+        await queueEnhancement(store, item, row.client_id);
       } else {
-        await sendReadyEnhancements(store, { userId, orgId }, [item], async () => null);
-        void flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto);
+        await queueEnhancement(store, item, null);
       }
+      void flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto, lookupVisitPhoto);
       toast("Upsell saved on this phone.");
       setSheet(null);
       setTag(null);
@@ -151,8 +121,3 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
   );
 }
 
-async function lookupPhoto(photoClientId: string) {
-  const { data, error } = await createClient().from("visit_photos").select("id").eq("client_id", photoClientId).maybeSingle();
-  if (error || !data) return null;
-  return data.id;
-}

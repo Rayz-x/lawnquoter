@@ -11,7 +11,7 @@ import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
 import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/database.types";
 import {
-  activeAddress, applyClock, budgetLabel, elapsedMs, formatElapsed, patchVisitPack, projectVisit, readClock, visitFromPack, visitsInPack, writeClock,
+  activeAddress, applyClock, budgetLabel, cachedLiveLead, crewIdFromPack, elapsedMs, formatElapsed, leadFromReads, patchVisitPack, projectVisit, readClock, rememberLiveLead, visitFromPack, visitsInPack, writeClock,
   type ClockAction, type Segment, type VisitClock, type VisitDetail,
 } from "../visit";
 import { VisitActions } from "./visit-actions";
@@ -35,6 +35,7 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
   const [error, setError] = useState<string | null>(null);
   const [showGate, setShowGate] = useState(false);
   const photos = useRef<VisitPhotosHandle | null>(null);
+  const [lead, setLead] = useState(false);
   const [afterFor, setAfterFor] = useState(visitId);
   const [afterReady, setAfterReady] = useState(false);
   if (afterFor !== visitId) {
@@ -64,7 +65,23 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
       } catch {
         entries = null;
       }
+      const crewId = row ? crewIdFromPack(row.pack) : null;
+      let live = cachedLiveLead(localStorage, userId, orgId, crewId) === true;
+      try {
+        const supabase = createClient();
+        const [{ data: crews, error: crewError }, { data: membership, error: memberError }] = await Promise.all([
+          supabase.rpc("my_crews"),
+          supabase.from("memberships").select("role, status").eq("user_id", userId).eq("org_id", orgId).maybeSingle(),
+        ]);
+        if (!crewError && !memberError && crewId) {
+          live = leadFromReads(userId, crewId, crews, membership);
+          rememberLiveLead(localStorage, userId, orgId, crewId, live);
+        }
+      } catch {
+        live = cachedLiveLead(localStorage, userId, orgId, crewId) === true;
+      }
       if (stop || seen !== revision.current) return;
+      setLead(live);
       if (!visit || !row) {
         setDetail(null);
         setReady(true);
@@ -89,7 +106,7 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
   }, [visitId, userId, orgId, scope]);
 
   async function act(kind: ClockAction["kind"], crewSize?: number) {
-    if (!detail || !clock || saving) return;
+    if (!lead || !detail || !clock || saving) return;
     revision.current += 1;
     setSaving(true);
     setError(null);
@@ -175,7 +192,7 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
           <p className="mt-2 text-[15px] text-muted-foreground">{started ? `Started ${started}` : "Started"}{detail.budgetMinutes ? ` · Budget ${detail.budgetMinutes} min` : ""}</p>
           {detail.budgetMinutes ? <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={detail.budgetMinutes} aria-valuenow={Math.min(detail.budgetMinutes, Math.floor(elapsed / 60_000))}><div className={`h-full ${over ? "bg-warning" : "bg-primary"}`} style={{ width: `${ratio * 100}%` }} /></div> : null}
           {over ? <p className="mt-2 text-[15px] font-semibold text-warning">{over}</p> : null}
-          {clock.status !== "completed" ? (
+          {lead && clock.status !== "completed" ? (
             <div className="mt-3 flex items-center gap-2">
               <button type="button" className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving || crewSize <= 1} onClick={() => void act("visit_set_crew_size", crewSize - 1)}>−</button>
               <p className="text-[17px] font-semibold">On site {crewSize}</p>
@@ -184,15 +201,16 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
           ) : null}
         </div>
       ) : null}
-      {clock.status === "in_progress" || clock.status === "paused" ? <VisitPhotos visitId={visitId} userId={userId} orgId={orgId} onAfter={setAfterReady} pickRef={photos} /> : null}
-      {canAct ? <VisitActions visitId={visitId} userId={userId} orgId={orgId} onLeave={() => { if (onBack) onBack(); else router.push("/crew/today"); }} /> : null}
+      {lead && (clock.status === "in_progress" || clock.status === "paused") ? <VisitPhotos visitId={visitId} userId={userId} orgId={orgId} onAfter={setAfterReady} pickRef={photos} /> : null}
+      {lead && canAct ? <VisitActions visitId={visitId} userId={userId} orgId={orgId} onLeave={() => { if (onBack) onBack(); else router.push("/crew/today"); }} /> : null}
       {blocked ? <p className="mt-4 text-[17px] font-semibold">Finish {blocked} first?</p> : null}
       {error ? <p className="mt-3 text-[15px] font-semibold text-destructive">{error}</p> : null}
       <div className="fixed inset-x-0 bottom-0 z-10 flex gap-2 bg-background px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
-        {clock.status === "scheduled" && !closed ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={saving || Boolean(blocked)} onClick={() => void act("visit_start")}>Start job</button> : null}
-        {clock.status === "in_progress" ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_pause")}>Pause</button> : null}
-        {clock.status === "paused" ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_resume")}>Resume</button> : null}
-        {clock.status === "in_progress" || clock.status === "paused" ? (
+        {lead && clock.status === "scheduled" && !closed ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={saving || Boolean(blocked)} onClick={() => void act("visit_start")}>Start job</button> : null}
+        {lead && clock.status === "in_progress" ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_pause")}>Pause</button> : null}
+        {lead && clock.status === "paused" ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_resume")}>Resume</button> : null}
+        {!lead && !closed && (clock.status === "scheduled" || clock.status === "in_progress" || clock.status === "paused") ? <p className="flex min-h-14 flex-1 items-center text-[17px]">The crew lead starts and finishes stops.</p> : null}
+        {lead && (clock.status === "in_progress" || clock.status === "paused") ? (
           needAfter
             ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => photos.current?.pickAfter()}>Take an after photo to finish</button>
             : <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => void act("visit_finish")}>Finish job</button>

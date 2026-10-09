@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeAddress, applyClock, budgetLabel, elapsedMs, formatElapsed, patchVisitPack, projectVisit, readClock, visitFromPack, writeClock, type VisitClock } from "./visit";
+import { activeAddress, applyClock, budgetLabel, cachedLiveLead, elapsedMs, formatElapsed, isLiveCrewLead, leadFromReads, patchVisitPack, projectVisit, readClock, rememberLiveLead, visitFromPack, writeClock, type VisitClock } from "./visit";
 
 const at = "2026-10-09T14:00:00.000Z";
 const pack = {
@@ -78,5 +78,24 @@ describe("visit detail timer", () => {
     writeClock(box, "user:org", "v1", clock);
     expect(readClock(box, "user:org", "v1")).toEqual(clock);
     expect(readClock(box, "other:org", "v1")).toBeNull();
+  });
+
+  it("does not leave a skipped stop in progress", () => {
+    const detail = visitFromPack(pack, "v2");
+    const stored: VisitClock = { status: "in_progress", startedAt: at, crewSize: 1, applied: ["a"], segments: [{ kind: "job", startedAt: at, endedAt: null }] };
+    const skipped = { ...detail!, status: "skipped" };
+    expect(projectVisit(skipped, stored, [{ kind: "job", startedAt: at, endedAt: null }], [{ clientId: "a", kind: "visit_start", at }]).status).toBe("skipped");
+    expect(activeAddress([skipped], "other")).toBeNull();
+  });
+
+  it("treats only the live crew lead as able to run the timer", () => {
+    const crews = [{ id: "crew-1", default_lead_id: "lead" }];
+    expect(isLiveCrewLead({ userId: "lead", crewId: "crew-1", defaultLeadId: "lead", role: "crew_lead", status: "active" })).toBe(true);
+    expect(leadFromReads("lead", "crew-1", crews, { role: "crew_lead", status: "active" })).toBe(true);
+    expect(leadFromReads("mate", "crew-1", crews, { role: "crew", status: "active" })).toBe(false);
+    const box = { map: new Map<string, string>(), getItem(key: string) { return this.map.get(key) ?? null; }, setItem(key: string, value: string) { this.map.set(key, value); }, removeItem(key: string) { this.map.delete(key); } };
+    rememberLiveLead(box, "a:b", "c", "crew-1", true);
+    expect(cachedLiveLead(box, "a", "b:c", "crew-1")).toBeNull();
+    expect(cachedLiveLead(box, "a:b", "c", "crew-1")).toBe(true);
   });
 });

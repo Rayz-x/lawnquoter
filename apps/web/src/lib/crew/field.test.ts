@@ -1,18 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { enhancementPayload, queueEnhancement, skipNeedsPhoto } from "./field";
 import { createMemoryCrewStore } from "./queue";
-import { enhancementPayload, sendReadyEnhancements, skipNeedsPhoto, type PendingEnhancement } from "./field";
 
 const who = { userId: "user-1", orgId: "org-1" };
-const pending = (extra: Partial<PendingEnhancement> = {}): PendingEnhancement => ({
-  clientId: "enh-1",
-  visitId: "visit-1",
-  userId: who.userId,
-  orgId: who.orgId,
-  tag: "mulch",
-  note: " beds are thin ",
-  photoClientId: null,
-  ...extra,
-});
 
 describe("skip and enhancement", () => {
   it("requires an issue photo only for a locked gate or a loose dog", () => {
@@ -22,26 +12,17 @@ describe("skip and enhancement", () => {
     expect(skipNeedsPhoto("customer_skip")).toBe(false);
   });
 
-  it("waits to file an upsell until its photo row exists", async () => {
+  it("queues an upsell behind its photo in the outbox", async () => {
     const store = createMemoryCrewStore();
-    const waiting = pending({ photoClientId: "photo-1" });
-    const still = await sendReadyEnhancements(store, who, [waiting], async () => null);
-    expect(still).toEqual([waiting]);
-    expect(await store.listOutbox()).toEqual([]);
-
-    const done = await sendReadyEnhancements(store, who, [waiting], async () => "photo-row");
-    expect(done).toEqual([]);
-    const [row] = await store.listOutbox();
-    expect(row).toMatchObject({
-      client_id: "enh-1",
-      kind: "enhancement_create",
-      visit_id: "visit-1",
-      payload: { tag: "mulch", note: "beds are thin", photo_ids: ["photo-row"] },
-    });
-  });
-
-  it("files an upsell with no photo immediately", () => {
-    expect(enhancementPayload(pending({ note: "  " }))).toEqual({ tag: "mulch", photo_ids: [] });
-    expect(enhancementPayload(pending({ tag: "nope" }))).toBeNull();
+    const now = new Date("2026-10-09T15:00:00.000Z");
+    await queueEnhancement(store, { clientId: "enh-1", visitId: "visit-1", ...who, tag: "mulch", note: "  " }, null, now);
+    await queueEnhancement(store, { clientId: "enh-2", visitId: "visit-1", ...who, tag: "mulch", note: "beds" }, "photo-1", now);
+    const rows = await store.listOutbox();
+    expect(rows.map((row) => row.payload)).toEqual([
+      { tag: "mulch", photo_ids: [] },
+      { tag: "mulch", note: "beds", photo_client_id: "photo-1" },
+    ]);
+    expect(rows[1]?.created_at > rows[0]!.created_at).toBe(true);
+    expect(enhancementPayload("nope", "")).toBeNull();
   });
 });
