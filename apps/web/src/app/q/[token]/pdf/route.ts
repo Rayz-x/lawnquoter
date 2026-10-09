@@ -15,7 +15,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
     intro: string | null;
     notes_customer: string | null;
     org: { name: string; brand_color?: string | null };
-    items: Array<SelectableItem & { name: string; description: string | null; state: string }>;
+    items: Array<
+      SelectableItem & {
+        name: string;
+        description: string | null;
+        state: string;
+        range_low?: number | null;
+        range_high?: number | null;
+      }
+    >;
   };
   const requested = new URL(req.url).searchParams.get("selected");
   const selectedIds = requested ? requested.split(",").filter((id) => /^[0-9a-f-]{36}$/i.test(id)) : null;

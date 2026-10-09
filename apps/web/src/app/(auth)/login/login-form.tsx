@@ -30,7 +30,7 @@ export function LoginForm({ next, initialError }: { next: string; initialError: 
     e.preventDefault();
     const nextErrors = {
       email: emailError(email),
-      password: password ? undefined : "Enter your password.",
+      password: password ? undefined : "Enter your password, or use Email me a sign-in link.",
     };
     setFieldErrors(nextErrors);
     if (nextErrors.email || nextErrors.password) return;

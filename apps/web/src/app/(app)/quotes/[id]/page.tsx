@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireOrg } from "@/lib/auth/session";
+import { formatMoney, formatMoneyRange } from "@/lib/money";
 import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
 import { createClient } from "@/lib/supabase/server";
 import { AddItemForm } from "./add-item-form";
@@ -120,13 +121,15 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
                       {i.state}
                       {i.option_group ? ` · ${i.option_group} / ${i.option_tier}` : ""}
                       {picked.includes(i.id) ? "" : " · not in default total"}
-                      {i.range_low != null ? ` · range $${Number(i.range_low).toFixed(0)} – $${Number(i.range_high).toFixed(0)}` : ""}
+                      {i.range_low != null && i.range_high != null
+                        ? ` · range ${formatMoneyRange(Number(i.range_low), Number(i.range_high))}`
+                        : ""}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-heading tabular-nums">${Number(i.price).toFixed(2)}</div>
+                    <div className="font-heading tabular-nums">{formatMoney(Number(i.price))}</div>
                     <div className="text-xs text-muted-foreground tabular-nums">
-                      {Number(i.hours).toFixed(2)}h · ${Number(i.cost).toFixed(2)} cost
+                      {Number(i.hours).toFixed(2)}h · {formatMoney(Number(i.cost))} cost
                     </div>
                   </div>
                 </div>
@@ -151,7 +154,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             <CardContent className="text-sm tabular-nums">
               <div className="flex justify-between">
                 <span>Price</span>
-                <span className="font-heading text-xl font-semibold tabular-nums">${total.toFixed(2)}</span>
+                <span className="font-heading text-xl font-semibold tabular-nums">{formatMoney(total, { cents: true })}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Hours</span>
@@ -159,7 +162,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Cost</span>
-                <span className="font-heading">${cost.toFixed(2)}</span>
+                <span className="font-heading tabular-nums">{formatMoney(cost, { cents: true })}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Margin</span>

@@ -2,7 +2,17 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabasePublishableKey, supabaseUrl } from "./env";
 
-const PUBLIC_PREFIXES = ["/login", "/auth", "/q/", "/widget", "/api/public", "/api/webhooks", "/portal"];
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/auth",
+  "/q/",
+  "/widget",
+  "/api/public",
+  "/api/webhooks",
+  "/portal",
+  // Linked from every page. A login redirect is HTML, which the browser reports as a manifest syntax error.
+  "/manifest.webmanifest",
+];
 
 function isPublicPath(pathname: string) {
   if (pathname === "/") return true;

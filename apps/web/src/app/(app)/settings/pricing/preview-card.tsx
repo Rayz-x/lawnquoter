@@ -5,6 +5,7 @@ import { priceLine, type Modifiers, type PricingRule } from "@lawnquoter/pricing
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { formatMoney, formatMoneyRange } from "@/lib/money";
 
 export function PreviewCard({ rules, modifiers }: { rules: { name: string; rule: PricingRule }[]; modifiers: Modifiers }) {
   const [turf, setTurf] = useState(8000);
@@ -56,12 +57,10 @@ export function PreviewCard({ rules, modifiers }: { rules: { name: string; rule:
             <div key={r.name} className="rounded-md border p-3">
               <div className="font-medium">{r.name}</div>
               <div className="tabular-nums text-muted-foreground">
-                <span className="font-heading text-foreground">${r.line.price.toFixed(2)}</span>
-                {r.line.range
-                  ? ` · range $${r.line.range.low.toFixed(2)} – $${r.line.range.high.toFixed(2)}`
-                  : ""}
+                <span className="font-heading text-foreground">{formatMoney(r.line.price)}</span>
+                {r.line.range ? ` · range ${formatMoneyRange(r.line.range.low, r.line.range.high)}` : ""}
                 {" · "}
-                {r.line.hours.toFixed(2)} hrs · cost ${r.line.cost.toFixed(2)}
+                {r.line.hours.toFixed(2)} hrs · cost {formatMoney(r.line.cost)}
               </div>
             </div>
           ))}
