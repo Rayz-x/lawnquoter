@@ -244,21 +244,24 @@ async function flushOutboxOnce(
         if (photo?.needs_office) {
           const row = rows.find((entry) => entry.client_id === item.client_id);
           if (row) await store.settle([], { ...row, attempts: row.attempts + 1, last_error: "The upsell photo needs the office.", needs_office: true });
-          break;
+          continue;
         }
         if (photo) {
           deferred = true;
           break;
         }
-        if (!lookup) {
-          deferred = true;
-          break;
-        }
-        const photoId = await lookup(photoClientId);
         const row = rows.find((entry) => entry.client_id === item.client_id);
+        let photoId: string | null = null;
+        if (lookup) {
+          try {
+            photoId = await lookup(photoClientId);
+          } catch {
+            photoId = null;
+          }
+        }
         if (!photoId || !row) {
-          deferred = true;
-          break;
+          if (row && lookup) await store.settle([], { ...row, attempts: row.attempts + 1, last_error: "The upsell photo needs the office.", needs_office: true });
+          continue;
         }
         const note = typeof item.payload.note === "string" ? item.payload.note : undefined;
         const payload: CrewPayload = { tag: item.payload.tag, ...(note ? { note } : {}), photo_ids: [photoId] };
