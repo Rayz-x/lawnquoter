@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import type { PricedLine } from "@lawnquoter/pricing-engine";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatMoney, formatMoneyRange } from "@/lib/money";
 import { addPricedService } from "../actions";
 
 export function PriceFromCatalog({
@@ -29,8 +30,8 @@ export function PriceFromCatalog({
             <div>
               <div className="font-medium">{r.name}</div>
               <div className="tabular-nums text-xs text-muted-foreground">
-                ${r.priced.price.toFixed(2)}
-                {r.priced.range ? ` · $${r.priced.range.low.toFixed(0)}–$${r.priced.range.high.toFixed(0)}` : ""}
+                <span className="font-heading text-foreground">{formatMoney(r.priced.price)}</span>
+                {r.priced.range ? ` · ${formatMoneyRange(r.priced.range.low, r.priced.range.high)}` : ""}
                 {" · "}
                 {r.priced.hours.toFixed(2)}h
               </div>

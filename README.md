@@ -1,4 +1,4 @@
-# Lawnquoter
+# LawnQuoter
 
 Lead-to-quote-to-job platform for residential and commercial lawn care and landscaping companies. Multi-tenant-ready from day one, running single-tenant for the owner company first.
 

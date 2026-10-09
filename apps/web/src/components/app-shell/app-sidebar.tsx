@@ -1,8 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Leaf } from "lucide-react";
 import type { OrgRole } from "@lawnquoter/shared";
 import {
   Sidebar,
@@ -37,12 +37,10 @@ export function AppSidebar({ orgName, userEmail, userName, role }: AppSidebarPro
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/dashboard" />}>
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Leaf />
-              </div>
+              <Image src="/brand/lq-mark.svg" alt="" width={24} height={24} unoptimized className="size-6 shrink-0" />
               <div className="grid min-w-0 flex-1 text-start text-sm leading-tight">
                 <span className="truncate font-semibold">{orgName}</span>
-                <span className="truncate text-xs text-muted-foreground">Lawnquoter</span>
+                <span className="truncate text-xs text-muted-foreground">LawnQuoter</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>

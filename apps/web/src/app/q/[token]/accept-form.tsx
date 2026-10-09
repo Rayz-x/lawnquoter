@@ -70,7 +70,7 @@ export function AcceptForm({
         I consent to do business electronically and accept the work and price shown above.
       </label>
       <div className="flex gap-2">
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" size="lg" disabled={pending}>
           {pending ? <Spinner data-icon="inline-start" /> : null}
           Accept
         </Button>
