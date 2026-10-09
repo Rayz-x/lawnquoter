@@ -55,22 +55,32 @@ select throws_ok(
 );
 
 select tests.authenticate_as(:'admin'::uuid, :'org'::uuid, 'admin');
-select lives_ok(
+select throws_ok(
   format(
     $$ insert into storage.objects (bucket_id, name) values ('org-branding', %L) $$,
     :'org' || '/logo-light-abc.png'
   ),
-  'an admin can upload under their org prefix'
+  '42501',
+  null,
+  'an authenticated admin cannot insert into org-branding'
 );
 
 select tests.authenticate_as(:'owner'::uuid, :'org'::uuid, 'owner');
-select lives_ok(
+select throws_ok(
   format(
     $$ insert into storage.objects (bucket_id, name) values ('org-branding', %L) $$,
     :'org' || '/logo-dark-abc.png'
   ),
-  'an owner can upload under their org prefix'
+  '42501',
+  null,
+  'an owner cannot insert into org-branding'
 );
+
+select tests.clear_auth();
+insert into storage.objects (bucket_id, name, metadata)
+values ('org-branding', :'org' || '/logo-light-abc.png', '{"v":1}'::jsonb);
+insert into storage.objects (bucket_id, name)
+values ('org-branding', :'org' || '/logo-dark-abc.png');
 
 select tests.authenticate_anon();
 select is(
@@ -89,12 +99,13 @@ select throws_ok(
 );
 
 select tests.authenticate_as(:'admin'::uuid, :'org'::uuid, 'admin');
-select lives_ok(
-  format(
-    $$ update storage.objects set metadata = '{"v":1}'::jsonb where bucket_id = 'org-branding' and name = %L $$,
-    :'org' || '/logo-light-abc.png'
-  ),
-  'an admin can update branding under their org prefix'
+update storage.objects
+set metadata = '{"v":9}'::jsonb
+where bucket_id = 'org-branding' and name = :'org' || '/logo-light-abc.png';
+select is(
+  (select metadata->>'v' from storage.objects where bucket_id = 'org-branding' and name = :'org' || '/logo-light-abc.png'),
+  '1',
+  'an admin cannot update branding objects directly'
 );
 select throws_ok(
   $$ insert into storage.objects (bucket_id, name) values ('org-branding', 'logo.png') $$,
@@ -158,12 +169,14 @@ select throws_ok(
   null,
   'another org cannot write into this org prefix'
 );
-select lives_ok(
+select throws_ok(
   format(
     $$ insert into storage.objects (bucket_id, name) values ('org-branding', %L) $$,
     :'org2' || '/logo-light-own.png'
   ),
-  'an owner can upload under their own prefix'
+  '42501',
+  null,
+  'an owner cannot upload branding under their own prefix'
 );
 
 select tests.authenticate_as(:'admin'::uuid, :'org'::uuid, 'admin');

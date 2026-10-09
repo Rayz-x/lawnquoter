@@ -6,7 +6,7 @@ import { z } from "zod";
 import { normalizeHex } from "@/lib/brand/derive-brand-theme";
 import { prepareLogo } from "@/lib/brand/logo";
 import { requireOrg } from "@/lib/auth/session";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 import type { TablesUpdate } from "@/lib/supabase/types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -43,6 +43,7 @@ export async function saveBranding(formData: FormData): Promise<ActionResult> {
   if (input.brand_color && !color) return { ok: false, error: "Enter a hex color like #1E5235." };
 
   const supabase = await createClient();
+  const admin = createAdminClient();
   const { data: org, error: readError } = await supabase
     .from("orgs")
     .select("logo_path, logo_dark_path, logo_raster_path")
@@ -68,7 +69,7 @@ export async function saveBranding(formData: FormData): Promise<ActionResult> {
     if (!prepared.ok) return prepared.error;
     const hash = contentHash(prepared.logo.light);
     const path = `${session.orgId}/logo-${kind}-${hash}.${prepared.logo.lightExt}`;
-    const { error } = await supabase.storage.from("org-branding").upload(path, prepared.logo.light, {
+    const { error } = await admin.storage.from("org-branding").upload(path, prepared.logo.light, {
       contentType: prepared.logo.lightType,
       cacheControl: "31536000",
       upsert: false,
@@ -77,7 +78,7 @@ export async function saveBranding(formData: FormData): Promise<ActionResult> {
     uploaded.push(path);
     if (kind === "light") {
       const rasterPath = `${session.orgId}/logo-raster-${contentHash(prepared.logo.raster)}.png`;
-      const raster = await supabase.storage.from("org-branding").upload(rasterPath, prepared.logo.raster, {
+      const raster = await admin.storage.from("org-branding").upload(rasterPath, prepared.logo.raster, {
         contentType: "image/png",
         cacheControl: "31536000",
         upsert: false,
@@ -123,7 +124,7 @@ export async function saveBranding(formData: FormData): Promise<ActionResult> {
   const { error } = await supabase.from("orgs").update(patch).eq("id", session.orgId);
   if (error) return { ok: false, error: error.message };
   const stale = removed.filter((path) => path && !uploaded.includes(path));
-  if (stale.length > 0) await supabase.storage.from("org-branding").remove(stale);
+  if (stale.length > 0) await admin.storage.from("org-branding").remove(stale);
 
   revalidateTag(`org-branding:${session.orgId}`, "max");
   updateTag(`org-branding:${session.orgId}`);

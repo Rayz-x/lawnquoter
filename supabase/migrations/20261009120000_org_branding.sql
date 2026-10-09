@@ -107,10 +107,14 @@ on conflict (id) do update
       file_size_limit = excluded.file_size_limit,
       allowed_mime_types = excluded.allowed_mime_types;
 
--- Admins can see their own objects so update and delete have a row to match.
--- There is no public SELECT policy: a public bucket URL does not need one,
--- and a bucket-wide policy would let anyone list every org's objects.
+-- Writes go through the service role after the server sanitizes the file.
+-- Authenticated owners and admins can still see and delete their own objects
+-- so the app can remove a replaced logo. There is no public SELECT policy:
+-- a public bucket URL does not need one, and a bucket-wide policy would let
+-- anyone list every org's objects.
 drop policy if exists org_branding_public_read on storage.objects;
+drop policy if exists org_branding_admin_insert on storage.objects;
+drop policy if exists org_branding_admin_update on storage.objects;
 drop policy if exists org_branding_admin_select on storage.objects;
 create policy org_branding_admin_select on storage.objects
   for select
@@ -119,22 +123,6 @@ create policy org_branding_admin_select on storage.objects
     bucket_id = 'org-branding'
     and private.can_write_org_branding(name)
   );
-
-drop policy if exists org_branding_admin_insert on storage.objects;
-create policy org_branding_admin_insert on storage.objects
-  for insert
-  to authenticated
-  with check (
-    bucket_id = 'org-branding'
-    and private.can_write_org_branding(name)
-  );
-
-drop policy if exists org_branding_admin_update on storage.objects;
-create policy org_branding_admin_update on storage.objects
-  for update
-  to authenticated
-  using (bucket_id = 'org-branding' and private.can_write_org_branding(name))
-  with check (bucket_id = 'org-branding' and private.can_write_org_branding(name));
 
 drop policy if exists org_branding_admin_delete on storage.objects;
 create policy org_branding_admin_delete on storage.objects
