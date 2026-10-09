@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { priceLine, defaultModifiers, type Modifiers, type PricingRule } from "@lawnquoter/pricing-engine";
 import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { QUOTE_CONVERT_ROLES } from "@/lib/auth/office-roles";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { formatMoney, formatMoneyRange } from "@/lib/money";
 import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
 import { createClient } from "@/lib/supabase/server";
 import { AddItemForm } from "./add-item-form";
+import { ConvertToJobButton } from "./convert-to-job-button";
 import { DeleteQuoteButton } from "./delete-quote-button";
 import { PriceFromCatalog } from "./price-from-catalog";
 import { QuoteMetaForm } from "./quote-meta-form";
@@ -31,6 +33,15 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     .eq("org_id", session.orgId)
     .single();
   if (!quote) notFound();
+
+  const { data: convertedAgreement } = await supabase
+    .from("agreements")
+    .select("id")
+    .eq("org_id", session.orgId)
+    .eq("quote_id", id)
+    .maybeSingle();
+  const canConvert =
+    quote.status === "accepted" && !convertedAgreement && hasRole(session.orgRole, QUOTE_CONVERT_ROLES);
 
   const { data: versionId } = await supabase.rpc("quote_current_version", { p_quote: id });
   const [{ data: items }, { data: rules }, { data: list }, { data: measurement }] = await Promise.all([
@@ -90,6 +101,12 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
         actions={
           <>
             <SendQuoteButton quoteId={quote.id} token={quote.public_token} status={quote.status} />
+            {canConvert ? <ConvertToJobButton quoteId={quote.id} /> : null}
+            {convertedAgreement ? (
+              <Button variant="outline" render={<Link href={`/agreements/${convertedAgreement.id}`} />}>
+                View agreement
+              </Button>
+            ) : null}
             {canRevise ? <ReviseQuoteButton quoteId={quote.id} /> : null}
             {quote.status !== "draft" ? (
               <Button variant="outline" render={<Link href={`/q/${quote.public_token}`} target="_blank" />}>
