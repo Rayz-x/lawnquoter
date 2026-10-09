@@ -118,7 +118,13 @@ export async function enqueueMutation(store: CrewStore, input: Parameters<typeof
 /** Saves the file before the outbox row, so the sync can upload it before crew_sync inserts the photo. */
 export async function enqueuePhoto(
   store: CrewStore,
-  input: Parameters<typeof newOutboxRow>[0] & { bytes: Blob; photo_kind: string; taken_at?: string; lat?: number; lng?: number },
+  input: Omit<Parameters<typeof newOutboxRow>[0], "kind" | "payload"> & {
+    bytes: Blob;
+    photo_kind: string;
+    taken_at?: string;
+    lat?: number;
+    lng?: number;
+  },
   now = new Date(),
 ) {
   const row = newOutboxRow(
