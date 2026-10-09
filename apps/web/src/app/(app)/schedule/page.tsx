@@ -67,7 +67,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const canWrite = hasRole(session.orgRole, DISPATCH_ROLES);
   const visitSelect =
     "id, route_id, scheduled_date, sort, status, budget_minutes, window_start, window_end, jobs(title), properties(formatted_address, address_line1, city, accounts(name))";
-  const [{ data: crews, error: crewsError }, { data: routes, error: routesError }, { data: visits, error: visitsError }, { data: openVisits, error: openError }] =
+  const [{ data: crews, error: crewsError }, { data: routes, error: routesError }, { data: visits, error: visitsError }, { data: openVisits, error: openError }, { data: unscheduledVisits, error: unscheduledError }] =
     await Promise.all([
       supabase.from("crews").select("id, name, active").eq("org_id", session.orgId).order("name"),
       supabase.from("routes").select("id, crew_id, status").eq("org_id", session.orgId).eq("date", date),
@@ -77,12 +77,21 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         .select(visitSelect)
         .eq("org_id", session.orgId)
         .not("status", "in", "(completed,cancelled)")
+        .not("scheduled_date", "is", null)
         .or(`route_id.is.null,scheduled_date.lt.${today}`)
         .order("scheduled_date")
         .order("sort")
         .limit(300),
+      supabase
+        .from("visits")
+        .select(visitSelect)
+        .eq("org_id", session.orgId)
+        .is("scheduled_date", null)
+        .not("status", "in", "(completed,cancelled,skipped)")
+        .order("sort")
+        .limit(300),
     ]);
-  const error = crewsError?.message ?? routesError?.message ?? visitsError?.message ?? openError?.message ?? null;
+  const error = crewsError?.message ?? routesError?.message ?? visitsError?.message ?? openError?.message ?? unscheduledError?.message ?? null;
   const routeByCrew = new Map((routes ?? []).map((route) => [route.crew_id, route]));
   const routeIds = new Set((routes ?? []).map((route) => route.id));
   const visibleCrews = (crews ?? []).filter((crew) => crew.active || routeByCrew.has(crew.id));
@@ -129,6 +138,10 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const unassigned = [...unassignedById.values()].sort(
     (a, b) => (a.scheduledDate ?? "").localeCompare(b.scheduledDate ?? "") || a.title.localeCompare(b.title),
   );
+  const unscheduled = (unscheduledVisits ?? [])
+    .filter((visit) => !onThisDay.has(visit.id))
+    .map(toVisit)
+    .sort((a, b) => a.title.localeCompare(b.title));
 
   const columns: BoardColumn[] = visibleCrews.map((crew) => {
     const route = routeByCrew.get(crew.id);
@@ -181,7 +194,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : (
-          <DayBoard date={date} canWrite={canWrite} unassigned={unassigned} columns={columns} />
+          <DayBoard date={date} canWrite={canWrite} unscheduled={unscheduled} unassigned={unassigned} columns={columns} />
         )}
       </div>
     </>

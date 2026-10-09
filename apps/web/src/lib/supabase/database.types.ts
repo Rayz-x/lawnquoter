@@ -874,14 +874,14 @@ isOneToOne: true
                   ]
                 },"visit_tasks": {
                   Row: {
-                    "client_id": string | null,"created_at": string,"done_at": string | null,"id": string,"is_extra": boolean,"label": string,"not_done_reason": string | null,"notes_crew": string | null,"org_id": string,"quantity_text": string | null,"sort": number,"source_line_item_id": string | null,"updated_at": string,"visit_id": string
+                    "client_id": string | null,"created_at": string,"done_at": string | null,"id": string,"label": string,"not_done_reason": string | null,"notes_crew": string | null,"org_id": string,"quantity_text": string | null,"sort": number,"source_line_item_id": string | null,"updated_at": string,"visit_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "client_id"?: string | null,"created_at"?: string,"done_at"?: string | null,"id"?: string,"is_extra"?: boolean,"label": string,"not_done_reason"?: string | null,"notes_crew"?: string | null,"org_id": string,"quantity_text"?: string | null,"sort"?: number,"source_line_item_id"?: string | null,"updated_at"?: string,"visit_id": string
+                    "client_id"?: string | null,"created_at"?: string,"done_at"?: string | null,"id"?: string,"label": string,"not_done_reason"?: string | null,"notes_crew"?: string | null,"org_id": string,"quantity_text"?: string | null,"sort"?: number,"source_line_item_id"?: string | null,"updated_at"?: string,"visit_id": string
                   }
                   Update: {
-                    "client_id"?: string | null,"created_at"?: string,"done_at"?: string | null,"id"?: string,"is_extra"?: boolean,"label"?: string,"not_done_reason"?: string | null,"notes_crew"?: string | null,"org_id"?: string,"quantity_text"?: string | null,"sort"?: number,"source_line_item_id"?: string | null,"updated_at"?: string,"visit_id"?: string
+                    "client_id"?: string | null,"created_at"?: string,"done_at"?: string | null,"id"?: string,"label"?: string,"not_done_reason"?: string | null,"notes_crew"?: string | null,"org_id"?: string,"quantity_text"?: string | null,"sort"?: number,"source_line_item_id"?: string | null,"updated_at"?: string,"visit_id"?: string
                   }
                   Relationships: [
                     {
@@ -962,6 +962,9 @@ isOneToOne: false
                            },
 "assign_visit":
 { Args: { "p_crew_id": string,"p_service_date": string,"p_sort"?: number,"p_visit_id": string }; Returns: string
+                           },
+"cancel_visit":
+{ Args: { "p_reason": string,"p_visit_id": string }; Returns: undefined
                            },
 "convert_accepted_quote":
 { Args: { "p_frequency"?: string,"p_kind"?: string,"p_preferred_dow"?: number,"p_quote_id": string,"p_start_date"?: string }; Returns: Json
@@ -1057,6 +1060,9 @@ isOneToOne: false
                            },
 "set_crew_lead":
 { Args: { "p_crew_id": string,"p_profile_id": string }; Returns: undefined
+                           },
+"skip_visit":
+{ Args: { "p_reason": string,"p_visit_id": string }; Returns: undefined
                            },
 "update_agreement_schedule":
 { Args: { "p_agreement_id": string,"p_frequency"?: string,"p_kind": string,"p_preferred_dow"?: number,"p_start_date"?: string }; Returns: undefined

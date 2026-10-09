@@ -6,7 +6,7 @@
 -- Quote price and cost denial is covered by the privilege-gaps tests; this
 -- file does not duplicate them.
 
-select plan(90);
+select plan(94);
 
 -- Gate codes live on property_access. These helpers read that table.
 create or replace function tests.note_property_access(p_org uuid, p_property uuid, p_code text, p_notes text)
@@ -81,6 +81,25 @@ select (:'today'::date - 1) as yesterday \gset
 select (:'today'::date + 1) as tomorrow \gset
 select (:'today'::date + 2) as later \gset
 
+select is(
+  (
+    select count(*)
+    from public.orgs o
+    where o.timezone is null
+       or not exists (
+         select 1 from pg_timezone_names n where n.name = o.timezone
+       )
+  ),
+  0::bigint,
+  'stored org timezones are known names'
+);
+select throws_ok(
+  format($$ update public.orgs set timezone = 'Not/AZone' where id = %L $$, :'org1'),
+  '22023',
+  null,
+  'an invalid timezone is rejected'
+);
+
 select tests.authenticate_as(:'owner1'::uuid, :'org1'::uuid, 'owner');
 
 insert into public.accounts (org_id, name, phone, email, billing_email, billing_address_line1)
@@ -120,6 +139,8 @@ insert into public.properties (
 ) returning id as prop_open \gset
 select tests.note_property_access(:'org1'::uuid, :'prop_open'::uuid, '7777', null);
 
+select tests.clear_auth();
+
 insert into public.agreements (
   org_id, account_id, property_id, kind, service_kind, frequency,
   start_date, preferred_dow, status, notes_office
@@ -143,6 +164,8 @@ returning id as job_far \gset
 insert into public.jobs (org_id, property_id, title)
 values (:'org1'::uuid, :'prop_open'::uuid, 'Unassigned yard')
 returning id as job_open \gset
+
+select tests.authenticate_as(:'owner1'::uuid, :'org1'::uuid, 'owner');
 
 select is(
   (
@@ -455,12 +478,23 @@ select throws_ok(
 
 -- Sales converts later; dispatcher owns crews --------------------------------
 select tests.authenticate_as(:'sales1'::uuid, :'org1'::uuid, 'sales');
-select lives_ok(
+select throws_ok(
   format(
     $$ insert into public.agreements (org_id, account_id, property_id, kind, start_date) values (%L, %L, %L, 'one_time', %L) $$,
     :'org1', :'acct', :'prop_mine', :'today'
   ),
-  'sales can create an agreement'
+  '42501',
+  null,
+  'sales cannot create an agreement'
+);
+select throws_ok(
+  format(
+    $$ insert into public.jobs (org_id, property_id, title, status) values (%L, %L, 'Direct job', 'in_progress') $$,
+    :'org1', :'prop_mine'
+  ),
+  '42501',
+  null,
+  'sales cannot insert a job'
 );
 select throws_ok(
   format($$ insert into public.crews (org_id, name) values (%L, 'Sales crew') $$, :'org1'),
@@ -485,6 +519,12 @@ select lives_ok(
 select lives_ok(
   format($$ update public.visits set window_end = '12:00' where id = %L $$, :'visit_mine'),
   'dispatcher can update the visit window'
+);
+select throws_ok(
+  format($$ delete from public.visits where id = %L $$, :'visit_mine'),
+  '42501',
+  null,
+  'a visit on an agreement cannot be deleted'
 );
 select throws_ok(
   format($$ update public.visits set status = 'completed' where id = %L $$, :'visit_mine'),

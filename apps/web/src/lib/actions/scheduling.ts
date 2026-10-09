@@ -156,6 +156,45 @@ export async function assignVisit(input: {
   return { ok: true, data: { routeId: data } };
 }
 
+export async function skipVisit(
+  visitId: string,
+  reason: "gate_locked" | "dog_loose" | "customer_skip" | "weather" | "equipment" | "unsafe" | "other",
+): Promise<ActionResult> {
+  await requireOrg();
+  const parsed = z
+    .object({
+      visitId: idSchema,
+      reason: z.enum(["gate_locked", "dog_loose", "customer_skip", "weather", "equipment", "unsafe", "other"]),
+    })
+    .safeParse({ visitId, reason });
+  if (!parsed.success) return fail("Invalid skip");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("skip_visit", {
+    p_visit_id: parsed.data.visitId,
+    p_reason: parsed.data.reason,
+  });
+  if (error) return fail(error.message);
+  return { ok: true };
+}
+
+export async function cancelVisit(visitId: string, reason: string): Promise<ActionResult> {
+  await requireOrg();
+  const parsed = z
+    .object({
+      visitId: idSchema,
+      reason: z.string().trim().min(1).max(500),
+    })
+    .safeParse({ visitId, reason });
+  if (!parsed.success) return fail("A cancel reason is required");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cancel_visit", {
+    p_visit_id: parsed.data.visitId,
+    p_reason: parsed.data.reason,
+  });
+  if (error) return fail(error.message);
+  return { ok: true };
+}
+
 export async function reorderVisits(routeId: string, visitIds: string[]): Promise<ActionResult> {
   await requireOrg();
   const parsed = z.object({ routeId: idSchema, visitIds: z.array(idSchema).min(1) }).safeParse({ routeId, visitIds });

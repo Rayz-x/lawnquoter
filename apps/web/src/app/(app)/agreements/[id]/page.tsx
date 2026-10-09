@@ -80,7 +80,7 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
     supabase
       .from("visits")
       .select(
-        "id, scheduled_date, status, budget_minutes, crew_size, sort, routes(status, crews(name)), visit_tasks(id, label, quantity_text, sort, done_at, is_extra)",
+        "id, scheduled_date, status, budget_minutes, crew_size, sort, routes(status, crews(name)), visit_tasks(id, label, quantity_text, sort, done_at)",
       )
       .eq("agreement_id", id)
       .eq("org_id", session.orgId)
@@ -187,7 +187,7 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
                   return (
                     <div key={visit.id} className="rounded-md border p-3 text-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="font-medium tabular-nums">{visit.scheduled_date}</div>
+                        <div className="font-medium tabular-nums">{visit.scheduled_date ?? "Unscheduled"}</div>
                         <Badge variant="outline" className="capitalize">
                           {label(visit.status)}
                         </Badge>
@@ -203,7 +203,6 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
                             <li key={task.id} className="flex items-baseline justify-between gap-3">
                               <span>
                                 {task.label}
-                                {task.is_extra ? " (extra)" : ""}
                                 {task.done_at ? " · done" : ""}
                               </span>
                               {task.quantity_text ? (

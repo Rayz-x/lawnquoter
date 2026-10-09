@@ -3,13 +3,13 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { requireOrg } from "@/lib/auth/session";
+import { orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/server";
 import {
   CREW_TODAY_SELECTS,
   assembleStops,
   crewIdsFromMyCrews,
   crewNameLabel,
-  orgLocalDate,
   parseMyCrews,
   type CrewStop,
   type CrewVisitRow,
@@ -28,7 +28,7 @@ export default async function CrewTodayPage() {
     .single();
   if (orgError || !org) return <CrewTodayState title="Couldn't load today's stops" />;
 
-  const today = orgLocalDate(org.timezone);
+  const today = orgToday(org.timezone);
 
   const { data: myCrews, error: crewError } = await supabase.rpc("my_crews");
   if (crewError) return <CrewTodayState title="Couldn't load today's stops" />;

@@ -1,7 +1,7 @@
 -- Scheduling RPCs: convert, generate, assign, reorder, publish, crews.
 -- Quote price and cost denial stays in the privilege-gaps tests.
 
-select plan(124);
+select plan(138);
 
 select ok(
   not has_function_privilege('anon', 'public.convert_accepted_quote(uuid, text, text, integer, date)', 'execute'),
@@ -30,6 +30,14 @@ select ok(
 select ok(
   not has_function_privilege('anon', 'public.add_crew_member(uuid, uuid)', 'execute'),
   'anon has no execute on add_crew_member'
+);
+select ok(
+  not has_function_privilege('anon', 'public.cancel_visit(uuid, text)', 'execute'),
+  'anon has no execute on cancel_visit'
+);
+select ok(
+  not has_function_privilege('anon', 'public.skip_visit(uuid, text)', 'execute'),
+  'anon has no execute on skip_visit'
 );
 select ok(
   not has_function_privilege('anon', 'private.accepted_quote_task_sources(uuid)', 'execute'),
@@ -63,6 +71,14 @@ select ok(
 select ok(
   has_function_privilege('authenticated', 'public.add_crew_member(uuid, uuid)', 'execute'),
   'authenticated can execute add_crew_member'
+);
+select ok(
+  has_function_privilege('authenticated', 'public.cancel_visit(uuid, text)', 'execute'),
+  'authenticated can execute cancel_visit'
+);
+select ok(
+  has_function_privilege('authenticated', 'public.skip_visit(uuid, text)', 'execute'),
+  'authenticated can execute skip_visit'
 );
 
 select tests.authenticate_anon();
@@ -237,14 +253,15 @@ select is(
   'included and customer-selected lines become tasks'
 );
 select is(
-  (select is_extra from public.visit_tasks where source_line_item_id = :'mow'::uuid),
-  false,
-  'an included line is not an extra'
-);
-select is(
-  (select is_extra from public.visit_tasks where source_line_item_id = :'extra'::uuid),
-  false,
-  'a chosen option is a normal task, not an extra'
+  (
+    select count(*)
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'visit_tasks'
+      and column_name = 'is_extra'
+  ),
+  0::bigint,
+  'visit tasks have no is_extra column'
 );
 select is(
   (select count(*) from public.visit_tasks where source_line_item_id = :'good'::uuid),
@@ -291,11 +308,61 @@ select is(
   :'agr',
   'converting the same quote again returns the existing agreement'
 );
-select is(
-  (select public.convert_accepted_quote(:'qid'::uuid, 'recurring', 'weekly', 1, :'today'::date) ->> 'job_id'),
-  :'job',
-  'a retry returns the existing job instead of raising 23505'
+select throws_ok(
+  format($$ select public.convert_accepted_quote(%L, 'recurring', 'weekly', 1, %L) $$, :'qid', :'today'),
+  '22023',
+  null,
+  'a retry with a different schedule raises'
 );
+
+select tests.authenticate_as(:'owner'::uuid, :'org'::uuid, 'owner');
+select public.quote_create(:'acct'::uuid, :'prop'::uuid, 'Recurring mow') as qid_r \gset
+select public.quote_current_version(:'qid_r'::uuid) as vid_r \gset
+insert into public.quote_line_items (org_id, version_id, name, state, qty, unit, price, hours, cost, sort)
+values (:'org'::uuid, :'vid_r'::uuid, 'Mow', 'included', 1, 'visit', 40, 1, 5, 0);
+select public.quote_send(:'qid_r'::uuid) as tok_r \gset
+select tests.authenticate_anon();
+select public.quote_accept(:'tok_r'::uuid, 'Pat Buyer', 'pat@example.com', true, 'ua', null, null) as accepted_r \gset
+select tests.authenticate_as(:'sales'::uuid, :'org'::uuid, 'sales');
+select ((extract(dow from :'today'::date)::integer + 1) % 7) as next_dow \gset
+select body ->> 'agreement_id' as agr_r
+from (
+  select public.convert_accepted_quote(
+    :'qid_r'::uuid, 'recurring', 'weekly', :'next_dow'::integer, :'today'::date
+  ) as body
+) converted \gset
+select is(
+  (select count(*) from public.visits where agreement_id = :'agr_r'::uuid and occurrence_date = :'today'::date),
+  0::bigint,
+  'recurring conversion does not leave a visit on the start date'
+);
+select is(
+  (select min(occurrence_date) from public.visits where agreement_id = :'agr_r'::uuid),
+  (:'today'::date + 1),
+  'recurring conversion starts on the preferred weekday'
+);
+select is(
+  (
+    select scheduled_date
+    from public.visits
+    where agreement_id = :'agr_r'::uuid
+    order by occurrence_date
+    limit 1
+  ),
+  (:'today'::date + 1),
+  'generated visits are dated on their occurrence'
+);
+select ok(
+  (
+    select count(*)
+    from public.visit_tasks t
+    join public.visits v on v.id = t.visit_id
+    where v.agreement_id = :'agr_r'::uuid
+  ) > 0,
+  'recurring conversion copies tasks onto the series'
+);
+
+select tests.authenticate_as(:'sales'::uuid, :'org'::uuid, 'sales');
 select throws_ok(
   format($$ select public.generate_agreement_visits(%L, %L) $$, :'agr', :'today'),
   '42501',
@@ -335,6 +402,12 @@ select is(
   (select default_lead_id from public.crews where id = :'crew_id'::uuid),
   :'lead'::uuid,
   'the default lead is the crew lead'
+);
+select throws_ok(
+  format($$ delete from public.crew_members where crew_id = %L and profile_id = %L $$, :'crew_id', :'lead'),
+  '23514',
+  null,
+  'the default lead cannot be removed'
 );
 select public.create_crew('South') as crew_south \gset
 select throws_ok(
@@ -421,6 +494,20 @@ select is(
 select is((select revision from public.routes where id = :'route'::uuid), 0, 'publishing does not bump the route revision');
 select public.reorder_route_visits(:'route'::uuid, array[:'visit'::uuid, :'visit_b'::uuid]);
 select is((select revision from public.routes where id = :'route'::uuid), 2, 'reordering a published route bumps its revision');
+select lives_ok(
+  format($$ select public.skip_visit(%L, 'weather') $$, :'visit_b'),
+  'dispatcher can skip a stop'
+);
+select lives_ok(
+  format($$ select public.reorder_route_visits(%L, array[%L]::uuid[]) $$, :'route', :'visit'),
+  'a skipped stop does not block reorder'
+);
+select throws_ok(
+  format($$ select public.reorder_route_visits(%L, array[%L, %L]::uuid[]) $$, :'route', :'visit', :'visit_b'),
+  '22023',
+  null,
+  'a skipped stop is not part of the reorder list'
+);
 
 select tests.clear_auth();
 update public.routes set status = 'in_progress' where id = :'route'::uuid;
@@ -442,7 +529,7 @@ select throws_ok(
 );
 select tests.clear_auth();
 update public.routes set status = 'published' where id = :'route'::uuid;
-update public.visits set status = 'cancelled' where id = :'visit_b'::uuid;
+update public.visits set status = 'cancelled', skip_reason = null where id = :'visit_b'::uuid;
 select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
 select throws_ok(
   format($$ select public.assign_visit(%L, %L, %L) $$, :'visit_b', :'crew_id', (:'today'::date + 1)),
@@ -462,8 +549,6 @@ select tests.clear_auth();
 update public.agreements
 set kind = 'recurring', frequency = 'weekly'
 where id = :'agr'::uuid;
-insert into public.visit_tasks (org_id, visit_id, label, is_extra, sort)
-values (:'org'::uuid, :'visit'::uuid, 'One-time add-on', true, 9);
 select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
 select public.generate_agreement_visits(:'agr'::uuid, (:'today'::date + 21)) as created \gset
 select public.generate_agreement_visits(:'agr'::uuid, (:'today'::date + 21)) as created_again \gset
@@ -480,24 +565,26 @@ select results_eq(
   ),
   'weekly dates land on the occurrence, including a visit already assigned'
 );
-select is(
-  (
-    select count(*)
-    from public.visit_tasks t
-    join public.visits v on v.id = t.visit_id
-    where v.agreement_id = :'agr'::uuid
-      and v.id <> :'visit'::uuid
-      and t.is_extra
-  ),
-  0::bigint,
-  'a one-time add-on is not copied onto later visits'
-);
-select tests.clear_auth();
-update public.visits
-set status = 'cancelled'
-where agreement_id = :'agr'::uuid
-  and occurrence_date = :'today'::date + 7;
 select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
+select id as visit_next
+from public.visits
+where agreement_id = :'agr'::uuid
+  and occurrence_date = :'today'::date + 7
+\gset
+select lives_ok(
+  format($$ select public.cancel_visit(%L, 'customer called') $$, :'visit_next'),
+  'cancelling a visit keeps the occurrence'
+);
+select is(
+  (select status::text from public.visits where id = :'visit_next'::uuid),
+  'cancelled',
+  'cancel marks the visit cancelled'
+);
+select is(
+  (select note from public.visit_office_notes where visit_id = :'visit_next'::uuid),
+  'customer called',
+  'the cancel reason is an office note'
+);
 select is(
   public.generate_agreement_visits(:'agr'::uuid, (:'today'::date + 21)),
   0,
@@ -714,11 +801,24 @@ select ok(
 );
 
 select tests.clear_auth();
+update public.memberships
+set status = 'disabled'
+where user_id = :'crew'::uuid
+  and org_id = :'org'::uuid;
+select tests.authenticate_as(:'crew'::uuid, :'org'::uuid, 'crew');
+select is(public.my_crews(), '[]'::jsonb, 'a disabled membership sees no crews');
+select tests.clear_auth();
+update public.memberships
+set status = 'active'
+where user_id = :'crew'::uuid
+  and org_id = :'org'::uuid;
+
+select tests.clear_auth();
 select is((select title from public.jobs where id = :'job'::uuid), 'Weekly mow', 'crew cannot update jobs');
 select is((select status::text from public.routes where id = :'route'::uuid), 'published', 'crew cannot update routes');
 select is((select notes_office from public.agreements where id = :'agr'::uuid), null, 'crew cannot update agreements');
 select is((select count(*) from public.visits where id = :'visit'::uuid), 1::bigint, 'crew cannot delete visits');
-select is((select count(*) from public.visit_office_notes), 0::bigint, 'there is no office note on the converted visit');
+select is((select count(*) from public.visit_office_notes where visit_id = :'visit'::uuid), 0::bigint, 'there is no office note on the converted visit');
 select is((select count(*) from public.jobs where id = :'job'::uuid), 1::bigint, 'crew cannot delete jobs');
 select is((select count(*) from public.routes where id = :'route'::uuid), 1::bigint, 'crew cannot delete routes');
 select is((select count(*) from public.agreements where id = :'agr'::uuid), 1::bigint, 'crew cannot delete agreements');

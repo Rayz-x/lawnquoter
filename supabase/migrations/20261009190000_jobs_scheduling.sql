@@ -237,7 +237,6 @@ create table public.visit_tasks (
   quantity_text text,
   source_line_item_id uuid references public.quote_line_items(id) on delete set null,
   notes_crew text,
-  is_extra boolean not null default false,
   sort integer not null default 0,
   done_at timestamptz,
   not_done_reason text,
@@ -393,6 +392,43 @@ $$;
 create trigger crew_members_before_write
   before insert or update of org_id, profile_id on public.crew_members
   for each row execute function private.crew_members_before_write();
+
+-- Removing or moving the member who is crews.default_lead_id is rejected.
+-- Change the lead with set_crew_lead first, which writes default_lead_id,
+-- and only then remove the previous member. Step 11 start/finish must check
+-- the live lead on crews.default_lead_id, not a membership cached earlier.
+create or replace function private.crew_members_protect_lead()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_lead uuid;
+begin
+  select c.default_lead_id into v_lead
+  from public.crews c
+  where c.id = old.crew_id;
+
+  if v_lead is null or v_lead is distinct from old.profile_id then
+    if tg_op = 'DELETE' then
+      return old;
+    end if;
+    return new;
+  end if;
+
+  if tg_op = 'DELETE'
+     or new.profile_id is distinct from old.profile_id
+     or new.crew_id is distinct from old.crew_id then
+    raise exception 'the default lead cannot be removed from the crew' using errcode = '23514';
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger crew_members_protect_lead
+  before update or delete on public.crew_members
+  for each row execute function private.crew_members_protect_lead();
 
 create trigger agreements_account_org
   before insert or update of org_id, account_id on public.agreements
@@ -675,6 +711,7 @@ revoke all on function private.crew_can_read_job(uuid, uuid) from public, anon;
 revoke all on function private.crew_can_read_property(uuid, uuid) from public, anon;
 revoke all on function private.crews_before_write() from public, anon;
 revoke all on function private.crew_members_before_write() from public, anon;
+revoke all on function private.crew_members_protect_lead() from public, anon;
 revoke all on function private.visits_match_job() from public, anon;
 
 grant execute on function private.can_dispatch(uuid) to authenticated, service_role;
@@ -688,6 +725,7 @@ grant execute on function private.crew_can_read_job(uuid, uuid) to authenticated
 grant execute on function private.crew_can_read_property(uuid, uuid) to authenticated, service_role;
 grant execute on function private.crews_before_write() to authenticated, service_role;
 grant execute on function private.crew_members_before_write() to authenticated, service_role;
+grant execute on function private.crew_members_protect_lead() to authenticated, service_role;
 grant execute on function private.visits_match_job() to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
@@ -733,9 +771,6 @@ create policy properties_select on public.properties
 create policy agreements_select on public.agreements
   for select to authenticated
   using ((select private.can_read_office_records(org_id)));
-create policy agreements_insert on public.agreements
-  for insert to authenticated
-  with check ((select private.can_write_job_records(org_id)));
 create policy agreements_update on public.agreements
   for update to authenticated
   using ((select private.can_dispatch(org_id)))
@@ -750,9 +785,6 @@ create policy jobs_select on public.jobs
     (select private.can_read_office_records(org_id))
     or private.crew_can_read_job(org_id, id)
   );
-create policy jobs_insert on public.jobs
-  for insert to authenticated
-  with check ((select private.can_write_job_records(org_id)));
 create policy jobs_update on public.jobs
   for update to authenticated
   using ((select private.can_dispatch(org_id)))
@@ -857,9 +889,9 @@ revoke all on table
   public.visit_office_notes
 from public, anon, authenticated;
 
-grant select, insert, delete on table public.agreements to authenticated;
+grant select, delete on table public.agreements to authenticated;
 grant update (notes_office) on table public.agreements to authenticated;
-grant select, insert, delete on table public.jobs to authenticated;
+grant select, delete on table public.jobs to authenticated;
 grant update (title) on table public.jobs to authenticated;
 grant select, insert, delete on table public.crews to authenticated;
 grant update (name, active) on table public.crews to authenticated;
@@ -899,8 +931,10 @@ to service_role;
 -- Until that table exists, status completed is rejected. Step 11 replaces
 -- private.reject_completed_status with a BEFORE UPDATE trigger that requires
 -- an after-photo row.
--- Step 11 start/finish RPCs must require the caller to be that crew's lead
--- (crews.default_lead_id), not merely a member.
+-- Step 11 start/finish RPCs must require the caller to be that crew's live
+-- lead (crews.default_lead_id), not merely a member and not a lead id copied
+-- onto the visit earlier. crew_members_protect_lead rejects removing that
+-- person until set_crew_lead points default_lead_id somewhere else.
 -- ---------------------------------------------------------------------------
 
 create or replace function private.reject_completed_status()
@@ -924,6 +958,28 @@ create trigger visits_reject_completed
   before insert or update of status on public.visits
   for each row execute function private.reject_completed_status();
 
+-- A visit that belongs to an agreement is an occurrence. Deleting it lets the
+-- next generate recreate that date. Cancel or skip instead, which keeps the row.
+create or replace function private.visits_reject_agreement_delete()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if old.agreement_id is not null then
+    raise exception 'visits on an agreement are cancelled, not deleted' using errcode = '42501';
+  end if;
+  return old;
+end;
+$$;
+
+create trigger visits_reject_agreement_delete
+  before delete on public.visits
+  for each row execute function private.visits_reject_agreement_delete();
+
+-- Status, sort, route, and date changes on a published route bump revision.
+-- The later PWA treats that bump as the signal that a stop disappeared: crew
+-- select hides cancelled visits, so the crew can no longer open that stop.
 create or replace function private.bump_published_route_revision()
 returns trigger
 language plpgsql
@@ -988,10 +1044,32 @@ create trigger orgs_reject_invalid_timezone
   before insert or update of timezone on public.orgs
   for each row execute function private.orgs_reject_invalid_timezone();
 
+do $validate_timezones$
+declare
+  v_bad text;
+begin
+  select o.timezone into v_bad
+  from public.orgs o
+  where o.timezone is null
+     or not exists (
+       select 1
+       from pg_catalog.pg_timezone_names n
+       where n.name = o.timezone
+     )
+  limit 1;
+  if found then
+    raise exception 'stored timezone % is not in pg_timezone_names', coalesce(v_bad, '(null)')
+      using errcode = '22023';
+  end if;
+end;
+$validate_timezones$;
+
 revoke all on function private.reject_completed_status() from public, anon;
+revoke all on function private.visits_reject_agreement_delete() from public, anon;
 revoke all on function private.bump_published_route_revision() from public, anon;
 revoke all on function private.orgs_reject_invalid_timezone() from public, anon;
 grant execute on function private.reject_completed_status() to authenticated, service_role;
+grant execute on function private.visits_reject_agreement_delete() to authenticated, service_role;
 grant execute on function private.bump_published_route_revision() to authenticated, service_role;
 grant execute on function private.orgs_reject_invalid_timezone() to authenticated, service_role;
 
@@ -1006,9 +1084,8 @@ grant execute on function private.orgs_reject_invalid_timezone() to authenticate
 -- point prices. This function reads selections only. It does not read
 -- accepted_total, accepted_not_to_exceed, price, or cost.
 --
--- is_extra means a one-time add-on, not a chosen option. Quote lines copied
--- here are ordinary tasks (is_extra false), including a chosen option.
--- notes_crew is the crew instruction from the line, not a customer contact.
+-- Chosen options are ordinary tasks. notes_crew is the crew instruction
+-- from the line, not a customer contact.
 create or replace function private.accepted_quote_task_sources(p_quote uuid)
 returns table (
   item_id uuid,
@@ -1016,7 +1093,6 @@ returns table (
   quantity_text text,
   notes_crew text,
   hours numeric,
-  is_extra boolean,
   sort integer
 )
 language plpgsql
@@ -1048,7 +1124,6 @@ begin
     ),
     i.notes_crew,
     i.hours,
-    false,
     i.sort
   from public.acceptances a
   join public.quote_versions v
@@ -1109,11 +1184,45 @@ begin
     raise exception 'quote needs a property' using errcode = '22023';
   end if;
 
+  if p_kind is null or p_kind not in ('one_time', 'recurring') then
+    raise exception 'kind must be one_time or recurring' using errcode = '22023';
+  end if;
+  if p_start_date is null then
+    p_start_date := private.org_local_today(q.org_id);
+  end if;
+  if p_kind = 'one_time' then
+    if p_frequency is not null or p_preferred_dow is not null then
+      raise exception 'one-time agreements have no frequency' using errcode = '22023';
+    end if;
+    v_frequency := null;
+    p_preferred_dow := null;
+  else
+    if p_frequency is null or p_frequency not in ('weekly', 'biweekly', 'monthly') then
+      raise exception 'recurring agreements need a weekly, biweekly, or monthly frequency' using errcode = '22023';
+    end if;
+    if p_preferred_dow is null or p_preferred_dow not between 0 and 6 then
+      raise exception 'preferred day of week must be 0 through 6' using errcode = '22023';
+    end if;
+    v_frequency := p_frequency::public.agreement_frequency;
+  end if;
+  v_kind := p_kind::public.agreement_kind;
+
   select a.id into v_agreement
   from public.agreements a
   where a.quote_id = q.id
     and a.org_id = q.org_id;
   if v_agreement is not null then
+    if not exists (
+      select 1
+      from public.agreements a
+      where a.id = v_agreement
+        and a.kind = v_kind
+        and a.frequency is not distinct from v_frequency
+        and a.preferred_dow is not distinct from p_preferred_dow
+        and a.start_date = p_start_date
+    ) then
+      raise exception 'quote is already converted with a different schedule' using errcode = '22023';
+    end if;
     select j.id into v_job
     from public.jobs j
     where j.agreement_id = v_agreement
@@ -1122,28 +1231,6 @@ begin
     limit 1;
     return jsonb_build_object('agreement_id', v_agreement, 'job_id', v_job);
   end if;
-
-  if p_kind is null or p_kind not in ('one_time', 'recurring') then
-    raise exception 'kind must be one_time or recurring' using errcode = '22023';
-  end if;
-  if p_start_date is null then
-    p_start_date := private.org_local_today(q.org_id);
-  end if;
-  if p_preferred_dow is not null and p_preferred_dow not between 0 and 6 then
-    raise exception 'preferred day of week must be 0 through 6' using errcode = '22023';
-  end if;
-  if p_kind = 'one_time' then
-    if p_frequency is not null then
-      raise exception 'one-time agreements have no frequency' using errcode = '22023';
-    end if;
-    v_frequency := null;
-  else
-    if p_frequency is null or p_frequency not in ('weekly', 'biweekly', 'monthly') then
-      raise exception 'recurring agreements need a weekly, biweekly, or monthly frequency' using errcode = '22023';
-    end if;
-    v_frequency := p_frequency::public.agreement_frequency;
-  end if;
-  v_kind := p_kind::public.agreement_kind;
 
   select v.id into v_version_id
   from public.acceptances a
@@ -1181,31 +1268,51 @@ begin
   )
   returning id into v_job;
 
-  insert into public.visits (
-    org_id, agreement_id, job_id, property_id,
-    sort, occurrence_date, scheduled_date, status, crew_size, budget_minutes
-  ) values (
-    q.org_id, v_agreement, v_job, q.property_id,
-    0, p_start_date, null, 'scheduled', v_crew_size, v_budget
-  )
-  returning id into v_visit;
+  if v_kind = 'one_time'::public.agreement_kind then
+    insert into public.visits (
+      org_id, agreement_id, job_id, property_id,
+      sort, occurrence_date, scheduled_date, status, crew_size, budget_minutes
+    ) values (
+      q.org_id, v_agreement, v_job, q.property_id,
+      0, p_start_date, null, 'scheduled', v_crew_size, v_budget
+    )
+    returning id into v_visit;
 
-  insert into public.visit_tasks (
-    org_id, visit_id, label, quantity_text, notes_crew, source_line_item_id, is_extra, sort
-  )
-  select
-    q.org_id, v_visit, s.label, s.quantity_text, s.notes_crew, s.item_id, false, s.sort
-  from private.accepted_quote_task_sources(q.id) s
-  where not s.is_extra;
+    insert into public.visit_tasks (
+      org_id, visit_id, label, quantity_text, notes_crew, source_line_item_id, sort
+    )
+    select
+      q.org_id, v_visit, s.label, s.quantity_text, s.notes_crew, s.item_id, s.sort
+    from private.accepted_quote_task_sources(q.id) s;
+  else
+    -- No visit on the start date. The series lands on the preferred weekday.
+    -- The first stretch matches the office horizon of 56 days.
+    perform private.fill_agreement_visits(
+      v_agreement,
+      private.org_local_today(q.org_id) + 56
+    );
+  end if;
 
   return jsonb_build_object('agreement_id', v_agreement, 'job_id', v_job);
 exception
   when unique_violation then
     select a.id into v_agreement
     from public.agreements a
-    where a.quote_id = p_quote_id;
+    where a.quote_id = p_quote_id
+      and a.org_id = q.org_id;
     if v_agreement is null then
       raise;
+    end if;
+    if not exists (
+      select 1
+      from public.agreements a
+      where a.id = v_agreement
+        and a.kind = v_kind
+        and a.frequency is not distinct from v_frequency
+        and a.preferred_dow is not distinct from p_preferred_dow
+        and a.start_date = p_start_date
+    ) then
+      raise exception 'quote is already converted with a different schedule' using errcode = '22023';
     end if;
     select j.id into v_job
     from public.jobs j
@@ -1225,7 +1332,9 @@ grant execute on function public.convert_accepted_quote(uuid, text, text, intege
 -- day-of-month, clamped to the month (31 Jan -> 28 Feb).
 -- preferred_dow (Sunday = 0) shifts weekly and biweekly onto that weekday.
 -- monthly keeps the calendar day. The loop stores at most 600 dates.
-create or replace function public.generate_agreement_visits(p_agreement_id uuid, p_through date)
+-- No permission check: convert_accepted_quote calls this for sales, and
+-- generate_agreement_visits checks dispatch before calling it.
+create or replace function private.fill_agreement_visits(p_agreement_id uuid, p_through date)
 returns integer
 language plpgsql
 security definer
@@ -1261,9 +1370,6 @@ begin
 
   if not found or a.org_id is distinct from private.current_org_id() then
     raise exception 'agreement not found' using errcode = 'P0002';
-  end if;
-  if not private.can_dispatch(a.org_id) then
-    raise exception 'not allowed' using errcode = '42501';
   end if;
   if a.kind::text is distinct from 'recurring' or a.frequency is null then
     raise exception 'not a recurring agreement' using errcode = '22023';
@@ -1377,29 +1483,57 @@ begin
   end if;
 
   if v_template is not null and exists (
-    select 1 from public.visit_tasks t where t.visit_id = v_template and not t.is_extra
+    select 1 from public.visit_tasks t where t.visit_id = v_template
   ) then
     insert into public.visit_tasks (
-      org_id, visit_id, label, quantity_text, notes_crew, source_line_item_id, is_extra, sort
+      org_id, visit_id, label, quantity_text, notes_crew, source_line_item_id, sort
     )
     select
-      v_org, n.id, t.label, t.quantity_text, t.notes_crew, t.source_line_item_id, false, t.sort
+      v_org, n.id, t.label, t.quantity_text, t.notes_crew, t.source_line_item_id, t.sort
     from unnest(v_new_ids) as n(id)
     cross join public.visit_tasks t
-    where t.visit_id = v_template
-      and not t.is_extra;
+    where t.visit_id = v_template;
   elsif v_quote is not null then
     insert into public.visit_tasks (
-      org_id, visit_id, label, quantity_text, notes_crew, source_line_item_id, is_extra, sort
+      org_id, visit_id, label, quantity_text, notes_crew, source_line_item_id, sort
     )
     select
-      v_org, n.id, s.label, s.quantity_text, s.notes_crew, s.item_id, false, s.sort
+      v_org, n.id, s.label, s.quantity_text, s.notes_crew, s.item_id, s.sort
     from unnest(v_new_ids) as n(id)
-    cross join private.accepted_quote_task_sources(v_quote) s
-    where not s.is_extra;
+    cross join private.accepted_quote_task_sources(v_quote) s;
   end if;
 
   return cardinality(v_new_ids);
+end;
+$$;
+
+revoke all on function private.fill_agreement_visits(uuid, date) from public, anon, authenticated;
+
+create or replace function public.generate_agreement_visits(p_agreement_id uuid, p_through date)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_org uuid;
+begin
+  if p_through is null then
+    raise exception 'through date is required' using errcode = '22023';
+  end if;
+
+  select a.org_id into v_org
+  from public.agreements a
+  where a.id = p_agreement_id;
+
+  if v_org is null or v_org is distinct from private.current_org_id() then
+    raise exception 'agreement not found' using errcode = 'P0002';
+  end if;
+  if not private.can_dispatch(v_org) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+
+  return private.fill_agreement_visits(p_agreement_id, p_through);
 end;
 $$;
 
@@ -1539,7 +1673,8 @@ begin
   select count(*) into v_total
   from public.visits v
   where v.route_id = p_route_id
-    and v.org_id = v_org;
+    and v.org_id = v_org
+    and v.status = 'scheduled'::public.visit_status;
 
   select count(*) into v_open
   from public.visits v
@@ -1564,6 +1699,98 @@ $$;
 
 revoke all on function public.reorder_route_visits(uuid, uuid[]) from public, anon;
 grant execute on function public.reorder_route_visits(uuid, uuid[]) to authenticated, service_role;
+
+-- Cancel keeps the occurrence row. The next generate sees the unique key and
+-- does not recreate that date. The reason is an office note, not a crew field.
+create or replace function public.cancel_visit(p_visit_id uuid, p_reason text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_visit public.visits;
+  v_reason text;
+begin
+  v_reason := btrim(coalesce(p_reason, ''));
+  if length(v_reason) < 1 or length(v_reason) > 500 then
+    raise exception 'a cancel reason is required' using errcode = '22023';
+  end if;
+
+  select * into v_visit
+  from public.visits
+  where id = p_visit_id
+  for update;
+
+  if not found or v_visit.org_id is distinct from private.current_org_id() then
+    raise exception 'visit not found' using errcode = 'P0002';
+  end if;
+  if not private.can_dispatch(v_visit.org_id) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  if v_visit.status = 'completed'::public.visit_status then
+    raise exception 'a completed visit cannot be cancelled' using errcode = '22023';
+  end if;
+  if v_visit.status = 'cancelled'::public.visit_status then
+    return;
+  end if;
+
+  update public.visits
+  set status = 'cancelled',
+      skip_reason = null
+  where id = v_visit.id;
+
+  insert into public.visit_office_notes (visit_id, org_id, note)
+  values (v_visit.id, v_visit.org_id, v_reason)
+  on conflict (visit_id) do update
+    set note = excluded.note;
+end;
+$$;
+
+revoke all on function public.cancel_visit(uuid, text) from public, anon;
+grant execute on function public.cancel_visit(uuid, text) to authenticated, service_role;
+
+create or replace function public.skip_visit(p_visit_id uuid, p_reason text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_visit public.visits;
+  v_reason public.visit_skip_reason;
+begin
+  begin
+    v_reason := p_reason::public.visit_skip_reason;
+  exception
+    when invalid_text_representation then
+      raise exception 'skip reason is not valid' using errcode = '22023';
+  end;
+
+  select * into v_visit
+  from public.visits
+  where id = p_visit_id
+  for update;
+
+  if not found or v_visit.org_id is distinct from private.current_org_id() then
+    raise exception 'visit not found' using errcode = 'P0002';
+  end if;
+  if not private.can_dispatch(v_visit.org_id) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  if v_visit.status in ('completed'::public.visit_status, 'cancelled'::public.visit_status) then
+    raise exception 'that visit cannot be skipped' using errcode = '22023';
+  end if;
+
+  update public.visits
+  set status = 'skipped',
+      skip_reason = v_reason
+  where id = v_visit.id;
+end;
+$$;
+
+revoke all on function public.skip_visit(uuid, text) from public, anon;
+grant execute on function public.skip_visit(uuid, text) to authenticated, service_role;
 
 create or replace function public.publish_route(p_route_id uuid)
 returns timestamptz
@@ -1670,6 +1897,7 @@ grant execute on function public.add_crew_member(uuid, uuid) to authenticated, s
 
 -- The lead is a crew_lead who already belongs to this crew, or who is added
 -- here. A person can belong to one crew in the org.
+-- Step 11 start/finish must read crews.default_lead_id at that moment.
 create or replace function public.set_crew_lead(p_crew_id uuid, p_profile_id uuid)
 returns void
 language plpgsql
@@ -1767,9 +1995,13 @@ begin
       and exists (
         select 1
         from public.crew_members mine
+        join public.memberships m
+          on m.org_id = mine.org_id
+         and m.user_id = mine.profile_id
         where mine.crew_id = c.id
           and mine.org_id = c.org_id
           and mine.profile_id = (select auth.uid())
+          and m.status = 'active'::public.membership_status
       )
   ), '[]'::jsonb);
 end;

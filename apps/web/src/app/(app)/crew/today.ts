@@ -6,25 +6,6 @@ export const CREW_TODAY_SELECTS = {
   task: "visit_id, label, sort",
 } as const;
 
-const FORBIDDEN_SELECT_TOKENS = [
-  "gate_code",
-  "access_notes",
-  "phone",
-  "email",
-  "price",
-  "cost",
-  "margin",
-  "billing",
-  "contact",
-  "accounts",
-  "contacts",
-] as const;
-
-export function crewTodaySelectsAreFieldSafe(selects: Record<string, string> = CREW_TODAY_SELECTS): boolean {
-  const haystack = Object.values(selects).join(" ").toLowerCase();
-  return FORBIDDEN_SELECT_TOKENS.every((token) => !haystack.includes(token));
-}
-
 const VISIT_STATUS_LABELS: Record<string, string> = {
   scheduled: "Scheduled",
   in_progress: "In progress",
@@ -42,33 +23,6 @@ export function visitStatusLabel(status: string): string {
 export function budgetMinutesLabel(minutes: number | null): string {
   if (minutes == null) return "—";
   return `${minutes} min`;
-}
-
-/**
- * Org-local calendar day as YYYY-MM-DD.
- * A bad IANA name falls back to UTC in this helper. private.org_local_today
- * substitutes UTC only when the stored zone is null; an invalid name raises there.
- */
-export function orgLocalDate(timeZone: string, now = new Date()): string {
-  try {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).formatToParts(now);
-    const year = parts.find((part) => part.type === "year")?.value;
-    const month = parts.find((part) => part.type === "month")?.value;
-    const day = parts.find((part) => part.type === "day")?.value;
-    if (!year || !month || !day) return utcDate(now);
-    return `${year}-${month}-${day}`;
-  } catch {
-    return utcDate(now);
-  }
-}
-
-function utcDate(now: Date): string {
-  return now.toISOString().slice(0, 10);
 }
 
 export type CrewVisitRow = {

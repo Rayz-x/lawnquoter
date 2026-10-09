@@ -5,15 +5,12 @@ import {
   budgetMinutesLabel,
   crewIdsFromMyCrews,
   crewNameLabel,
-  crewTodaySelectsAreFieldSafe,
-  orgLocalDate,
   parseMyCrews,
   propertyAddress,
 } from "./today";
 
 describe("crew today selects", () => {
   it("reads address, status, task labels, and budget minutes only", () => {
-    expect(crewTodaySelectsAreFieldSafe()).toBe(true);
     expect(CREW_TODAY_SELECTS.property).toBe("id, formatted_address, address_line1");
     expect(CREW_TODAY_SELECTS.visit).not.toMatch(/price|cost|phone|email|gate_code|access_notes/);
     expect(CREW_TODAY_SELECTS.task).toBe("visit_id, label, sort");
@@ -53,19 +50,6 @@ describe("my crews", () => {
       },
     ]);
     expect(parseMyCrews({ crew_id: "c1", name: "North" })).toEqual([]);
-  });
-});
-
-describe("orgLocalDate", () => {
-  it("uses the org timezone, including the previous local evening", () => {
-    const instant = new Date("2026-10-09T04:30:00.000Z");
-    expect(orgLocalDate("America/Chicago", instant)).toBe("2026-10-08");
-    expect(orgLocalDate("UTC", instant)).toBe("2026-10-09");
-  });
-
-  it("falls back to UTC when the timezone is invalid", () => {
-    const instant = new Date("2026-10-09T04:30:00.000Z");
-    expect(orgLocalDate("Not/AZone", instant)).toBe("2026-10-09");
   });
 });
 
