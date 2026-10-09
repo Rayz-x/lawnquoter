@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
+import { customerCopyUpdateError } from "@/lib/quotes/customer-copy";
 import { createClient } from "@/lib/supabase/server";
 
 export async function createQuote(accountId: string, propertyId?: string | null): Promise<ActionResult<{ id: string }>> {
@@ -110,7 +111,7 @@ export async function updateQuoteMeta(id: string, fd: FormData): Promise<ActionR
   const session = await requireOrg();
   const parsed = z
     .object({
-      title: z.string().trim().min(1).max(200),
+      title: z.string().trim().min(1).max(200).optional(),
       intro: z.string().max(4000).optional().or(z.literal("")),
       notes_customer: z.string().max(4000).optional().or(z.literal("")),
       notes_internal: z.string().max(4000).optional().or(z.literal("")),
@@ -120,26 +121,32 @@ export async function updateQuoteMeta(id: string, fd: FormData): Promise<ActionR
   const supabase = await createClient();
   const { data: quote } = await supabase
     .from("quotes")
-    .select("status")
+    .select("title, intro, notes_customer, status, current_version")
     .eq("id", id)
     .eq("org_id", session.orgId)
     .maybeSingle();
   if (!quote) return fail("Quote not found");
-  const customerFacing = quote.status === "draft" || quote.status === "changed";
-  const { error } = await supabase
-    .from("quotes")
-    .update(
-      customerFacing
-        ? {
-            title: parsed.data.title,
-            intro: parsed.data.intro || null,
-            notes_customer: parsed.data.notes_customer || null,
-            notes_internal: parsed.data.notes_internal || null,
-          }
-        : { notes_internal: parsed.data.notes_internal || null },
-    )
-    .eq("id", id)
-    .eq("org_id", session.orgId);
+  const { data: version } = await supabase
+    .from("quote_versions")
+    .select("frozen")
+    .eq("quote_id", id)
+    .eq("org_id", session.orgId)
+    .eq("version", quote.current_version)
+    .maybeSingle();
+  if (!version) return fail("Quote not found");
+  const copyEditable = (quote.status === "draft" || quote.status === "changed") && !version.frozen;
+  const locked = customerCopyUpdateError(copyEditable, quote, parsed.data);
+  if (locked) return fail(locked);
+  const patch = copyEditable
+    ? {
+        title: parsed.data.title,
+        intro: parsed.data.intro || null,
+        notes_customer: parsed.data.notes_customer || null,
+        notes_internal: parsed.data.notes_internal || null,
+      }
+    : { notes_internal: parsed.data.notes_internal || null };
+  if (copyEditable && !patch.title) return fail("Title is required");
+  const { error } = await supabase.from("quotes").update(patch).eq("id", id).eq("org_id", session.orgId);
   if (error) return fail(error.message);
   revalidatePath(`/quotes/${id}`);
   return { ok: true };
@@ -166,12 +173,10 @@ export async function sendQuote(id: string): Promise<ActionResult<{ url: string 
 }
 
 export async function reviseQuote(id: string): Promise<ActionResult<{ versionId: string }>> {
-  const session = await requireOrg();
+  await requireOrg();
   const supabase = await createClient();
   const { data: versionId, error } = await supabase.rpc("quote_revise", { p_quote: id });
   if (error || !versionId) return fail(error?.message ?? "Could not revise");
-  const { data: quote } = await supabase.from("quotes").select("id").eq("id", id).eq("org_id", session.orgId).maybeSingle();
-  if (!quote) return fail("Quote not found");
   revalidatePath(`/quotes/${id}`);
   return { ok: true, data: { versionId } };
 }
