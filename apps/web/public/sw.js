@@ -9,7 +9,7 @@ function crewCacheName(build) {
 
 const CACHE = crewCacheName(new URL(self.location.href).searchParams.get("build"));
 
-function cachePlan(url, method) {
+function cachePlan(url, method, mode) {
   if (method !== "GET") return "bypass";
   const host = url.hostname.toLowerCase();
   if (host.includes("arcgis.com") || host.includes("arcgisonline.com") || host.includes("supabase")) return "bypass";
@@ -22,7 +22,7 @@ function cachePlan(url, method) {
   ) {
     return "cache-first";
   }
-  if (url.pathname === "/crew/today") return "network-first";
+  if (url.pathname === "/crew/today" && mode === "navigate") return "network-first";
   if (url.pathname === "/sw.js" || url.pathname.startsWith("/crew")) return "network-only";
   return "bypass";
 }
@@ -48,16 +48,23 @@ function networkOnly(request) {
   return fetch(request).catch(() => offlineResponse(request));
 }
 
+function crewPageKey(request) {
+  const url = new URL(request.url, self.location.origin);
+  url.search = "";
+  return url.pathname;
+}
+
 function cachedThenOffline(request) {
-  return caches.open(CACHE).then((cache) => cache.match(request).then((hit) => hit || offlineResponse(request)));
+  return caches.open(CACHE).then((cache) => cache.match(crewPageKey(request)).then((hit) => hit || offlineResponse(request)));
 }
 
 function networkFirst(request) {
   return fetch(request).then(
     (response) => {
-      if (!canCacheCrewPage(response)) return cachedThenOffline(request);
-      const copy = response.clone();
-      void caches.open(CACHE).then((cache) => cache.put(request, copy));
+      if (canCacheCrewPage(response)) {
+        const copy = response.clone();
+        void caches.open(CACHE).then((cache) => cache.put(crewPageKey(request), copy));
+      }
       return response;
     },
     () => cachedThenOffline(request),
@@ -92,7 +99,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  const plan = cachePlan(new URL(event.request.url), event.request.method);
+  const plan = cachePlan(new URL(event.request.url), event.request.method, event.request.mode);
   if (plan === "cache-first") event.respondWith(cacheFirst(event.request));
   else if (plan === "network-first") event.respondWith(networkFirst(event.request));
   else if (plan === "network-only") event.respondWith(networkOnly(event.request));

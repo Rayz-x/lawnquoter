@@ -25,6 +25,7 @@ export function cachePlan(input: {
   hostname: string;
   pathname: string;
   sameOrigin: boolean;
+  mode: string;
 }): CachePlan {
   if (input.method !== "GET") return "bypass";
   const host = input.hostname.toLowerCase();
@@ -38,7 +39,7 @@ export function cachePlan(input: {
   ) {
     return "cache-first";
   }
-  if (input.pathname === "/crew/today") return "network-first";
+  if (input.pathname === "/crew/today" && input.mode === "navigate") return "network-first";
   if (input.pathname === "/sw.js" || input.pathname.startsWith("/crew")) return "network-only";
   return "bypass";
 }

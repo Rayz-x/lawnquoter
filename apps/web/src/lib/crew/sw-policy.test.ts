@@ -12,13 +12,13 @@ function runWorker(source: string, sandbox: Record<string, unknown>) {
   return runInNewContext(source, { self: { location: { origin: "https://crew.example" } }, ...sandbox });
 }
 
-function workerPlan(method: string, hostname: string, pathname: string, sameOrigin: boolean): CachePlan {
+function workerPlan(method: string, hostname: string, pathname: string, sameOrigin: boolean, mode = "navigate"): CachePlan {
   const url = {
     hostname,
     pathname,
     origin: sameOrigin ? "https://crew.example" : `https://${hostname}`,
   };
-  return runWorker(`${planFn}\ncachePlan(url, method)`, { url, method });
+  return runWorker(`${planFn}\ncachePlan(url, method, mode)`, { url, method, mode });
 }
 
 const CASES: Array<[string, string, string, boolean]> = [
@@ -38,46 +38,51 @@ const CASES: Array<[string, string, string, boolean]> = [
 describe("cachePlan", () => {
   it("runs the same rules in the service worker and the module", () => {
     for (const [method, hostname, pathname, sameOrigin] of CASES) {
-      const expected = cachePlan({ method, hostname, pathname, sameOrigin });
+      const expected = cachePlan({ method, hostname, pathname, sameOrigin, mode: "navigate" });
       expect(workerPlan(method, hostname, pathname, sameOrigin), pathname).toBe(expected);
     }
-    expect(cachePlan({ method: "GET", hostname: "localhost", pathname: "/crew/today", sameOrigin: true })).toBe("network-first");
-    expect(cachePlan({ method: "GET", hostname: "localhost", pathname: "/crew/map", sameOrigin: true })).toBe("network-only");
-    expect(cachePlan({ method: "GET", hostname: "localhost", pathname: "/offline.html", sameOrigin: true })).toBe("cache-first");
+    expect(cachePlan({ method: "GET", hostname: "localhost", pathname: "/crew/today", sameOrigin: true, mode: "navigate" })).toBe("network-first");
+    expect(workerPlan("GET", "localhost", "/crew/today", true, "cors")).toBe("network-only");
+    expect(cachePlan({ method: "GET", hostname: "localhost", pathname: "/crew/today", sameOrigin: true, mode: "cors" })).toBe("network-only");
+    expect(cachePlan({ method: "GET", hostname: "localhost", pathname: "/crew/map", sameOrigin: true, mode: "navigate" })).toBe("network-only");
+    expect(cachePlan({ method: "GET", hostname: "localhost", pathname: "/offline.html", sameOrigin: true, mode: "navigate" })).toBe("cache-first");
   });
 
   it("stores today only from a real 200, then uses the cached copy", async () => {
     const stored: Record<string, { status: number }> = {};
     const page = { status: 200, type: "basic", redirected: false, clone: () => page };
-    const run = (fetchImpl: () => Promise<unknown>) =>
+    const run = (fetchImpl: () => Promise<unknown>, url = "/crew/today?source=pwa") =>
       runWorker(
         `${worker.slice(worker.indexOf("function canCacheCrewPage"), worker.indexOf("self.addEventListener"))}\nnetworkFirst(request)`,
         {
-          request: { url: "/crew/today", mode: "navigate" },
+          request: { url, mode: "navigate" },
           CACHE: "crew-shell-dev",
           fetch: fetchImpl,
           caches: {
             open: () => Promise.resolve({
-              match: (request: { url: string }) => Promise.resolve(stored[request.url]),
-              put: (request: { url: string }, response: { status: number }) => {
-                stored[request.url] = response;
+              match: (key: string) => Promise.resolve(stored[key]),
+              put: (key: string, response: { status: number }) => {
+                stored[key] = response;
               },
             }),
             match: () => Promise.resolve(undefined),
           },
           Response,
+          URL,
         },
       );
     expect(await run(() => Promise.resolve(page))).toBe(page);
     await Promise.resolve();
     expect(stored["/crew/today"]).toBe(page);
+    expect(stored["/crew/today?source=pwa"]).toBeUndefined();
     expect(canCacheCrewPage({ status: 200, type: "basic", redirected: true })).toBe(false);
     expect(canCacheCrewPage({ status: 302, type: "basic", redirected: false })).toBe(false);
     const login = { status: 200, type: "basic", redirected: true, clone: () => login };
     delete stored["/crew/today"];
-    expect(await run(() => Promise.resolve(login))).toEqual(expect.objectContaining({ status: 503 }));
+    expect(await run(() => Promise.resolve(login))).toBe(login);
     expect(stored["/crew/today"]).toBeUndefined();
     stored["/crew/today"] = page;
+    expect(await run(() => Promise.reject(new Error("offline")), "/crew/today")).toBe(page);
     expect(await run(() => Promise.reject(new Error("offline")))).toBe(page);
   });
 
