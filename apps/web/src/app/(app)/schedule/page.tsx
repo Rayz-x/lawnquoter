@@ -100,7 +100,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         "Address unavailable",
       status: visit.status,
       scheduledDate: visit.scheduled_date,
-      overdue: visit.scheduled_date < today,
+      overdue: visit.scheduled_date != null && visit.scheduled_date < today,
       budgetMinutes: visit.budget_minutes,
       windowLabel: windowLabel(visit.window_start, visit.window_end),
     };
@@ -127,7 +127,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     unassignedById.set(visit.id, toVisit(visit));
   }
   const unassigned = [...unassignedById.values()].sort(
-    (a, b) => a.scheduledDate.localeCompare(b.scheduledDate) || a.title.localeCompare(b.title),
+    (a, b) => (a.scheduledDate ?? "").localeCompare(b.scheduledDate ?? "") || a.title.localeCompare(b.title),
   );
 
   const columns: BoardColumn[] = visibleCrews.map((crew) => {

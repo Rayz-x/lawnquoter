@@ -1777,3 +1777,72 @@ $$;
 
 revoke all on function public.my_crews() from public, anon;
 grant execute on function public.my_crews() to authenticated, service_role;
+
+-- Kind, frequency, preferred day, and start date. Owner, admin, dispatcher,
+-- and sales. Other agreement columns stay on their own grants.
+create or replace function public.update_agreement_schedule(
+  p_agreement_id uuid,
+  p_kind text,
+  p_frequency text default null,
+  p_preferred_dow integer default null,
+  p_start_date date default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  a public.agreements;
+  v_kind public.agreement_kind;
+  v_frequency public.agreement_frequency;
+begin
+  select * into a
+  from public.agreements
+  where id = p_agreement_id
+  for update;
+
+  if not found or a.org_id is distinct from private.current_org_id() then
+    raise exception 'agreement not found' using errcode = 'P0002';
+  end if;
+  if not private.can_write_job_records(a.org_id) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  if a.status = 'ended'::public.agreement_status then
+    raise exception 'ended agreements cannot be changed' using errcode = '22023';
+  end if;
+  if p_start_date is null then
+    raise exception 'start date is required' using errcode = '22023';
+  end if;
+  if a.end_date is not null and a.end_date < p_start_date then
+    raise exception 'start date is after the agreement ends' using errcode = '22023';
+  end if;
+  if p_kind is null or p_kind not in ('one_time', 'recurring') then
+    raise exception 'kind must be one_time or recurring' using errcode = '22023';
+  end if;
+
+  if p_kind = 'one_time' then
+    v_frequency := null;
+    p_preferred_dow := null;
+  else
+    if p_frequency is null or p_frequency not in ('weekly', 'biweekly', 'monthly') then
+      raise exception 'recurring agreements need a weekly, biweekly, or monthly frequency' using errcode = '22023';
+    end if;
+    if p_preferred_dow is null or p_preferred_dow not between 0 and 6 then
+      raise exception 'preferred day of week must be 0 through 6' using errcode = '22023';
+    end if;
+    v_frequency := p_frequency::public.agreement_frequency;
+  end if;
+  v_kind := p_kind::public.agreement_kind;
+
+  update public.agreements
+  set kind = v_kind,
+      frequency = v_frequency,
+      preferred_dow = p_preferred_dow,
+      start_date = p_start_date
+  where id = a.id;
+end;
+$$;
+
+revoke all on function public.update_agreement_schedule(uuid, text, text, integer, date) from public, anon;
+grant execute on function public.update_agreement_schedule(uuid, text, text, integer, date) to authenticated, service_role;

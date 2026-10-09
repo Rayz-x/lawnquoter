@@ -1,7 +1,7 @@
 -- Scheduling RPCs: convert, generate, assign, reorder, publish, crews.
 -- Quote price and cost denial stays in the privilege-gaps tests.
 
-select plan(107);
+select plan(124);
 
 select ok(
   not has_function_privilege('anon', 'public.convert_accepted_quote(uuid, text, text, integer, date)', 'execute'),
@@ -722,5 +722,109 @@ select is((select count(*) from public.visit_office_notes), 0::bigint, 'there is
 select is((select count(*) from public.jobs where id = :'job'::uuid), 1::bigint, 'crew cannot delete jobs');
 select is((select count(*) from public.routes where id = :'route'::uuid), 1::bigint, 'crew cannot delete routes');
 select is((select count(*) from public.agreements where id = :'agr'::uuid), 1::bigint, 'crew cannot delete agreements');
+
+select ok(
+  not has_function_privilege('anon', 'public.update_agreement_schedule(uuid, text, text, integer, date)', 'execute'),
+  'anon has no execute on update_agreement_schedule'
+);
+select ok(
+  has_function_privilege('authenticated', 'public.update_agreement_schedule(uuid, text, text, integer, date)', 'execute'),
+  'authenticated can execute update_agreement_schedule'
+);
+
+select tests.clear_auth();
+insert into public.agreements (org_id, account_id, property_id, kind, start_date, status)
+values (:'org'::uuid, :'acct'::uuid, :'prop'::uuid, 'one_time', :'today'::date, 'active')
+returning id as agr_sched \gset
+
+select tests.authenticate_as(:'sales'::uuid, :'org'::uuid, 'sales');
+select throws_ok(
+  format($$ update public.agreements set kind = 'recurring', frequency = 'weekly' where id = %L $$, :'agr_sched'),
+  '42501',
+  null,
+  'sales cannot write agreement schedule columns directly'
+);
+select lives_ok(
+  format(
+    $$ select public.update_agreement_schedule(%L, 'recurring', 'weekly', 1, %L) $$,
+    :'agr_sched', :'today'
+  ),
+  'sales can save a recurring schedule'
+);
+select is((select kind::text from public.agreements where id = :'agr_sched'::uuid), 'recurring', 'sales saved the agreement kind');
+select is((select frequency::text from public.agreements where id = :'agr_sched'::uuid), 'weekly', 'sales saved the frequency');
+select is((select preferred_dow from public.agreements where id = :'agr_sched'::uuid), 1::smallint, 'sales saved the preferred day');
+select is((select start_date from public.agreements where id = :'agr_sched'::uuid), :'today'::date, 'sales saved the start date');
+select lives_ok(
+  format($$ select public.update_agreement_schedule(%L, 'one_time', null, null, %L) $$, :'agr_sched', :'today'),
+  'sales can save a one-time schedule'
+);
+select is((select frequency from public.agreements where id = :'agr_sched'::uuid), null, 'one-time clears the frequency');
+select is((select preferred_dow from public.agreements where id = :'agr_sched'::uuid), null, 'one-time clears the preferred day');
+
+select tests.authenticate_as(:'owner'::uuid, :'org'::uuid, 'owner');
+select lives_ok(
+  format(
+    $$ select public.update_agreement_schedule(%L, 'recurring', 'biweekly', 2, %L) $$,
+    :'agr_sched', :'today'
+  ),
+  'the owner can save the schedule'
+);
+select tests.clear_auth();
+select tests.create_user('rpc-admin@example.com', 'RPC Admin') as sched_admin \gset
+select tests.add_member(:'org'::uuid, :'sched_admin'::uuid, 'admin');
+select tests.authenticate_as(:'sched_admin'::uuid, :'org'::uuid, 'admin');
+select lives_ok(
+  format(
+    $$ select public.update_agreement_schedule(%L, 'recurring', 'weekly', 4, %L) $$,
+    :'agr_sched', :'today'
+  ),
+  'an admin can save the schedule'
+);
+select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
+select lives_ok(
+  format(
+    $$ select public.update_agreement_schedule(%L, 'recurring', 'monthly', 3, %L) $$,
+    :'agr_sched', :'today'
+  ),
+  'a dispatcher can save the schedule'
+);
+select tests.authenticate_as(:'crew'::uuid, :'org'::uuid, 'crew');
+select throws_ok(
+  format(
+    $$ select public.update_agreement_schedule(%L, 'recurring', 'weekly', 1, %L) $$,
+    :'agr_sched', :'today'
+  ),
+  '42501',
+  null,
+  'crew cannot save an agreement schedule'
+);
+
+select tests.clear_auth();
+update public.agreements set status = 'ended' where id = :'agr_sched'::uuid;
+select tests.authenticate_as(:'sales'::uuid, :'org'::uuid, 'sales');
+select throws_ok(
+  format(
+    $$ select public.update_agreement_schedule(%L, 'one_time', null, null, %L) $$,
+    :'agr_sched', :'today'
+  ),
+  '22023',
+  null,
+  'an ended agreement cannot be rescheduled'
+);
+select tests.clear_auth();
+update public.agreements
+set status = 'active', end_date = :'today'::date
+where id = :'agr_sched'::uuid;
+select tests.authenticate_as(:'sales'::uuid, :'org'::uuid, 'sales');
+select throws_ok(
+  format(
+    $$ select public.update_agreement_schedule(%L, 'one_time', null, null, %L) $$,
+    :'agr_sched', (:'today'::date + 1)
+  ),
+  '22023',
+  null,
+  'the start date cannot be after the agreement ends'
+);
 
 select * from finish();

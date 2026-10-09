@@ -10,9 +10,9 @@ import {
   crewIdsFromMyCrews,
   crewNameLabel,
   orgLocalDate,
+  parseMyCrews,
   type CrewStop,
   type CrewVisitRow,
-  type MyCrew,
 } from "../today";
 
 export const metadata: Metadata = { title: "Today" };
@@ -30,10 +30,10 @@ export default async function CrewTodayPage() {
 
   const today = orgLocalDate(org.timezone);
 
-  const { data: myCrews, error: crewError } = await readMyCrews(supabase);
+  const { data: myCrews, error: crewError } = await supabase.rpc("my_crews");
   if (crewError) return <CrewTodayState title="Couldn't load today's stops" />;
 
-  const crews = myCrews ?? [];
+  const crews = parseMyCrews(myCrews);
   const crewIds = crewIdsFromMyCrews(crews);
   const crewLabel = crewNameLabel(crews);
   if (crewIds.length === 0) {
@@ -77,17 +77,6 @@ export default async function CrewTodayPage() {
 
   const stops = assembleStops(visits satisfies CrewVisitRow[], properties ?? [], tasks ?? []);
   return <CrewTodayList stops={stops} crewLabel={crewLabel} />;
-}
-
-/**
- * public.my_crews() is added on the scheduling branch and is not in the generated
- * Database types yet. The cast stays limited to that no-argument call and its rows.
- */
-function readMyCrews(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const client = supabase as unknown as {
-    rpc(fn: "my_crews"): Promise<{ data: MyCrew[] | null; error: { message: string } | null }>;
-  };
-  return client.rpc("my_crews");
 }
 
 function CrewTodayList({ stops, crewLabel }: { stops: CrewStop[]; crewLabel: string }) {

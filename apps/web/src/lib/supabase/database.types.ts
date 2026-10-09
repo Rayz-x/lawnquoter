@@ -1057,6 +1057,9 @@ isOneToOne: false
                            },
 "set_crew_lead":
 { Args: { "p_crew_id": string,"p_profile_id": string }; Returns: undefined
+                           },
+"update_agreement_schedule":
+{ Args: { "p_agreement_id": string,"p_frequency"?: string,"p_kind": string,"p_preferred_dow"?: number,"p_start_date"?: string }; Returns: undefined
                            }
           }
           Enums: {

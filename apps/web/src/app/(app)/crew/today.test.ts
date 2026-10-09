@@ -7,6 +7,7 @@ import {
   crewNameLabel,
   crewTodaySelectsAreFieldSafe,
   orgLocalDate,
+  parseMyCrews,
   propertyAddress,
 } from "./today";
 
@@ -23,13 +24,35 @@ describe("crew today selects", () => {
 describe("my crews", () => {
   it("keeps crew ids and names for the signed-in user", () => {
     const crews = [
-      { crew_id: "c1", name: "North" },
-      { crew_id: "c1", name: "North" },
-      { crew_id: "c2", name: "  South  " },
-      { crew_id: "", name: "Skip" },
+      { id: "c1", name: "North", active: true, default_lead_id: null, members: [] },
+      { id: "c1", name: "North", active: true, default_lead_id: null, members: [] },
+      { id: "c2", name: "  South  ", active: true, default_lead_id: "lead", members: [{ profile_id: "p1", full_name: "Pat" }] },
+      { id: "", name: "Skip", active: false, default_lead_id: null, members: [] },
     ];
     expect(crewIdsFromMyCrews(crews)).toEqual(["c1", "c2"]);
     expect(crewNameLabel(crews)).toBe("North, South");
+  });
+
+  it("reads the my_crews jsonb shape", () => {
+    const crews = parseMyCrews([
+      {
+        id: "c1",
+        name: "North",
+        active: true,
+        default_lead_id: "lead",
+        members: [{ profile_id: "p1", full_name: "Pat" }],
+      },
+    ]);
+    expect(crews).toEqual([
+      {
+        id: "c1",
+        name: "North",
+        active: true,
+        default_lead_id: "lead",
+        members: [{ profile_id: "p1", full_name: "Pat" }],
+      },
+    ]);
+    expect(parseMyCrews({ crew_id: "c1", name: "North" })).toEqual([]);
   });
 });
 

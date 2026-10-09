@@ -91,27 +91,63 @@ export type CrewTaskRow = {
   sort: number;
 };
 
-/** Row from public.my_crews(): the signed-in user's crews, id plus display name. */
-export type MyCrew = {
-  crew_id: string;
-  name: string;
+/** One member inside public.my_crews(). No email or phone. */
+export type MyCrewMember = {
+  profile_id: string;
+  full_name: string | null;
 };
 
+/** Row from public.my_crews(). */
+export type MyCrew = {
+  id: string;
+  name: string;
+  active: boolean;
+  default_lead_id: string | null;
+  members: MyCrewMember[];
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseMember(value: unknown): MyCrewMember | null {
+  if (!isRecord(value) || typeof value.profile_id !== "string" || value.profile_id.length === 0) return null;
+  return {
+    profile_id: value.profile_id,
+    full_name: typeof value.full_name === "string" ? value.full_name : null,
+  };
+}
+
+/** Reads the jsonb array from public.my_crews(). */
+export function parseMyCrews(data: unknown): MyCrew[] {
+  if (!Array.isArray(data)) return [];
+  const crews: MyCrew[] = [];
+  for (const row of data) {
+    if (!isRecord(row) || typeof row.id !== "string" || typeof row.name !== "string") continue;
+    const members = Array.isArray(row.members) ? row.members.flatMap((member) => {
+      const parsed = parseMember(member);
+      return parsed ? [parsed] : [];
+    }) : [];
+    crews.push({
+      id: row.id,
+      name: row.name,
+      active: row.active !== false,
+      default_lead_id: typeof row.default_lead_id === "string" ? row.default_lead_id : null,
+      members,
+    });
+  }
+  return crews;
+}
+
 export function crewIdsFromMyCrews(crews: MyCrew[]): string[] {
-  return [
-    ...new Set(
-      crews
-        .map((crew) => crew.crew_id)
-        .filter((id): id is string => typeof id === "string" && id.length > 0),
-    ),
-  ];
+  return [...new Set(crews.map((crew) => crew.id).filter((id) => id.length > 0))];
 }
 
 export function crewNameLabel(crews: MyCrew[]): string {
   return [
     ...new Set(
       crews
-        .filter((crew) => typeof crew.crew_id === "string" && crew.crew_id.length > 0)
+        .filter((crew) => crew.id.length > 0)
         .map((crew) => crew.name.trim())
         .filter((name) => name.length > 0),
     ),

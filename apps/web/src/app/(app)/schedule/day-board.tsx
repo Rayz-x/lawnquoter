@@ -17,7 +17,7 @@ export type BoardVisit = {
   customer: string;
   address: string;
   status: string;
-  scheduledDate: string;
+  scheduledDate: string | null;
   overdue: boolean;
   budgetMinutes: number | null;
   windowLabel: string | null;
@@ -246,7 +246,7 @@ function VisitCard({ visit, children }: { visit: BoardVisit; children?: ReactNod
           </Badge>
         </div>
       </div>
-      <p className="text-xs text-muted-foreground tabular-nums">{visit.scheduledDate}</p>
+      <p className="text-xs text-muted-foreground tabular-nums">{visit.scheduledDate ?? "Unscheduled"}</p>
       {visit.budgetMinutes != null || visit.windowLabel ? (
         <p className="text-xs text-muted-foreground tabular-nums">
           {visit.windowLabel ? visit.windowLabel : null}

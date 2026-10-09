@@ -34,18 +34,6 @@ const convertInputSchema = z
 
 export type ConvertQuoteInput = z.infer<typeof convertInputSchema>;
 
-type RpcClient = Awaited<ReturnType<typeof createClient>>;
-
-/** Calls an RPC whose generated args may lag the migration. */
-function rpcUntyped(supabase: RpcClient, fn: string, args: Record<string, string | number | null>) {
-  return (
-    supabase.rpc as unknown as (
-      name: string,
-      params: Record<string, string | number | null>,
-    ) => Promise<{ data: unknown; error: { message: string } | null }>
-  )(fn, args);
-}
-
 export async function convertAcceptedQuote(
   quoteId: string,
   input: ConvertQuoteInput,
@@ -55,12 +43,16 @@ export async function convertAcceptedQuote(
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid quote");
   const recurring = parsed.data.input.kind === "recurring";
   const supabase = await createClient();
-  const { data, error } = await rpcUntyped(supabase, "convert_accepted_quote", {
+  const { data, error } = await supabase.rpc("convert_accepted_quote", {
     p_quote_id: parsed.data.quoteId,
     p_kind: parsed.data.input.kind,
-    p_frequency: recurring ? (parsed.data.input.frequency ?? null) : null,
-    p_preferred_dow: recurring ? (parsed.data.input.preferredDow ?? null) : null,
     p_start_date: parsed.data.input.startDate,
+    ...(recurring
+      ? {
+          p_frequency: parsed.data.input.frequency,
+          p_preferred_dow: parsed.data.input.preferredDow,
+        }
+      : {}),
   });
   if (error || data == null) return fail(error?.message ?? "Could not convert quote");
   const body = convertedSchema.safeParse(data);
@@ -109,21 +101,18 @@ export async function updateAgreementSchedule(input: {
   }
 
   const recurring = parsed.data.kind === "recurring";
-  const { data: saved, error } = await supabase
-    .from("agreements")
-    .update({
-      kind: parsed.data.kind,
-      frequency: recurring ? (parsed.data.frequency ?? null) : null,
-      preferred_dow: recurring ? (parsed.data.preferredDow ?? null) : null,
-      start_date: parsed.data.startDate,
-    })
-    .eq("id", parsed.data.agreementId)
-    .eq("org_id", session.orgId)
-    .neq("status", "ended")
-    .select("id")
-    .maybeSingle();
+  const { error } = await supabase.rpc("update_agreement_schedule", {
+    p_agreement_id: parsed.data.agreementId,
+    p_kind: parsed.data.kind,
+    p_start_date: parsed.data.startDate,
+    ...(recurring
+      ? {
+          p_frequency: parsed.data.frequency,
+          p_preferred_dow: parsed.data.preferredDow,
+        }
+      : {}),
+  });
   if (error) return fail(error.message);
-  if (!saved) return fail("Ended agreements cannot be changed");
   return { ok: true };
 }
 
@@ -218,7 +207,7 @@ export async function setCrewLead(crewId: string, profileId: string): Promise<Ac
   const parsed = z.object({ crewId: idSchema, profileId: idSchema }).safeParse({ crewId, profileId });
   if (!parsed.success) return fail("Invalid crew lead");
   const supabase = await createClient();
-  const { error } = await rpcUntyped(supabase, "set_crew_lead", {
+  const { error } = await supabase.rpc("set_crew_lead", {
     p_crew_id: parsed.data.crewId,
     p_profile_id: parsed.data.profileId,
   });
