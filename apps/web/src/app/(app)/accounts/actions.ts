@@ -227,7 +227,10 @@ export async function updateProperty(id: string, fd: FormData): Promise<ActionRe
     before.city !== parsed.data.city ||
     before.region !== parsed.data.region ||
     before.postal_code !== parsed.data.postal_code;
-  const warnings = addressChanged || fd.get("regeocode") === "true" ? await resolveAndStoreGeometry(id, parsed.data) : [];
+  const warnings =
+    addressChanged || fd.get("regeocode") === "true"
+      ? await resolveAndStoreGeometry(id, parsed.data, { clearOnMiss: addressChanged })
+      : [];
   revalidatePath(`/properties/${id}`);
   if (before) revalidatePath(`/accounts/${before.account_id}`);
   return { ok: true, data: { warnings } };
@@ -251,6 +254,7 @@ export async function regeocodeProperty(id: string): Promise<ActionResult<{ warn
 async function resolveAndStoreGeometry(
   propertyId: string,
   addr: { address_line1: string; city: string; region: string; postal_code: string },
+  options?: { clearOnMiss?: boolean },
 ): Promise<string[]> {
   const supabase = await createClient();
   const address = `${addr.address_line1}, ${addr.city}, ${addr.region} ${addr.postal_code}`;
@@ -269,6 +273,23 @@ async function resolveAndStoreGeometry(
       p_footprint: geo.footprint?.geometry ?? undefined,
       p_footprint_source: geo.footprint?.source ?? undefined,
     });
+  } else if (options?.clearOnMiss) {
+    // property_set_geometry treats null as "keep the current value", so a miss
+    // has to null the geography columns directly. SQL NULL is valid here.
+    await supabase
+      .from("properties")
+      .update({
+        place_id: null,
+        location: null,
+        parcel: null,
+        footprint: null,
+        parcel_apn: null,
+        parcel_source: "unknown",
+        footprint_source: "unknown",
+        lot_sqft: null,
+        building_sqft: null,
+      })
+      .eq("id", propertyId);
   }
   return geo.warnings;
 }

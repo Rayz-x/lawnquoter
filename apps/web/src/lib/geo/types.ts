@@ -23,8 +23,3 @@ export type FootprintResult = {
   geometry: Polygon | MultiPolygon;
   source: "overture" | "osm";
 };
-
-export type AddressSuggestion = {
-  description: string;
-  placeId: string;
-};
