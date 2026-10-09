@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { ENHANCEMENT_TAGS, SKIP_REASONS, lookupVisitPhoto, queueEnhancement, skipNeedsPhoto } from "@/lib/crew/field";
+import { ENHANCEMENT_TAGS, SKIP_REASONS, queueEnhancement, skipNeedsPhoto } from "@/lib/crew/field";
 import { downscalePhoto } from "@/lib/crew/photo";
 import { browserCrewStore, enqueueMutation, enqueuePhoto, flushOutbox, saveDayPack } from "@/lib/crew/queue";
 import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
@@ -36,7 +36,7 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
       const packs = await store.listPacks();
       const row = packs.find((pack) => visitFromPack(pack.pack, visitId));
       if (row) await saveDayPack(store, row.date, patchVisitPack(row.pack, visitId, { status: "skipped", skip_reason: reason }) as Json);
-      void flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto, lookupVisitPhoto);
+      void flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto);
       window.dispatchEvent(new Event("crew-pack"));
       toast("Stop skipped. It sends when you have signal.");
       onLeave();
@@ -61,7 +61,7 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
       } else {
         await queueEnhancement(store, item, null);
       }
-      void flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto, lookupVisitPhoto);
+      void flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto);
       toast("Upsell saved on this phone.");
       setSheet(null);
       setTag(null);

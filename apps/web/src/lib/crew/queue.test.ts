@@ -162,7 +162,7 @@ describe("crew outbox", () => {
           ? { client_id: item.client_id, status: "error" as const, message: "enhancement photo must belong to this visit" }
           : { client_id: item.client_id, status: "applied" as const, message: null },
       );
-    }, scope, now, async () => undefined, async () => "photo-row");
+    }, scope, now, async () => undefined);
     expect(sent).toEqual({ sent: 1, pending: 1 });
     expect(await store.listOutbox()).toMatchObject([
       { client_id: "enh", needs_office: true, last_error: "enhancement photo must belong to this visit" },
@@ -221,13 +221,12 @@ describe("day packs", () => {
       scope,
       now,
       async () => undefined,
-      async (id) => (id === photo.client_id ? "photo-row" : null),
     );
     expect(batches).toEqual([["visit_photo_record"], ["enhancement_create"]]);
     expect(result).toMatchObject({ sent: 2, pending: 0 });
   });
 
-  it("parks an upsell the phone cannot match and still sends finish", async () => {
+  it("hands an unmatched upsell to the office and still finishes", async () => {
     const store = createMemoryCrewStore();
     await enqueueMutation(store, {
       client_id: "enh-1",
@@ -242,36 +241,16 @@ describe("day packs", () => {
       visit_id: "v",
       ...who,
     }, new Date(now.getTime() + 1));
-    const batches: string[][] = [];
-    const send = async (items: { client_id: string; kind: string }[]) => {
-      batches.push(items.map((item) => item.kind));
-      return items.map((item) => ({ client_id: item.client_id, status: "applied" as const, message: null }));
-    };
-    const missed = await flushOutbox(store, send, scope, now, async () => undefined, async () => null);
-    expect(batches).toEqual([["visit_finish"]]);
-    expect(missed).toMatchObject({ sent: 1, pending: 1 });
-    expect(await store.listOutbox()).toMatchObject([{ client_id: "enh-1", needs_office: true }]);
-
-    const later = createMemoryCrewStore();
-    await enqueueMutation(later, {
-      client_id: "enh-2",
-      kind: "enhancement_create",
-      visit_id: "v",
-      ...who,
-      payload: { tag: "mulch", photo_client_id: "photo-gone" },
-    }, now);
-    await enqueueMutation(later, {
-      client_id: "fin-2",
-      kind: "visit_finish",
-      visit_id: "v",
-      ...who,
-    }, new Date(now.getTime() + 1));
-    const kinds: string[][] = [];
-    await flushOutbox(later, async (items) => {
-      kinds.push(items.map((item) => item.kind));
-      return items.map((item) => ({ client_id: item.client_id, status: "applied" as const, message: null }));
+    const sent = await flushOutbox(store, async (items) => {
+      return items.map((item) =>
+        item.client_id === "enh-1"
+          ? { client_id: item.client_id, status: "error" as const, message: "enhancement photo must belong to this visit" }
+          : { client_id: item.client_id, status: "applied" as const, message: null },
+      );
     }, scope, now, async () => undefined);
-    expect(kinds).toEqual([["visit_finish"]]);
-    expect(await later.listOutbox()).toMatchObject([{ client_id: "enh-2", needs_office: false }]);
+    expect(sent).toEqual({ sent: 1, pending: 1 });
+    expect(await store.listOutbox()).toMatchObject([
+      { client_id: "enh-1", needs_office: true, last_error: "enhancement photo must belong to this visit" },
+    ]);
   });
 });
