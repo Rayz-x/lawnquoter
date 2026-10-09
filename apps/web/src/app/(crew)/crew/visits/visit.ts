@@ -205,3 +205,11 @@ export function rememberLiveLead(storage: Box, userId: string, orgId: string, cr
   }
   storage.setItem(LEAD_KEY, JSON.stringify({ ...parsed, [leadScope(userId, orgId)]: { crewId, lead } }));
 }
+
+export function saveLeadForPack(storage: Box, userId: string, orgId: string, pack: unknown, crews: unknown, membership: unknown): boolean | null {
+  const crewId = crewIdFromPack(pack);
+  if (!crewId) return null;
+  const live = leadFromReads(userId, crewId, crews, membership);
+  rememberLiveLead(storage, userId, orgId, crewId, live);
+  return live;
+}

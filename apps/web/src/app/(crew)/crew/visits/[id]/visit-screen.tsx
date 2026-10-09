@@ -11,7 +11,7 @@ import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
 import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/database.types";
 import {
-  activeAddress, applyClock, budgetLabel, cachedLiveLead, crewIdFromPack, elapsedMs, formatElapsed, leadFromReads, patchVisitPack, projectVisit, readClock, rememberLiveLead, visitFromPack, visitsInPack, writeClock,
+  activeAddress, applyClock, budgetLabel, cachedLiveLead, crewIdFromPack, elapsedMs, formatElapsed, patchVisitPack, projectVisit, readClock, saveLeadForPack, visitFromPack, visitsInPack, writeClock,
   type ClockAction, type Segment, type VisitClock, type VisitDetail,
 } from "../visit";
 
@@ -65,8 +65,7 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
           supabase.from("memberships").select("role, status").eq("user_id", userId).eq("org_id", orgId).maybeSingle(),
         ]);
         if (!crewError && !memberError && crewId) {
-          live = leadFromReads(userId, crewId, crews, membership);
-          rememberLiveLead(localStorage, userId, orgId, crewId, live);
+          live = saveLeadForPack(localStorage, userId, orgId, row?.pack, crews, membership) === true;
         }
       } catch {
         live = cachedLiveLead(localStorage, userId, orgId, crewId) === true;
