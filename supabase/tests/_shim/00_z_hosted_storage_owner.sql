@@ -1,87 +1,30 @@
--- Hosted Supabase owns storage.objects as supabase_storage_admin. The CI
--- image will not let us SET ROLE to that reserved role, so when we still own
--- the table we hand it to storage_table_owner and then drop that membership.
--- ALTER TABLE then fails with "must be owner". Policy DDL stays allowed for a
--- superuser, or for postgres via supautils.policy_grants.
---
--- A superuser can still alter any table, so the event trigger below rejects
--- ALTER TABLE on these relations for that session too.
+-- Hosted Supabase rejects ALTER TABLE on storage.objects with "must be owner".
+-- This shim does not change storage ownership and does not grant reserved roles.
+-- A superuser session gets that error from the event trigger below. A role that
+-- does not own the table gets the same error from Postgres itself.
 
 create schema if not exists test_harness;
 
 do $$
-declare
-  objects_owner text;
-  buckets_owner text;
-  super boolean;
 begin
-  if not exists (select 1 from pg_namespace where nspname = 'storage') then
-    return;
+  if not exists (select 1 from pg_roles where rolname = 'storage_not_owner') then
+    create role storage_not_owner nologin nosuperuser;
   end if;
-  if not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
-                 where n.nspname = 'storage' and c.relname = 'objects') then
-    return;
-  end if;
-
-  select rolsuper into super from pg_roles where rolname = current_user;
-
-  select pg_get_userbyid(c.relowner)::text into objects_owner
-  from pg_class c
-  join pg_namespace n on n.oid = c.relnamespace
-  where n.nspname = 'storage' and c.relname = 'objects';
-
-  select pg_get_userbyid(c.relowner)::text into buckets_owner
-  from pg_class c
-  join pg_namespace n on n.oid = c.relnamespace
-  where n.nspname = 'storage' and c.relname = 'buckets';
-
-  if objects_owner = current_user then
-    execute 'alter table storage.objects enable row level security';
-    execute 'alter table storage.objects force row level security';
-  end if;
-  if buckets_owner = current_user then
-    execute 'alter table storage.buckets enable row level security';
-    execute 'alter table storage.buckets force row level security';
-  end if;
-
-  -- Keep the privileges the migration needs before we give up ownership.
-  -- Skip tables we do not own; the image already granted those.
-  if objects_owner = current_user or buckets_owner = current_user then
-    execute 'grant usage on schema storage to postgres';
-  end if;
-  if objects_owner = current_user then
-    execute 'grant all on storage.objects to postgres';
-  end if;
-  if buckets_owner = current_user then
-    execute 'grant all on storage.buckets to postgres';
-  end if;
-
-  if objects_owner is distinct from current_user and buckets_owner is distinct from current_user then
-    return;
-  end if;
-
-  if not exists (select 1 from pg_roles where rolname = 'storage_table_owner') then
-    create role storage_table_owner nologin noinherit;
-  end if;
-  -- The new owner must be allowed to create objects in the schema, or
-  -- ALTER OWNER is rejected with permission denied for schema storage.
-  grant usage, create on schema storage to storage_table_owner;
-
-  if not super then
-    grant storage_table_owner to current_user with inherit false, set true;
-  end if;
-
-  if objects_owner = current_user then
-    alter table storage.objects owner to storage_table_owner;
-  end if;
-  if buckets_owner = current_user then
-    alter table storage.buckets owner to storage_table_owner;
-  end if;
-
-  if not super then
-    revoke storage_table_owner from current_user;
+  if exists (select 1 from pg_namespace where nspname = 'storage') then
+    grant usage on schema storage to storage_not_owner;
   end if;
 end
+$$;
+
+-- Runs the hosted-forbidden statement as a role that does not own the table.
+create or replace function test_harness.alter_storage_objects_as_non_owner()
+returns void
+language plpgsql
+as $$
+begin
+  perform set_config('role', 'storage_not_owner', true);
+  execute 'alter table storage.objects enable row level security';
+end;
 $$;
 
 create or replace function test_harness.forbid_managed_storage_alter()

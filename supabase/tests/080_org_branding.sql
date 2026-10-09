@@ -1,4 +1,4 @@
-select plan(46);
+select plan(47);
 
 select has_column('public', 'orgs', 'logo_dark_path', 'logo_dark_path exists');
 select has_column('public', 'orgs', 'logo_raster_path', 'logo_raster_path exists');
@@ -22,7 +22,7 @@ select ok(
   'org-branding allows svg, png, and jpeg'
 );
 select throws_ok(
-  $$ alter table storage.objects enable row level security $$,
+  $$ select test_harness.alter_storage_objects_as_non_owner() $$,
   '42501',
   'must be owner of table objects',
   'a migration cannot enable row level security on storage.objects'
@@ -139,6 +139,16 @@ select is(
 );
 
 select tests.authenticate_as(:'other'::uuid, :'org2'::uuid, 'owner');
+select is(
+  (
+    select count(*)::int
+    from storage.objects
+    where bucket_id = 'org-branding'
+      and split_part(name, '/', 1) = :'org'
+  ),
+  0,
+  'an owner of another org sees no objects under this org prefix'
+);
 select throws_ok(
   format(
     $$ insert into storage.objects (bucket_id, name) values ('org-branding', %L) $$,
