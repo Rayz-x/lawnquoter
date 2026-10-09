@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
 import { customerCopyUpdateError } from "@/lib/quotes/customer-copy";
+import { ACCEPTED_QUOTE_DELETE_ERROR, deleteQuoteError } from "@/lib/quotes/delete-quote";
 import { createClient } from "@/lib/supabase/server";
 
 export async function createQuote(accountId: string, propertyId?: string | null): Promise<ActionResult<{ id: string }>> {
@@ -170,6 +172,31 @@ export async function sendQuote(id: string): Promise<ActionResult<{ url: string 
   if (error || !token) return fail(error?.message ?? "Could not send");
   revalidatePath(`/quotes/${id}`);
   return { ok: true, data: { url: `${base}/q/${token}` } };
+}
+
+export async function deleteQuote(id: string): Promise<ActionResult> {
+  const session = await requireOrg();
+  if (!hasRole(session.orgRole, ADMIN_ROLES)) return fail("Only an owner or admin can delete a quote.");
+  const supabase = await createClient();
+  const { data: quote } = await supabase
+    .from("quotes")
+    .select("status")
+    .eq("id", id)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (!quote) return fail("Quote not found");
+  const blocked = deleteQuoteError(quote.status);
+  if (blocked) return fail(blocked);
+  const { error } = await supabase.from("quotes").delete().eq("id", id).eq("org_id", session.orgId);
+  if (error) {
+    if (error.message.toLowerCase().includes("accepted quotes cannot be deleted")) {
+      return fail(ACCEPTED_QUOTE_DELETE_ERROR);
+    }
+    return fail(error.message);
+  }
+  revalidatePath("/quotes");
+  revalidatePath(`/quotes/${id}`);
+  return { ok: true };
 }
 
 export async function reviseQuote(id: string): Promise<ActionResult<{ versionId: string }>> {
