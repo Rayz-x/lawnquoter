@@ -9,19 +9,23 @@
 -- Money stays on quotes. These tables store budget_minutes only.
 -- An after photo is required on every job and visit (no opt-out).
 --
--- PR #10 (20261009105000) introduces private.can_read_property_access(uuid, uuid)
--- as "office roles that can read prices, and not crew". crew_lead is in that
--- office list, so after #10 alone a crew lead can read every gate code and a
--- crew member can read none. This migration creates the helper with that
--- signature when #10 is not on main yet, and replaces it when #10 is, so a
--- rebase is a straight replace:
+-- Depends on PR #10 (20261009105000_privilege_gaps.sql), which is still open.
+-- That migration moves properties.gate_code and properties.access_notes onto
+-- public.property_access and creates
+-- private.can_read_property_access(target_org uuid, target_property uuid).
+-- Its placeholder is `target_property is not null and can_read_pricing(org)`.
+-- can_read_pricing includes owner, admin, sales, dispatcher, crew_lead, and
+-- read_only, and excludes crew. This file does not create property_access and
+-- does not move those columns. It replaces the helper only when #10 has
+-- already created it, so a database built from current main is unchanged and
+-- a rebase onto #10 applies the extension:
 --   * owner, admin, sales, dispatcher, and read_only still read every property
---   * crew and crew_lead read gate_code, access_notes, and the other access
---     columns only for a property on a published-or-later visit routed to a
---     crew they belong to, scheduled within the org's today ± 1 day
--- On main today, gate_code and access_notes still live on properties, so
--- properties_select enforces the same rule. After #10 moves those two columns
--- onto property_access, that table's select policy calls this helper.
+--   * crew and crew_lead read property_access only for a property on a
+--     non-draft visit routed to a crew they belong to, scheduled within the
+--     org's today ± 1 day
+-- Quote price policies from #10 are left alone. On main, before #10, gate
+-- codes still live on properties and properties_select limits field roles to
+-- those same assigned visits.
 
 -- ---------------------------------------------------------------------------
 -- Enums
@@ -605,22 +609,37 @@ as $$
   );
 $$;
 
--- Before #10: helper does not exist; this creates it.
--- After #10: replace the price-role check. crew_lead is no longer an office
--- reader of every gate code; both field roles use crew_can_read_property.
-create or replace function private.can_read_property_access(target_org uuid, target_property uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = ''
-as $$
-  select target_property is not null
-     and (
-       private.can_read_office_records(target_org)
-       or private.crew_can_read_property(target_org, target_property)
-     );
-$$;
+-- #10 creates private.can_read_property_access(uuid, uuid). Replace it only
+-- then. Creating it here would fail a later rebase: #10's copy sorts first
+-- and would put the placeholder back, and current main has no property_access.
+do $extend_property_access$
+begin
+  if to_regprocedure('private.can_read_property_access(uuid,uuid)') is null then
+    return;
+  end if;
+
+  execute $replace$
+    create or replace function private.can_read_property_access(target_org uuid, target_property uuid)
+    returns boolean
+    language sql
+    stable
+    security definer
+    set search_path = ''
+    as $body$
+      select target_property is not null
+         and (
+           private.can_read_office_records(target_org)
+           or private.crew_can_read_property(target_org, target_property)
+         );
+    $body$
+  $replace$;
+
+  -- #10 revokes the default PUBLIC/anon execute grant. RLS evaluates this
+  -- helper as the caller, so authenticated needs an explicit grant.
+  execute 'revoke all on function private.can_read_property_access(uuid, uuid) from public, anon';
+  execute 'grant execute on function private.can_read_property_access(uuid, uuid) to authenticated, service_role';
+end
+$extend_property_access$;
 
 revoke all on function private.can_dispatch(uuid) from public, anon;
 revoke all on function private.can_write_job_records(uuid) from public, anon;
@@ -631,7 +650,9 @@ revoke all on function private.crew_route_in_window(uuid, uuid) from public, ano
 revoke all on function private.crew_can_read_visit(uuid, uuid) from public, anon;
 revoke all on function private.crew_can_read_job(uuid, uuid) from public, anon;
 revoke all on function private.crew_can_read_property(uuid, uuid) from public, anon;
-revoke all on function private.can_read_property_access(uuid, uuid) from public, anon;
+revoke all on function private.crews_before_write() from public, anon;
+revoke all on function private.crew_members_before_write() from public, anon;
+revoke all on function private.visits_match_job() from public, anon;
 
 grant execute on function private.can_dispatch(uuid) to authenticated, service_role;
 grant execute on function private.can_write_job_records(uuid) to authenticated, service_role;
@@ -642,7 +663,9 @@ grant execute on function private.crew_route_in_window(uuid, uuid) to authentica
 grant execute on function private.crew_can_read_visit(uuid, uuid) to authenticated, service_role;
 grant execute on function private.crew_can_read_job(uuid, uuid) to authenticated, service_role;
 grant execute on function private.crew_can_read_property(uuid, uuid) to authenticated, service_role;
-grant execute on function private.can_read_property_access(uuid, uuid) to authenticated, service_role;
+grant execute on function private.crews_before_write() to authenticated, service_role;
+grant execute on function private.crew_members_before_write() to authenticated, service_role;
+grant execute on function private.visits_match_job() to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- RLS
