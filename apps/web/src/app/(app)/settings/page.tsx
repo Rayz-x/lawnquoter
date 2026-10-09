@@ -24,10 +24,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <PageHeader title="Company settings" description="Profile, branding, and payments" />
       <div className="page-pad">
         <Tabs defaultValue={initial}>
-          <TabsList>
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="branding">Branding</TabsTrigger>
-            <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsList className="group-data-horizontal/tabs:h-9">
+            <TabsTrigger className="px-3.5 py-1.5" value="profile">Profile</TabsTrigger>
+            <TabsTrigger className="px-3.5 py-1.5" value="branding">Branding</TabsTrigger>
+            <TabsTrigger className="px-3.5 py-1.5" value="payments">Payments</TabsTrigger>
           </TabsList>
           <TabsContent value="profile" className="mt-4">
             <Card>
