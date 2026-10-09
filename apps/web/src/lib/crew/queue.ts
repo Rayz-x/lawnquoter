@@ -17,6 +17,8 @@ export const CREW_MUTATION_KINDS = [
 export type CrewMutationKind = (typeof CREW_MUTATION_KINDS)[number];
 export type CrewPayload = { [key: string]: Json | undefined };
 
+export type CrewScope = { userId: string; orgId: string };
+
 export type OutboxRow = {
   client_id: string;
   kind: CrewMutationKind;
@@ -26,7 +28,13 @@ export type OutboxRow = {
   created_at: string;
   attempts: number;
   last_error: string | null;
+  user_id: string;
+  org_id: string;
+  /** The server rejected this action. Leave it for the office instead of retrying. */
+  needs_office: boolean;
 };
+
+export type PhotoUpload = (row: OutboxRow, bytes: Blob) => Promise<void>;
 
 export type SyncItem = {
   client_id: string;
@@ -53,20 +61,38 @@ export type CrewStore = {
   listOutbox(): Promise<OutboxRow[]>;
   putOutbox(row: OutboxRow): Promise<void>;
   deleteOutbox(clientId: string): Promise<void>;
+  /** One transaction for the applied deletes and the rejected row. */
+  settle(remove: string[], failed: OutboxRow | null): Promise<void>;
+  putPhoto(clientId: string, bytes: Blob): Promise<void>;
+  getPhoto(clientId: string): Promise<Blob | null>;
   listPacks(): Promise<DayPackRecord[]>;
   putPack(row: DayPackRecord): Promise<void>;
   deletePack(date: string): Promise<void>;
+  clearPacks(): Promise<void>;
   clear(): Promise<void>;
 };
 
 const PACK_KEEP = 2;
 const PACK_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 
+export function photoStoragePath(orgId: string, visitId: string, clientId: string): string {
+  return `${orgId}/${visitId}/${clientId}.jpg`;
+}
+
 export function newOutboxRow(
-  input: { client_id?: string; kind: string; visit_id: string; payload?: CrewPayload; occurred_at?: string },
+  input: {
+    client_id?: string;
+    kind: string;
+    visit_id: string;
+    payload?: CrewPayload;
+    occurred_at?: string;
+    user_id: string;
+    org_id: string;
+  },
   now: Date,
 ): OutboxRow {
   if (!CREW_MUTATION_KINDS.includes(input.kind as CrewMutationKind)) throw new Error("Unknown crew mutation");
+  if (!input.user_id || !input.org_id) throw new Error("Queued work needs a user and org");
   return {
     client_id: input.client_id ?? crypto.randomUUID(),
     kind: input.kind as CrewMutationKind,
@@ -76,6 +102,9 @@ export function newOutboxRow(
     created_at: now.toISOString(),
     attempts: 0,
     last_error: null,
+    user_id: input.user_id,
+    org_id: input.org_id,
+    needs_office: false,
   };
 }
 
@@ -86,8 +115,33 @@ export async function enqueueMutation(store: CrewStore, input: Parameters<typeof
   return row;
 }
 
-export function syncItems(rows: OutboxRow[], deviceNow: string): SyncItem[] {
-  return [...rows]
+/** Saves the file before the outbox row, so the sync can upload it before crew_sync inserts the photo. */
+export async function enqueuePhoto(
+  store: CrewStore,
+  input: Parameters<typeof newOutboxRow>[0] & { bytes: Blob; photo_kind: string; taken_at?: string; lat?: number; lng?: number },
+  now = new Date(),
+) {
+  const row = newOutboxRow(
+    {
+      ...input,
+      kind: "visit_photo_record",
+      payload: {
+        photo_kind: input.photo_kind,
+        taken_at: input.taken_at,
+        lat: input.lat,
+        lng: input.lng,
+      },
+    },
+    now,
+  );
+  await store.putPhoto(row.client_id, input.bytes);
+  await store.putOutbox(row);
+  return row;
+}
+
+export function syncItems(rows: OutboxRow[], deviceNow: string, scope: CrewScope): SyncItem[] {
+  return rows
+    .filter((row) => !row.needs_office && row.user_id === scope.userId && row.org_id === scope.orgId)
     .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.client_id.localeCompare(b.client_id))
     .map((row) => ({
       client_id: row.client_id,
@@ -107,7 +161,7 @@ export function applySyncResults(rows: OutboxRow[], results: SyncResult[]) {
     const row = byId.get(result.client_id);
     if (!row) continue;
     if (result.status === "error") {
-      failed = { ...row, attempts: row.attempts + 1, last_error: result.message };
+      failed = { ...row, attempts: row.attempts + 1, last_error: result.message, needs_office: true };
       break;
     }
     remove.push(row.client_id);
@@ -140,8 +194,14 @@ export function outboxBlocksSignOut(rows: OutboxRow[]) {
 
 let flushChain: Promise<unknown> = Promise.resolve();
 
-export function flushOutbox(store: CrewStore, send: (items: SyncItem[]) => Promise<SyncResult[]>, now = new Date()) {
-  const run = flushChain.then(() => flushOutboxOnce(store, send, now));
+export function flushOutbox(
+  store: CrewStore,
+  send: (items: SyncItem[]) => Promise<SyncResult[]>,
+  scope: CrewScope,
+  now = new Date(),
+  upload?: PhotoUpload,
+) {
+  const run = flushChain.then(() => flushOutboxOnce(store, send, scope, now, upload));
   flushChain = run.then(
     () => undefined,
     () => undefined,
@@ -149,28 +209,63 @@ export function flushOutbox(store: CrewStore, send: (items: SyncItem[]) => Promi
   return run;
 }
 
-async function flushOutboxOnce(store: CrewStore, send: (items: SyncItem[]) => Promise<SyncResult[]>, now: Date) {
+async function flushOutboxOnce(
+  store: CrewStore,
+  send: (items: SyncItem[]) => Promise<SyncResult[]>,
+  scope: CrewScope,
+  now: Date,
+  upload?: PhotoUpload,
+) {
   const rows = await store.listOutbox();
-  const items = syncItems(rows, now.toISOString());
-  if (items.length === 0) return { sent: 0, pending: 0 };
+  const items = syncItems(rows, now.toISOString(), scope);
+  const ready: SyncItem[] = [];
+  let halted = false;
+  for (const item of items) {
+    if (item.kind !== "visit_photo_record") {
+      ready.push(item);
+      continue;
+    }
+    const row = rows.find((entry) => entry.client_id === item.client_id);
+    if (!row) continue;
+    const bytes = await store.getPhoto(item.client_id);
+    if (!bytes || !upload) {
+      await store.settle([], { ...row, attempts: row.attempts + 1, last_error: "The photo file is missing.", needs_office: true });
+      halted = true;
+      break;
+    }
+    try {
+      await upload(row, bytes);
+    } catch (error) {
+      await store.settle([], {
+        ...row,
+        attempts: row.attempts + 1,
+        last_error: error instanceof Error ? error.message : "Could not upload the photo",
+        needs_office: false,
+      });
+      halted = true;
+      break;
+    }
+    ready.push(item);
+  }
+  if (ready.length === 0) return { sent: 0, pending: (await store.listOutbox()).length };
   let results: SyncResult[];
   try {
-    results = await send(items);
+    results = await send(ready);
   } catch (error) {
-    const row = rows.find((item) => item.client_id === items[0]?.client_id);
-    if (row) {
-      await store.putOutbox({
+    const row = rows.find((item) => item.client_id === ready[0]?.client_id);
+    if (row && !halted) {
+      await store.settle([], {
         ...row,
         attempts: row.attempts + 1,
         last_error: error instanceof Error ? error.message : "Could not send",
+        needs_office: false,
       });
     }
-    return { sent: 0, pending: rows.length };
+    return { sent: 0, pending: (await store.listOutbox()).length };
   }
   const { remove, failed } = applySyncResults(rows, results);
-  for (const clientId of remove) await store.deleteOutbox(clientId);
-  if (failed) await store.putOutbox(failed);
-  return { sent: remove.length, pending: rows.length - remove.length };
+  await store.settle(remove, failed);
+  return { sent: remove.length, pending: (await store.listOutbox()).length };
 }
 
 export async function saveDayPack(store: CrewStore, date: string, pack: Json, now = new Date()) {
@@ -189,6 +284,7 @@ export async function purgeExpiredPacks(store: CrewStore, now = new Date()) {
 export function createMemoryCrewStore(): CrewStore {
   const outbox = new Map<string, OutboxRow>();
   const packs = new Map<string, DayPackRecord>();
+  const photos = new Map<string, Blob>();
   return {
     async listOutbox() {
       return [...outbox.values()];
@@ -198,6 +294,20 @@ export function createMemoryCrewStore(): CrewStore {
     },
     async deleteOutbox(clientId) {
       outbox.delete(clientId);
+      photos.delete(clientId);
+    },
+    async settle(remove, failed) {
+      for (const clientId of remove) {
+        outbox.delete(clientId);
+        photos.delete(clientId);
+      }
+      if (failed) outbox.set(failed.client_id, failed);
+    },
+    async putPhoto(clientId, bytes) {
+      photos.set(clientId, bytes);
+    },
+    async getPhoto(clientId) {
+      return photos.get(clientId) ?? null;
     },
     async listPacks() {
       return [...packs.values()];
@@ -208,15 +318,19 @@ export function createMemoryCrewStore(): CrewStore {
     async deletePack(date) {
       packs.delete(date);
     },
+    async clearPacks() {
+      packs.clear();
+    },
     async clear() {
       outbox.clear();
       packs.clear();
+      photos.clear();
     },
   };
 }
 
 const DB_NAME = "lawnquoter-crew";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -225,6 +339,7 @@ function openDb(): Promise<IDBDatabase> {
       const db = request.result;
       if (!db.objectStoreNames.contains("outbox")) db.createObjectStore("outbox", { keyPath: "client_id" });
       if (!db.objectStoreNames.contains("packs")) db.createObjectStore("packs", { keyPath: "date" });
+      if (!db.objectStoreNames.contains("photos")) db.createObjectStore("photos");
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -248,15 +363,24 @@ function transactionDone(tx: IDBTransaction): Promise<void> {
 
 async function run<T>(names: string | string[], mode: IDBTransactionMode, fn: (tx: IDBTransaction) => Promise<T>): Promise<T> {
   const db = await openDb();
-  const tx = db.transaction(names, mode);
-  const done = transactionDone(tx);
   try {
-    const result = await fn(tx);
-    await done;
-    return result;
-  } catch (error) {
-    await done.catch(() => undefined);
-    throw error;
+    const tx = db.transaction(names, mode);
+    const done = transactionDone(tx);
+    try {
+      const result = await fn(tx);
+      await done;
+      return result;
+    } catch (error) {
+      try {
+        tx.abort();
+      } catch {
+        // The transaction may already be aborted.
+      }
+      await done.catch(() => undefined);
+      throw error;
+    }
+  } finally {
+    db.close();
   }
 }
 
@@ -264,14 +388,35 @@ export function createIdbCrewStore(): CrewStore {
   return {
     listOutbox: () => run("outbox", "readonly", (tx) => requestToPromise(tx.objectStore("outbox").getAll() as IDBRequest<OutboxRow[]>)),
     putOutbox: (row) => run("outbox", "readwrite", async (tx) => void tx.objectStore("outbox").put(row)),
-    deleteOutbox: (clientId) => run("outbox", "readwrite", async (tx) => void tx.objectStore("outbox").delete(clientId)),
+    deleteOutbox: (clientId) =>
+      run(["outbox", "photos"], "readwrite", async (tx) => {
+        tx.objectStore("outbox").delete(clientId);
+        tx.objectStore("photos").delete(clientId);
+      }),
+    settle: (remove, failed) =>
+      run(["outbox", "photos"], "readwrite", async (tx) => {
+        const outbox = tx.objectStore("outbox");
+        const photos = tx.objectStore("photos");
+        for (const clientId of remove) {
+          outbox.delete(clientId);
+          photos.delete(clientId);
+        }
+        if (failed) outbox.put(failed);
+      }),
+    putPhoto: (clientId, bytes) => run("photos", "readwrite", async (tx) => void tx.objectStore("photos").put(bytes, clientId)),
+    getPhoto: async (clientId) => {
+      const bytes = await run("photos", "readonly", (tx) => requestToPromise(tx.objectStore("photos").get(clientId) as IDBRequest<Blob | undefined>));
+      return bytes ?? null;
+    },
     listPacks: () => run("packs", "readonly", (tx) => requestToPromise(tx.objectStore("packs").getAll() as IDBRequest<DayPackRecord[]>)),
     putPack: (row) => run("packs", "readwrite", async (tx) => void tx.objectStore("packs").put(row)),
     deletePack: (date) => run("packs", "readwrite", async (tx) => void tx.objectStore("packs").delete(date)),
+    clearPacks: () => run("packs", "readwrite", async (tx) => void tx.objectStore("packs").clear()),
     clear: () =>
-      run(["outbox", "packs"], "readwrite", async (tx) => {
+      run(["outbox", "packs", "photos"], "readwrite", async (tx) => {
         tx.objectStore("outbox").clear();
         tx.objectStore("packs").clear();
+        tx.objectStore("photos").clear();
       }),
   };
 }
