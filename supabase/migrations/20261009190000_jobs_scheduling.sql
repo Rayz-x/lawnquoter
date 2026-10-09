@@ -847,7 +847,598 @@ grant all on table
   public.visit_tasks
 to service_role;
 
--- Deferred on this same migration file: convert an accepted quote, generate
--- visits (idempotent via the partial unique indexes above), assign, reorder,
--- publish, and create-crew RPCs. Anon EXECUTE tests belong with those
--- functions. Do not add them in the schema revision.
+-- ---------------------------------------------------------------------------
+-- Scheduling RPCs. Appended to this migration (no second file).
+--
+-- Writes: owner, admin, dispatcher. convert_accepted_quote also allows sales.
+-- crew and crew_lead are authenticated, so they can reach the functions, and
+-- each function rejects them with 42501. anon has no EXECUTE.
+-- require_after_photo stays true. crew_size stays >= 1. No price or cost
+-- column is written. Crews still cannot read customer phone, email, contact
+-- name, or billing; these functions do not copy those fields.
+--
+-- Idempotent generation uses visits_one_open_per_agreement_day (created above).
+-- ---------------------------------------------------------------------------
+create unique index if not exists visits_one_open_per_agreement_day
+  on public.visits (org_id, agreement_id, scheduled_date)
+  where agreement_id is not null
+    and status <> 'cancelled'::public.visit_status;
+
+-- Accepted line items for a quote.
+--
+-- On main, quote_accept stores the resolved choice in
+-- public.acceptances.selections: a jsonb array of quote_line_items ids from
+-- private.resolve_quote_selection. Included lines and the options the
+-- customer picked are in that array. Unchosen options are not.
+--
+-- PR #8 (cursor/acceptance-nte-esign-0e0b, migration
+-- 20261009180000_acceptance_not_to_exceed.sql) is still open. It keeps
+-- `selections` as that same jsonb uuid array and adds not-to-exceed columns
+-- (accepted_not_to_exceed, has_ranges, not_to_exceed_clause, disclosure_version).
+-- A rebase onto #8 stays in this function: keep reading `selections` only.
+-- Do not read accepted_total, price, or cost.
+create or replace function private.accepted_quote_task_sources(p_quote uuid)
+returns table (
+  item_id uuid,
+  label text,
+  quantity_text text,
+  hours numeric,
+  is_extra boolean,
+  sort integer
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_org uuid;
+begin
+  select q.org_id into v_org
+  from public.quotes q
+  where q.id = p_quote;
+
+  if v_org is null or v_org is distinct from private.current_org_id() then
+    raise exception 'quote not found' using errcode = 'P0002';
+  end if;
+  if not private.can_write_job_records(v_org) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+
+  return query
+  select
+    i.id,
+    i.name,
+    trim(both from to_char(i.qty, 'FM999999990.##')) || ' ' || i.unit,
+    i.hours,
+    i.state <> 'included'::public.item_state,
+    i.sort
+  from public.acceptances a
+  join public.quote_versions v
+    on v.quote_id = a.quote_id
+   and v.version = a.version
+  join public.quote_line_items i
+    on i.version_id = v.id
+   and i.id in (
+     select (jsonb_array_elements_text(a.selections))::uuid
+   )
+  where a.quote_id = p_quote
+  order by i.sort, i.id;
+end;
+$$;
+
+revoke all on function private.accepted_quote_task_sources(uuid) from public, anon;
+grant execute on function private.accepted_quote_task_sources(uuid) to authenticated, service_role;
+
+create or replace function public.convert_accepted_quote(p_quote_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  q public.quotes;
+  v_version_id uuid;
+  v_start date;
+  v_agreement uuid;
+  v_job uuid;
+  v_visit uuid;
+  v_title text;
+  v_crew_size integer := 1;
+  v_budget integer;
+begin
+  select * into q
+  from public.quotes
+  where id = p_quote_id
+  for update;
+
+  if not found or q.org_id is distinct from private.current_org_id() then
+    raise exception 'quote not found' using errcode = 'P0002';
+  end if;
+  if not private.can_write_job_records(q.org_id) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  if q.status is distinct from 'accepted' then
+    raise exception 'only an accepted quote can be converted' using errcode = '22023';
+  end if;
+  if q.property_id is null then
+    raise exception 'quote needs a property' using errcode = '22023';
+  end if;
+  if exists (select 1 from public.agreements where quote_id = q.id) then
+    raise exception 'quote already converted' using errcode = '23505';
+  end if;
+
+  select v.id into v_version_id
+  from public.acceptances a
+  join public.quote_versions v
+    on v.quote_id = a.quote_id
+   and v.version = a.version
+  where a.quote_id = q.id;
+
+  if v_version_id is null then
+    raise exception 'accepted quote has no acceptance' using errcode = 'P0002';
+  end if;
+
+  v_start := private.org_local_today(q.org_id);
+  v_title := left(btrim(q.title), 200);
+  if v_title is null or length(v_title) < 1 then
+    v_title := 'Service quote';
+  end if;
+
+  -- Hours only. accepted_quote_task_sources does not return price or cost.
+  select coalesce(round(sum(s.hours) * 60 / v_crew_size)::integer, 0)
+    into v_budget
+  from private.accepted_quote_task_sources(q.id) s;
+
+  insert into public.agreements (
+    org_id, account_id, property_id, quote_id, quote_version_id,
+    kind, start_date, preferred_dow, status
+  ) values (
+    q.org_id, q.account_id, q.property_id, q.id, v_version_id,
+    'one_time', v_start, extract(dow from v_start)::smallint, 'active'
+  )
+  returning id into v_agreement;
+
+  insert into public.jobs (
+    org_id, agreement_id, property_id, quote_id, title, status, require_after_photo
+  ) values (
+    q.org_id, v_agreement, q.property_id, q.id, v_title, 'scheduled', true
+  )
+  returning id into v_job;
+
+  insert into public.visits (
+    org_id, agreement_id, job_id, property_id,
+    sort, scheduled_date, status, crew_size, budget_minutes, require_after_photo
+  ) values (
+    q.org_id, v_agreement, v_job, q.property_id,
+    0, v_start, 'scheduled', v_crew_size, v_budget, true
+  )
+  returning id into v_visit;
+
+  insert into public.visit_tasks (
+    org_id, visit_id, label, quantity_text, source_line_item_id, is_extra, sort
+  )
+  select
+    q.org_id, v_visit, s.label, s.quantity_text, s.item_id, s.is_extra, s.sort
+  from private.accepted_quote_task_sources(q.id) s;
+
+  return jsonb_build_object('agreement_id', v_agreement, 'job_id', v_job);
+end;
+$$;
+
+revoke all on function public.convert_accepted_quote(uuid) from public, anon;
+grant execute on function public.convert_accepted_quote(uuid) to authenticated, service_role;
+
+-- Recurring dates through p_through (inclusive), capped by end_date.
+-- weekly / custom: every 7 days. biweekly: every 14. monthly: the start
+-- date's day-of-month, clamped to the month (31 Jan -> 28 Feb).
+-- preferred_dow (Postgres extract(dow), Sunday = 0) shifts weekly, biweekly,
+-- and custom forward onto that weekday. custom requires preferred_dow.
+-- monthly keeps the calendar day. The office default horizon is 8 weeks;
+-- the caller passes that as p_through. Apps mirror this in
+-- apps/web/src/lib/scheduling/recurrence.ts.
+create or replace function public.generate_agreement_visits(p_agreement_id uuid, p_through date)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  a public.agreements;
+  v_until date;
+  v_cursor date;
+  v_step integer;
+  v_n integer;
+  v_dates date[] := array[]::date[];
+  v_job uuid;
+  v_property uuid;
+  v_template uuid;
+  v_crew_size integer := 1;
+  v_budget integer := 0;
+  v_new_ids uuid[];
+  v_org uuid;
+  v_agreement uuid;
+  v_quote uuid;
+begin
+  if p_through is null then
+    raise exception 'through date is required' using errcode = '22023';
+  end if;
+
+  select * into a
+  from public.agreements
+  where id = p_agreement_id
+  for update;
+
+  if not found or a.org_id is distinct from private.current_org_id() then
+    raise exception 'agreement not found' using errcode = 'P0002';
+  end if;
+  if not private.can_dispatch(a.org_id) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  if a.kind::text is distinct from 'recurring' or a.frequency is null then
+    raise exception 'not a recurring agreement' using errcode = '22023';
+  end if;
+  if a.frequency::text not in ('weekly', 'biweekly', 'monthly', 'custom') then
+    raise exception 'not a recurring agreement' using errcode = '22023';
+  end if;
+  if a.status::text is distinct from 'active' then
+    raise exception 'agreement is not active' using errcode = '22023';
+  end if;
+  if a.frequency::text = 'custom' and a.preferred_dow is null then
+    raise exception 'custom frequency needs a preferred day of week' using errcode = '22023';
+  end if;
+
+  v_org := a.org_id;
+  v_agreement := a.id;
+  v_quote := a.quote_id;
+
+  v_until := p_through;
+  if a.end_date is not null and a.end_date < v_until then
+    v_until := a.end_date;
+  end if;
+
+  if a.frequency::text = 'monthly' then
+    v_n := 0;
+    loop
+      v_cursor := (a.start_date + make_interval(months => v_n))::date;
+      exit when v_cursor > v_until;
+      if v_cursor >= a.start_date then
+        v_dates := v_dates || v_cursor;
+      end if;
+      v_n := v_n + 1;
+      exit when v_n > 600;
+    end loop;
+  else
+    v_step := case when a.frequency::text = 'biweekly' then 14 else 7 end;
+    if a.preferred_dow is null then
+      v_cursor := a.start_date;
+    else
+      v_cursor := a.start_date
+        + ((a.preferred_dow - extract(dow from a.start_date)::integer + 7) % 7);
+    end if;
+    while v_cursor <= v_until loop
+      v_dates := v_dates || v_cursor;
+      v_cursor := v_cursor + v_step;
+      exit when cardinality(v_dates) > 600;
+    end loop;
+  end if;
+
+  if cardinality(v_dates) = 0 then
+    return 0;
+  end if;
+
+  select j.id, j.property_id
+    into v_job, v_property
+  from public.jobs j
+  where j.agreement_id = a.id
+    and j.org_id = a.org_id
+  order by j.created_at, j.id
+  limit 1;
+
+  if v_job is null then
+    raise exception 'agreement has no job' using errcode = '22023';
+  end if;
+
+  select v.id, v.crew_size
+    into v_template, v_crew_size
+  from public.visits v
+  where v.agreement_id = a.id
+    and v.org_id = a.org_id
+    and v.status <> 'cancelled'::public.visit_status
+  order by v.scheduled_date, v.created_at, v.id
+  limit 1;
+
+  v_crew_size := greatest(coalesce(v_crew_size, 1), 1);
+
+  if v_quote is not null then
+    select coalesce(round(sum(s.hours) * 60 / v_crew_size)::integer, 0)
+      into v_budget
+    from private.accepted_quote_task_sources(v_quote) s;
+  elsif v_template is not null then
+    select coalesce(v.budget_minutes, 0)
+      into v_budget
+    from public.visits v
+    where v.id = v_template;
+  end if;
+
+  with inserted as (
+    insert into public.visits (
+      org_id, agreement_id, job_id, property_id,
+      sort, scheduled_date, status, crew_size, budget_minutes, require_after_photo
+    )
+    select
+      v_org, v_agreement, v_job, v_property,
+      0, d, 'scheduled', v_crew_size, v_budget, true
+    from unnest(v_dates) as d
+    on conflict do nothing
+    returning id
+  )
+  select coalesce(array_agg(id), array[]::uuid[])
+    into v_new_ids
+  from inserted;
+
+  if cardinality(v_new_ids) = 0 then
+    return 0;
+  end if;
+
+  if v_template is not null and exists (
+    select 1 from public.visit_tasks t where t.visit_id = v_template
+  ) then
+    insert into public.visit_tasks (
+      org_id, visit_id, label, quantity_text, source_line_item_id, is_extra, sort
+    )
+    select
+      v_org, n.id, t.label, t.quantity_text, t.source_line_item_id, t.is_extra, t.sort
+    from unnest(v_new_ids) as n(id)
+    cross join public.visit_tasks t
+    where t.visit_id = v_template;
+  elsif v_quote is not null then
+    insert into public.visit_tasks (
+      org_id, visit_id, label, quantity_text, source_line_item_id, is_extra, sort
+    )
+    select
+      v_org, n.id, s.label, s.quantity_text, s.item_id, s.is_extra, s.sort
+    from unnest(v_new_ids) as n(id)
+    cross join private.accepted_quote_task_sources(v_quote) s;
+  end if;
+
+  update public.jobs
+  set status = 'scheduled'
+  where id = v_job
+    and status = 'unscheduled';
+
+  return cardinality(v_new_ids);
+end;
+$$;
+
+revoke all on function public.generate_agreement_visits(uuid, date) from public, anon;
+grant execute on function public.generate_agreement_visits(uuid, date) to authenticated, service_role;
+
+-- Office assignment wins: the visit moves onto this crew's route for the date
+-- even when it was already routed. The route is created as draft when missing
+-- and left as-is when the office already published it.
+create or replace function public.assign_visit(
+  p_visit_id uuid,
+  p_crew_id uuid,
+  p_service_date date,
+  p_sort integer default 0
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_visit public.visits;
+  v_route uuid;
+begin
+  if p_service_date is null then
+    raise exception 'service date is required' using errcode = '22023';
+  end if;
+
+  select * into v_visit
+  from public.visits
+  where id = p_visit_id
+  for update;
+
+  if not found or v_visit.org_id is distinct from private.current_org_id() then
+    raise exception 'visit not found' using errcode = 'P0002';
+  end if;
+  if not private.can_dispatch(v_visit.org_id) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  if not exists (
+    select 1
+    from public.crews c
+    where c.id = p_crew_id
+      and c.org_id = v_visit.org_id
+  ) then
+    raise exception 'crew not found' using errcode = 'P0002';
+  end if;
+
+  insert into public.routes (org_id, crew_id, date, status)
+  values (v_visit.org_id, p_crew_id, p_service_date, 'draft')
+  on conflict (org_id, crew_id, date) do nothing
+  returning id into v_route;
+
+  if v_route is null then
+    select r.id into v_route
+    from public.routes r
+    where r.org_id = v_visit.org_id
+      and r.crew_id = p_crew_id
+      and r.date = p_service_date;
+  end if;
+
+  update public.visits
+  set route_id = v_route,
+      scheduled_date = p_service_date,
+      sort = coalesce(p_sort, 0)
+  where id = v_visit.id;
+
+  update public.jobs
+  set status = 'scheduled'
+  where id = v_visit.job_id
+    and status = 'unscheduled';
+
+  return v_route;
+end;
+$$;
+
+revoke all on function public.assign_visit(uuid, uuid, date, integer) from public, anon;
+grant execute on function public.assign_visit(uuid, uuid, date, integer) to authenticated, service_role;
+
+create or replace function public.reorder_route_visits(p_route_id uuid, p_visit_ids uuid[])
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_org uuid;
+  v_matched integer;
+begin
+  select r.org_id into v_org
+  from public.routes r
+  where r.id = p_route_id
+  for update;
+
+  if v_org is null or v_org is distinct from private.current_org_id() then
+    raise exception 'route not found' using errcode = 'P0002';
+  end if;
+  if not private.can_dispatch(v_org) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  if p_visit_ids is null or cardinality(p_visit_ids) = 0 then
+    raise exception 'visit list is empty' using errcode = '22023';
+  end if;
+  if (
+    select count(distinct picked)
+    from unnest(p_visit_ids) as picked
+  ) <> cardinality(p_visit_ids) then
+    raise exception 'duplicate visit' using errcode = '22023';
+  end if;
+
+  select count(*) into v_matched
+  from public.visits v
+  where v.route_id = p_route_id
+    and v.org_id = v_org
+    and v.id = any(p_visit_ids);
+
+  if v_matched <> cardinality(p_visit_ids) then
+    raise exception 'visit is not on this route' using errcode = '22023';
+  end if;
+
+  update public.visits v
+  set sort = u.ord::integer - 1
+  from unnest(p_visit_ids) with ordinality as u(id, ord)
+  where v.id = u.id
+    and v.route_id = p_route_id
+    and v.org_id = v_org;
+end;
+$$;
+
+revoke all on function public.reorder_route_visits(uuid, uuid[]) from public, anon;
+grant execute on function public.reorder_route_visits(uuid, uuid[]) to authenticated, service_role;
+
+create or replace function public.publish_route(p_route_id uuid)
+returns timestamptz
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_route public.routes;
+  v_at timestamptz;
+begin
+  select * into v_route
+  from public.routes
+  where id = p_route_id
+  for update;
+
+  if not found or v_route.org_id is distinct from private.current_org_id() then
+    raise exception 'route not found' using errcode = 'P0002';
+  end if;
+  if not private.can_dispatch(v_route.org_id) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+
+  if v_route.status = 'published' and v_route.published_at is not null then
+    return v_route.published_at;
+  end if;
+  if v_route.status in ('in_progress', 'done') then
+    raise exception 'route cannot be published' using errcode = '22023';
+  end if;
+
+  v_at := now();
+  update public.routes
+  set status = 'published',
+      published_at = v_at
+  where id = v_route.id;
+
+  return v_at;
+end;
+$$;
+
+revoke all on function public.publish_route(uuid) from public, anon;
+grant execute on function public.publish_route(uuid) to authenticated, service_role;
+
+create or replace function public.create_crew(p_name text)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_org uuid;
+  v_name text;
+  v_id uuid;
+begin
+  v_org := private.current_org_id();
+  if v_org is null or not private.can_dispatch(v_org) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+
+  v_name := btrim(coalesce(p_name, ''));
+  if length(v_name) < 1 or length(v_name) > 80 then
+    raise exception 'crew name is required' using errcode = '22023';
+  end if;
+
+  insert into public.crews (org_id, name)
+  values (v_org, v_name)
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+revoke all on function public.create_crew(text) from public, anon;
+grant execute on function public.create_crew(text) to authenticated, service_role;
+
+create or replace function public.add_crew_member(p_crew_id uuid, p_profile_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_org uuid;
+begin
+  select c.org_id into v_org
+  from public.crews c
+  where c.id = p_crew_id
+  for update;
+
+  if v_org is null or v_org is distinct from private.current_org_id() then
+    raise exception 'crew not found' using errcode = 'P0002';
+  end if;
+  if not private.can_dispatch(v_org) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+
+  insert into public.crew_members (org_id, crew_id, profile_id)
+  values (v_org, p_crew_id, p_profile_id);
+end;
+$$;
+
+revoke all on function public.add_crew_member(uuid, uuid) from public, anon;
+grant execute on function public.add_crew_member(uuid, uuid) to authenticated, service_role;

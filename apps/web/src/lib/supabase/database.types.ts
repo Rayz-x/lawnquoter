@@ -870,7 +870,19 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "create_org":
+            "add_crew_member":
+{ Args: { "p_crew_id": string,"p_profile_id": string }; Returns: undefined
+                           },
+"assign_visit":
+{ Args: { "p_crew_id": string,"p_service_date": string,"p_sort"?: number,"p_visit_id": string }; Returns: string
+                           },
+"convert_accepted_quote":
+{ Args: { "p_quote_id": string }; Returns: Json
+                           },
+"create_crew":
+{ Args: { "p_name": string }; Returns: string
+                           },
+"create_org":
 { Args: { "p_name": string,"p_slug": string,"p_timezone"?: string }; Returns: string
                            },
 "custom_access_token_hook":
@@ -884,6 +896,9 @@ isOneToOne: false
                            },
 "gen_salt":
 { Args: { "": string }; Returns: string
+                           },
+"generate_agreement_visits":
+{ Args: { "p_agreement_id": string,"p_through": string }; Returns: number
                            },
 "measurement_ensure":
 { Args: { "p_property": string }; Returns: string
@@ -911,6 +926,9 @@ isOneToOne: false
 "property_set_geometry":
 { Args: { "p_footprint"?: Json,"p_footprint_source"?: Database["public"]['Enums']["geo_source"],"p_imagery_date"?: string,"p_location"?: Json,"p_parcel"?: Json,"p_parcel_apn"?: string,"p_parcel_source"?: Database["public"]['Enums']["geo_source"],"p_property": string }; Returns: undefined
                            },
+"publish_route":
+{ Args: { "p_route_id": string }; Returns: string
+                           },
 "quote_accept":
 { Args: { "p_disclosure"?: boolean,"p_ip"?: string,"p_selected"?: (string)[],"p_signer_email"?: string,"p_signer_name": string,"p_token": string,"p_user_agent"?: string }; Returns: Json
                            },
@@ -931,6 +949,9 @@ isOneToOne: false
                            },
 "quote_send":
 { Args: { "p_quote": string }; Returns: string
+                           },
+"reorder_route_visits":
+{ Args: { "p_route_id": string,"p_visit_ids": (string)[] }; Returns: undefined
                            },
 "set_active_org":
 { Args: { "p_org": string }; Returns: undefined
