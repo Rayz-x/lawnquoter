@@ -1,148 +1,167 @@
-/** Columns the crew today list is allowed to read. Address, status, tasks, minutes. */
-export const CREW_TODAY_SELECTS = {
-  route: "id",
-  visit: "id, status, budget_minutes, sort, property_id",
-  property: "id, formatted_address, address_line1",
-  task: "visit_id, label, sort",
-} as const;
+const CLOSED = new Set(["completed", "skipped", "cant_complete", "cancelled"]);
 
-const VISIT_STATUS_LABELS: Record<string, string> = {
-  scheduled: "Scheduled",
-  in_progress: "In progress",
-  paused: "Paused",
-  completed: "Completed",
-  skipped: "Skipped",
-  cant_complete: "Can't complete",
-  cancelled: "Cancelled",
-};
+export type AccessChip = { label: string; warning: boolean };
 
-export function visitStatusLabel(status: string): string {
-  return VISIT_STATUS_LABELS[status] ?? status;
-}
-
-export function budgetMinutesLabel(minutes: number | null): string {
-  if (minutes == null) return "—";
-  return `${minutes} min`;
-}
-
-export type CrewVisitRow = {
+export type DayStop = {
   id: string;
+  number: number;
   status: string;
-  budget_minutes: number | null;
-  sort: number;
-  property_id: string;
+  title: string;
+  address: string;
+  lastName: string | null;
+  budgetMinutes: number | null;
+  skipReason: string | null;
+  lat: number | null;
+  lng: number | null;
+  chips: AccessChip[];
 };
 
-export type CrewPropertyAddress = {
-  id: string;
-  formatted_address: string | null;
-  address_line1: string | null;
+export type DayPackView = {
+  date: string;
+  crewName: string;
+  officePhone: string | null;
+  revision: number | null;
+  stops: DayStop[];
 };
 
-export type CrewTaskRow = {
-  visit_id: string;
-  label: string;
-  sort: number;
-};
-
-/** One member inside public.my_crews(). No email or phone. */
-export type MyCrewMember = {
-  profile_id: string;
-  full_name: string | null;
-};
-
-/** Row from public.my_crews(). */
-export type MyCrew = {
-  id: string;
-  name: string;
-  active: boolean;
-  default_lead_id: string | null;
-  members: MyCrewMember[];
-};
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function record(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
-function parseMember(value: unknown): MyCrewMember | null {
-  if (!isRecord(value) || typeof value.profile_id !== "string" || value.profile_id.length === 0) return null;
+function text(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function accessChips(property: Record<string, unknown>): AccessChip[] {
+  const chips: AccessChip[] = [];
+  if (text(property.gate_code)) chips.push({ label: "Gate code", warning: false });
+  if (property.has_dogs === true) chips.push({ label: "Dog", warning: true });
+  if (typeof property.gate_width_in === "number") {
+    chips.push({ label: `${property.gate_width_in}″ gate`, warning: property.gate_width_in < 48 });
+  }
+  if (property.slope === "steep") chips.push({ label: "Steep", warning: true });
+  if (property.has_stairs === true) chips.push({ label: "Stairs", warning: true });
+  return chips;
+}
+
+function stopTitle(visit: Record<string, unknown>): string {
+  const title = text(visit.title);
+  if (title) return title;
+  const tasks = Array.isArray(visit.tasks) ? visit.tasks : [];
+  return tasks
+    .map((task) => text(record(task)?.label))
+    .filter((label): label is string => Boolean(label))
+    .join(" · ");
+}
+
+export function parseDayPack(data: unknown): DayPackView | null {
+  const pack = record(data);
+  if (!pack || typeof pack.date !== "string") return null;
+  const crew = record(pack.crew);
+  const office = record(pack.office);
+  const route = record(pack.route);
+  const visits = Array.isArray(pack.visits) ? pack.visits : [];
+  const stops: DayStop[] = [];
+  visits.forEach((value, index) => {
+    const visit = record(value);
+    const property = record(visit?.property);
+    if (!visit || typeof visit.id !== "string" || !property) return;
+    const address = text(property.formatted_address) ?? text(property.address_line1) ?? "Address unavailable";
+    stops.push({
+      id: visit.id,
+      number: index + 1,
+      status: typeof visit.status === "string" ? visit.status : "scheduled",
+      title: stopTitle(visit),
+      address,
+      lastName: text(property.last_name),
+      budgetMinutes: typeof visit.budget_minutes === "number" ? visit.budget_minutes : null,
+      skipReason: text(visit.skip_reason),
+      lat: typeof property.lat === "number" ? property.lat : null,
+      lng: typeof property.lng === "number" ? property.lng : null,
+      chips: accessChips(property),
+    });
+  });
   return {
-    profile_id: value.profile_id,
-    full_name: typeof value.full_name === "string" ? value.full_name : null,
+    date: pack.date,
+    crewName: text(crew?.name) ?? "Crew",
+    officePhone: text(office?.phone),
+    revision: typeof route?.revision === "number" ? route.revision : null,
+    stops,
   };
 }
 
-/** Reads the jsonb array from public.my_crews(). */
-export function parseMyCrews(data: unknown): MyCrew[] {
-  if (!Array.isArray(data)) return [];
-  const crews: MyCrew[] = [];
-  for (const row of data) {
-    if (!isRecord(row) || typeof row.id !== "string" || typeof row.name !== "string") continue;
-    const members = Array.isArray(row.members) ? row.members.flatMap((member) => {
-      const parsed = parseMember(member);
-      return parsed ? [parsed] : [];
-    }) : [];
-    crews.push({
-      id: row.id,
-      name: row.name,
-      active: row.active !== false,
-      default_lead_id: typeof row.default_lead_id === "string" ? row.default_lead_id : null,
-      members,
-    });
-  }
-  return crews;
+export function listRows(stops: DayStop[]) {
+  const done = stops.filter((stop) => stop.status === "completed");
+  const upNext = stops.find((stop) => !CLOSED.has(stop.status)) ?? null;
+  const rest = stops.filter((stop) => stop.status !== "completed" && stop.id !== upNext?.id);
+  return { done, upNext, rest };
 }
 
-export function crewIdsFromMyCrews(crews: MyCrew[]): string[] {
-  return [...new Set(crews.map((crew) => crew.id).filter((id) => id.length > 0))];
+export function progressLabel(stops: DayStop[]): string {
+  const done = stops.filter((stop) => stop.status === "completed").length;
+  return `${done} of ${stops.length} stops done`;
 }
 
-export function crewNameLabel(crews: MyCrew[]): string {
-  return [
-    ...new Set(
-      crews
-        .filter((crew) => crew.id.length > 0)
-        .map((crew) => crew.name.trim())
-        .filter((name) => name.length > 0),
-    ),
-  ].join(", ");
+export function finishLabel(stops: DayStop[], now: Date): string | null {
+  const minutes = stops.filter((stop) => !CLOSED.has(stop.status)).reduce((sum, stop) => sum + (stop.budgetMinutes ?? 0), 0);
+  if (minutes <= 0) return null;
+  const clock = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(now.getTime() + minutes * 60_000));
+  return `Finish ≈ ${clock}`;
 }
 
-export type CrewStop = {
-  id: string;
-  address: string;
-  statusLabel: string;
-  budgetLabel: string;
-  tasks: string[];
+export function dayHeading(iso: string): string {
+  return new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${iso}T12:00:00Z`));
+}
+
+export function syncPill(waiting: number, sending: boolean): string {
+  if (sending) return "Sending…";
+  if (waiting > 0) return `${waiting} waiting`;
+  return "Synced";
+}
+
+export function driveUrl(lat: number, lng: number, ios: boolean): string {
+  if (ios) return `https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`;
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+}
+
+export function officeTel(phone: string | null): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/[^\d+]/g, "");
+  return digits ? `tel:${digits}` : null;
+}
+
+export function newStopIds(previousIds: string[], nextIds: string[]): string[] {
+  const seen = new Set(previousIds);
+  return nextIds.filter((id) => !seen.has(id));
+}
+
+export function routeUpdateMessage(numbers: number[], at: Date): string | null {
+  if (numbers.length === 0) return null;
+  const time = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(at);
+  if (numbers.length === 1) return `Route updated ${time}: stop ${numbers[0]} added`;
+  return `Route updated ${time}: ${numbers.length} stops added`;
+}
+
+export function packErrorMessage(message: string): string {
+  if (/not allowed/i.test(message)) return "Ask the office to add you to a crew.";
+  return "Could not load the route.";
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  skipped: "Skipped",
+  cant_complete: "Cannot finish",
+  cancelled: "Cancelled",
+  in_progress: "In progress",
+  paused: "Paused",
 };
 
-export function propertyAddress(property: CrewPropertyAddress | undefined): string {
-  const address = property?.formatted_address?.trim() || property?.address_line1?.trim();
-  return address || "Address unavailable";
+export function statusLabel(status: string): string | null {
+  return STATUS_LABELS[status] ?? null;
 }
 
-export function assembleStops(
-  visits: CrewVisitRow[],
-  properties: CrewPropertyAddress[],
-  tasks: CrewTaskRow[],
-): CrewStop[] {
-  const addresses = new Map(properties.map((property) => [property.id, property]));
-  const tasksByVisit = new Map<string, CrewTaskRow[]>();
-  for (const task of tasks) {
-    const list = tasksByVisit.get(task.visit_id) ?? [];
-    list.push(task);
-    tasksByVisit.set(task.visit_id, list);
-  }
+export const DISPLAY_MODES = ["light", "dark", "sun"] as const;
+export type CrewDisplayMode = (typeof DISPLAY_MODES)[number];
 
-  return [...visits]
-    .sort((a, b) => a.sort - b.sort || a.id.localeCompare(b.id))
-    .map((visit) => ({
-      id: visit.id,
-      address: propertyAddress(addresses.get(visit.property_id)),
-      statusLabel: visitStatusLabel(visit.status),
-      budgetLabel: budgetMinutesLabel(visit.budget_minutes),
-      tasks: (tasksByVisit.get(visit.id) ?? [])
-        .sort((a, b) => a.sort - b.sort || a.label.localeCompare(b.label))
-        .map((task) => task.label),
-    }));
+export function nextDisplayMode(mode: CrewDisplayMode): CrewDisplayMode {
+  return DISPLAY_MODES[(DISPLAY_MODES.indexOf(mode) + 1) % DISPLAY_MODES.length] ?? "light";
 }
