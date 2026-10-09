@@ -5,7 +5,7 @@ Name is always **LawnQuoter** (capital L, capital Q, one word).
 
 ## 1. Color
 
-Tokens live in `globals.theme.css` (oklch, hex in comments). Use the Tailwind utilities (`bg-primary`, `text-muted-foreground`,
+Tokens live in `apps/web/src/app/globals.css` (oklch, hex in comments). Use the Tailwind utilities (`bg-primary`, `text-muted-foreground`,
 `bg-brass text-brass-foreground`, `text-warning`...), never raw hex in components.
 
 | Token | Role | Light | Dark |

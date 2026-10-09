@@ -32,7 +32,7 @@ export default async function LoginPage({
             aria-hidden
             className="hidden h-8 w-auto dark:block"
           />
-          <CardTitle className="font-heading text-xl font-semibold tracking-tight">Sign in to LawnQuoter</CardTitle>
+          <CardTitle className="font-heading text-xl font-semibold tracking-tight">Sign in</CardTitle>
           <CardDescription>Use your email and password, or request a one-time sign-in link.</CardDescription>
         </CardHeader>
         <CardContent>

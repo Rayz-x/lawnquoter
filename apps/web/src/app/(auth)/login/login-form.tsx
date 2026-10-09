@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,15 +15,29 @@ export function LoginForm({ next, initialError }: { next: string; initialError: 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(initialError);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [linkSent, setLinkSent] = useState(false);
   const [pending, startTransition] = useTransition();
 
+  const emailError = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "Enter your email.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return "Enter a valid email address.";
+    return undefined;
+  };
+
   const signInWithPassword = (e: React.FormEvent) => {
     e.preventDefault();
+    const nextErrors = {
+      email: emailError(email),
+      password: password ? undefined : "Enter your password.",
+    };
+    setFieldErrors(nextErrors);
+    if (nextErrors.email || nextErrors.password) return;
     setError(null);
     startTransition(async () => {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) {
         setError(error.message);
         return;
@@ -76,38 +90,49 @@ export function LoginForm({ next, initialError }: { next: string; initialError: 
   };
 
   return (
-    <form onSubmit={signInWithPassword} className="flex flex-col gap-6">
+    <form noValidate onSubmit={signInWithPassword} className="flex flex-col gap-6">
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
       <FieldGroup>
-        <Field>
+        <Field data-invalid={fieldErrors.email ? true : undefined}>
           <FieldLabel htmlFor="email">Email</FieldLabel>
           <Input
             id="email"
             type="email"
             autoComplete="email"
-            required
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            aria-invalid={fieldErrors.email ? true : undefined}
+            aria-describedby={fieldErrors.email ? "email-error" : undefined}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (fieldErrors.email) setFieldErrors((current) => ({ ...current, email: undefined }));
+            }}
           />
+          {fieldErrors.email ? <FieldError id="email-error">{fieldErrors.email}</FieldError> : null}
         </Field>
-        <Field>
+        <Field data-invalid={fieldErrors.password ? true : undefined}>
           <FieldLabel htmlFor="password">Password</FieldLabel>
           <Input
             id="password"
             type="password"
             autoComplete="current-password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            aria-invalid={fieldErrors.password ? true : undefined}
+            aria-describedby={fieldErrors.password ? "password-error password-hint" : "password-hint"}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (fieldErrors.password) setFieldErrors((current) => ({ ...current, password: undefined }));
+            }}
           />
-          <FieldDescription>Leave blank to use a one-time link instead.</FieldDescription>
+          <FieldDescription id="password-hint">Leave blank to use a one-time link instead.</FieldDescription>
+          {fieldErrors.password ? <FieldError id="password-error">{fieldErrors.password}</FieldError> : null}
         </Field>
       </FieldGroup>
       <div className="flex flex-col gap-2">
-        <Button type="submit" disabled={pending || !password}>
+        <Button type="submit" disabled={pending}>
           {pending ? <Spinner data-icon="inline-start" /> : null}
           Sign in
         </Button>
