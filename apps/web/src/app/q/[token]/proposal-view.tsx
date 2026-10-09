@@ -6,39 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { formatMoney, formatMoneyRange } from "@/lib/money";
-import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
+import { formatNotToExceedAmount, notToExceedClause } from "@/lib/quotes/legal-copy";
+import { acceptanceTotals, lineHasRange } from "@/lib/quotes/not-to-exceed";
+import type { PublicQuote } from "@/lib/quotes/public-quote";
+import { defaultSelectedIds } from "@/lib/quotes/selection";
 import { AcceptForm } from "./accept-form";
+import { RecordView } from "./record-view";
 
-type Item = {
-  id: string;
-  name: string;
-  description: string | null;
-  state: "included" | "recommended" | "optional";
-  option_group: string | null;
-  option_tier: string;
-  price: number;
-  range_low: number | null;
-  range_high: number | null;
-  photo_url: string | null;
-  selected: boolean;
-};
+type Item = PublicQuote["items"][number];
 
-export function ProposalView({
-  token,
-  payload,
-}: {
-  token: string;
-  payload: {
-    title: string;
-    number: number;
-    intro: string | null;
-    notes_customer: string | null;
-    expires_at: string | null;
-    status: string;
-    org: { name: string; phone: string | null; email: string | null; brand_color: string | null };
-    items: Item[];
-  };
-}) {
+function linePrice(item: Item) {
+  if (lineHasRange(item)) return formatMoneyRange(Number(item.range_low), Number(item.range_high));
+  return formatMoney(Number(item.price));
+}
+
+export function ProposalView({ token, payload }: { token: string; payload: PublicQuote }) {
   const groups = [...new Set(payload.items.filter((i) => i.option_group).map((i) => i.option_group!))];
   const [picked, setPicked] = useState<Record<string, string>>(() => {
     const defaults = new Set(defaultSelectedIds(payload.items));
@@ -67,10 +49,16 @@ export function ProposalView({
     return ids;
   }, [payload.items, picked, extras]);
 
-  const total = useMemo(() => sumSelected(payload.items, selectedIds, "price"), [payload.items, selectedIds]);
+  const live = useMemo(() => acceptanceTotals(payload.items, selectedIds), [payload.items, selectedIds]);
+  const stored = payload.status === "accepted" ? payload.acceptance : null;
+  const hasRanges = stored?.has_ranges ?? live.hasRanges;
+  const notToExceed = stored?.accepted_not_to_exceed ?? live.notToExceed;
+  const estimate = stored?.accepted_total ?? live.acceptedTotal;
+  const clause = hasRanges ? (stored?.not_to_exceed_clause ?? notToExceedClause(formatNotToExceedAmount(notToExceed))) : null;
 
   return (
     <main className="mx-auto min-h-svh max-w-xl px-4 py-10 [padding-inline-start:max(1rem,env(safe-area-inset-left,0px))] [padding-inline-end:max(1rem,env(safe-area-inset-right,0px))]">
+      <RecordView token={token} status={payload.status} />
       <p className="text-sm font-medium text-primary">{payload.org.name}</p>
       <h1 className="mt-1 text-3xl font-bold">{payload.title}</h1>
       <p className="text-sm text-muted-foreground">Quote #{payload.number}</p>
@@ -94,7 +82,7 @@ export function ProposalView({
                         <span className="min-w-0 font-medium capitalize [overflow-wrap:anywhere]">
                           {o.option_tier === "none" ? o.name : o.option_tier}
                         </span>
-                        <span className="shrink-0 font-heading tabular-nums">{formatMoney(Number(o.price))}</span>
+                        <span className="shrink-0 font-heading tabular-nums">{linePrice(o)}</span>
                       </div>
                       {o.description ? <p className="text-xs text-muted-foreground">{o.description}</p> : null}
                     </div>
@@ -121,11 +109,7 @@ export function ProposalView({
               <div className="min-w-0 flex-1">
                 <div className="flex justify-between gap-2">
                   <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{i.name}</span>
-                  <span className="shrink-0 font-heading tabular-nums">
-                    {i.range_low != null && i.range_high != null
-                      ? formatMoneyRange(Number(i.range_low), Number(i.range_high))
-                      : formatMoney(Number(i.price))}
-                  </span>
+                  <span className="shrink-0 font-heading tabular-nums">{linePrice(i)}</span>
                 </div>
                 {i.description ? <p className="text-xs text-muted-foreground">{i.description}</p> : null}
                 {i.photo_url ? (
@@ -141,16 +125,22 @@ export function ProposalView({
           ))}
       </div>
 
+      {clause ? <p className="mt-6 text-sm">{clause}</p> : null}
       <div className="sticky bottom-0 mt-8 flex items-center justify-between gap-3 border-t bg-background py-4 [padding-block-end:calc(1rem+env(safe-area-inset-bottom,0px))]">
         <div>
-          <div className="text-xs text-muted-foreground">Live total</div>
-          <div className="font-heading text-2xl font-bold tabular-nums">{formatMoney(total, { cents: true })}</div>
+          <div className="text-xs text-muted-foreground">{hasRanges ? "Not to exceed" : "Total"}</div>
+          <div className="font-heading text-2xl font-bold tabular-nums">
+            {formatMoney(hasRanges ? notToExceed : estimate, { cents: true })}
+          </div>
+          {hasRanges ? (
+            <div className="text-xs text-muted-foreground">Estimate {formatMoney(estimate, { cents: true })}</div>
+          ) : null}
         </div>
         <Button size="lg" render={<a href={`/q/${token}/pdf?selected=${selectedIds.join(",")}`} />}>
           Download PDF
         </Button>
       </div>
-      <AcceptForm token={token} status={payload.status} selectedIds={selectedIds} />
+      <AcceptForm token={token} status={payload.status} selectedIds={selectedIds} clause={clause} />
       {payload.notes_customer ? <p className="mt-4 text-sm text-muted-foreground">{payload.notes_customer}</p> : null}
       <p className="mt-6 text-xs text-muted-foreground">
         {payload.org.phone} {payload.org.email ? `· ${payload.org.email}` : ""}
