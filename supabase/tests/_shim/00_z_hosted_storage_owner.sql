@@ -1,35 +1,30 @@
--- Match hosted Supabase: storage.objects and storage.buckets are owned by
--- supabase_storage_admin, and row level security is already enabled. The
--- migration role must not ALTER those tables. Creating policies is separate
--- (supautils.policy_grants on the hosted image; superuser locally).
+-- Hosted Supabase owns storage.objects as supabase_storage_admin. The CI
+-- image will not let us SET ROLE to that reserved role, so when we still own
+-- the table we hand it to storage_table_owner and then drop that membership.
+-- ALTER TABLE then fails with "must be owner". Policy DDL stays allowed for a
+-- superuser, or for postgres via supautils.policy_grants.
 --
--- An event trigger also rejects ALTER TABLE on those relations, including for
--- a superuser, so a vanilla Postgres run still fails the hosted "must be
--- owner" bug.
+-- A superuser can still alter any table, so the event trigger below rejects
+-- ALTER TABLE on these relations for that session too.
 
-do $$
-begin
-  if not exists (select 1 from pg_roles where rolname = 'supabase_storage_admin') then
-    create role supabase_storage_admin nologin noinherit;
-  end if;
-end
-$$;
-
--- The table owner runs foreign-key checks. After ownership moves off postgres,
--- that role still needs to see the storage schema.
-do $$
-begin
-  if exists (select 1 from pg_namespace where nspname = 'storage') then
-    grant usage on schema storage to supabase_storage_admin;
-  end if;
-end
-$$;
+create schema if not exists test_harness;
 
 do $$
 declare
   objects_owner text;
   buckets_owner text;
+  super boolean;
 begin
+  if not exists (select 1 from pg_namespace where nspname = 'storage') then
+    return;
+  end if;
+  if not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+                 where n.nspname = 'storage' and c.relname = 'objects') then
+    return;
+  end if;
+
+  select rolsuper into super from pg_roles where rolname = current_user;
+
   select pg_get_userbyid(c.relowner)::text into objects_owner
   from pg_class c
   join pg_namespace n on n.oid = c.relnamespace
@@ -40,27 +35,54 @@ begin
   join pg_namespace n on n.oid = c.relnamespace
   where n.nspname = 'storage' and c.relname = 'buckets';
 
-  if objects_owner is null or buckets_owner is null then
-    return;
-  end if;
-
   if objects_owner = current_user then
     execute 'alter table storage.objects enable row level security';
     execute 'alter table storage.objects force row level security';
-    execute 'alter table storage.objects owner to supabase_storage_admin';
   end if;
   if buckets_owner = current_user then
     execute 'alter table storage.buckets enable row level security';
     execute 'alter table storage.buckets force row level security';
-    execute 'alter table storage.buckets owner to supabase_storage_admin';
   end if;
 
-  execute 'grant usage on schema storage to postgres';
-  execute 'grant all on storage.buckets, storage.objects to postgres';
+  -- Keep the privileges the migration needs before we give up ownership.
+  -- Skip tables we do not own; the image already granted those.
+  if objects_owner = current_user or buckets_owner = current_user then
+    execute 'grant usage on schema storage to postgres';
+  end if;
+  if objects_owner = current_user then
+    execute 'grant all on storage.objects to postgres';
+  end if;
+  if buckets_owner = current_user then
+    execute 'grant all on storage.buckets to postgres';
+  end if;
+
+  if objects_owner is distinct from current_user and buckets_owner is distinct from current_user then
+    return;
+  end if;
+
+  if not exists (select 1 from pg_roles where rolname = 'storage_table_owner') then
+    create role storage_table_owner nologin noinherit;
+  end if;
+  -- The new owner must be allowed to create objects in the schema, or
+  -- ALTER OWNER is rejected with permission denied for schema storage.
+  grant usage, create on schema storage to storage_table_owner;
+
+  if not super then
+    grant storage_table_owner to current_user with inherit false, set true;
+  end if;
+
+  if objects_owner = current_user then
+    alter table storage.objects owner to storage_table_owner;
+  end if;
+  if buckets_owner = current_user then
+    alter table storage.buckets owner to storage_table_owner;
+  end if;
+
+  if not super then
+    revoke storage_table_owner from current_user;
+  end if;
 end
 $$;
-
-create schema if not exists test_harness;
 
 create or replace function test_harness.forbid_managed_storage_alter()
 returns event_trigger
@@ -82,8 +104,14 @@ begin
 end;
 $$;
 
-drop event trigger if exists forbid_managed_storage_alter;
-create event trigger forbid_managed_storage_alter
-  on ddl_command_end
-  when tag in ('ALTER TABLE')
-  execute function test_harness.forbid_managed_storage_alter();
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = current_user and rolsuper) then
+    drop event trigger if exists forbid_managed_storage_alter;
+    create event trigger forbid_managed_storage_alter
+      on ddl_command_end
+      when tag in ('ALTER TABLE')
+      execute function test_harness.forbid_managed_storage_alter();
+  end if;
+end
+$$;

@@ -21,15 +21,11 @@ select ok(
    from storage.buckets where id = 'org-branding'),
   'org-branding allows svg, png, and jpeg'
 );
-select is(
-  (
-    select pg_get_userbyid(c.relowner)::text
-    from pg_class c
-    join pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'storage' and c.relname = 'objects'
-  ),
-  'supabase_storage_admin',
-  'storage.objects stays owned by supabase_storage_admin'
+select throws_ok(
+  $$ alter table storage.objects enable row level security $$,
+  '42501',
+  'must be owner of table objects',
+  'a migration cannot enable row level security on storage.objects'
 );
 select ok(
   (

@@ -64,7 +64,10 @@ done
 # event trigger rejects the same ALTER instead.
 HOSTED_MIGRATOR=0
 POLICY_GRANTS="$("${PSQL[@]}" -tAc "select current_setting('supautils.policy_grants', true)")"
-if [[ -n "$POLICY_GRANTS" ]]; then
+IS_SUPER="$("${PSQL[@]}" -tAc "select rolsuper from pg_roles where rolname = current_user")"
+# A non-superuser cannot create a BYPASSRLS role. On that image the migration
+# user is already the non-superuser, and storage ownership was moved above.
+if [[ "$IS_SUPER" == "t" && -n "$POLICY_GRANTS" ]]; then
   echo "==> applying storage DDL as non-superuser hosted_migrator"
   NEW_GRANTS="$(POLICY_GRANTS="$POLICY_GRANTS" python3 -c '
 import json, os
