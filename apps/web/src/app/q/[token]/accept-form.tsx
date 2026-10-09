@@ -8,16 +8,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { ESIGN_DISCLOSURES } from "@/lib/quotes/legal-copy";
 import { acceptQuote, declineQuote } from "./actions";
 
 export function AcceptForm({
   token,
   status,
   selectedIds,
+  clause,
 }: {
   token: string;
   status: string;
   selectedIds: string[];
+  clause: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -42,7 +45,13 @@ export function AcceptForm({
         startTransition(async () => {
           const r = await acceptQuote(token, fd);
           if (r.ok) {
-            toast.success(r.data.already ? "This proposal was already accepted" : "Accepted");
+            toast.success(
+              r.data.already
+                ? "This proposal was already accepted"
+                : r.data.emailed
+                  ? "Accepted. We emailed you a sealed copy."
+                  : "Accepted",
+            );
             setDone(true);
             router.refresh();
           } else toast.error(r.error);
@@ -53,21 +62,34 @@ export function AcceptForm({
         <input key={id} type="hidden" name="selected" value={id} />
       ))}
       <h2 className="font-medium">Accept this proposal</h2>
+      {clause ? <p className="text-sm">{clause}</p> : null}
+      <section className="flex flex-col gap-3 text-sm" aria-labelledby="esign-heading">
+        <h3 id="esign-heading" className="font-medium">
+          Electronic records
+        </h3>
+        {ESIGN_DISCLOSURES.map((section) => (
+          <p key={section.id}>
+            <span className="font-medium">{section.heading}. </span>
+            {section.body}
+          </p>
+        ))}
+      </section>
       <p className="text-xs text-muted-foreground">
-        By clicking Accept you agree this is your electronic signature under the ESIGN Act. We store your name, time, IP,
-        browser, and a hash of this document.
+        By clicking Accept you agree this is your electronic signature. We store your name, email, time, IP, browser, and
+        a hash of this document, then email you a sealed PDF copy.
       </p>
       <Field>
         <FieldLabel htmlFor="signer_name">Full legal name</FieldLabel>
-        <Input id="signer_name" name="signer_name" required />
+        <Input id="signer_name" name="signer_name" autoComplete="name" required />
       </Field>
       <Field>
         <FieldLabel htmlFor="signer_email">Email</FieldLabel>
-        <Input id="signer_email" name="signer_email" type="email" />
+        <Input id="signer_email" name="signer_email" type="email" autoComplete="email" required />
       </Field>
       <label className="flex items-start gap-2 text-sm">
         <Checkbox name="disclosure" required />
-        I consent to do business electronically and accept the work and price shown above.
+        I consent to do business electronically, I have read the disclosures above, and I accept the work and price shown
+        on this proposal.
       </label>
       <div className="flex gap-2">
         <Button type="submit" size="lg" disabled={pending}>

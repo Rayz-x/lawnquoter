@@ -8,14 +8,14 @@ export type Database = {
           Tables: {
             "acceptances": {
                   Row: {
-                    "accepted_at": string,"accepted_total": number | null,"created_at": string,"disclosure_accepted": boolean,"document_hash": string,"id": string,"ip": unknown,"method": Database["public"]['Enums']["acceptance_method"],"org_id": string,"quote_id": string,"selections": Json,"signer_email": string | null,"signer_name": string,"signwell_envelope_id": string | null,"user_agent": string | null,"version": number
+                    "accepted_at": string,"accepted_not_to_exceed": number,"accepted_total": number | null,"created_at": string,"disclosure_accepted": boolean,"disclosure_version": string | null,"document_hash": string,"has_ranges": boolean,"id": string,"ip": unknown,"method": Database["public"]['Enums']["acceptance_method"],"not_to_exceed_clause": string | null,"org_id": string,"quote_id": string,"selections": Json,"signer_email": string | null,"signer_name": string,"signwell_envelope_id": string | null,"user_agent": string | null,"version": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "accepted_at"?: string,"accepted_total"?: number | null,"created_at"?: string,"disclosure_accepted"?: boolean,"document_hash": string,"id"?: string,"ip"?: unknown,"method"?: Database["public"]['Enums']["acceptance_method"],"org_id": string,"quote_id": string,"selections"?: Json,"signer_email"?: string | null,"signer_name": string,"signwell_envelope_id"?: string | null,"user_agent"?: string | null,"version": number
+                    "accepted_at"?: string,"accepted_not_to_exceed": number,"accepted_total"?: number | null,"created_at"?: string,"disclosure_accepted"?: boolean,"disclosure_version"?: string | null,"document_hash": string,"has_ranges"?: boolean,"id"?: string,"ip"?: unknown,"method"?: Database["public"]['Enums']["acceptance_method"],"not_to_exceed_clause"?: string | null,"org_id": string,"quote_id": string,"selections"?: Json,"signer_email"?: string | null,"signer_name": string,"signwell_envelope_id"?: string | null,"user_agent"?: string | null,"version": number
                   }
                   Update: {
-                    "accepted_at"?: string,"accepted_total"?: number | null,"created_at"?: string,"disclosure_accepted"?: boolean,"document_hash"?: string,"id"?: string,"ip"?: unknown,"method"?: Database["public"]['Enums']["acceptance_method"],"org_id"?: string,"quote_id"?: string,"selections"?: Json,"signer_email"?: string | null,"signer_name"?: string,"signwell_envelope_id"?: string | null,"user_agent"?: string | null,"version"?: number
+                    "accepted_at"?: string,"accepted_not_to_exceed"?: number,"accepted_total"?: number | null,"created_at"?: string,"disclosure_accepted"?: boolean,"disclosure_version"?: string | null,"document_hash"?: string,"has_ranges"?: boolean,"id"?: string,"ip"?: unknown,"method"?: Database["public"]['Enums']["acceptance_method"],"not_to_exceed_clause"?: string | null,"org_id"?: string,"quote_id"?: string,"selections"?: Json,"signer_email"?: string | null,"signer_name"?: string,"signwell_envelope_id"?: string | null,"user_agent"?: string | null,"version"?: number
                   }
                   Relationships: [
                     {
@@ -747,6 +747,9 @@ isOneToOne: false
                            },
 "quote_public":
 { Args: { "p_token": string }; Returns: Json
+                           },
+"quote_record_view":
+{ Args: { "p_token": string }; Returns: undefined
                            },
 "quote_revise":
 { Args: { "p_quote": string }; Returns: string

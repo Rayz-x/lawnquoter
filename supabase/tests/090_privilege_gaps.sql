@@ -318,7 +318,7 @@ select set_config(
   '{"x-forwarded-for":"203.0.113.9","user-agent":"pgtap"}',
   true
 ) as ignored_headers \gset
-select public.quote_accept(:'tok'::uuid, 'Pat Customer', null, true) as accepted \gset
+select public.quote_accept(:'tok'::uuid, 'Pat Customer', 'pat@example.com', true, 'forged-ua', '198.51.100.9') as accepted \gset
 
 select tests.authenticate_as(:'crew'::uuid, :'org'::uuid, 'crew');
 select is((select count(*) from public.quotes), 0::bigint, 'crew cannot read quotes');

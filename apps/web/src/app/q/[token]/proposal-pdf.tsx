@@ -1,9 +1,11 @@
 import { Document, Image, Link, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-import { formatMoney, formatMoneyRange } from "@/lib/money";
 import { companyInitials } from "@/lib/brand/initials";
 import { deriveBrandTheme, pdfBrand } from "@/lib/brand/derive-brand-theme";
 import { formatOrgAddress, headingFontOf, type PublicOrg } from "@/lib/brand/public-org";
-import { selectionFromIds, sumSelected, type SelectableItem } from "@/lib/quotes/selection";
+import { formatMoney, formatMoneyRange } from "@/lib/money";
+import { ESIGN_DISCLOSURES, formatNotToExceedAmount, notToExceedClause } from "@/lib/quotes/legal-copy";
+import { acceptanceTotals } from "@/lib/quotes/not-to-exceed";
+import { selectionFromIds, type SelectableItem } from "@/lib/quotes/selection";
 import { pdfColors, pdfFonts, pdfHeadingFamily, pdfMarkPath } from "./pdf-theme";
 
 const styles = StyleSheet.create({
@@ -48,7 +50,10 @@ const styles = StyleSheet.create({
   pill: { fontSize: 8, lineHeight: 1.3, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 3, alignSelf: "flex-start", marginTop: 3 },
   price: { fontSize: 11, fontWeight: 600, lineHeight: 1.35 },
   otherHeading: { color: pdfColors.muted, fontSize: 8.5, lineHeight: 1.4, marginTop: 16, marginBottom: 4 },
-  total: { marginTop: 16, marginBottom: 12, fontSize: 16, fontWeight: 700, lineHeight: 1.4 },
+  total: { marginTop: 16, marginBottom: 4, fontSize: 16, fontWeight: 700, lineHeight: 1.4 },
+  estimate: { color: pdfColors.muted, fontSize: 9, lineHeight: 1.4, marginBottom: 4 },
+  clause: { fontSize: 10, lineHeight: 1.4, marginTop: 6, marginBottom: 8 },
+  seal: { fontSize: 8.5, lineHeight: 1.4, marginTop: 8, color: pdfColors.ink },
   notes: { fontSize: 10, lineHeight: 1.4, marginBottom: 8 },
   accept: { padding: 12, borderRadius: 6, marginTop: 8 },
   acceptTitle: { fontSize: 11, fontWeight: 700, lineHeight: 1.35, marginBottom: 2 },
@@ -115,9 +120,22 @@ function Line({ item, heading, brand }: { item: PdfItem; heading: string; brand:
   );
 }
 
+export type PdfAcceptance = {
+  documentHash: string;
+  acceptedAt: string;
+  signerName: string;
+  signerEmail: string | null;
+  acceptedTotal: number;
+  notToExceed: number;
+  hasRanges: boolean;
+  clause: string | null;
+  disclosureVersion: string | null;
+};
+
 export function ProposalPdf({
   payload,
   selectedIds,
+  acceptance = null,
   logo,
   quoteUrl,
 }: {
@@ -130,6 +148,7 @@ export function ProposalPdf({
     items: PdfItem[];
   };
   selectedIds: string[] | null;
+  acceptance?: PdfAcceptance | null;
   /** PNG or JPEG bytes. SVG is never passed here. */
   logo?: Buffer | null;
   quoteUrl: string;
@@ -137,13 +156,20 @@ export function ProposalPdf({
   const picked = new Set(selectionFromIds(payload.items, selectedIds));
   const selected = payload.items.filter((item) => picked.has(item.id));
   const others = payload.items.filter((item) => !picked.has(item.id));
-  const total = sumSelected(payload.items, picked, "price");
+  const live = acceptanceTotals(payload.items, picked);
+  const hasRanges = acceptance?.hasRanges ?? live.hasRanges;
+  const notToExceed = acceptance?.notToExceed ?? live.notToExceed;
+  const estimate = acceptance?.acceptedTotal ?? live.acceptedTotal;
+  const clause = hasRanges ? (acceptance?.clause ?? notToExceedClause(formatNotToExceedAmount(notToExceed))) : null;
   const theme = deriveBrandTheme(payload.org.brand_color);
   const brand = pdfBrand(theme);
   const heading = pdfHeadingFamily(headingFontOf(payload.org.heading_font));
   const address = formatOrgAddress(payload.org);
   const contact = [payload.org.phone, payload.org.email].filter(Boolean).join(" · ");
   const logoBox = fitLogo(payload.org.logo_width, payload.org.logo_height);
+  const totalLabel = hasRanges
+    ? `Not to exceed ${formatMoney(notToExceed, { cents: true })}`
+    : `Total ${formatMoney(estimate, { cents: true })}`;
 
   return (
     <Document>
@@ -194,15 +220,37 @@ export function ProposalPdf({
             ))}
           </>
         ) : null}
-        <Text style={[styles.total, { color: brand.text, fontFamily: heading }]}>Total {formatMoney(total, { cents: true })}</Text>
+        <Text style={[styles.total, { color: brand.text, fontFamily: heading }]}>{totalLabel}</Text>
+        {hasRanges ? <Text style={styles.estimate}>Estimate {formatMoney(estimate, { cents: true })}</Text> : null}
+        {clause ? <Text style={styles.clause}>{clause}</Text> : null}
+        {acceptance ? (
+          <View style={styles.seal}>
+            <Text>
+              Accepted by {acceptance.signerName}
+              {acceptance.signerEmail ? ` (${acceptance.signerEmail})` : ""}
+            </Text>
+            <Text>Accepted at {acceptance.acceptedAt}</Text>
+            <Text>Document hash {acceptance.documentHash}</Text>
+            {acceptance.disclosureVersion ? <Text>Electronic disclosure {acceptance.disclosureVersion}</Text> : null}
+          </View>
+        ) : null}
+        {acceptance
+          ? ESIGN_DISCLOSURES.map((section) => (
+              <Text key={section.id} style={styles.notes}>
+                {section.heading}. {section.body}
+              </Text>
+            ))
+          : null}
         {payload.notes_customer ? <Text style={styles.notes}>{payload.notes_customer}</Text> : null}
-        <View style={[styles.accept, { backgroundColor: brand.soft }]}>
-          <Text style={styles.acceptTitle}>Review and accept online</Text>
-          <Text style={styles.acceptCopy}>This quote is ready for review. Accept it on the quote page.</Text>
-          <Link src={quoteUrl} style={[styles.acceptButton, { backgroundColor: brand.fill, color: brand.onFill }]}>
-            Accept online →
-          </Link>
-        </View>
+        {acceptance ? null : (
+          <View style={[styles.accept, { backgroundColor: brand.soft }]}>
+            <Text style={styles.acceptTitle}>Review and accept online</Text>
+            <Text style={styles.acceptCopy}>This quote is ready for review. Accept it on the quote page.</Text>
+            <Link src={quoteUrl} style={[styles.acceptButton, { backgroundColor: brand.fill, color: brand.onFill }]}>
+              Accept online →
+            </Link>
+          </View>
+        )}
         {/* eslint-disable-next-line jsx-a11y/alt-text */}
         <Image fixed src={pdfMarkPath} style={styles.mark} />
         <Text fixed style={styles.powered}>
