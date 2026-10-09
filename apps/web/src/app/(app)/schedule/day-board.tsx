@@ -64,12 +64,16 @@ export function DayBoard({
   canWrite,
   unscheduled,
   unassigned,
+  unscheduledHasMore = false,
+  unassignedHasMore = false,
   columns,
 }: {
   date: string;
   canWrite: boolean;
   unscheduled: BoardVisit[];
   unassigned: BoardVisit[];
+  unscheduledHasMore?: boolean;
+  unassignedHasMore?: boolean;
   columns: BoardColumn[];
 }) {
   const router = useRouter();
@@ -93,11 +97,16 @@ export function DayBoard({
       <div className="flex flex-col gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Unscheduled</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              Unscheduled
+              {unscheduledHasMore ? <Badge variant="outline">More</Badge> : null}
+            </CardTitle>
             <CardDescription>
               {unscheduled.length === 0
                 ? "No one-time visits are waiting for a day."
-                : `${unscheduled.length} without a day. Assigning places them on this day.`}
+                : unscheduledHasMore
+                  ? `${unscheduled.length} without a day. More visits are waiting beyond the first 300.`
+                  : `${unscheduled.length} without a day. Assigning places them on this day.`}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -113,19 +122,21 @@ export function DayBoard({
                 <VisitCard key={visit.id} visit={visit}>
                   {canWrite ? (
                     <>
-                      {crews.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">Create a crew before assigning this visit.</p>
-                      ) : (
-                        <AssignControls
-                          visit={visit}
-                          date={date}
-                          crews={crews}
-                          pending={pending}
-                          onAssign={(crewId) =>
-                            run(() => assignVisit({ visitId: visit.id, crewId, date }), "Visit assigned")
-                          }
-                        />
-                      )}
+                      {visit.status === "scheduled" ? (
+                        crews.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Create a crew before assigning this visit.</p>
+                        ) : (
+                          <AssignControls
+                            visit={visit}
+                            date={date}
+                            crews={crews}
+                            pending={pending}
+                            onAssign={(crewId) =>
+                              run(() => assignVisit({ visitId: visit.id, crewId, date }), "Visit assigned")
+                            }
+                          />
+                        )
+                      ) : null}
                       <StopControls
                         visit={visit}
                         pending={pending}
@@ -142,11 +153,16 @@ export function DayBoard({
 
         <Card>
           <CardHeader>
-            <CardTitle>Unassigned</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              Unassigned
+              {unassignedHasMore ? <Badge variant="outline">More</Badge> : null}
+            </CardTitle>
             <CardDescription>
               {unassigned.length === 0
                 ? "No dated visits are waiting, including overdue ones."
-                : `${unassigned.length} waiting, including other days and overdue visits. Assigning places them on this day.`}
+                : unassignedHasMore
+                  ? `${unassigned.length} waiting. More visits are waiting beyond the first 300.`
+                  : `${unassigned.length} waiting, including other days and overdue visits. Assigning places them on this day.`}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -162,19 +178,21 @@ export function DayBoard({
                 <VisitCard key={visit.id} visit={visit}>
                   {canWrite ? (
                     <>
-                      {crews.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">Create a crew before assigning this visit.</p>
-                      ) : (
-                        <AssignControls
-                          visit={visit}
-                          date={date}
-                          crews={crews}
-                          pending={pending}
-                          onAssign={(crewId) =>
-                            run(() => assignVisit({ visitId: visit.id, crewId, date }), "Visit assigned")
-                          }
-                        />
-                      )}
+                      {visit.status === "scheduled" ? (
+                        crews.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Create a crew before assigning this visit.</p>
+                        ) : (
+                          <AssignControls
+                            visit={visit}
+                            date={date}
+                            crews={crews}
+                            pending={pending}
+                            onAssign={(crewId) =>
+                              run(() => assignVisit({ visitId: visit.id, crewId, date }), "Visit assigned")
+                            }
+                          />
+                        )
+                      ) : null}
                       <StopControls
                         visit={visit}
                         pending={pending}
@@ -359,7 +377,7 @@ function AssignControls({
   onAssign: (crewId: string) => void;
 }) {
   const [crewId, setCrewId] = useState(crews[0]?.id ?? "");
-  if (crews.length === 0) return null;
+  if (visit.status !== "scheduled" || crews.length === 0) return null;
   const selected = crews.some((crew) => crew.id === crewId) ? crewId : crews[0]!.id;
   return (
     <div className="flex flex-wrap items-end gap-2">

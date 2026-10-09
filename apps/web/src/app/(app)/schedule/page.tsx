@@ -76,7 +76,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         .from("visits")
         .select(visitSelect)
         .eq("org_id", session.orgId)
-        .not("status", "in", "(completed,cancelled)")
+        .eq("status", "scheduled")
         .not("scheduled_date", "is", null)
         .or(`route_id.is.null,scheduled_date.lt.${today}`)
         .order("scheduled_date")
@@ -128,11 +128,11 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
 
   const unassignedById = new Map<string, BoardVisit>();
   for (const visit of visits ?? []) {
-    if (onThisDay.has(visit.id)) continue;
+    if (onThisDay.has(visit.id) || visit.status !== "scheduled") continue;
     unassignedById.set(visit.id, toVisit(visit));
   }
   for (const visit of openVisits ?? []) {
-    if (onThisDay.has(visit.id)) continue;
+    if (onThisDay.has(visit.id) || visit.status !== "scheduled") continue;
     unassignedById.set(visit.id, toVisit(visit));
   }
   const unassigned = [...unassignedById.values()].sort(
@@ -194,7 +194,15 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : (
-          <DayBoard date={date} canWrite={canWrite} unscheduled={unscheduled} unassigned={unassigned} columns={columns} />
+          <DayBoard
+            date={date}
+            canWrite={canWrite}
+            unscheduled={unscheduled}
+            unassigned={unassigned}
+            unscheduledHasMore={(unscheduledVisits?.length ?? 0) >= 300}
+            unassignedHasMore={(openVisits?.length ?? 0) >= 300}
+            columns={columns}
+          />
         )}
       </div>
     </>
