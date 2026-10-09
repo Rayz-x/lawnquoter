@@ -81,7 +81,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         .or(`route_id.is.null,scheduled_date.lt.${today}`)
         .order("scheduled_date")
         .order("sort")
-        .limit(300),
+        .limit(301),
       supabase
         .from("visits")
         .select(visitSelect)
@@ -89,9 +89,15 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         .is("scheduled_date", null)
         .not("status", "in", "(completed,cancelled,skipped)")
         .order("sort")
-        .limit(300),
+        .limit(301),
     ]);
   const error = crewsError?.message ?? routesError?.message ?? visitsError?.message ?? openError?.message ?? unscheduledError?.message ?? null;
+  const openBacklog = openVisits ?? [];
+  const unscheduledBacklog = unscheduledVisits ?? [];
+  const unassignedHasMore = openBacklog.length > 300;
+  const unscheduledHasMore = unscheduledBacklog.length > 300;
+  const openShown = openBacklog.slice(0, 300);
+  const unscheduledShown = unscheduledBacklog.slice(0, 300);
   const routeByCrew = new Map((routes ?? []).map((route) => [route.crew_id, route]));
   const routeIds = new Set((routes ?? []).map((route) => route.id));
   const visibleCrews = (crews ?? []).filter((crew) => crew.active || routeByCrew.has(crew.id));
@@ -131,14 +137,14 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     if (onThisDay.has(visit.id) || visit.status !== "scheduled") continue;
     unassignedById.set(visit.id, toVisit(visit));
   }
-  for (const visit of openVisits ?? []) {
+  for (const visit of openShown) {
     if (onThisDay.has(visit.id) || visit.status !== "scheduled") continue;
     unassignedById.set(visit.id, toVisit(visit));
   }
   const unassigned = [...unassignedById.values()].sort(
     (a, b) => (a.scheduledDate ?? "").localeCompare(b.scheduledDate ?? "") || a.title.localeCompare(b.title),
   );
-  const unscheduled = (unscheduledVisits ?? [])
+  const unscheduled = unscheduledShown
     .filter((visit) => !onThisDay.has(visit.id))
     .map(toVisit)
     .sort((a, b) => a.title.localeCompare(b.title));
@@ -199,8 +205,8 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             canWrite={canWrite}
             unscheduled={unscheduled}
             unassigned={unassigned}
-            unscheduledHasMore={(unscheduledVisits?.length ?? 0) >= 300}
-            unassignedHasMore={(openVisits?.length ?? 0) >= 300}
+            unscheduledHasMore={unscheduledHasMore}
+            unassignedHasMore={unassignedHasMore}
             columns={columns}
           />
         )}
