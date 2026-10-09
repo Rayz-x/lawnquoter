@@ -16,7 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import type { OrgRole } from "@lawnquoter/shared";
-import { ADMIN_ROLES, DISPATCH_ROLES, SALES_ROLES } from "@lawnquoter/shared";
+import { ADMIN_ROLES, DISPATCH_ROLES, FIELD_ROLES, SALES_ROLES } from "@lawnquoter/shared";
 
 export type NavItem = {
   title: string;
@@ -53,7 +53,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Operations",
     items: [
       { title: "Schedule", href: "/schedule", icon: CalendarDays, roles: DISPATCH_ROLES },
-      { title: "Crew App", href: "/crew", icon: Smartphone },
+      { title: "Crew App", href: "/crew/today", icon: Smartphone, roles: FIELD_ROLES },
       { title: "Invoices", href: "/invoices", icon: Receipt, roles: ADMIN_ROLES },
     ],
   },
