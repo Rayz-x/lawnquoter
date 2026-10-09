@@ -3,8 +3,7 @@
 import { CalendarDays, Inbox, Map, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { browserCrewStore, scopeKey } from "@/lib/crew/queue";
 import { clearCrewCaches, crewWorkerUrl } from "@/lib/crew/sw-policy";
 import { useCrewSync } from "@/lib/crew/use-crew-sync";
@@ -20,7 +19,10 @@ export function CrewShell({ children, userId, orgId }: { children: ReactNode; us
   const pathname = usePathname();
   const waiting = useOutboxCount(userId, orgId);
   useCrewSync(userId, orgId);
-  useCrewDisplay();
+  const display = useCrewDisplay();
+  useEffect(() => {
+    document.documentElement.classList.remove("sun");
+  }, []);
   useEffect(() => {
     const build = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA;
     void navigator.serviceWorker
@@ -43,8 +45,9 @@ export function CrewShell({ children, userId, orgId }: { children: ReactNode; us
   }, [userId, orgId]);
 
   const tabs = !pathname.includes("/visits/");
+  const displayClass = display === "dark" ? "dark" : display === "sun" ? "crew-display-light sun" : "crew-display-light";
   return (
-    <div className="flex min-h-svh flex-col bg-background">
+    <div className={`flex min-h-svh flex-col bg-background ${displayClass}`}>
       <div className={tabs ? "flex flex-1 flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]" : "flex flex-1 flex-col"}>{children}</div>
       {tabs ? <CrewTabs pathname={pathname} waiting={waiting} /> : null}
     </div>
@@ -52,22 +55,17 @@ export function CrewShell({ children, userId, orgId }: { children: ReactNode; us
 }
 
 function useCrewDisplay() {
-  const { setTheme } = useTheme();
-  useEffect(() => {
-    const root = document.documentElement;
-    const apply = () => {
-      const mode = localStorage.getItem("crew-display");
-      root.classList.toggle("sun", mode === "sun");
-      if (mode === "dark") setTheme("dark");
-      else if (mode === "light" || mode === "sun") setTheme("light");
-    };
-    apply();
-    window.addEventListener("crew-display", apply);
-    return () => {
-      root.classList.remove("sun");
-      window.removeEventListener("crew-display", apply);
-    };
-  }, [setTheme]);
+  return useSyncExternalStore(subscribeCrewDisplay, readCrewDisplay, () => "light" as const);
+}
+
+function subscribeCrewDisplay(notify: () => void) {
+  window.addEventListener("crew-display", notify);
+  return () => window.removeEventListener("crew-display", notify);
+}
+
+function readCrewDisplay() {
+  const saved = localStorage.getItem("crew-display");
+  return saved === "dark" || saved === "sun" || saved === "light" ? saved : "light";
 }
 
 function useOutboxCount(userId: string, orgId: string) {
