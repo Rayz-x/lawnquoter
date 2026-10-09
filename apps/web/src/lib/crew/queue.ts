@@ -172,7 +172,13 @@ export function applySyncResults(rows: OutboxRow[], results: SyncResult[]) {
     const row = byId.get(result.client_id);
     if (!row) continue;
     if (result.status === "error") {
-      parked.push({ ...row, attempts: row.attempts + 1, last_error: result.message, needs_office: true });
+      const attempts = row.attempts + 1;
+      parked.push({
+        ...row,
+        attempts,
+        last_error: result.message,
+        needs_office: result.message !== "could not apply that change" || attempts >= 5,
+      });
       continue;
     }
     remove.push(row.client_id);

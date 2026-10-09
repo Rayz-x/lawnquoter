@@ -111,6 +111,31 @@ $$;
 
 grant usage on schema public to anon, authenticated, service_role;
 
+-- Hosted grants EXECUTE on new public functions to the API roles. Migrations
+-- run as postgres, so this is that role's default (supabase/postgres initial
+-- schema). 20261009130000 revokes anon and PUBLIC only; a later migration
+-- revokes authenticated. Without that revoke, a new security definer is
+-- callable and shows up in the execute allow-list.
+-- Skip when that default ACL already exists, so a second shim run cannot put
+-- authenticated back after the revoke.
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_default_acl a
+    join pg_namespace n on n.oid = a.defaclnamespace
+    join pg_roles r on r.oid = a.defaclrole
+    where a.defaclobjtype = 'f'
+      and n.nspname = 'public'
+      and r.rolname = 'postgres'
+  ) then
+    execute
+      'alter default privileges for role postgres in schema public '
+      'grant all on functions to postgres, anon, authenticated, service_role';
+  end if;
+end
+$$;
+
 -- Minimal storage surface for vanilla Postgres. The Supabase image already has
 -- these tables, so this block leaves them alone.
 do $$
