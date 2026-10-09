@@ -128,7 +128,7 @@ export function activeAddress(visits: VisitDetail[], visitId: string): string | 
   return visits.find((visit) => visit.id !== visitId && (visit.status === "in_progress" || visit.status === "paused"))?.address ?? null;
 }
 
-export function patchVisitPack(data: unknown, visitId: string, patch: { status?: string; started_at?: string; crew_size?: number }): unknown {
+export function patchVisitPack(data: unknown, visitId: string, patch: { status?: string; started_at?: string; crew_size?: number; skip_reason?: string }): unknown {
   const pack = record(data);
   if (!pack || !Array.isArray(pack.visits)) return data;
   return { ...pack, visits: pack.visits.map((value) => (record(value)?.id === visitId ? { ...record(value), ...patch } : value)) };
