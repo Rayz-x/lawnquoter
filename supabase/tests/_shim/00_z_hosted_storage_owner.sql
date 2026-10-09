@@ -5,27 +5,14 @@
 
 create schema if not exists test_harness;
 
-do $$
-begin
-  if not exists (select 1 from pg_roles where rolname = 'storage_not_owner') then
-    create role storage_not_owner nologin nosuperuser;
-  end if;
-  if exists (select 1 from pg_namespace where nspname = 'storage') then
-    grant usage on schema storage to storage_not_owner;
-  end if;
-  -- The creator is not always allowed to SET ROLE to a new role. Membership
-  -- here is not ownership of storage.objects, and the role is not reserved.
-  grant storage_not_owner to current_user with inherit false, set true;
-end
-$$;
-
--- Runs the hosted-forbidden statement as a role that does not own the table.
+-- authenticated does not own storage.objects. The test session can already
+-- become that role, so this does not grant a role or change table ownership.
 create or replace function test_harness.alter_storage_objects_as_non_owner()
 returns void
 language plpgsql
 as $$
 begin
-  perform set_config('role', 'storage_not_owner', true);
+  perform set_config('role', 'authenticated', true);
   execute 'alter table storage.objects enable row level security';
 end;
 $$;
