@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { safeNext } from "@/lib/auth/safe-next";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Sign in" };
@@ -36,7 +37,7 @@ export default async function LoginPage({
           <CardDescription>Use your email and password, or request a one-time sign-in link.</CardDescription>
         </CardHeader>
         <CardContent>
-          <LoginForm next={next ?? "/dashboard"} initialError={error ?? null} />
+          <LoginForm next={safeNext(next)} initialError={error ?? null} />
         </CardContent>
       </Card>
     </main>

@@ -90,6 +90,12 @@ begin
 end;
 $$;
 
+-- Created after the privilege migration revokes the PUBLIC execute default.
+grant execute on function tests.note_property_access(uuid, uuid, text, text) to public;
+grant execute on function tests.gate_code(uuid) to public;
+grant execute on function tests.access_notes(uuid) to public;
+grant execute on function tests.expect_property_access(boolean, uuid, uuid, text) to public;
+
 select tests.create_user('o1@example.com', 'Owner One') as owner1 \gset
 select tests.create_user('o2@example.com', 'Owner Two') as owner2 \gset
 select tests.create_user('s1@example.com', 'Sales One') as sales1 \gset

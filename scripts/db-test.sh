@@ -56,6 +56,10 @@ for f in "$TESTS_DIR"/_shim/*.sql; do
 done
 "${PSQL[@]}" -c "alter database lawnquoter_test set search_path = public, extensions;" >/dev/null 2>&1 || true
 
+# Migrations run as the connecting user. The shim does not change storage
+# ownership. A superuser cannot ALTER storage.objects because of the event
+# trigger; a role that does not own the table gets "must be owner" directly.
+
 echo "==> applying migrations"
 for f in $(ls "$MIGRATIONS_DIR"/*.sql | sort); do
   echo "    $(basename "$f")"
@@ -71,6 +75,27 @@ done
 
 echo "==> running pgTAP tests"
 "${PSQL[@]}" -c "create extension if not exists pgtap;" >/dev/null
+# The privilege migration revokes the built-in PUBLIC EXECUTE default. pgTAP is
+# installed after that, so its functions need an explicit grant for impersonated roles.
+"${PSQL[@]}" <<'SQL' >/dev/null
+do $$
+declare
+  fn regprocedure;
+begin
+  for fn in
+    select p.oid::regprocedure
+    from pg_depend d
+    join pg_proc p on p.oid = d.objid
+    join pg_extension e on e.oid = d.refobjid
+    where e.extname = 'pgtap'
+      and d.classid = 'pg_proc'::regclass
+      and d.deptype = 'e'
+  loop
+    execute format('grant execute on function %s to public', fn);
+  end loop;
+end
+$$;
+SQL
 
 FAILED=0
 for f in $(ls "$TESTS_DIR"/*.sql | sort); do

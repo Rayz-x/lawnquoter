@@ -28,7 +28,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const supabase = await createClient();
   const { data: quote } = await supabase
     .from("quotes")
-    .select("*, accounts(name), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs)")
+    .select(
+      "id, number, title, status, created_at, current_version, intro, notes_customer, notes_internal, public_token, property_id, accounts(name), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs)",
+    )
     .eq("id", id)
     .eq("org_id", session.orgId)
     .single();
@@ -46,8 +48,26 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const { data: versionId } = await supabase.rpc("quote_current_version", { p_quote: id });
   const [{ data: items }, { data: rules }, { data: list }, { data: measurement }] = await Promise.all([
     versionId
-      ? supabase.from("quote_line_items").select("*").eq("version_id", versionId).order("sort")
-      : Promise.resolve({ data: [] }),
+      ? supabase
+          .from("quote_line_items")
+          .select("id, name, state, option_group, option_tier, selected, price, hours, cost, range_low, range_high")
+          .eq("version_id", versionId)
+          .order("sort")
+      : Promise.resolve({
+          data: [] as {
+            id: string;
+            name: string;
+            state: string;
+            option_group: string | null;
+            option_tier: string;
+            selected: boolean;
+            price: number;
+            hours: number;
+            cost: number;
+            range_low: number | null;
+            range_high: number | null;
+          }[],
+        }),
     supabase.from("pricing_rules").select("id, name, rule_type, config, service_id").eq("org_id", session.orgId).eq("active", true),
     supabase.from("price_lists").select("modifiers").eq("org_id", session.orgId).eq("status", "active").maybeSingle(),
     quote.property_id
@@ -59,6 +79,8 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           .maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
+
+  const lines = items ?? [];
 
   const modifiers = (list?.modifiers as Modifiers | null) ?? defaultModifiers();
   const quantities: Record<string, number> = {};
@@ -85,7 +107,6 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   }
   if (!quantities.turf_sqft && quote.properties?.lot_sqft) quantities.lot_sqft = Number(quote.properties.lot_sqft);
 
-  const lines = items ?? [];
   const picked = defaultSelectedIds(lines);
   const total = sumSelected(lines, picked, "price");
   const hours = sumSelected(lines, picked, "hours");
@@ -130,7 +151,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               <CardDescription>Included / recommended / optional. Group Good / Better / Best with the same option group name.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
-              {(items ?? []).map((i) => (
+              {lines.map((i) => (
                 <div key={i.id} className="flex items-start justify-between gap-3 rounded-md border p-3 text-sm">
                   <div>
                     <div className="font-medium">{i.name}</div>
@@ -146,12 +167,12 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
                   <div className="text-right">
                     <div className="font-heading tabular-nums">{formatMoney(Number(i.price))}</div>
                     <div className="text-xs text-muted-foreground tabular-nums">
-                      {Number(i.hours).toFixed(2)}h · {formatMoney(Number(i.cost))} cost
+                      {`${Number(i.hours).toFixed(2)}h · ${formatMoney(Number(i.cost))} cost`}
                     </div>
                   </div>
                 </div>
               ))}
-              {(items ?? []).length === 0 ? <p className="text-sm text-muted-foreground">Add a line or price from the catalog.</p> : null}
+              {lines.length === 0 ? <p className="text-sm text-muted-foreground">Add a line or price from the catalog.</p> : null}
             </CardContent>
           </Card>
           {editable && versionId ? <AddItemForm quoteId={quote.id} versionId={versionId} /> : null}
@@ -171,7 +192,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             <CardContent className="text-sm tabular-nums">
               <div className="flex justify-between">
                 <span>Price</span>
-                <span className="font-heading text-xl font-semibold tabular-nums">{formatMoney(total, { cents: true })}</span>
+                <span className="font-heading text-xl font-semibold tabular-nums">
+                  {formatMoney(total, { cents: true })}
+                </span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Hours</span>

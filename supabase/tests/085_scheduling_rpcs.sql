@@ -102,8 +102,8 @@ returning id as acct \gset
 insert into public.contacts (org_id, account_id, first_name, last_name, email, phone, is_primary, is_billing)
 values (:'org'::uuid, :'acct'::uuid, 'Pat', 'Customer', 'pat.contact@example.com', '555-0101', true, true);
 
-insert into public.properties (org_id, account_id, address_line1, city, region, postal_code, gate_code)
-values (:'org'::uuid, :'acct'::uuid, '1 Main', 'Springfield', 'IL', '62704', '1111')
+insert into public.properties (org_id, account_id, address_line1, city, region, postal_code)
+values (:'org'::uuid, :'acct'::uuid, '1 Main', 'Springfield', 'IL', '62704')
 returning id as prop \gset
 
 select public.quote_create(:'acct'::uuid, null, 'No property') as bare \gset

@@ -1,31 +1,26 @@
--- Jobs and scheduling (build steps 9–10), schema and access only.
+-- Jobs and scheduling (build steps 9–10).
 --
--- Office converts an accepted quote into an agreement and visits in a later
--- revision of this file. This revision is the tables, the crew-scoped read
--- helpers, and RLS. It does not create convert/generate/assign/publish RPCs,
--- and it does not create time_entries, visit_photos, enhancement_requests,
+-- Tables, crew-scoped reads, RLS, and the office RPCs that convert an
+-- accepted quote, generate visits, assign, reorder, publish, and create crews.
+-- This file does not create time_entries, visit_photos, enhancement_requests,
 -- visit_events, crew_day_pack, or crew_sync.
 --
 -- Money stays on quotes. These tables store budget_minutes only.
 -- An after photo is required on every job and visit (no opt-out).
 --
--- Depends on PR #10 (20261009105000_privilege_gaps.sql), which is still open.
--- That migration moves properties.gate_code and properties.access_notes onto
--- public.property_access and creates
--- private.can_read_property_access(target_org uuid, target_property uuid).
--- Its placeholder is `target_property is not null and can_read_pricing(org)`.
--- can_read_pricing includes owner, admin, sales, dispatcher, crew_lead, and
--- read_only, and excludes crew. This file does not create property_access and
--- does not move those columns. It replaces the helper only when #10 has
--- already created it, so a database built from current main is unchanged and
--- a rebase onto #10 applies the extension:
+-- Depends on 20261009130000_privilege_gaps.sql (PR #10). That migration moves
+-- properties.gate_code and properties.access_notes onto public.property_access
+-- and creates private.can_read_property_access(uuid, uuid). Its placeholder is
+-- `target_property is not null and can_read_pricing(org)`. can_read_pricing
+-- allows owner, admin, sales, dispatcher, and read_only, and excludes crew
+-- and crew_lead. This file does not create property_access and does not move
+-- those columns. It replaces the helper only when that function already
+-- exists, so the file still applies if the helper is absent:
 --   * owner, admin, sales, dispatcher, and read_only still read every property
 --   * crew and crew_lead read property_access only for a property on a
 --     non-draft visit routed to a crew they belong to, scheduled within the
 --     org's today ± 1 day
--- Quote price policies from #10 are left alone. On main, before #10, gate
--- codes still live on properties and properties_select limits field roles to
--- those same assigned visits.
+-- Quote price policies from #10 are left alone. can_read_pricing is not changed.
 
 -- ---------------------------------------------------------------------------
 -- Enums

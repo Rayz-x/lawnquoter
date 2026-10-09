@@ -29,14 +29,17 @@ export async function acceptQuote(token: string, fd: FormData): Promise<ActionRe
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the form and try again");
 
   const hdrs = await headers();
-  const supabase = await createClient();
+  const ip = clientIp(hdrs);
+  const userAgent = hdrs.get("user-agent");
+  const forwarded: Record<string, string> = {};
+  if (ip) forwarded["x-forwarded-for"] = ip;
+  if (userAgent) forwarded["user-agent"] = userAgent;
+  const supabase = await createClient({ headers: forwarded });
   const { data, error } = await supabase.rpc("quote_accept", {
     p_token: token,
     p_signer_name: parsed.data.signer_name,
     p_signer_email: parsed.data.signer_email || undefined,
     p_disclosure: true,
-    p_user_agent: hdrs.get("user-agent") ?? undefined,
-    p_ip: clientIp(hdrs) ?? undefined,
     p_selected: parsed.data.selected,
   });
   if (error) return fail(error.message);
