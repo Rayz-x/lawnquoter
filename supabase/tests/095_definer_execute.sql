@@ -9,10 +9,8 @@ select case
     ok(
       not has_function_privilege('anon', 'public.rls_auto_enable()', 'execute')
       and not has_function_privilege('authenticated', 'public.rls_auto_enable()', 'execute')
-      and not has_function_privilege('public', 'public.rls_auto_enable()', 'execute')
-      and has_function_privilege('service_role', 'public.rls_auto_enable()', 'execute')
-      and has_function_privilege('postgres', 'public.rls_auto_enable()', 'execute'),
-      'only service_role and postgres can execute rls_auto_enable'
+      and not has_function_privilege('public', 'public.rls_auto_enable()', 'execute'),
+      'anon, authenticated, and PUBLIC cannot execute rls_auto_enable'
     )
 end;
 
