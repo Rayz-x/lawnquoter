@@ -1,4 +1,3 @@
-// apps/web/src/app/manifest.ts — PWA manifest (crew app). Copy icons/icon-*.png to apps/web/public/icons/.
 import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
