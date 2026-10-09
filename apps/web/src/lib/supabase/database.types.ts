@@ -256,6 +256,44 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"enhancement_requests": {
+                  Row: {
+                    "client_id": string,"created_at": string,"id": string,"note": string | null,"org_id": string,"photo_ids": (string)[],"property_id": string,"quote_id": string | null,"received_at": string,"status": Database["public"]['Enums']["enhancement_status"],"tag": Database["public"]['Enums']["enhancement_tag"],"updated_at": string,"visit_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "client_id": string,"created_at"?: string,"id"?: string,"note"?: string | null,"org_id": string,"photo_ids"?: (string)[],"property_id": string,"quote_id"?: string | null,"received_at"?: string,"status"?: Database["public"]['Enums']["enhancement_status"],"tag": Database["public"]['Enums']["enhancement_tag"],"updated_at"?: string,"visit_id": string
+                  }
+                  Update: {
+                    "client_id"?: string,"created_at"?: string,"id"?: string,"note"?: string | null,"org_id"?: string,"photo_ids"?: (string)[],"property_id"?: string,"quote_id"?: string | null,"received_at"?: string,"status"?: Database["public"]['Enums']["enhancement_status"],"tag"?: Database["public"]['Enums']["enhancement_tag"],"updated_at"?: string,"visit_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "enhancement_requests_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "enhancement_requests_property_id_fkey"
+      columns: ["property_id"]
+isOneToOne: false
+      referencedRelation: "properties"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "enhancement_requests_quote_id_fkey"
+      columns: ["quote_id"]
+isOneToOne: false
+      referencedRelation: "quotes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "enhancement_requests_visit_id_fkey"
+      columns: ["visit_id"]
+isOneToOne: false
+      referencedRelation: "visits"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"equipment_rates": {
                   Row: {
                     "created_at": string,"hourly_rate": number,"id": string,"name": string,"org_id": string,"updated_at": string
@@ -846,6 +884,76 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"time_entries": {
+                  Row: {
+                    "client_id": string,"created_at": string,"crew_id": string,"device_clock_skewed": boolean,"ended_at": string | null,"id": string,"kind": Database["public"]['Enums']["time_entry_kind"],"org_id": string,"profile_id": string | null,"received_at": string,"started_at": string,"updated_at": string,"visit_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "client_id": string,"created_at"?: string,"crew_id": string,"device_clock_skewed"?: boolean,"ended_at"?: string | null,"id"?: string,"kind": Database["public"]['Enums']["time_entry_kind"],"org_id": string,"profile_id"?: string | null,"received_at"?: string,"started_at": string,"updated_at"?: string,"visit_id"?: string | null
+                  }
+                  Update: {
+                    "client_id"?: string,"created_at"?: string,"crew_id"?: string,"device_clock_skewed"?: boolean,"ended_at"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["time_entry_kind"],"org_id"?: string,"profile_id"?: string | null,"received_at"?: string,"started_at"?: string,"updated_at"?: string,"visit_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "time_entries_crew_id_fkey"
+      columns: ["crew_id"]
+isOneToOne: false
+      referencedRelation: "crews"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "time_entries_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "time_entries_profile_id_fkey"
+      columns: ["profile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "time_entries_visit_id_fkey"
+      columns: ["visit_id"]
+isOneToOne: false
+      referencedRelation: "visits"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"visit_events": {
+                  Row: {
+                    "client_id": string,"created_at": string,"device_clock_skewed": boolean,"id": string,"kind": Database["public"]['Enums']["visit_event_kind"],"occurred_at": string,"org_id": string,"payload": NonNullable<Json>,"profile_id": string | null,"received_at": string,"visit_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "client_id": string,"created_at"?: string,"device_clock_skewed"?: boolean,"id"?: string,"kind": Database["public"]['Enums']["visit_event_kind"],"occurred_at": string,"org_id": string,"payload"?: NonNullable<Json>,"profile_id"?: string | null,"received_at"?: string,"visit_id": string
+                  }
+                  Update: {
+                    "client_id"?: string,"created_at"?: string,"device_clock_skewed"?: boolean,"id"?: string,"kind"?: Database["public"]['Enums']["visit_event_kind"],"occurred_at"?: string,"org_id"?: string,"payload"?: NonNullable<Json>,"profile_id"?: string | null,"received_at"?: string,"visit_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "visit_events_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "visit_events_profile_id_fkey"
+      columns: ["profile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "visit_events_visit_id_fkey"
+      columns: ["visit_id"]
+isOneToOne: false
+      referencedRelation: "visits"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"visit_office_notes": {
                   Row: {
                     "created_at": string,"note": string | null,"org_id": string,"updated_at": string,"visit_id": string
@@ -868,6 +976,32 @@ isOneToOne: false
       foreignKeyName: "visit_office_notes_visit_id_fkey"
       columns: ["visit_id"]
 isOneToOne: true
+      referencedRelation: "visits"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"visit_photos": {
+                  Row: {
+                    "client_id": string,"created_at": string,"device_clock_skewed": boolean,"id": string,"kind": Database["public"]['Enums']["visit_photo_kind"],"lat": number | null,"lng": number | null,"org_id": string,"received_at": string,"storage_path": string,"taken_at": string,"visit_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "client_id": string,"created_at"?: string,"device_clock_skewed"?: boolean,"id"?: string,"kind": Database["public"]['Enums']["visit_photo_kind"],"lat"?: number | null,"lng"?: number | null,"org_id": string,"received_at"?: string,"storage_path": string,"taken_at": string,"visit_id": string
+                  }
+                  Update: {
+                    "client_id"?: string,"created_at"?: string,"device_clock_skewed"?: boolean,"id"?: string,"kind"?: Database["public"]['Enums']["visit_photo_kind"],"lat"?: number | null,"lng"?: number | null,"org_id"?: string,"received_at"?: string,"storage_path"?: string,"taken_at"?: string,"visit_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "visit_photos_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "visit_photos_visit_id_fkey"
+      columns: ["visit_id"]
+isOneToOne: false
       referencedRelation: "visits"
       referencedColumns: ["id"]
     }
@@ -906,14 +1040,14 @@ isOneToOne: false
                   ]
                 },"visits": {
                   Row: {
-                    "agreement_id": string | null,"budget_minutes": number | null,"cancel_reason": string | null,"client_id": string | null,"completed_at": string | null,"created_at": string,"crew_size": number,"id": string,"job_id": string,"occurrence_date": string,"org_id": string,"property_id": string,"reopen_until": string | null,"route_id": string | null,"scheduled_date": string | null,"skip_reason": Database["public"]['Enums']["visit_skip_reason"] | null,"sort": number,"started_at": string | null,"status": Database["public"]['Enums']["visit_status"],"updated_at": string,"window_end": string | null,"window_start": string | null
+                    "agreement_id": string | null,"budget_minutes": number | null,"cancel_reason": string | null,"client_id": string | null,"completed_after_cancel": boolean,"completed_at": string | null,"created_at": string,"crew_size": number,"id": string,"job_id": string,"occurrence_date": string,"org_id": string,"property_id": string,"reopen_until": string | null,"route_id": string | null,"scheduled_date": string | null,"skip_reason": Database["public"]['Enums']["visit_skip_reason"] | null,"sort": number,"started_at": string | null,"status": Database["public"]['Enums']["visit_status"],"updated_at": string,"window_end": string | null,"window_start": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "agreement_id"?: string | null,"budget_minutes"?: number | null,"cancel_reason"?: string | null,"client_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"crew_size"?: number,"id"?: string,"job_id": string,"occurrence_date": string,"org_id": string,"property_id": string,"reopen_until"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
+                    "agreement_id"?: string | null,"budget_minutes"?: number | null,"cancel_reason"?: string | null,"client_id"?: string | null,"completed_after_cancel"?: boolean,"completed_at"?: string | null,"created_at"?: string,"crew_size"?: number,"id"?: string,"job_id": string,"occurrence_date": string,"org_id": string,"property_id": string,"reopen_until"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
                   }
                   Update: {
-                    "agreement_id"?: string | null,"budget_minutes"?: number | null,"cancel_reason"?: string | null,"client_id"?: string | null,"completed_at"?: string | null,"created_at"?: string,"crew_size"?: number,"id"?: string,"job_id"?: string,"occurrence_date"?: string,"org_id"?: string,"property_id"?: string,"reopen_until"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
+                    "agreement_id"?: string | null,"budget_minutes"?: number | null,"cancel_reason"?: string | null,"client_id"?: string | null,"completed_after_cancel"?: boolean,"completed_at"?: string | null,"created_at"?: string,"crew_size"?: number,"id"?: string,"job_id"?: string,"occurrence_date"?: string,"org_id"?: string,"property_id"?: string,"reopen_until"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
                   }
                   Relationships: [
                     {
@@ -1069,7 +1203,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "acceptance_method": "click"|"signwell"|"wet","account_status": "lead"|"active"|"inactive","account_type": "residential"|"commercial","agreement_frequency": "weekly"|"biweekly"|"monthly","agreement_kind": "one_time"|"recurring","agreement_status": "active"|"paused"|"ended","contact_role": "primary"|"billing"|"site"|"decision_maker"|"other","feature_category": "turf_front"|"turf_back"|"bed"|"hardscape"|"driveway"|"sidewalk"|"edging_line"|"fence_line"|"canopy"|"roof","feature_source": "auto"|"traced"|"manual"|"imported","geo_source": "regrid"|"county"|"overture"|"osm"|"traced"|"manual"|"unknown","invite_status": "pending"|"accepted"|"revoked"|"expired","item_state": "included"|"recommended"|"optional","job_status": "unscheduled"|"scheduled"|"in_progress"|"completed"|"cancelled","measurement_status": "draft"|"current"|"archived","membership_status": "invited"|"active"|"disabled","option_tier": "none"|"good"|"better"|"best","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only","payment_kind": "deposit"|"balance"|"invoice"|"ach_verify","payment_status": "requires_action"|"processing"|"succeeded"|"failed"|"canceled"|"refunded","price_list_status": "draft"|"active"|"archived","quote_status": "draft"|"sent"|"viewed"|"accepted"|"declined"|"expired"|"changed","route_status": "draft"|"published"|"in_progress"|"done","rule_type": "tier_matrix"|"assembly"|"catalog"|"program"|"snow"|"irrigation","service_kind": "mowing"|"fert"|"cleanup"|"snow"|"irrigation"|"install"|"other","slope_class": "flat"|"gentle"|"moderate"|"steep","visit_skip_reason": "gate_locked"|"dog_loose"|"customer_skip"|"weather"|"equipment"|"unsafe"|"other","visit_status": "scheduled"|"in_progress"|"paused"|"completed"|"skipped"|"cant_complete"|"cancelled"
+            "acceptance_method": "click"|"signwell"|"wet","account_status": "lead"|"active"|"inactive","account_type": "residential"|"commercial","agreement_frequency": "weekly"|"biweekly"|"monthly","agreement_kind": "one_time"|"recurring","agreement_status": "active"|"paused"|"ended","contact_role": "primary"|"billing"|"site"|"decision_maker"|"other","enhancement_status": "new"|"quoted"|"dismissed","enhancement_tag": "aeration"|"overseed"|"mulch"|"shrub_tree"|"drainage"|"other","feature_category": "turf_front"|"turf_back"|"bed"|"hardscape"|"driveway"|"sidewalk"|"edging_line"|"fence_line"|"canopy"|"roof","feature_source": "auto"|"traced"|"manual"|"imported","geo_source": "regrid"|"county"|"overture"|"osm"|"traced"|"manual"|"unknown","invite_status": "pending"|"accepted"|"revoked"|"expired","item_state": "included"|"recommended"|"optional","job_status": "unscheduled"|"scheduled"|"in_progress"|"completed"|"cancelled","measurement_status": "draft"|"current"|"archived","membership_status": "invited"|"active"|"disabled","option_tier": "none"|"good"|"better"|"best","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only","payment_kind": "deposit"|"balance"|"invoice"|"ach_verify","payment_status": "requires_action"|"processing"|"succeeded"|"failed"|"canceled"|"refunded","price_list_status": "draft"|"active"|"archived","quote_status": "draft"|"sent"|"viewed"|"accepted"|"declined"|"expired"|"changed","route_status": "draft"|"published"|"in_progress"|"done","rule_type": "tier_matrix"|"assembly"|"catalog"|"program"|"snow"|"irrigation","service_kind": "mowing"|"fert"|"cleanup"|"snow"|"irrigation"|"install"|"other","slope_class": "flat"|"gentle"|"moderate"|"steep","time_entry_kind": "job"|"pause","visit_event_kind": "started"|"paused"|"resumed"|"finished"|"reopened"|"skipped","visit_photo_kind": "before"|"after"|"issue"|"upsell","visit_skip_reason": "gate_locked"|"dog_loose"|"customer_skip"|"weather"|"equipment"|"unsafe"|"other","visit_status": "scheduled"|"in_progress"|"paused"|"completed"|"skipped"|"cant_complete"|"cancelled"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1185,7 +1319,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "acceptance_method": ["click", "signwell", "wet"],"account_status": ["lead", "active", "inactive"],"account_type": ["residential", "commercial"],"agreement_frequency": ["weekly", "biweekly", "monthly"],"agreement_kind": ["one_time", "recurring"],"agreement_status": ["active", "paused", "ended"],"contact_role": ["primary", "billing", "site", "decision_maker", "other"],"feature_category": ["turf_front", "turf_back", "bed", "hardscape", "driveway", "sidewalk", "edging_line", "fence_line", "canopy", "roof"],"feature_source": ["auto", "traced", "manual", "imported"],"geo_source": ["regrid", "county", "overture", "osm", "traced", "manual", "unknown"],"invite_status": ["pending", "accepted", "revoked", "expired"],"item_state": ["included", "recommended", "optional"],"job_status": ["unscheduled", "scheduled", "in_progress", "completed", "cancelled"],"measurement_status": ["draft", "current", "archived"],"membership_status": ["invited", "active", "disabled"],"option_tier": ["none", "good", "better", "best"],"org_role": ["owner", "admin", "sales", "dispatcher", "crew_lead", "crew", "read_only"],"payment_kind": ["deposit", "balance", "invoice", "ach_verify"],"payment_status": ["requires_action", "processing", "succeeded", "failed", "canceled", "refunded"],"price_list_status": ["draft", "active", "archived"],"quote_status": ["draft", "sent", "viewed", "accepted", "declined", "expired", "changed"],"route_status": ["draft", "published", "in_progress", "done"],"rule_type": ["tier_matrix", "assembly", "catalog", "program", "snow", "irrigation"],"service_kind": ["mowing", "fert", "cleanup", "snow", "irrigation", "install", "other"],"slope_class": ["flat", "gentle", "moderate", "steep"],"visit_skip_reason": ["gate_locked", "dog_loose", "customer_skip", "weather", "equipment", "unsafe", "other"],"visit_status": ["scheduled", "in_progress", "paused", "completed", "skipped", "cant_complete", "cancelled"]
+            "acceptance_method": ["click", "signwell", "wet"],"account_status": ["lead", "active", "inactive"],"account_type": ["residential", "commercial"],"agreement_frequency": ["weekly", "biweekly", "monthly"],"agreement_kind": ["one_time", "recurring"],"agreement_status": ["active", "paused", "ended"],"contact_role": ["primary", "billing", "site", "decision_maker", "other"],"enhancement_status": ["new", "quoted", "dismissed"],"enhancement_tag": ["aeration", "overseed", "mulch", "shrub_tree", "drainage", "other"],"feature_category": ["turf_front", "turf_back", "bed", "hardscape", "driveway", "sidewalk", "edging_line", "fence_line", "canopy", "roof"],"feature_source": ["auto", "traced", "manual", "imported"],"geo_source": ["regrid", "county", "overture", "osm", "traced", "manual", "unknown"],"invite_status": ["pending", "accepted", "revoked", "expired"],"item_state": ["included", "recommended", "optional"],"job_status": ["unscheduled", "scheduled", "in_progress", "completed", "cancelled"],"measurement_status": ["draft", "current", "archived"],"membership_status": ["invited", "active", "disabled"],"option_tier": ["none", "good", "better", "best"],"org_role": ["owner", "admin", "sales", "dispatcher", "crew_lead", "crew", "read_only"],"payment_kind": ["deposit", "balance", "invoice", "ach_verify"],"payment_status": ["requires_action", "processing", "succeeded", "failed", "canceled", "refunded"],"price_list_status": ["draft", "active", "archived"],"quote_status": ["draft", "sent", "viewed", "accepted", "declined", "expired", "changed"],"route_status": ["draft", "published", "in_progress", "done"],"rule_type": ["tier_matrix", "assembly", "catalog", "program", "snow", "irrigation"],"service_kind": ["mowing", "fert", "cleanup", "snow", "irrigation", "install", "other"],"slope_class": ["flat", "gentle", "moderate", "steep"],"time_entry_kind": ["job", "pause"],"visit_event_kind": ["started", "paused", "resumed", "finished", "reopened", "skipped"],"visit_photo_kind": ["before", "after", "issue", "upsell"],"visit_skip_reason": ["gate_locked", "dog_loose", "customer_skip", "weather", "equipment", "unsafe", "other"],"visit_status": ["scheduled", "in_progress", "paused", "completed", "skipped", "cant_complete", "cancelled"]
           }
         }
 } as const

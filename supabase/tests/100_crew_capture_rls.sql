@@ -1,7 +1,7 @@
 -- Crew capture tables, the visit-photos bucket, completion rules, and the
 -- live crew-lead check. Quote price denial stays in the privilege-gaps tests.
 
-select plan(106);
+select plan(151);
 
 select has_table('public', 'time_entries', 'time_entries exists');
 select has_table('public', 'visit_photos', 'visit_photos exists');
@@ -134,6 +134,59 @@ select ok(
   and has_function_privilege('service_role', 'private.routes_one_active_visit()', 'execute'),
   'routes_one_active_visit is granted to authenticated and service_role'
 );
+select ok(
+  not has_function_privilege('anon', 'private.jsonb_has_money_key(jsonb)', 'execute')
+  and has_function_privilege('authenticated', 'private.jsonb_has_money_key(jsonb)', 'execute')
+  and has_function_privilege('service_role', 'private.jsonb_has_money_key(jsonb)', 'execute'),
+  'jsonb_has_money_key is granted to authenticated and service_role'
+);
+select ok(
+  not has_function_privilege('anon', 'private.visit_events_before_write()', 'execute')
+  and has_function_privilege('authenticated', 'private.visit_events_before_write()', 'execute')
+  and has_function_privilege('service_role', 'private.visit_events_before_write()', 'execute'),
+  'visit_events_before_write is granted to authenticated and service_role'
+);
+select ok(
+  not has_function_privilege('anon', 'private.crew_capture_reject_truncate()', 'execute')
+  and has_function_privilege('authenticated', 'private.crew_capture_reject_truncate()', 'execute')
+  and has_function_privilege('service_role', 'private.crew_capture_reject_truncate()', 'execute'),
+  'crew_capture_reject_truncate is granted to authenticated and service_role'
+);
+select ok(
+  not has_function_privilege('anon', 'private.visit_photos_require_object()', 'execute')
+  and has_function_privilege('authenticated', 'private.visit_photos_require_object()', 'execute')
+  and has_function_privilege('service_role', 'private.visit_photos_require_object()', 'execute'),
+  'visit_photos_require_object is granted to authenticated and service_role'
+);
+select col_not_null('public', 'time_entries', 'client_id', 'time entry client_id is required');
+select col_not_null('public', 'enhancement_requests', 'client_id', 'enhancement client_id is required');
+select col_not_null('public', 'visit_events', 'client_id', 'visit event client_id is required');
+select has_index(
+  'public', 'enhancement_requests', 'enhancement_requests_org_status_idx',
+  'enhancement requests are indexed by org and status'
+);
+select has_index(
+  'public', 'visit_events', 'visit_events_visit_occurred_idx',
+  'visit events are indexed by visit and time'
+);
+select is(
+  (
+    select count(*)
+    from pg_policies
+    where schemaname = 'storage'
+      and tablename = 'objects'
+      and policyname = 'visit_photos_object_update'
+  ),
+  0::bigint,
+  'visit photo objects have no update policy'
+);
+select ok(
+  not has_table_privilege('service_role', 'public.visit_events', 'TRUNCATE')
+  and not has_table_privilege('service_role', 'public.visit_photos', 'TRUNCATE')
+  and not has_table_privilege('service_role', 'public.time_entries', 'TRUNCATE')
+  and not has_table_privilege('service_role', 'public.enhancement_requests', 'TRUNCATE'),
+  'service_role cannot truncate crew capture tables'
+);
 
 select tests.create_user('cap-owner@example.com', 'Cap Owner') as owner \gset
 select tests.create_user('cap-other@example.com', 'Cap Other') as other \gset
@@ -151,6 +204,8 @@ select tests.add_member(:'org'::uuid, :'south'::uuid, 'crew');
 
 select (timezone('America/Chicago', now()))::date as today \gset
 select (:'today'::date + 1) as tomorrow \gset
+select (:'today'::date - 1) as yesterday \gset
+select (:'today'::date + 2) as later \gset
 
 insert into public.accounts (org_id, name)
 values (:'org'::uuid, 'Pat Customer')
@@ -184,6 +239,15 @@ returning id as job_spare \gset
 insert into public.jobs (org_id, property_id, title)
 values (:'org'::uuid, :'prop'::uuid, 'Cascade')
 returning id as job_cascade \gset
+insert into public.jobs (org_id, property_id, title)
+values (:'org'::uuid, :'prop'::uuid, 'Yesterday')
+returning id as job_y \gset
+insert into public.jobs (org_id, property_id, title)
+values (:'org'::uuid, :'prop'::uuid, 'Yesterday two')
+returning id as job_y2 \gset
+insert into public.jobs (org_id, property_id, title)
+values (:'org'::uuid, :'prop'::uuid, 'Wipe')
+returning id as job_wipe \gset
 
 insert into public.crews (org_id, name) values (:'org'::uuid, 'North') returning id as crew_north \gset
 insert into public.crews (org_id, name) values (:'org'::uuid, 'South') returning id as crew_south \gset
@@ -203,6 +267,12 @@ returning id as route_south \gset
 insert into public.routes (org_id, crew_id, date, status)
 values (:'org'::uuid, :'crew_spare'::uuid, :'tomorrow'::date, 'published')
 returning id as route_spare \gset
+insert into public.routes (org_id, crew_id, date, status)
+values (:'org'::uuid, :'crew_north'::uuid, :'yesterday'::date, 'published')
+returning id as route_yesterday \gset
+insert into public.routes (org_id, crew_id, date, status)
+values (:'org'::uuid, :'crew_north'::uuid, :'later'::date, 'published')
+returning id as route_later \gset
 
 insert into public.visits (
   org_id, job_id, property_id, route_id, occurrence_date, scheduled_date, status
@@ -244,6 +314,26 @@ insert into public.visits (
 ) values (
   :'org'::uuid, :'job_cascade'::uuid, :'prop'::uuid, :'today'::date, :'today'::date, 'scheduled'
 ) returning id as visit_cascade \gset
+insert into public.visits (
+  org_id, job_id, property_id, route_id, occurrence_date, scheduled_date, status
+) values (
+  :'org'::uuid, :'job_y'::uuid, :'prop'::uuid, :'route_yesterday'::uuid, :'yesterday'::date, :'yesterday'::date, 'scheduled'
+) returning id as visit_y \gset
+insert into public.visits (
+  org_id, job_id, property_id, route_id, occurrence_date, scheduled_date, status
+) values (
+  :'org'::uuid, :'job_y2'::uuid, :'prop'::uuid, :'route_yesterday'::uuid, :'yesterday'::date, :'yesterday'::date, 'scheduled'
+) returning id as visit_y2 \gset
+insert into public.visits (
+  org_id, job_id, property_id, route_id, occurrence_date, scheduled_date, status
+) values (
+  :'org'::uuid, :'job_a'::uuid, :'prop'::uuid, :'route_later'::uuid, :'later'::date, :'later'::date, 'scheduled'
+) returning id as visit_later \gset
+insert into public.visits (
+  org_id, job_id, property_id, occurrence_date, scheduled_date, status
+) values (
+  :'org'::uuid, :'job_wipe'::uuid, :'prop'::uuid, :'today'::date, :'today'::date, 'scheduled'
+) returning id as visit_wipe \gset
 
 select gen_random_uuid() as client_before \gset
 select gen_random_uuid() as client_after_a \gset
@@ -252,6 +342,19 @@ select gen_random_uuid() as client_issue \gset
 select gen_random_uuid() as client_after_c \gset
 select gen_random_uuid() as client_object \gset
 select gen_random_uuid() as client_object_2 \gset
+select gen_random_uuid() as client_nofile \gset
+select gen_random_uuid() as client_price \gset
+select gen_random_uuid() as client_nested \gset
+select gen_random_uuid() as client_lead_evt \gset
+select gen_random_uuid() as client_owner_evt \gset
+select gen_random_uuid() as client_enh \gset
+select gen_random_uuid() as client_pause \gset
+select gen_random_uuid() as client_after_e \gset
+select gen_random_uuid() as client_wipe_photo \gset
+select gen_random_uuid() as client_wipe_event \gset
+select gen_random_uuid() as client_wipe_time \gset
+select gen_random_uuid() as client_later \gset
+select gen_random_uuid() as client_cancelled \gset
 
 select throws_ok(
   format($$ update public.jobs set status = 'completed' where id = %L $$, :'job_a'),
@@ -275,6 +378,27 @@ select throws_ok(
   null,
   'a visit cannot be completed before an after photo exists'
 );
+select throws_ok(
+  format(
+    $$ insert into public.visit_photos (org_id, visit_id, kind, storage_path, taken_at, client_id)
+       values (%L, %L, 'after', %L || '/' || %L || '/' || %L || '.jpg', now(), %L) $$,
+    :'org', :'visit_a', :'org', :'visit_a', :'client_nofile', :'client_nofile'
+  ),
+  '23514',
+  null,
+  'a photo row without its file is rejected'
+);
+
+insert into storage.objects (bucket_id, name) values
+  ('visit-photos', :'org' || '/' || :'visit_a' || '/' || :'client_before' || '.jpg'),
+  ('visit-photos', :'org' || '/' || :'visit_a' || '/' || :'client_after_a' || '.jpg'),
+  ('visit-photos', :'org' || '/' || :'visit_b' || '/' || :'client_after_b' || '.jpg'),
+  ('visit-photos', :'org' || '/' || :'visit_b' || '/' || :'client_after_a' || '.jpg'),
+  ('visit-photos', :'org' || '/' || :'visit_c' || '/' || :'client_issue' || '.jpg'),
+  ('visit-photos', :'org' || '/' || :'visit_c' || '/' || :'client_after_c' || '.jpg'),
+  ('visit-photos', :'org' || '/' || :'visit_d' || '/' || :'client_object' || '.jpg'),
+  ('visit-photos', :'org' || '/' || :'visit_a' || '/' || :'client_object_2' || '.jpg'),
+  ('visit-photos', :'org' || '/' || :'visit_later' || '/' || :'client_later' || '.jpg');
 
 select lives_ok(
   format(
@@ -420,6 +544,18 @@ select is(
 );
 select tests.clear_auth();
 
+select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
+select throws_ok(
+  format(
+    $$ insert into storage.objects (bucket_id, name) values ('visit-photos', %L) $$,
+    :'org' || '/' || :'visit_c' || '/' || :'client_cancelled' || '.jpg'
+  ),
+  '42501',
+  null,
+  'the lead cannot upload to a cancelled visit'
+);
+select tests.clear_auth();
+
 select lives_ok(
   format(
     $$ insert into public.visit_photos (org_id, visit_id, kind, storage_path, taken_at, client_id)
@@ -492,22 +628,64 @@ select lives_ok(
   format($$ update public.visits set status = 'in_progress' where id = %L $$, :'visit_spare'),
   'a spare crew can have its own in-progress visit'
 );
+select lives_ok(
+  format($$ update public.visits set status = 'in_progress' where id = %L $$, :'visit_y'),
+  'a visit left in progress yesterday does not block today'
+);
 select throws_ok(
-  format($$ update public.routes set crew_id = %L where id = %L $$, :'crew_north', :'route_spare'),
+  format($$ update public.visits set status = 'in_progress' where id = %L $$, :'visit_y2'),
   '23514',
   null,
-  'a route cannot move onto a crew that already has an active visit'
+  'a second in-progress visit on the same day is rejected'
+);
+select lives_ok(
+  format($$ update public.routes set crew_id = %L where id = %L $$, :'crew_north', :'route_spare'),
+  'a route on another day can move onto a crew that is active today'
+);
+select throws_ok(
+  format($$ update public.routes set crew_id = %L where id = %L $$, :'crew_north', :'route_south'),
+  '23514',
+  null,
+  'a route cannot move onto a crew that already has an active visit that day'
 );
 
 select throws_ok(
   format(
-    $$ insert into public.visit_events (org_id, visit_id, kind, occurred_at, payload)
-       values (%L, %L, 'started', now(), '{"price": 12}'::jsonb) $$,
-    :'org', :'visit_cascade'
+    $$ insert into public.visit_events (org_id, visit_id, kind, occurred_at, client_id, payload)
+       values (%L, %L, 'started', now(), %L, '{"price": 12}'::jsonb) $$,
+    :'org', :'visit_cascade', :'client_price'
   ),
   '23514',
   null,
   'visit events reject a price payload'
+);
+select throws_ok(
+  format(
+    $$ insert into public.visit_events (org_id, visit_id, kind, occurred_at, client_id, payload)
+       values (%L, %L, 'started', now(), %L, '{"note": {"price": 1}}'::jsonb) $$,
+    :'org', :'visit_cascade', :'client_nested'
+  ),
+  '23514',
+  null,
+  'visit events reject a nested price'
+);
+select throws_ok(
+  format(
+    $$ insert into public.visit_events (org_id, visit_id, kind, profile_id, occurred_at, client_id)
+       values (%L, %L, 'started', %L, now(), %L) $$,
+    :'org', :'visit_e', :'owner', :'client_owner_evt'
+  ),
+  '23503',
+  null,
+  'an owner cannot be recorded on a visit event'
+);
+select lives_ok(
+  format(
+    $$ insert into public.visit_events (org_id, visit_id, kind, profile_id, occurred_at, client_id)
+       values (%L, %L, 'started', %L, now(), %L) $$,
+    :'org', :'visit_e', :'lead', :'client_lead_evt'
+  ),
+  'the crew lead can be recorded on a visit event'
 );
 select lives_ok(
   format(
@@ -532,14 +710,16 @@ select throws_ok(
   null,
   'visit events cannot be deleted directly'
 );
-select lives_ok(
+select throws_ok(
   format($$ delete from public.jobs where id = %L $$, :'job_cascade'),
-  'deleting the job removes its visit'
+  '22023',
+  null,
+  'a job with crew records cannot be deleted'
 );
 select is(
   (select count(*) from public.visit_events where visit_id = :'visit_cascade'::uuid),
-  0::bigint,
-  'cascading the visit removes its events'
+  1::bigint,
+  'refusing the job delete keeps the visit events'
 );
 
 select throws_ok(
@@ -572,9 +752,9 @@ select throws_ok(
 );
 select lives_ok(
   format(
-    $$ insert into public.enhancement_requests (org_id, visit_id, property_id, tag, photo_ids, note)
-       values (%L, %L, %L, 'mulch', array[%L]::uuid[], 'beds are thin') $$,
-    :'org', :'visit_a', :'prop', :'photo_a'
+    $$ insert into public.enhancement_requests (org_id, visit_id, property_id, tag, photo_ids, note, client_id)
+       values (%L, %L, %L, 'mulch', array[%L]::uuid[], 'beds are thin', %L) $$,
+    :'org', :'visit_a', :'prop', :'photo_a', :'client_enh'
   ),
   'an enhancement can cite a photo from its visit'
 );
@@ -599,9 +779,9 @@ select lives_ok(
 );
 select throws_ok(
   format(
-    $$ insert into public.time_entries (org_id, crew_id, visit_id, kind, started_at)
-       values (%L, %L, %L, 'pause', now()) $$,
-    :'org', :'crew_north', :'visit_a'
+    $$ insert into public.time_entries (org_id, crew_id, visit_id, kind, started_at, client_id)
+       values (%L, %L, %L, 'pause', now(), %L) $$,
+    :'org', :'crew_north', :'visit_a', :'client_pause'
   ),
   '23505',
   null,
@@ -633,9 +813,9 @@ select is(
 );
 select throws_ok(
   format(
-    $$ insert into public.time_entries (org_id, crew_id, visit_id, kind, started_at)
-       values (%L, %L, %L, 'job', now()) $$,
-    :'org', :'crew_north', :'visit_d'
+    $$ insert into public.time_entries (org_id, crew_id, visit_id, kind, started_at, client_id)
+       values (%L, %L, %L, 'job', now(), %L) $$,
+    :'org', :'crew_north', :'visit_d', :'client_later'
   ),
   '42501',
   null,
@@ -653,9 +833,9 @@ select throws_ok(
 );
 select throws_ok(
   format(
-    $$ insert into public.visit_events (org_id, visit_id, kind, occurred_at)
-       values (%L, %L, 'started', now()) $$,
-    :'org', :'visit_a'
+    $$ insert into public.visit_events (org_id, visit_id, kind, occurred_at, client_id)
+       values (%L, %L, 'started', now(), %L) $$,
+    :'org', :'visit_a', :'client_cancelled'
   ),
   '42501',
   null,
@@ -723,6 +903,52 @@ select is(
   1::bigint,
   'the live crew lead can read the uploaded photo'
 );
+update storage.objects
+set metadata = '{"v":9}'::jsonb
+where bucket_id = 'visit-photos'
+  and name = :'org' || '/' || :'visit_a' || '/' || :'client_object' || '.jpg';
+select is(
+  (
+    select metadata->>'v'
+    from storage.objects
+    where bucket_id = 'visit-photos'
+      and name = :'org' || '/' || :'visit_a' || '/' || :'client_object' || '.jpg'
+  ),
+  null,
+  'the lead cannot overwrite a visit photo'
+);
+delete from storage.objects
+where bucket_id = 'visit-photos'
+  and name = :'org' || '/' || :'visit_a' || '/' || :'client_object' || '.jpg';
+select is(
+  (
+    select count(*)
+    from storage.objects
+    where bucket_id = 'visit-photos'
+      and name = :'org' || '/' || :'visit_a' || '/' || :'client_object' || '.jpg'
+  ),
+  1::bigint,
+  'the lead cannot delete a visit photo'
+);
+select is(
+  (
+    select count(*)
+    from storage.objects
+    where bucket_id = 'visit-photos'
+      and name = :'org' || '/' || :'visit_later' || '/' || :'client_later' || '.jpg'
+  ),
+  0::bigint,
+  'the lead cannot read a photo outside the crew window'
+);
+select throws_ok(
+  format(
+    $$ insert into storage.objects (bucket_id, name) values ('visit-photos', %L) $$,
+    :'org' || '/' || :'visit_later' || '/' || :'client_cancelled' || '.jpg'
+  ),
+  '42501',
+  null,
+  'the lead cannot upload outside the crew window'
+);
 
 select tests.authenticate_as(:'hand'::uuid, :'org'::uuid, 'crew');
 select is(
@@ -761,7 +987,12 @@ select is(
 
 select tests.authenticate_as(:'owner'::uuid, :'org'::uuid, 'owner');
 select is(
-  (select count(*) from storage.objects where bucket_id = 'visit-photos'),
+  (
+    select count(*)
+    from storage.objects
+    where bucket_id = 'visit-photos'
+      and name = :'org' || '/' || :'visit_a' || '/' || :'client_object' || '.jpg'
+  ),
   1::bigint,
   'the office can read visit photo objects'
 );
@@ -810,6 +1041,148 @@ select throws_ok(
   '42501',
   null,
   'a demoted lead cannot upload'
+);
+
+select tests.clear_auth();
+insert into storage.objects (bucket_id, name)
+values ('visit-photos', :'org' || '/' || :'visit_e' || '/' || :'client_after_e' || '.jpg');
+select lives_ok(
+  format(
+    $$ insert into public.visit_photos (org_id, visit_id, kind, storage_path, taken_at, client_id)
+       values (%L, %L, 'after', %L || '/' || %L || '/' || %L || '.jpg', now(), %L) $$,
+    :'org', :'visit_e', :'org', :'visit_e', :'client_after_e', :'client_after_e'
+  ),
+  'visit E can store its after photo'
+);
+select set_config('role', 'service_role', true) as ignored_role \gset
+select lives_ok(
+  format(
+    $$ delete from storage.objects where bucket_id = 'visit-photos' and name = %L $$,
+    :'org' || '/' || :'visit_e' || '/' || :'client_after_e' || '.jpg'
+  ),
+  'service_role can remove an uploaded photo file'
+);
+select throws_ok(
+  format($$ update public.visits set status = 'completed' where id = %L $$, :'visit_e'),
+  '22023',
+  null,
+  'completing a visit requires the after-photo file'
+);
+select lives_ok(
+  format(
+    $$ insert into storage.objects (bucket_id, name) values ('visit-photos', %L) $$,
+    :'org' || '/' || :'visit_e' || '/' || :'client_after_e' || '.jpg'
+  ),
+  'service_role can put the after-photo file back'
+);
+select lives_ok(
+  format($$ update public.visits set status = 'completed' where id = %L $$, :'visit_e'),
+  'service_role can complete a visit that has its after photo'
+);
+select tests.clear_auth();
+select is(
+  (select status::text from public.visits where id = :'visit_e'::uuid),
+  'completed',
+  'the service_role completion is stored'
+);
+
+insert into storage.objects (bucket_id, name)
+values ('visit-photos', :'org' || '/' || :'visit_wipe' || '/' || :'client_wipe_photo' || '.jpg');
+select lives_ok(
+  format(
+    $$ insert into public.visit_photos (org_id, visit_id, kind, storage_path, taken_at, client_id)
+       values (%L, %L, 'issue', %L || '/' || %L || '/' || %L || '.jpg', now(), %L) $$,
+    :'org', :'visit_wipe', :'org', :'visit_wipe', :'client_wipe_photo', :'client_wipe_photo'
+  ),
+  'a started visit can store a photo'
+);
+select lives_ok(
+  format(
+    $$ insert into public.visit_events (org_id, visit_id, kind, occurred_at, client_id)
+       values (%L, %L, 'started', now(), %L) $$,
+    :'org', :'visit_wipe', :'client_wipe_event'
+  ),
+  'a started visit can store an event'
+);
+select lives_ok(
+  format(
+    $$ insert into public.time_entries (org_id, crew_id, visit_id, kind, started_at, client_id)
+       values (%L, %L, %L, 'job', now(), %L) $$,
+    :'org', :'crew_spare', :'visit_wipe', :'client_wipe_time'
+  ),
+  'a started visit can store a time entry'
+);
+select lives_ok(
+  format($$ update public.visits set status = 'in_progress' where id = %L $$, :'visit_wipe'),
+  'a visit with no route can be in progress'
+);
+select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
+select lives_ok(
+  format($$ select public.cancel_visit(%L, 'pulled after start') $$, :'visit_wipe'),
+  'the office can cancel a started visit'
+);
+select tests.clear_auth();
+select is(
+  (select status::text from public.visits where id = :'visit_wipe'::uuid),
+  'cancelled',
+  'cancelling a started visit marks it cancelled'
+);
+select throws_ok(
+  format($$ delete from public.jobs where id = %L $$, :'job_wipe'),
+  '22023',
+  null,
+  'cancelling a started visit does not let the office delete its job'
+);
+select is(
+  (select count(*) from public.visits where id = :'visit_wipe'::uuid),
+  1::bigint,
+  'the cancelled visit is still there'
+);
+select is(
+  (select count(*) from public.visit_events where visit_id = :'visit_wipe'::uuid),
+  1::bigint,
+  'the cancelled visit keeps its events'
+);
+select is(
+  (select count(*) from public.visit_photos where visit_id = :'visit_wipe'::uuid),
+  1::bigint,
+  'the cancelled visit keeps its photos'
+);
+select is(
+  (select count(*) from public.time_entries where visit_id = :'visit_wipe'::uuid),
+  1::bigint,
+  'the cancelled visit keeps its time entries'
+);
+
+select throws_ok(
+  $$ truncate public.visit_events $$,
+  '42501',
+  null,
+  'the table owner cannot truncate visit events'
+);
+select throws_ok(
+  $$ truncate public.visit_photos $$,
+  '42501',
+  null,
+  'the table owner cannot truncate visit photos'
+);
+select set_config('role', 'service_role', true) as ignored_role \gset
+select throws_ok(
+  $$ truncate public.visit_events $$,
+  '42501',
+  null,
+  'service_role cannot truncate visit events'
+);
+select throws_ok(
+  $$ truncate public.visit_photos $$,
+  '42501',
+  null,
+  'service_role cannot truncate visit photos'
+);
+select tests.clear_auth();
+select ok(
+  (select count(*) from public.visit_events) >= 1,
+  'a refused truncate keeps visit events'
 );
 
 select * from finish();

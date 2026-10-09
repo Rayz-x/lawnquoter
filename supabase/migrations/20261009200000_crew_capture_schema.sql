@@ -13,7 +13,7 @@
 -- require_after_photo switch. private.reject_completed_status still rejects
 -- jobs.status = completed. The visit trigger visits_reject_completed is
 -- replaced here by a BEFORE INSERT/UPDATE guard that allows completion only
--- when an after-photo row exists.
+-- when an after-photo row and its uploaded file both exist.
 --
 -- Dusty: crews contact the office only. These tables have no phone, email,
 -- or billing columns, and no price, cost, or margin columns.
@@ -21,6 +21,10 @@
 -- If the office cancels a visit the crew already completed, the completion
 -- stays and visits.completed_after_cancel is set. The same flag is set when
 -- a completion arrives after the office already cancelled.
+--
+-- One in-progress or paused visit per crew counts only visits on the same
+-- scheduled date. A visit left active on an earlier day does not block
+-- today. crew_sync in PR B is the recovery path for that past-day visit.
 
 -- ---------------------------------------------------------------------------
 -- Enums
@@ -71,7 +75,7 @@ create table public.time_entries (
   kind public.time_entry_kind not null,
   started_at timestamptz not null,
   ended_at timestamptz,
-  client_id uuid,
+  client_id uuid not null,
   device_clock_skewed boolean not null default false,
   received_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
@@ -91,8 +95,7 @@ create index time_entries_visit_id_idx on public.time_entries (visit_id);
 create index time_entries_profile_id_idx on public.time_entries (profile_id);
 
 create unique index time_entries_org_client_id_key
-  on public.time_entries (org_id, client_id)
-  where client_id is not null;
+  on public.time_entries (org_id, client_id);
 
 create unique index time_entries_one_open_per_visit
   on public.time_entries (visit_id)
@@ -133,9 +136,6 @@ create index visit_photos_visit_kind_idx on public.visit_photos (visit_id, kind)
 create unique index visit_photos_org_client_id_key
   on public.visit_photos (org_id, client_id);
 
-create unique index visit_photos_storage_path_key
-  on public.visit_photos (storage_path);
-
 -- ---------------------------------------------------------------------------
 -- Enhancement requests. One captured photo is the common case. photo_ids
 -- holds that photo and any extras, all on the same visit. No prices.
@@ -150,7 +150,7 @@ create table public.enhancement_requests (
   photo_ids uuid[] not null default '{}',
   status public.enhancement_status not null default 'new',
   quote_id uuid references public.quotes(id) on delete set null,
-  client_id uuid,
+  client_id uuid not null,
   received_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -168,8 +168,10 @@ create index enhancement_requests_property_id_idx on public.enhancement_requests
 create index enhancement_requests_quote_id_idx on public.enhancement_requests (quote_id);
 
 create unique index enhancement_requests_org_client_id_key
-  on public.enhancement_requests (org_id, client_id)
-  where client_id is not null;
+  on public.enhancement_requests (org_id, client_id);
+
+create index enhancement_requests_org_status_idx
+  on public.enhancement_requests (org_id, status);
 
 create trigger enhancement_requests_set_updated_at
   before update on public.enhancement_requests
@@ -178,31 +180,73 @@ create trigger enhancement_requests_set_updated_at
 -- ---------------------------------------------------------------------------
 -- Append-only crew audit. Direct updates and deletes are rejected. A cascade
 -- from the visit (pg_trigger_depth() > 1) may remove the rows with the visit.
+-- Money keys are refused at any depth. Crew payloads are notes and reasons.
 -- ---------------------------------------------------------------------------
+create or replace function private.jsonb_has_money_key(p_value jsonb)
+returns boolean
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  v_item jsonb;
+begin
+  if p_value is null then
+    return false;
+  end if;
+
+  if pg_catalog.jsonb_typeof(p_value) = 'object' then
+    if p_value ?| array['price', 'cost', 'margin', 'amount', 'unit_cost', 'hourly_rate'] then
+      return true;
+    end if;
+    for v_item in
+      select e.value from pg_catalog.jsonb_each(p_value) as e
+    loop
+      if private.jsonb_has_money_key(v_item) then
+        return true;
+      end if;
+    end loop;
+    return false;
+  end if;
+
+  if pg_catalog.jsonb_typeof(p_value) = 'array' then
+    for v_item in
+      select e.value from pg_catalog.jsonb_array_elements(p_value) as e
+    loop
+      if private.jsonb_has_money_key(v_item) then
+        return true;
+      end if;
+    end loop;
+  end if;
+
+  return false;
+end;
+$$;
+
 create table public.visit_events (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.orgs(id) on delete cascade,
   visit_id uuid not null references public.visits(id) on delete cascade,
   kind public.visit_event_kind not null,
   profile_id uuid references public.profiles(id) on delete set null,
-  client_id uuid,
+  client_id uuid not null,
   payload jsonb not null default '{}'::jsonb,
   occurred_at timestamptz not null,
   device_clock_skewed boolean not null default false,
   received_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   constraint visit_events_no_money check (
-    not payload ?| array['price', 'cost', 'margin', 'amount', 'unit_cost', 'hourly_rate']
+    not private.jsonb_has_money_key(payload)
   )
 );
 
 create index visit_events_org_id_idx on public.visit_events (org_id);
 create index visit_events_visit_id_idx on public.visit_events (visit_id);
+create index visit_events_visit_occurred_idx on public.visit_events (visit_id, occurred_at);
 create index visit_events_profile_id_idx on public.visit_events (profile_id);
 
 create unique index visit_events_org_client_id_key
-  on public.visit_events (org_id, client_id)
-  where client_id is not null;
+  on public.visit_events (org_id, client_id);
 
 -- ---------------------------------------------------------------------------
 -- Same-org parents. Profiles are checked as active field members.
@@ -371,6 +415,40 @@ create trigger visit_events_append_only
   before update or delete on public.visit_events
   for each row execute function private.visit_events_append_only();
 
+create or replace function private.visit_events_before_write()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.profile_id is not null then
+    perform private.assert_active_member(new.org_id, new.profile_id);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger visit_events_before_write
+  before insert or update of org_id, profile_id on public.visit_events
+  for each row execute function private.visit_events_before_write();
+
+-- TRUNCATE skips row triggers. service_role also has no TRUNCATE grant.
+-- The statement trigger still stops the table owner.
+create or replace function private.crew_capture_reject_truncate()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception 'crew capture rows cannot be truncated' using errcode = '42501';
+end;
+$$;
+
+create trigger visit_events_reject_truncate
+  before truncate on public.visit_events
+  for each statement execute function private.crew_capture_reject_truncate();
+
 -- A completed visit keeps at least one after photo. Cascades from the visit
 -- may remove the photo with the visit.
 create or replace function private.visit_photos_keep_after()
@@ -431,9 +509,43 @@ create trigger visit_photos_keep_after
   before update of kind, visit_id or delete on public.visit_photos
   for each row execute function private.visit_photos_keep_after();
 
+create trigger visit_photos_reject_truncate
+  before truncate on public.visit_photos
+  for each statement execute function private.crew_capture_reject_truncate();
+
+-- A photo row names a file that is already in the private bucket.
+create or replace function private.visit_photos_require_object()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if tg_op = 'UPDATE' and new.storage_path is not distinct from old.storage_path then
+    return new;
+  end if;
+
+  if not exists (
+    select 1
+    from storage.objects o
+    where o.bucket_id = 'visit-photos'
+      and o.name = new.storage_path
+  ) then
+    raise exception 'visit photo file is missing' using errcode = '23514';
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger visit_photos_require_object
+  before insert or update of storage_path on public.visit_photos
+  for each row execute function private.visit_photos_require_object();
+
 -- Replaces visits_reject_completed. Jobs keep private.reject_completed_status.
--- One in_progress or paused visit per crew. The crew row is locked so two
--- starts cannot both pass the check.
+-- One in_progress or paused visit per crew on the same scheduled date. The
+-- crew row is locked so two starts cannot both pass the check. A visit left
+-- active on another day does not block today; crew_sync recovers it in PR B.
 create or replace function private.visits_guard_status()
 returns trigger
 language plpgsql
@@ -457,6 +569,9 @@ begin
     if not exists (
       select 1
       from public.visit_photos p
+      join storage.objects o
+        on o.bucket_id = 'visit-photos'
+       and o.name = p.storage_path
       where p.visit_id = new.id
         and p.org_id = new.org_id
         and p.kind = 'after'::public.visit_photo_kind
@@ -499,6 +614,7 @@ begin
         where r.crew_id = v_crew
           and r.org_id = new.org_id
           and v.id is distinct from new.id
+          and v.scheduled_date = new.scheduled_date
           and v.status in (
             'in_progress'::public.visit_status,
             'paused'::public.visit_status
@@ -559,6 +675,15 @@ begin
         'in_progress'::public.visit_status,
         'paused'::public.visit_status
       )
+      and v.scheduled_date in (
+        select mine.scheduled_date
+        from public.visits mine
+        where mine.route_id = new.id
+          and mine.status in (
+            'in_progress'::public.visit_status,
+            'paused'::public.visit_status
+          )
+      )
   ) then
     raise exception 'only one in-progress visit per crew' using errcode = '23514';
   end if;
@@ -570,6 +695,77 @@ $$;
 create trigger routes_one_active_visit
   before update of crew_id on public.routes
   for each row execute function private.routes_one_active_visit();
+
+-- A cancelled or scheduled visit can still carry the crew's record. Deleting
+-- the job or agreement must not cascade those events, time entries, or photos
+-- away. The status rules from the jobs migration stay.
+create or replace function private.reject_parent_delete_with_live_visits()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if pg_trigger_depth() > 1 then
+    return old;
+  end if;
+
+  if tg_table_name = 'agreements' and exists (
+    select 1
+    from public.visits v
+    where v.agreement_id = old.id
+      and v.status not in (
+        'scheduled'::public.visit_status,
+        'cancelled'::public.visit_status
+      )
+  ) then
+    raise exception 'an agreement with a visit that is not scheduled or cancelled cannot be deleted'
+      using errcode = '22023';
+  end if;
+
+  if tg_table_name = 'jobs' and exists (
+    select 1
+    from public.visits v
+    where v.job_id = old.id
+      and v.status not in (
+        'scheduled'::public.visit_status,
+        'cancelled'::public.visit_status
+      )
+  ) then
+    raise exception 'a job with a visit that is not scheduled or cancelled cannot be deleted'
+      using errcode = '22023';
+  end if;
+
+  if tg_table_name = 'agreements' and exists (
+    select 1
+    from public.visits v
+    where v.agreement_id = old.id
+      and (
+        exists (select 1 from public.visit_events e where e.visit_id = v.id)
+        or exists (select 1 from public.time_entries t where t.visit_id = v.id)
+        or exists (select 1 from public.visit_photos p where p.visit_id = v.id)
+      )
+  ) then
+    raise exception 'an agreement with crew records cannot be deleted'
+      using errcode = '22023';
+  end if;
+
+  if tg_table_name = 'jobs' and exists (
+    select 1
+    from public.visits v
+    where v.job_id = old.id
+      and (
+        exists (select 1 from public.visit_events e where e.visit_id = v.id)
+        or exists (select 1 from public.time_entries t where t.visit_id = v.id)
+        or exists (select 1 from public.visit_photos p where p.visit_id = v.id)
+      )
+  ) then
+    raise exception 'a job with crew records cannot be deleted'
+      using errcode = '22023';
+  end if;
+
+  return old;
+end;
+$$;
 
 -- ---------------------------------------------------------------------------
 -- Photo object key. Canonical lowercase uuid path, jpeg only.
@@ -655,7 +851,8 @@ begin
     return false;
   end if;
 
-  return private.is_live_crew_lead(v_org, v_crew);
+  return private.is_live_crew_lead(v_org, v_crew)
+     and private.crew_can_read_visit(v_org, v_visit);
 end;
 $$;
 
@@ -669,7 +866,6 @@ as $$
 declare
   v_org uuid;
   v_visit uuid;
-  v_crew uuid;
 begin
   select p.org_id, p.visit_id
     into v_org, v_visit
@@ -691,11 +887,6 @@ begin
   end if;
 
   if private.can_read_office_records(v_org) then
-    return true;
-  end if;
-
-  v_crew := private.visit_photo_crew(v_org, v_visit);
-  if v_crew is not null and private.is_live_crew_lead(v_org, v_crew) then
     return true;
   end if;
 
@@ -763,7 +954,7 @@ grant select on table
   public.visit_events
 to authenticated;
 
-grant all on table
+grant select, insert, update, delete on table
   public.time_entries,
   public.visit_photos,
   public.enhancement_requests,
@@ -803,22 +994,14 @@ create policy visit_photos_object_insert on storage.objects
     and private.can_write_visit_photo(name)
   );
 
+-- No update or delete policy. A lead can upload a new object and cannot
+-- overwrite, rename, or remove one, including a completed visit's after photo.
 drop policy if exists visit_photos_object_update on storage.objects;
-create policy visit_photos_object_update on storage.objects
-  for update to authenticated
-  using (
-    bucket_id = 'visit-photos'
-    and private.can_write_visit_photo(name)
-  )
-  with check (
-    bucket_id = 'visit-photos'
-    and private.can_write_visit_photo(name)
-  );
 
 -- ---------------------------------------------------------------------------
--- Office cancel of a visit the crew already completed keeps the completion
--- and flags it. A later completion of an already-cancelled visit is handled
--- by visits_guard_status, which also sets the flag.
+-- Office cancel of a completed visit uses the same status update as any
+-- other cancel. visits_guard_status keeps the completion and sets the flag.
+-- A second call, once that flag is set, does not append another note.
 -- ---------------------------------------------------------------------------
 create or replace function public.cancel_visit(p_visit_id uuid, p_reason text)
 returns void
@@ -847,25 +1030,10 @@ begin
     raise exception 'not allowed' using errcode = '42501';
   end if;
 
-  if v_visit.status = 'completed'::public.visit_status then
-    if not v_visit.completed_after_cancel then
-      update public.visits
-      set completed_after_cancel = true,
-          cancel_reason = 'office'
-      where id = v_visit.id;
-
-      insert into public.visit_office_notes (visit_id, org_id, note)
-      values (v_visit.id, v_visit.org_id, v_reason)
-      on conflict (visit_id) do update
-        set note = case
-          when length(coalesce(public.visit_office_notes.note, '')) > 0
-          then public.visit_office_notes.note || E'\n' || excluded.note
-          else excluded.note
-        end;
-    end if;
+  if v_visit.status = 'completed'::public.visit_status
+     and v_visit.completed_after_cancel then
     return;
   end if;
-
   if v_visit.status = 'cancelled'::public.visit_status then
     return;
   end if;
@@ -901,6 +1069,10 @@ revoke all on function private.visit_events_append_only() from public, anon;
 revoke all on function private.visit_photos_keep_after() from public, anon;
 revoke all on function private.visits_guard_status() from public, anon;
 revoke all on function private.routes_one_active_visit() from public, anon;
+revoke all on function private.jsonb_has_money_key(jsonb) from public, anon;
+revoke all on function private.visit_events_before_write() from public, anon;
+revoke all on function private.crew_capture_reject_truncate() from public, anon;
+revoke all on function private.visit_photos_require_object() from public, anon;
 
 grant execute on function private.is_live_crew_lead(uuid, uuid) to authenticated, service_role;
 grant execute on function private.visit_photo_path_parts(text) to authenticated, service_role;
@@ -913,3 +1085,7 @@ grant execute on function private.visit_events_append_only() to authenticated, s
 grant execute on function private.visit_photos_keep_after() to authenticated, service_role;
 grant execute on function private.visits_guard_status() to authenticated, service_role;
 grant execute on function private.routes_one_active_visit() to authenticated, service_role;
+grant execute on function private.jsonb_has_money_key(jsonb) to authenticated, service_role;
+grant execute on function private.visit_events_before_write() to authenticated, service_role;
+grant execute on function private.crew_capture_reject_truncate() to authenticated, service_role;
+grant execute on function private.visit_photos_require_object() to authenticated, service_role;
