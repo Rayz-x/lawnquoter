@@ -3,16 +3,18 @@
 -- Depends on 20261009200000_crew_capture_schema.sql. That file is unchanged.
 --
 -- The lead's phone calls crew_day_pack for one date and crew_sync for the
--- outbox. The same mutations are also callable one at a time.
+-- outbox. There are no one-at-a-time wrappers around crew_sync.
 --
 -- Dusty: start, pause, and finish re-check private.is_live_crew_lead. A
 -- demoted lead fails, including a replay of a client_id they already sent.
 -- Skip and the other writes use the same check.
 --
 -- client_id is claimed before the status change, so a replay is not a
--- transition error. A past-day visit left in progress or paused can still
--- be paused, resumed, finished, or skipped. That is the recovery path.
--- Starting a new visit still has to fall inside the crew window.
+-- transition error. The same client_id on a different visit or kind errors.
+-- A client timestamp later than the server clock is clamped to server time.
+-- A visit left in progress or paused can still be paused, resumed, finished,
+-- or skipped, including one older than yesterday. Today's pack includes it.
+-- A new visit can be started yesterday or today, not tomorrow.
 
 -- ---------------------------------------------------------------------------
 -- Crew note. Office notes stay on visit_office_notes. Authenticated has no
@@ -67,6 +69,7 @@ declare
   v_route_status public.route_status;
   v_claimed uuid;
   v_existing text;
+  v_existing_visit uuid;
   v_at timestamptz;
   v_skew boolean;
   v_in_window boolean;
@@ -123,17 +126,18 @@ begin
   returning client_id into v_claimed;
 
   if v_claimed is null then
-    select kind into v_existing
+    select kind, visit_id into v_existing, v_existing_visit
     from public.crew_mutation_receipts
     where org_id = v_visit.org_id
       and client_id = p_client_id;
-    if v_existing is distinct from p_kind then
+    if v_existing is distinct from p_kind or v_existing_visit is distinct from v_visit.id then
       raise exception 'client_id was already used' using errcode = '22023';
     end if;
     return 'replayed';
   end if;
 
-  v_at := coalesce(p_occurred_at, pg_catalog.now());
+  -- A phone clock set ahead must not write a future start, finish, or photo.
+  v_at := least(coalesce(p_occurred_at, pg_catalog.now()), pg_catalog.now());
   v_skew := p_device_now is not null
     and abs(extract(epoch from (p_device_now - pg_catalog.now()))) > 300;
   v_active := v_visit.status in (
@@ -145,7 +149,9 @@ begin
                                     and private.org_local_today(v_visit.org_id) + 1;
 
   if p_kind = 'visit_start' then
-    if v_visit.status is distinct from 'scheduled'::public.visit_status or not v_in_window then
+    if v_visit.status is distinct from 'scheduled'::public.visit_status
+       or not v_in_window
+       or v_visit.scheduled_date > private.org_local_today(v_visit.org_id) then
       raise exception 'that visit cannot be started' using errcode = '22023';
     end if;
     update public.visits
@@ -298,7 +304,7 @@ begin
       v_visit.id,
       v_photo_kind,
       v_visit.org_id::text || '/' || v_visit.id::text || '/' || p_client_id::text || '.jpg',
-      coalesce((p_payload->>'taken_at')::timestamptz, v_at),
+      least(coalesce((p_payload->>'taken_at')::timestamptz, v_at), pg_catalog.now()),
       v_lat,
       v_lng,
       p_client_id,
@@ -370,180 +376,8 @@ begin
 end;
 $$;
 
-create or replace function public.visit_start(
-  p_visit_id uuid,
-  p_client_id uuid,
-  p_occurred_at timestamptz default null,
-  p_device_now timestamptz default null
-) returns text
-language sql
-security definer
-set search_path = ''
-as $$
-  select private.crew_apply('visit_start', p_visit_id, p_client_id, p_occurred_at, p_device_now, '{}'::jsonb);
-$$;
-
-create or replace function public.visit_pause(
-  p_visit_id uuid,
-  p_client_id uuid,
-  p_occurred_at timestamptz default null,
-  p_device_now timestamptz default null
-) returns text
-language sql
-security definer
-set search_path = ''
-as $$
-  select private.crew_apply('visit_pause', p_visit_id, p_client_id, p_occurred_at, p_device_now, '{}'::jsonb);
-$$;
-
-create or replace function public.visit_resume(
-  p_visit_id uuid,
-  p_client_id uuid,
-  p_occurred_at timestamptz default null,
-  p_device_now timestamptz default null
-) returns text
-language sql
-security definer
-set search_path = ''
-as $$
-  select private.crew_apply('visit_resume', p_visit_id, p_client_id, p_occurred_at, p_device_now, '{}'::jsonb);
-$$;
-
-create or replace function public.visit_finish(
-  p_visit_id uuid,
-  p_client_id uuid,
-  p_occurred_at timestamptz default null,
-  p_device_now timestamptz default null
-) returns text
-language sql
-security definer
-set search_path = ''
-as $$
-  select private.crew_apply('visit_finish', p_visit_id, p_client_id, p_occurred_at, p_device_now, '{}'::jsonb);
-$$;
-
-create or replace function public.visit_skip(
-  p_visit_id uuid,
-  p_client_id uuid,
-  p_reason text,
-  p_occurred_at timestamptz default null,
-  p_device_now timestamptz default null
-) returns text
-language sql
-security definer
-set search_path = ''
-as $$
-  select private.crew_apply(
-    'visit_skip', p_visit_id, p_client_id, p_occurred_at, p_device_now,
-    jsonb_build_object('reason', p_reason)
-  );
-$$;
-
-create or replace function public.visit_reopen(
-  p_visit_id uuid,
-  p_client_id uuid,
-  p_occurred_at timestamptz default null,
-  p_device_now timestamptz default null
-) returns text
-language sql
-security definer
-set search_path = ''
-as $$
-  select private.crew_apply('visit_reopen', p_visit_id, p_client_id, p_occurred_at, p_device_now, '{}'::jsonb);
-$$;
-
-create or replace function public.visit_set_crew_size(
-  p_visit_id uuid,
-  p_client_id uuid,
-  p_crew_size integer,
-  p_occurred_at timestamptz default null,
-  p_device_now timestamptz default null
-) returns text
-language sql
-security definer
-set search_path = ''
-as $$
-  select private.crew_apply(
-    'visit_set_crew_size', p_visit_id, p_client_id, p_occurred_at, p_device_now,
-    jsonb_build_object('crew_size', p_crew_size)
-  );
-$$;
-
-create or replace function public.visit_set_note(
-  p_visit_id uuid,
-  p_client_id uuid,
-  p_note text,
-  p_occurred_at timestamptz default null,
-  p_device_now timestamptz default null
-) returns text
-language sql
-security definer
-set search_path = ''
-as $$
-  select private.crew_apply(
-    'visit_set_note', p_visit_id, p_client_id, p_occurred_at, p_device_now,
-    jsonb_build_object('note', p_note)
-  );
-$$;
-
-create or replace function public.visit_task_set(
-  p_visit_id uuid,
-  p_client_id uuid,
-  p_task_id uuid,
-  p_done boolean,
-  p_not_done_reason text default null,
-  p_occurred_at timestamptz default null,
-  p_device_now timestamptz default null
-) returns text
-language sql
-security definer
-set search_path = ''
-as $$
-  select private.crew_apply(
-    'visit_task_set', p_visit_id, p_client_id, p_occurred_at, p_device_now,
-    jsonb_build_object('task_id', p_task_id, 'done', p_done, 'not_done_reason', p_not_done_reason)
-  );
-$$;
-
-create or replace function public.visit_photo_record(
-  p_visit_id uuid,
-  p_client_id uuid,
-  p_kind text,
-  p_taken_at timestamptz default null,
-  p_lat double precision default null,
-  p_lng double precision default null,
-  p_device_now timestamptz default null
-) returns text
-language sql
-security definer
-set search_path = ''
-as $$
-  select private.crew_apply(
-    'visit_photo_record', p_visit_id, p_client_id, p_taken_at, p_device_now,
-    jsonb_build_object('photo_kind', p_kind, 'taken_at', p_taken_at, 'lat', p_lat, 'lng', p_lng)
-  );
-$$;
-
-create or replace function public.enhancement_create(
-  p_visit_id uuid,
-  p_client_id uuid,
-  p_tag text,
-  p_note text default null,
-  p_photo_ids uuid[] default '{}',
-  p_occurred_at timestamptz default null,
-  p_device_now timestamptz default null
-) returns text
-language sql
-security definer
-set search_path = ''
-as $$
-  select private.crew_apply(
-    'enhancement_create', p_visit_id, p_client_id, p_occurred_at, p_device_now,
-    jsonb_build_object('tag', p_tag, 'note', p_note, 'photo_ids', to_jsonb(coalesce(p_photo_ids, '{}'::uuid[])))
-  );
-$$;
-
 -- Stops on the first error. Earlier items in the batch stay applied.
+-- Unexpected database errors stay off the phone. Known crew errors do not.
 create or replace function public.crew_sync(p_mutations jsonb)
 returns jsonb
 language plpgsql
@@ -585,7 +419,10 @@ begin
         v_results := v_results || jsonb_build_array(jsonb_build_object(
           'client_id', v_item->>'client_id',
           'status', 'error',
-          'message', sqlerrm
+          'message', case
+            when sqlstate in ('22023', '42501', 'P0002') then sqlerrm
+            else 'could not apply that change'
+          end
         ));
         exit;
     end;
@@ -633,7 +470,23 @@ begin
   end if;
 
   v_today := private.org_local_today(v_org);
-  if p_date is null or p_date < v_today - 1 or p_date > v_today + 1 then
+  if p_date is null or p_date > v_today + 1 then
+    raise exception 'that date is outside the crew window' using errcode = '22023';
+  end if;
+  -- Yesterday through tomorrow is the normal window. An older date is
+  -- readable only while this crew still has a visit in progress or paused.
+  if p_date < v_today - 1 and not exists (
+    select 1
+    from public.visits v
+    join public.routes r
+      on r.id = v.route_id
+     and r.org_id = v.org_id
+    where v.org_id = v_org
+      and r.crew_id = v_crew
+      and r.date = p_date
+      and r.status <> 'draft'::public.route_status
+      and v.status in ('in_progress'::public.visit_status, 'paused'::public.visit_status)
+  ) then
     raise exception 'that date is outside the crew window' using errcode = '22023';
   end if;
 
@@ -781,8 +634,23 @@ begin
         left join public.property_access pa
           on pa.property_id = p.id
          and pa.org_id = p.org_id
-        where v.route_id = v_route.id
-          and v.org_id = v_org
+        where v.org_id = v_org
+          and (
+            v.route_id = v_route.id
+            or (
+              p_date = v_today
+              and v.status in ('in_progress'::public.visit_status, 'paused'::public.visit_status)
+              and v.scheduled_date < v_today - 1
+              and exists (
+                select 1
+                from public.routes r
+                where r.id = v.route_id
+                  and r.org_id = v.org_id
+                  and r.crew_id = v_crew
+                  and r.status <> 'draft'::public.route_status
+              )
+            )
+          )
       ) as row_pack
     ), '[]'::jsonb)
   );
@@ -792,29 +660,7 @@ $$;
 revoke all on function private.crew_apply(text, uuid, uuid, timestamptz, timestamptz, jsonb) from public, anon;
 revoke all on function public.crew_day_pack(date) from public, anon;
 revoke all on function public.crew_sync(jsonb) from public, anon;
-revoke all on function public.visit_start(uuid, uuid, timestamptz, timestamptz) from public, anon;
-revoke all on function public.visit_pause(uuid, uuid, timestamptz, timestamptz) from public, anon;
-revoke all on function public.visit_resume(uuid, uuid, timestamptz, timestamptz) from public, anon;
-revoke all on function public.visit_finish(uuid, uuid, timestamptz, timestamptz) from public, anon;
-revoke all on function public.visit_skip(uuid, uuid, text, timestamptz, timestamptz) from public, anon;
-revoke all on function public.visit_reopen(uuid, uuid, timestamptz, timestamptz) from public, anon;
-revoke all on function public.visit_set_crew_size(uuid, uuid, integer, timestamptz, timestamptz) from public, anon;
-revoke all on function public.visit_set_note(uuid, uuid, text, timestamptz, timestamptz) from public, anon;
-revoke all on function public.visit_task_set(uuid, uuid, uuid, boolean, text, timestamptz, timestamptz) from public, anon;
-revoke all on function public.visit_photo_record(uuid, uuid, text, timestamptz, double precision, double precision, timestamptz) from public, anon;
-revoke all on function public.enhancement_create(uuid, uuid, text, text, uuid[], timestamptz, timestamptz) from public, anon;
 
 grant execute on function private.crew_apply(text, uuid, uuid, timestamptz, timestamptz, jsonb) to authenticated, service_role;
 grant execute on function public.crew_day_pack(date) to authenticated, service_role;
 grant execute on function public.crew_sync(jsonb) to authenticated, service_role;
-grant execute on function public.visit_start(uuid, uuid, timestamptz, timestamptz) to authenticated, service_role;
-grant execute on function public.visit_pause(uuid, uuid, timestamptz, timestamptz) to authenticated, service_role;
-grant execute on function public.visit_resume(uuid, uuid, timestamptz, timestamptz) to authenticated, service_role;
-grant execute on function public.visit_finish(uuid, uuid, timestamptz, timestamptz) to authenticated, service_role;
-grant execute on function public.visit_skip(uuid, uuid, text, timestamptz, timestamptz) to authenticated, service_role;
-grant execute on function public.visit_reopen(uuid, uuid, timestamptz, timestamptz) to authenticated, service_role;
-grant execute on function public.visit_set_crew_size(uuid, uuid, integer, timestamptz, timestamptz) to authenticated, service_role;
-grant execute on function public.visit_set_note(uuid, uuid, text, timestamptz, timestamptz) to authenticated, service_role;
-grant execute on function public.visit_task_set(uuid, uuid, uuid, boolean, text, timestamptz, timestamptz) to authenticated, service_role;
-grant execute on function public.visit_photo_record(uuid, uuid, text, timestamptz, double precision, double precision, timestamptz) to authenticated, service_role;
-grant execute on function public.enhancement_create(uuid, uuid, text, text, uuid[], timestamptz, timestamptz) to authenticated, service_role;

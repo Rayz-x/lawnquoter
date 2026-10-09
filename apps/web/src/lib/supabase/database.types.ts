@@ -1150,9 +1150,6 @@ isOneToOne: false
 "dearmor":
 { Args: { "": string }; Returns: string
                            },
-"enhancement_create":
-{ Args: { "p_client_id": string,"p_device_now"?: string,"p_note"?: string,"p_occurred_at"?: string,"p_photo_ids"?: (string)[],"p_tag": string,"p_visit_id": string }; Returns: string
-                           },
 "gen_random_uuid":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
@@ -1235,36 +1232,6 @@ isOneToOne: false
                            },
 "update_agreement_schedule":
 { Args: { "p_agreement_id": string,"p_frequency"?: string,"p_kind": string,"p_preferred_dow"?: number,"p_start_date"?: string }; Returns: undefined
-                           },
-"visit_finish":
-{ Args: { "p_client_id": string,"p_device_now"?: string,"p_occurred_at"?: string,"p_visit_id": string }; Returns: string
-                           },
-"visit_pause":
-{ Args: { "p_client_id": string,"p_device_now"?: string,"p_occurred_at"?: string,"p_visit_id": string }; Returns: string
-                           },
-"visit_photo_record":
-{ Args: { "p_client_id": string,"p_device_now"?: string,"p_kind": string,"p_lat"?: number,"p_lng"?: number,"p_taken_at"?: string,"p_visit_id": string }; Returns: string
-                           },
-"visit_reopen":
-{ Args: { "p_client_id": string,"p_device_now"?: string,"p_occurred_at"?: string,"p_visit_id": string }; Returns: string
-                           },
-"visit_resume":
-{ Args: { "p_client_id": string,"p_device_now"?: string,"p_occurred_at"?: string,"p_visit_id": string }; Returns: string
-                           },
-"visit_set_crew_size":
-{ Args: { "p_client_id": string,"p_crew_size": number,"p_device_now"?: string,"p_occurred_at"?: string,"p_visit_id": string }; Returns: string
-                           },
-"visit_set_note":
-{ Args: { "p_client_id": string,"p_device_now"?: string,"p_note": string,"p_occurred_at"?: string,"p_visit_id": string }; Returns: string
-                           },
-"visit_skip":
-{ Args: { "p_client_id": string,"p_device_now"?: string,"p_occurred_at"?: string,"p_reason": string,"p_visit_id": string }; Returns: string
-                           },
-"visit_start":
-{ Args: { "p_client_id": string,"p_device_now"?: string,"p_occurred_at"?: string,"p_visit_id": string }; Returns: string
-                           },
-"visit_task_set":
-{ Args: { "p_client_id": string,"p_device_now"?: string,"p_done": boolean,"p_not_done_reason"?: string,"p_occurred_at"?: string,"p_task_id": string,"p_visit_id": string }; Returns: string
                            }
           }
           Enums: {

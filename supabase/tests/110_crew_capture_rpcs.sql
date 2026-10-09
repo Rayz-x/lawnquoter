@@ -1,7 +1,7 @@
 -- Crew day pack, crew_sync, and the visit mutations. Prices, customer
 -- phone, and customer email stay out of the pack. Replays do not duplicate.
 
-select plan(65);
+select plan(76);
 
 select has_table('public', 'crew_mutation_receipts', 'crew mutation receipts exist');
 select has_column('public', 'visits', 'crew_note', 'visits.crew_note exists');
@@ -21,21 +21,24 @@ select ok(
       values
         ('public.crew_day_pack(date)'),
         ('public.crew_sync(jsonb)'),
-        ('public.visit_start(uuid,uuid,timestamptz,timestamptz)'),
-        ('public.visit_pause(uuid,uuid,timestamptz,timestamptz)'),
-        ('public.visit_resume(uuid,uuid,timestamptz,timestamptz)'),
-        ('public.visit_finish(uuid,uuid,timestamptz,timestamptz)'),
-        ('public.visit_skip(uuid,uuid,text,timestamptz,timestamptz)'),
-        ('public.visit_reopen(uuid,uuid,timestamptz,timestamptz)'),
-        ('public.visit_set_crew_size(uuid,uuid,integer,timestamptz,timestamptz)'),
-        ('public.visit_set_note(uuid,uuid,text,timestamptz,timestamptz)'),
-        ('public.visit_task_set(uuid,uuid,uuid,boolean,text,timestamptz,timestamptz)'),
-        ('public.visit_photo_record(uuid,uuid,text,timestamptz,double precision,double precision,timestamptz)'),
-        ('public.enhancement_create(uuid,uuid,text,text,uuid[],timestamptz,timestamptz)'),
         ('private.crew_apply(text,uuid,uuid,timestamptz,timestamptz,jsonb)')
     ) as fns(fn)
   ),
   'crew RPCs are granted to authenticated and service_role'
+);
+select ok(
+  to_regprocedure('public.visit_start(uuid,uuid,timestamptz,timestamptz)') is null
+    and to_regprocedure('public.visit_pause(uuid,uuid,timestamptz,timestamptz)') is null
+    and to_regprocedure('public.visit_resume(uuid,uuid,timestamptz,timestamptz)') is null
+    and to_regprocedure('public.visit_finish(uuid,uuid,timestamptz,timestamptz)') is null
+    and to_regprocedure('public.visit_skip(uuid,uuid,text,timestamptz,timestamptz)') is null
+    and to_regprocedure('public.visit_reopen(uuid,uuid,timestamptz,timestamptz)') is null
+    and to_regprocedure('public.visit_set_crew_size(uuid,uuid,integer,timestamptz,timestamptz)') is null
+    and to_regprocedure('public.visit_set_note(uuid,uuid,text,timestamptz,timestamptz)') is null
+    and to_regprocedure('public.visit_task_set(uuid,uuid,uuid,boolean,text,timestamptz,timestamptz)') is null
+    and to_regprocedure('public.visit_photo_record(uuid,uuid,text,timestamptz,double precision,double precision,timestamptz)') is null
+    and to_regprocedure('public.enhancement_create(uuid,uuid,text,text,uuid[],timestamptz,timestamptz)') is null,
+  'visit mutations are not separate RPCs'
 );
 
 select tests.create_user('rpcb-owner@example.com', 'RPCB Owner') as owner \gset
@@ -54,6 +57,7 @@ update public.orgs set phone = '217-555-0140' where id = :'org'::uuid;
 select (timezone('America/Chicago', now()))::date as today \gset
 select (:'today'::date - 1) as yesterday \gset
 select (:'today'::date - 2) as older \gset
+select (:'today'::date - 3) as ancient \gset
 select (:'today'::date + 1) as tomorrow \gset
 
 insert into public.accounts (org_id, name, phone, email, billing_email, billing_address_line1)
@@ -225,6 +229,9 @@ select gen_random_uuid() as client_old_photo \gset
 select gen_random_uuid() as client_old_finish \gset
 select gen_random_uuid() as client_y \gset
 select gen_random_uuid() as client_d \gset
+select gen_random_uuid() as client_future \gset
+select gen_random_uuid() as client_future_resume \gset
+select gen_random_uuid() as client_blocked \gset
 select (now() - interval '2 hours') as occurred \gset
 select (now() - interval '10 minutes') as device_now \gset
 
@@ -242,7 +249,7 @@ select lives_ok(
   'a crew member can download the pack'
 );
 select throws_ok(
-  format($$ select public.visit_start(%L, %L) $$, :'visit_a', :'client_start'),
+  format($$ select private.crew_apply('visit_start', %L, %L, null, null, '{}') $$, :'visit_a', :'client_start'),
   '42501',
   null,
   'a crew member cannot start a visit'
@@ -250,7 +257,7 @@ select throws_ok(
 
 select tests.authenticate_as(:'hand'::uuid, :'org'::uuid, 'crew_lead');
 select throws_ok(
-  format($$ select public.visit_start(%L, %L) $$, :'visit_a', :'client_start'),
+  format($$ select private.crew_apply('visit_start', %L, %L, null, null, '{}') $$, :'visit_a', :'client_start'),
   '42501',
   null,
   'a spoofed crew_lead token cannot start a visit'
@@ -258,10 +265,14 @@ select throws_ok(
 
 select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
 select throws_ok(
-  format($$ select public.crew_day_pack(%L::date) $$, :'older'),
+  format($$ select public.crew_day_pack(%L::date) $$, :'ancient'),
   '22023',
   null,
   'the day pack rejects a date outside the window'
+);
+select lives_ok(
+  format($$ select public.crew_day_pack(%L::date) $$, :'older'),
+  'an older date stays readable while a visit is in progress'
 );
 select lives_ok(
   format($$ select public.crew_day_pack(%L::date) $$, :'tomorrow'),
@@ -319,10 +330,32 @@ select is(
   0::bigint,
   'a draft route is not in the pack'
 );
+select is(
+  (
+    select count(*)
+    from jsonb_array_elements((:'pack')::jsonb->'visits') v
+    where v->>'id' = :'visit_old'
+  ),
+  1::bigint,
+  'today includes an active visit older than yesterday'
+);
+
+select tests.clear_auth();
+update public.routes set status = 'published' where id = :'route_draft'::uuid;
+select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
+select throws_ok(
+  format(
+    $$ select private.crew_apply('visit_start', %L, gen_random_uuid(), null, null, '{}') $$,
+    :'visit_draft'
+  ),
+  '22023',
+  null,
+  'a visit scheduled for tomorrow cannot be started'
+);
 
 select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
 select throws_ok(
-  format($$ select public.visit_start(%L, %L) $$, :'visit_a', :'client_d'),
+  format($$ select private.crew_apply('visit_start', %L, %L, null, null, '{}') $$, :'visit_a', :'client_d'),
   '42501',
   null,
   'a dispatcher cannot start a visit'
@@ -330,12 +363,12 @@ select throws_ok(
 
 select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew');
 select is(
-  public.visit_start(:'visit_a'::uuid, :'client_start'::uuid),
+  private.crew_apply('visit_start', :'visit_a'::uuid, :'client_start'::uuid, null, null, '{}'::jsonb),
   'applied',
   'the live lead can start a visit when the token says crew'
 );
 select is(
-  public.visit_start(:'visit_a'::uuid, :'client_start'::uuid),
+  private.crew_apply('visit_start', :'visit_a'::uuid, :'client_start'::uuid, null, null, '{}'::jsonb),
   'replayed',
   'starting again with the same client_id is a replay'
 );
@@ -345,25 +378,43 @@ select is(
   'a replay does not append a second start'
 );
 select throws_ok(
-  format($$ select public.visit_pause(%L, %L) $$, :'visit_a', :'client_start'),
+  format($$ select private.crew_apply('visit_pause', %L, %L, null, null, '{}') $$, :'visit_a', :'client_start'),
   '22023',
   null,
   'a client_id cannot be reused for a different mutation'
 );
+select throws_ok(
+  format(
+    $$ select private.crew_apply('visit_start', %L, %L, null, null, '{}') $$,
+    :'visit_b', :'client_start'
+  ),
+  '22023',
+  null,
+  'a client_id cannot be reused on a different visit'
+);
 select is(
-  public.visit_start(:'visit_y'::uuid, :'client_y'::uuid),
+  private.crew_apply('visit_start', :'visit_y'::uuid, :'client_y'::uuid, null, null, '{}'::jsonb),
   'applied',
   'a visit left in progress today does not block yesterday'
 );
 select throws_ok(
-  format($$ select public.visit_start(%L, %L) $$, :'visit_d', :'client_d'),
+  format($$ select private.crew_apply('visit_start', %L, %L, null, null, '{}') $$, :'visit_d', :'client_d'),
   '23514',
   null,
   'a second start today is rejected'
 );
+select public.crew_sync(jsonb_build_array(jsonb_build_object(
+  'client_id', :'client_blocked', 'kind', 'visit_start', 'visit_id', :'visit_d'
+))) as sync_blocked \gset
+select is((:'sync_blocked')::jsonb->'results'->0->>'status', 'error', 'a blocked start comes back as an error');
+select is(
+  (:'sync_blocked')::jsonb->'results'->0->>'message',
+  'could not apply that change',
+  'crew_sync does not return the raw SQL error'
+);
 
 select is(
-  public.visit_pause(:'visit_old'::uuid, :'client_old_pause'::uuid),
+  private.crew_apply('visit_pause', :'visit_old'::uuid, :'client_old_pause'::uuid, null, null, '{}'::jsonb),
   'applied',
   'a visit left in progress on a past day can be paused'
 );
@@ -372,12 +423,15 @@ insert into storage.objects (bucket_id, name)
 values ('visit-photos', :'org' || '/' || :'visit_old' || '/' || :'client_old_photo' || '.jpg');
 select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
 select is(
-  public.visit_photo_record(:'visit_old'::uuid, :'client_old_photo'::uuid, 'after'),
+  private.crew_apply(
+    'visit_photo_record', :'visit_old'::uuid, :'client_old_photo'::uuid, null, null,
+    jsonb_build_object('photo_kind', 'after')
+  ),
   'applied',
   'a past-day visit can record the after photo it needs'
 );
 select is(
-  public.visit_finish(:'visit_old'::uuid, :'client_old_finish'::uuid),
+  private.crew_apply('visit_finish', :'visit_old'::uuid, :'client_old_finish'::uuid, null, null, '{}'::jsonb),
   'applied',
   'a visit left in progress on a past day can be finished'
 );
@@ -388,6 +442,21 @@ select is(
   'the past-day visit is completed'
 );
 select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
+select is(
+  (
+    select count(*)
+    from jsonb_array_elements(public.crew_day_pack(:'today'::date)->'visits') v
+    where v->>'id' = :'visit_old'
+  ),
+  0::bigint,
+  'a finished older visit drops out of today'
+);
+select throws_ok(
+  format($$ select public.crew_day_pack(%L::date) $$, :'older'),
+  '22023',
+  null,
+  'an older date is outside the window once that visit is finished'
+);
 
 select public.crew_sync(jsonb_build_array(
   jsonb_build_object(
@@ -443,8 +512,8 @@ select is(
 );
 
 select is(
-  public.visit_pause(
-    :'visit_a'::uuid, :'client_skew'::uuid, :'occurred'::timestamptz, :'device_now'::timestamptz
+  private.crew_apply(
+    'visit_pause', :'visit_a'::uuid, :'client_skew'::uuid, :'occurred'::timestamptz, :'device_now'::timestamptz, '{}'::jsonb
   ),
   'applied',
   'a pause with a skewed device clock is accepted'
@@ -458,13 +527,31 @@ select ok(
   'the captured time is kept and the clock is flagged'
 );
 select is(
-  public.visit_resume(:'visit_a'::uuid, gen_random_uuid()),
+  private.crew_apply('visit_resume', :'visit_a'::uuid, gen_random_uuid(), null, null, '{}'::jsonb),
   'applied',
   'the lead can resume'
 );
+select is(
+  private.crew_apply(
+    'visit_pause', :'visit_a'::uuid, :'client_future'::uuid, now() + interval '3 days', null, '{}'::jsonb
+  ),
+  'applied',
+  'a pause is accepted when the phone clock is ahead'
+);
+select ok(
+  (
+    select occurred_at <= pg_catalog.now()
+    from public.visit_events
+    where client_id = :'client_future'::uuid
+  ),
+  'a future client timestamp is clamped to server time'
+);
+select private.crew_apply(
+  'visit_resume', :'visit_a'::uuid, :'client_future_resume'::uuid, null, null, '{}'::jsonb
+) as future_resume \gset
 
 select throws_ok(
-  format($$ select public.visit_finish(%L, %L) $$, :'visit_a', :'client_finish'),
+  format($$ select private.crew_apply('visit_finish', %L, %L, null, null, '{}') $$, :'visit_a', :'client_finish'),
   '22023',
   null,
   'finishing requires the after photo file'
@@ -473,12 +560,15 @@ insert into storage.objects (bucket_id, name)
 values ('visit-photos', :'org' || '/' || :'visit_a' || '/' || :'client_photo' || '.jpg');
 select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
 select is(
-  public.visit_photo_record(:'visit_a'::uuid, :'client_photo'::uuid, 'after', now(), 39.78, -89.65),
+  private.crew_apply(
+    'visit_photo_record', :'visit_a'::uuid, :'client_photo'::uuid, now(), null,
+    jsonb_build_object('photo_kind', 'after', 'taken_at', now(), 'lat', 39.78, 'lng', -89.65)
+  ),
   'applied',
   'the lead can record an after photo'
 );
 select is(
-  public.visit_finish(:'visit_a'::uuid, :'client_finish'::uuid),
+  private.crew_apply('visit_finish', :'visit_a'::uuid, :'client_finish'::uuid, null, null, '{}'::jsonb),
   'applied',
   'the lead can finish after the photo is stored'
 );
@@ -498,12 +588,12 @@ set reopen_until = now() + interval '1 hour'
 where id = :'visit_a'::uuid;
 select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
 select is(
-  public.visit_reopen(:'visit_a'::uuid, :'client_reopen'::uuid),
+  private.crew_apply('visit_reopen', :'visit_a'::uuid, :'client_reopen'::uuid, null, null, '{}'::jsonb),
   'applied',
   'the lead can reopen before the deadline'
 );
 select is(
-  public.visit_finish(:'visit_a'::uuid, :'client_finish2'::uuid),
+  private.crew_apply('visit_finish', :'visit_a'::uuid, :'client_finish2'::uuid, null, null, '{}'::jsonb),
   'applied',
   'the lead can finish again after reopening'
 );
@@ -514,25 +604,31 @@ select lives_ok(
 );
 select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
 select throws_ok(
-  format($$ select public.visit_reopen(%L, %L) $$, :'visit_a', :'client_reopen2'),
+  format($$ select private.crew_apply('visit_reopen', %L, %L, null, null, '{}') $$, :'visit_a', :'client_reopen2'),
   '22023',
   null,
   'a completion the office cancelled cannot be reopened'
 );
 
 select is(
-  public.visit_set_crew_size(:'visit_b'::uuid, :'client_size'::uuid, 3),
+  private.crew_apply(
+    'visit_set_crew_size', :'visit_b'::uuid, :'client_size'::uuid, null, null,
+    jsonb_build_object('crew_size', 3)
+  ),
   'applied',
   'the lead can set the crew size'
 );
 select is(
-  public.visit_task_set(:'visit_a'::uuid, :'client_task'::uuid, :'task_a'::uuid, true, null),
+  private.crew_apply(
+    'visit_task_set', :'visit_a'::uuid, :'client_task'::uuid, null, null,
+    jsonb_build_object('task_id', :'task_a'::uuid, 'done', true)
+  ),
   'applied',
   'the lead can tick a task'
 );
 select throws_ok(
   format(
-    $$ select public.enhancement_create(%L, %L, 'mulch', 'beds are thin', array[%L]::uuid[]) $$,
+    $$ select private.crew_apply('enhancement_create', %L, %L, null, null, jsonb_build_object('tag', 'mulch', 'note', 'beds are thin', 'photo_ids', jsonb_build_array(%L::uuid))) $$,
     :'visit_a', :'client_enh', :'client_photo'
   ),
   '23514',
@@ -543,20 +639,31 @@ select id as photo_a
 from public.visit_photos
 where client_id = :'client_photo'::uuid \gset
 select is(
-  public.enhancement_create(
-    :'visit_a'::uuid, :'client_enh'::uuid, 'mulch', 'beds are thin', array[:'photo_a'::uuid]
+  private.crew_apply(
+    'enhancement_create', :'visit_a'::uuid, :'client_enh'::uuid, null, null,
+    jsonb_build_object(
+      'tag', 'mulch',
+      'note', 'beds are thin',
+      'photo_ids', jsonb_build_array(:'photo_a'::uuid)
+    )
   ),
   'applied',
   'the lead can file an enhancement from a photo on the visit'
 );
 
 select is(
-  public.visit_skip(:'visit_b'::uuid, :'client_skip_b'::uuid, 'weather'),
+  private.crew_apply(
+    'visit_skip', :'visit_b'::uuid, :'client_skip_b'::uuid, null, null,
+    jsonb_build_object('reason', 'weather')
+  ),
   'applied',
   'a weather skip does not need a photo'
 );
 select throws_ok(
-  format($$ select public.visit_skip(%L, %L, 'gate_locked') $$, :'visit_c', :'client_skip_c'),
+  format(
+    $$ select private.crew_apply('visit_skip', %L, %L, null, null, jsonb_build_object('reason', 'gate_locked')) $$,
+    :'visit_c', :'client_skip_c'
+  ),
   '22023',
   null,
   'a gate locked skip needs an issue photo'
@@ -565,12 +672,18 @@ insert into storage.objects (bucket_id, name)
 values ('visit-photos', :'org' || '/' || :'visit_c' || '/' || :'client_issue' || '.jpg');
 select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
 select is(
-  public.visit_photo_record(:'visit_c'::uuid, :'client_issue'::uuid, 'issue'),
+  private.crew_apply(
+    'visit_photo_record', :'visit_c'::uuid, :'client_issue'::uuid, null, null,
+    jsonb_build_object('photo_kind', 'issue')
+  ),
   'applied',
   'the lead can record an issue photo'
 );
 select is(
-  public.visit_skip(:'visit_c'::uuid, :'client_skip_c'::uuid, 'gate_locked'),
+  private.crew_apply(
+    'visit_skip', :'visit_c'::uuid, :'client_skip_c'::uuid, null, null,
+    jsonb_build_object('reason', 'gate_locked')
+  ),
   'applied',
   'a gate locked skip is accepted with an issue photo'
 );
@@ -582,7 +695,7 @@ where org_id = :'org'::uuid
   and user_id = :'lead'::uuid;
 select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
 select throws_ok(
-  format($$ select public.visit_start(%L, %L) $$, :'visit_a', :'client_start'),
+  format($$ select private.crew_apply('visit_start', %L, %L, null, null, '{}') $$, :'visit_a', :'client_start'),
   '42501',
   null,
   'a demoted lead cannot replay a start'
@@ -593,13 +706,13 @@ select is(
   'the refused replay does not add a start'
 );
 select throws_ok(
-  format($$ select public.visit_pause(%L, %L) $$, :'visit_d', gen_random_uuid()),
+  format($$ select private.crew_apply('visit_pause', %L, %L, null, null, '{}') $$, :'visit_d', gen_random_uuid()),
   '42501',
   null,
   'a demoted lead cannot pause'
 );
 select throws_ok(
-  format($$ select public.visit_finish(%L, %L) $$, :'visit_y', gen_random_uuid()),
+  format($$ select private.crew_apply('visit_finish', %L, %L, null, null, '{}') $$, :'visit_y', gen_random_uuid()),
   '42501',
   null,
   'a demoted lead cannot finish'
