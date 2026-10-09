@@ -146,6 +146,23 @@ describe("crew outbox", () => {
     expect(sent).toEqual({ sent: 1, pending: 1 });
   });
 
+  it("hands an unmatched upsell to the office and still finishes", async () => {
+    const store = createMemoryCrewStore();
+    await enqueueMutation(store, { kind: "enhancement_create", visit_id: "v", client_id: "enh", payload: { tag: "mulch", photo_client_id: "missing" }, ...who }, now);
+    await enqueueMutation(store, { kind: "visit_finish", visit_id: "v", client_id: "fin", ...who }, new Date(now.getTime() + 1));
+    const sent = await flushOutbox(store, async (items) => {
+      return items.map((item) =>
+        item.client_id === "enh"
+          ? { client_id: item.client_id, status: "error" as const, message: "enhancement photo must belong to this visit" }
+          : { client_id: item.client_id, status: "applied" as const, message: null },
+      );
+    }, scope);
+    expect(sent).toEqual({ sent: 1, pending: 1 });
+    expect(await store.listOutbox()).toMatchObject([
+      { client_id: "enh", needs_office: true, last_error: "enhancement photo must belong to this visit" },
+    ]);
+  });
+
   it("parses crew_sync results", () => {
     expect(parseSyncResults({ results: [{ client_id: "a", status: "applied", message: null }, { status: "nope" }] })).toEqual([
       { client_id: "a", status: "applied", message: null },

@@ -373,7 +373,8 @@ begin
 end;
 $$;
 
--- Stops on the first error. Earlier items in the batch stay applied.
+-- Stops on the first error, except an upsell whose photo cannot be matched.
+-- That upsell is reported for the office and later items in the batch still apply.
 -- Unexpected database errors stay off the phone. Known crew errors do not.
 
 create or replace function public.crew_sync(p_mutations jsonb)
@@ -385,6 +386,7 @@ as $$
 declare
   v_item jsonb;
   v_status text;
+  v_message text;
   v_results jsonb := '[]'::jsonb;
   v_client uuid;
 begin
@@ -414,16 +416,19 @@ begin
       ));
     exception
       when others then
+        v_message := case
+          when sqlstate in ('22023', '42501', 'P0002') then sqlerrm
+          when sqlstate = '23514' and sqlerrm = 'visit photo file is missing' then sqlerrm
+          else 'could not apply that change'
+        end;
         v_results := v_results || jsonb_build_array(jsonb_build_object(
           'client_id', v_item->>'client_id',
           'status', 'error',
-          'message', case
-            when sqlstate in ('22023', '42501', 'P0002') then sqlerrm
-            when sqlstate = '23514' and sqlerrm = 'visit photo file is missing' then sqlerrm
-            else 'could not apply that change'
-          end
+          'message', v_message
         ));
-        exit;
+        if v_message is distinct from 'enhancement photo must belong to this visit' then
+          exit;
+        end if;
     end;
   end loop;
 

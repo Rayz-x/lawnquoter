@@ -1,7 +1,7 @@
 -- Crew day pack, crew_sync, and the visit mutations. Prices, customer
 -- phone, and customer email stay out of the pack. Replays do not duplicate.
 
-select plan(83);
+select plan(92);
 
 create or replace function tests.apply_crew(
   p_kind text,
@@ -757,6 +757,78 @@ select is(
   (public.crew_day_pack(:'today'::date)->'crew'->>'id')::uuid,
   :'crew_north'::uuid,
   'the day pack uses this caller crew'
+);
+
+select gen_random_uuid() as client_early_photo \gset
+select gen_random_uuid() as client_early_enh \gset
+select gen_random_uuid() as client_y_after \gset
+select gen_random_uuid() as client_missing_id \gset
+select gen_random_uuid() as client_miss_enh \gset
+select gen_random_uuid() as client_miss_finish \gset
+select tests.clear_auth();
+insert into storage.objects (bucket_id, name)
+values ('visit-photos', :'org' || '/' || :'visit_b' || '/' || :'client_early_photo' || '.jpg');
+select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
+select public.crew_sync(jsonb_build_array(jsonb_build_object(
+  'client_id', :'client_early_photo',
+  'kind', 'visit_photo_record',
+  'visit_id', :'visit_b',
+  'payload', jsonb_build_object('photo_kind', 'upsell')
+))) as sync_early_photo \gset
+select is((:'sync_early_photo')::jsonb->'results'->0->>'status', 'applied', 'an upsell photo can be saved before its request');
+select public.crew_sync(jsonb_build_array(jsonb_build_object(
+  'client_id', :'client_early_enh',
+  'kind', 'enhancement_create',
+  'visit_id', :'visit_b',
+  'payload', jsonb_build_object('tag', 'mulch', 'photo_client_id', :'client_early_photo')
+))) as sync_early_enh \gset
+select is((:'sync_early_enh')::jsonb->'results'->0->>'status', 'applied', 'an upsell matches a photo from an earlier sync');
+select is(
+  (select photo_ids[1] from public.enhancement_requests where client_id = :'client_early_enh'::uuid),
+  (select id from public.visit_photos where client_id = :'client_early_photo'::uuid),
+  'the earlier photo is stored on the upsell'
+);
+select tests.clear_auth();
+insert into storage.objects (bucket_id, name)
+values ('visit-photos', :'org' || '/' || :'visit_y' || '/' || :'client_y_after' || '.jpg');
+select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
+select is(
+  tests.apply_crew(
+    'visit_photo_record', :'visit_y'::uuid, :'client_y_after'::uuid, null, null,
+    jsonb_build_object('photo_kind', 'after')
+  ),
+  'applied',
+  'the in-progress visit has the after photo finish needs'
+);
+select public.crew_sync(jsonb_build_array(
+  jsonb_build_object(
+    'client_id', :'client_miss_enh',
+    'kind', 'enhancement_create',
+    'visit_id', :'visit_y',
+    'payload', jsonb_build_object('tag', 'mulch', 'photo_client_id', :'client_missing_id')
+  ),
+  jsonb_build_object(
+    'client_id', :'client_miss_finish',
+    'kind', 'visit_finish',
+    'visit_id', :'visit_y'
+  )
+)) as sync_miss \gset
+select is((:'sync_miss')::jsonb->'results'->0->>'status', 'error', 'a missing upsell photo is not accepted');
+select is(
+  (:'sync_miss')::jsonb->'results'->0->>'message',
+  'enhancement photo must belong to this visit',
+  'a missing upsell photo is handed back for the office'
+);
+select is((:'sync_miss')::jsonb->'results'->1->>'status', 'applied', 'finish in the same batch still applies');
+select is(
+  (select status::text from public.visits where id = :'visit_y'::uuid),
+  'completed',
+  'the visit is finished even though the upsell photo was missing'
+);
+select is(
+  (select count(*) from public.enhancement_requests where client_id = :'client_miss_enh'::uuid),
+  0::bigint,
+  'the unmatched upsell is not stored'
 );
 
 select tests.clear_auth();
