@@ -187,10 +187,21 @@ create policy quote_amounts_select on public.quote_amounts
 grant select on public.quote_line_item_amounts, public.quote_amounts to authenticated;
 grant all on public.quote_line_item_amounts, public.quote_amounts to service_role;
 
-revoke select (price, hours, cost, range_low, range_high)
-  on public.quote_line_items from public, anon, authenticated;
-revoke select (deposit_amount)
-  on public.quotes from public, anon, authenticated;
+-- A table-level SELECT covers every column, so a column revoke is a no-op
+-- while that grant remains. Drop table SELECT, then grant the non-money columns.
+revoke select on public.quote_line_items from public, anon, authenticated;
+grant select (
+  id, org_id, version_id, section_id, service_id, name, description, state,
+  option_group, option_tier, qty, unit, photo_url, notes_customer, notes_crew,
+  selected, sort
+) on public.quote_line_items to authenticated;
+
+revoke select on public.quotes from public, anon, authenticated;
+grant select (
+  id, org_id, account_id, property_id, template_id, number, title, status,
+  public_token, current_version, expires_at, sent_at, viewed_at, intro,
+  notes_customer, notes_internal, created_by, created_at, updated_at
+) on public.quotes to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Acceptance evidence comes from request headers, not RPC arguments.
@@ -371,6 +382,16 @@ grant select (
 ) on public.org_invites to authenticated;
 grant all on public.org_invites to service_role;
 
+-- pgcrypto lives in extensions on Supabase and in public on a stock cluster.
+create or replace function private.random_hex(nbytes integer)
+returns text
+language sql
+volatile
+set search_path = public, extensions
+as $$
+  select encode(gen_random_bytes(nbytes), 'hex');
+$$;
+
 create or replace function public.create_org_invite(p_email text, p_role public.org_role)
 returns jsonb
 language plpgsql
@@ -416,7 +437,7 @@ begin
     raise exception 'that person is already a member' using errcode = '23505';
   end if;
 
-  v_token := encode(extensions.gen_random_bytes(32), 'hex');
+  v_token := private.random_hex(32);
   v_hash := private.sha256_hex(v_token);
 
   select id into v_id
@@ -621,5 +642,6 @@ begin
 end
 $$;
 
-alter default privileges in schema public revoke execute on functions from public;
-alter default privileges in schema private revoke execute on functions from public;
+-- A schema-scoped revoke does not replace Postgres' built-in
+-- GRANT EXECUTE TO PUBLIC. A global default ACL does.
+alter default privileges revoke execute on functions from public;

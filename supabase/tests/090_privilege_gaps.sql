@@ -49,9 +49,8 @@ select ok(
   exists (
     select 1
     from pg_default_acl a
-    join pg_namespace n on n.oid = a.defaclnamespace
-    where n.nspname = 'public'
-      and a.defaclobjtype = 'f'
+    where a.defaclobjtype = 'f'
+      and a.defaclnamespace = 0
       and not exists (
         select 1
         from aclexplode(a.defaclacl) x
@@ -59,7 +58,7 @@ select ok(
           and x.privilege_type = 'EXECUTE'
       )
   ),
-  'new public functions are not executable by PUBLIC'
+  'new functions are not executable by PUBLIC'
 );
 select case
   when to_regprocedure('public.rls_auto_enable()') is null then
@@ -107,19 +106,19 @@ select throws_ok(
   null,
   'owner role cannot be invited'
 );
-select (public.create_org_invite('newhire@example.com', 'crew') ->> 'token') as token \gset
+select (public.create_org_invite('invitee@example.com', 'crew') ->> 'token') as token \gset
 select is(
-  (select count(*) from public.memberships m join public.profiles p on p.id = m.user_id where p.email = 'newhire@example.com'),
+  (select count(*) from public.memberships m join public.profiles p on p.id = m.user_id where p.email = 'invitee@example.com' and m.org_id = :'org'::uuid),
   0::bigint,
   'creating an invite does not add a membership'
 );
 select is(
-  (select status::text from public.org_invites where email = 'newhire@example.com'),
+  (select status::text from public.org_invites where email = 'invitee@example.com'),
   'pending',
   'invite is pending'
 );
 select ok(
-  (select expires_at > now() + interval '6 days' from public.org_invites where email = 'newhire@example.com'),
+  (select expires_at > now() + interval '6 days' from public.org_invites where email = 'invitee@example.com'),
   'invite expires in the future'
 );
 select throws_ok(
@@ -162,7 +161,7 @@ select is(
   'accepting the invite creates the membership'
 );
 select is(
-  (select status::text from public.org_invites where email = 'newhire@example.com'),
+  (select status::text from public.org_invites where email = 'invitee@example.com'),
   'accepted',
   'invite is accepted'
 );
@@ -209,7 +208,7 @@ select throws_ok(
 );
 
 select tests.clear_auth();
-select set_config('role', 'service_role', true);
+select set_config('role', 'service_role', true) as ignored_role \gset
 select lives_ok(
   format(
     $$ insert into public.payment_intents (org_id, amount, stripe_event_id) values (%L, 25, 'evt_privilege_1') $$,

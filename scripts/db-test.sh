@@ -71,6 +71,27 @@ done
 
 echo "==> running pgTAP tests"
 "${PSQL[@]}" -c "create extension if not exists pgtap;" >/dev/null
+# The privilege migration revokes the built-in PUBLIC EXECUTE default. pgTAP is
+# installed after that, so its functions need an explicit grant for impersonated roles.
+"${PSQL[@]}" <<'SQL' >/dev/null
+do $$
+declare
+  fn regprocedure;
+begin
+  for fn in
+    select p.oid::regprocedure
+    from pg_depend d
+    join pg_proc p on p.oid = d.objid
+    join pg_extension e on e.oid = d.refobjid
+    where e.extname = 'pgtap'
+      and d.classid = 'pg_proc'::regclass
+      and d.deptype = 'e'
+  loop
+    execute format('grant execute on function %s to public', fn);
+  end loop;
+end
+$$;
+SQL
 
 FAILED=0
 for f in $(ls "$TESTS_DIR"/*.sql | sort); do

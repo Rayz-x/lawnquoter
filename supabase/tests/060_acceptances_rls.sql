@@ -63,7 +63,7 @@ select set_config(
   'request.headers',
   '{"x-forwarded-for":"203.0.113.5, 10.0.0.1","user-agent":"vitest"}',
   true
-);
+) as ignored_headers \gset
 select tests.authenticate_anon();
 select ok(
   (public.quote_accept(:'tok2'::uuid, 'Pat Buyer', 'pat@test.com', true, 'forged-ua', '198.51.100.9', null::uuid[]) ->> 'ok') = 'true',
