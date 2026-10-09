@@ -6,18 +6,21 @@
 -- apps/web/src/lib/quotes/legal-copy.ts. Edit that file, then add a new
 -- migration. Do not change this file after it ships.
 --
--- Rebase notes if other work lands first:
--- * Org branding (PR #6, 20261009095000_org_branding.sql) also replaces
+-- Rebase notes, now applied:
+-- * Org branding (PR #6, 20261009120000_org_branding.sql) replaces
 --   quote_public and adds org keys: website, logo_url, logo_dark_url,
 --   logo_raster_url, logo_width, logo_height, logo_shows_name, logo_needs_chip,
 --   heading_font, address_line1, address_line2, city, region, postal_code,
---   country. Copy those keys back into the org object below. Keep this
---   function STABLE, with no FOR UPDATE and no status write, and keep the
+--   country. Those keys are in the org object below. The function stays
+--   STABLE, with no FOR UPDATE and no status write, and keeps the
 --   acceptance object.
--- * The privilege change may stop taking p_ip / p_user_agent and may revoke
---   anon execute. Keep the email check, the not-to-exceed math, the clause,
---   and the acceptance hash when rebasing quote_accept. Do not change grants
---   on quote_accept or quote_public in this migration.
+-- * Privilege gaps (PR #10, 20261009130000_privilege_gaps.sql) replace
+--   quote_accept and quote_public. quote_accept keeps that migration's
+--   request-header capture (p_ip and p_user_agent are ignored). quote_public
+--   keeps the crew/crew_lead null check. Grants on quote_accept and
+--   quote_public are left as #10 set them. New SECURITY INVOKER helpers are
+--   granted to authenticated and service_role because #10 revoked the
+--   default EXECUTE that authenticated used to inherit from PUBLIC.
 --
 -- Already-frozen quotes were hashed without not_to_exceed_clause_template.
 -- freeze_quote_version will raise 'proposal changed' until they are revised
@@ -71,7 +74,8 @@ as $$
   select $clause$You agree to pay no more than {amount}; the final invoice may be lower.$clause$;
 $$;
 
-revoke all on function private.not_to_exceed_clause_template() from public;
+revoke all on function private.not_to_exceed_clause_template() from public, anon;
+grant execute on function private.not_to_exceed_clause_template() to authenticated, service_role;
 
 create or replace function private.format_usd(p_amount numeric)
 returns text
@@ -82,7 +86,8 @@ as $$
   select to_char(p_amount, 'FM$999,999,999,990.00');
 $$;
 
-revoke all on function private.format_usd(numeric) from public;
+revoke all on function private.format_usd(numeric) from public, anon;
+grant execute on function private.format_usd(numeric) to authenticated, service_role;
 
 create or replace function private.not_to_exceed_clause(p_amount numeric)
 returns text
@@ -93,7 +98,8 @@ as $$
   select replace(private.not_to_exceed_clause_template(), '{amount}', private.format_usd(p_amount));
 $$;
 
-revoke all on function private.not_to_exceed_clause(numeric) from public;
+revoke all on function private.not_to_exceed_clause(numeric) from public, anon;
+grant execute on function private.not_to_exceed_clause(numeric) to authenticated, service_role;
 
 create or replace function private.esign_disclosure_version()
 returns text
@@ -104,7 +110,8 @@ as $$
   select '2026-10-09-draft'::text;
 $$;
 
-revoke all on function private.esign_disclosure_version() from public;
+revoke all on function private.esign_disclosure_version() from public, anon;
+grant execute on function private.esign_disclosure_version() to authenticated, service_role;
 
 -- Signed record: frozen offer hash, selection, cap, clause, and disclosure version.
 create or replace function private.acceptance_document_hash(
@@ -130,7 +137,8 @@ as $$
   );
 $$;
 
-revoke all on function private.acceptance_document_hash(text, jsonb, numeric, boolean, text, text) from public;
+revoke all on function private.acceptance_document_hash(text, jsonb, numeric, boolean, text, text) from public, anon;
+grant execute on function private.acceptance_document_hash(text, jsonb, numeric, boolean, text, text) to authenticated, service_role;
 
 -- Frozen offer. The cap amount depends on the customer's selection, so the
 -- template and the pricing rule are what get hashed here. The resolved amount
@@ -212,7 +220,13 @@ declare
   v_email text;
   v_disclosure text;
   v_accepted_at timestamptz;
+  v_headers jsonb := '{}'::jsonb;
+  v_forwarded text;
+  v_ua text;
 begin
+  -- Arguments are ignored so a direct PostgREST call cannot forge evidence.
+  perform p_user_agent, p_ip;
+
   if coalesce(p_disclosure, false) is not true then
     raise exception 'ESIGN disclosure must be accepted' using errcode = '22023';
   end if;
@@ -226,14 +240,26 @@ begin
     raise exception 'signer email required' using errcode = '22023';
   end if;
 
+  -- KEEP on rebase (PR #8): IP and user agent come from request headers.
   begin
-    if p_ip is not null and btrim(p_ip) <> '' then
-      v_ip := btrim(p_ip)::inet;
+    if coalesce(current_setting('request.headers', true), '') <> '' then
+      v_headers := current_setting('request.headers', true)::jsonb;
     end if;
   exception
-    when invalid_text_representation then
-      v_ip := null;
+    when others then
+      v_headers := '{}'::jsonb;
   end;
+
+  v_forwarded := nullif(btrim(split_part(coalesce(v_headers ->> 'x-forwarded-for', ''), ',', 1)), '');
+  if v_forwarded is not null then
+    begin
+      v_ip := v_forwarded::inet;
+    exception
+      when invalid_text_representation then
+        v_ip := null;
+    end;
+  end if;
+  v_ua := nullif(btrim(v_headers ->> 'user-agent'), '');
 
   select * into q from public.quotes where public_token = p_token for update;
   if not found or q.status in ('draft', 'changed', 'declined') then
@@ -284,7 +310,7 @@ begin
     accepted_total, accepted_not_to_exceed, has_ranges, not_to_exceed_clause, accepted_at
   ) values (
     q.org_id, q.id, q.current_version, 'click', trim(p_signer_name), v_email,
-    v_hash, true, v_disclosure, v_ip, p_user_agent, v_ids,
+    v_hash, true, v_disclosure, v_ip, v_ua, v_ids,
     v_total, v_nte, v_has_ranges, v_clause, v_accepted_at
   );
 
@@ -350,6 +376,20 @@ declare
 begin
   select * into q from public.quotes where public_token = p_token;
   if not found or q.status in ('draft', 'changed') then
+    return null;
+  end if;
+
+  -- KEEP on rebase (PR #8): crew and crew_lead of this org get null before
+  -- any price is built. Anon (auth.uid() is null) still receives the branded
+  -- proposal below. This read does not lock the row or write status.
+  if auth.uid() is not null and exists (
+    select 1
+    from public.memberships m
+    where m.org_id = q.org_id
+      and m.user_id = auth.uid()
+      and m.status = 'active'
+      and m.role in ('crew', 'crew_lead')
+  ) then
     return null;
   end if;
 
