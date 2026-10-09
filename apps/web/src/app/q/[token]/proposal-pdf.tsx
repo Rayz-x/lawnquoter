@@ -54,19 +54,27 @@ const styles = StyleSheet.create({
   acceptTitle: { fontSize: 11, fontWeight: 700, lineHeight: 1.35, marginBottom: 2 },
   acceptCopy: { color: pdfColors.muted, fontSize: 9, lineHeight: 1.4, marginBottom: 8 },
   acceptButton: { fontSize: 10, fontWeight: 700, lineHeight: 1.3, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 4, alignSelf: "flex-start", textDecoration: "none" },
-  footer: {
+  mark: { position: "absolute", bottom: 26, right: 132, width: 10, height: 10 },
+  powered: {
+    position: "absolute",
+    bottom: 28,
+    right: 40,
+    color: pdfColors.muted,
+    fontSize: 8,
+    lineHeight: 1.2,
+  },
+  pageLabel: {
     position: "absolute",
     bottom: 28,
     left: 40,
-    right: 40,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    color: pdfColors.muted,
+    fontSize: 8,
+    fontFamily: pdfFonts.body,
+    // react-pdf turns a numeric lineHeight into points on every relayout, and the
+    // page-number render prop relayouts often enough to shove the line off the sheet.
+    // An empty value is ignored by that step and blocks the page's inherited line height.
+    lineHeight: "",
   },
-  footerMark: { flexDirection: "row", alignItems: "center", gap: 4 },
-  mark: { width: 10, height: 10 },
-  powered: { color: pdfColors.muted, fontSize: 8, lineHeight: 1.2 },
-  pageLabel: { color: pdfColors.muted, fontSize: 8, lineHeight: 1.2 },
 });
 
 type PdfItem = SelectableItem & {
@@ -140,6 +148,13 @@ export function ProposalPdf({
   return (
     <Document>
       <Page size="LETTER" style={styles.page}>
+        <Text
+          fixed
+          style={styles.pageLabel}
+          render={({ pageNumber, totalPages }) =>
+            `Quote #${payload.number} · Page ${pageNumber} of ${totalPages}`
+          }
+        />
         <View style={styles.header}>
           {logo ? (
             // react-pdf Image has no alt; the contact block names the company.
@@ -188,17 +203,11 @@ export function ProposalPdf({
             Accept online →
           </Link>
         </View>
-        <View style={styles.footer} fixed>
-          <Text
-            style={styles.pageLabel}
-            render={({ pageNumber, totalPages }) => `Quote #${payload.number} · Page ${pageNumber} of ${totalPages}`}
-          />
-          <View style={styles.footerMark}>
-            {/* eslint-disable-next-line jsx-a11y/alt-text */}
-            <Image src={pdfMarkPath} style={styles.mark} />
-            <Text style={styles.powered}>Powered by LawnQuoter</Text>
-          </View>
-        </View>
+        {/* eslint-disable-next-line jsx-a11y/alt-text */}
+        <Image fixed src={pdfMarkPath} style={styles.mark} />
+        <Text fixed style={styles.powered}>
+          Powered by LawnQuoter
+        </Text>
       </Page>
     </Document>
   );
