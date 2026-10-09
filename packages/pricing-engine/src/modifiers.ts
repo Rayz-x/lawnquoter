@@ -27,7 +27,8 @@ export function applyModifiers(base: PricedLine, ctx: PropertyContext, modifiers
 
   if (ctx.slope && modifiers.slope?.[ctx.slope]) {
     const s = modifiers.slope[ctx.slope]!;
-    add(`Slope (${ctx.slope})`, price * s.pricePct, hours * s.hoursPct, cost * (s.costPct ?? s.pricePct));
+    // Cost follows the extra hours, the same way bagging does. pricePct stays on the price only.
+    add(`Slope (${ctx.slope})`, price * s.pricePct, hours * s.hoursPct, cost * s.hoursPct);
   }
 
   if (modifiers.narrowGate && ctx.gateWidthIn != null && ctx.gateWidthIn < (modifiers.narrowGateInches ?? 48)) {

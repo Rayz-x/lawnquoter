@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { priceLine, defaultModifiers, type Modifiers, type PricingRule } from "@lawnquoter/pricing-engine";
+import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
 import { createClient } from "@/lib/supabase/server";
 import { AddItemForm } from "./add-item-form";
+import { DeleteQuoteButton } from "./delete-quote-button";
 import { PriceFromCatalog } from "./price-from-catalog";
 import { QuoteMetaForm } from "./quote-meta-form";
 import { SendQuoteButton } from "./send-quote-button";
@@ -93,6 +95,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
                 View proposal
               </Button>
             ) : null}
+            {quote.status !== "accepted" && hasRole(session.orgRole, ADMIN_ROLES) ? <DeleteQuoteButton quoteId={quote.id} /> : null}
           </>
         }
       />
@@ -164,7 +167,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               </div>
             </CardContent>
           </Card>
-          <QuoteMetaForm quote={quote} />
+          <QuoteMetaForm quote={quote} editable={editable} />
           {editable && versionId ? (
             <PriceFromCatalog
               quoteId={quote.id}
