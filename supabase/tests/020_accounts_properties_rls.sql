@@ -1,4 +1,4 @@
-select plan(15);
+select plan(16);
 
 select tests.create_user('o1@example.com', 'Owner One') as owner1 \gset
 select tests.create_user('c1@example.com', 'Crew One')  as crew1  \gset
@@ -94,5 +94,14 @@ select tests.authenticate_as(:'owner2'::uuid, :'org2'::uuid, 'owner');
 select is((select count(*) from public.accounts), 0::bigint, 'other org sees no accounts');
 select is((select count(*) from public.properties), 0::bigint, 'other org sees no properties');
 select is(public.property_geometry(:'prop1'::uuid), null, 'other org cannot read geometry via RPC');
+
+insert into public.accounts (org_id, name) values (:'org2'::uuid, 'Other Co') returning id as other_acct \gset
+select tests.authenticate_as(:'owner1'::uuid, :'org1'::uuid, 'owner');
+select throws_ok(
+  format($$ insert into public.contacts (org_id, account_id, first_name) values (%L, %L, 'Nope') $$, :'org1', :'other_acct'),
+  '23503',
+  null,
+  'contact account must belong to the same org'
+);
 
 select * from finish();

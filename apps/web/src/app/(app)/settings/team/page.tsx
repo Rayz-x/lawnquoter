@@ -15,7 +15,7 @@ export default async function TeamPage() {
   const supabase = await createClient();
   const { data: members } = await supabase
     .from("memberships")
-    .select("id, role, status, invited_email, created_at, profiles(full_name, email)")
+    .select("id, user_id, role, status, invited_email, created_at, profiles(full_name, email)")
     .eq("org_id", session.orgId)
     .order("created_at");
 
@@ -61,7 +61,7 @@ export default async function TeamPage() {
                             membershipId={m.id}
                             role={m.role}
                             status={m.status}
-                            isSelf={false}
+                            isSelf={m.user_id === session.userId}
                             isOwner={m.role === "owner"}
                           />
                         </TableCell>

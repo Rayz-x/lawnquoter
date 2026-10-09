@@ -48,6 +48,21 @@ const inviteSchema = z.object({
   role: orgRoleSchema,
 });
 
+async function findUserIdByEmail(
+  admin: ReturnType<typeof createAdminClient>,
+  email: string,
+): Promise<string | null> {
+  const { data: profile } = await admin.from("profiles").select("id").ilike("email", email).maybeSingle();
+  if (profile?.id) return profile.id;
+  for (let page = 1; page <= 10; page += 1) {
+    const { data } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    const found = data?.users.find((user) => user.email?.toLowerCase() === email.toLowerCase());
+    if (found) return found.id;
+    if (!data || data.users.length < 200) break;
+  }
+  return null;
+}
+
 /**
  * Invites a teammate: creates (or finds) the auth user, adds an active
  * membership in the caller's org, and emails a sign-in link.
@@ -68,9 +83,7 @@ export async function inviteMember(formData: FormData): Promise<ActionResult> {
 
   let userId = invited?.user?.id ?? null;
   if (inviteError) {
-    // Already registered: look the user up and add them directly.
-    const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-    userId = list?.users.find((u) => u.email?.toLowerCase() === parsed.data.email.toLowerCase())?.id ?? null;
+    userId = await findUserIdByEmail(admin, parsed.data.email);
     if (!userId) return { ok: false, error: inviteError.message };
   }
   if (!userId) return { ok: false, error: "Could not create the user." };
@@ -105,7 +118,19 @@ export async function updateMember(formData: FormData): Promise<ActionResult> {
   const session = await requireOrg();
   const parsed = memberUpdateSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, error: "Invalid request." };
+  if (parsed.data.role === "owner") return { ok: false, error: "Transfer ownership is not supported yet." };
   const supabase = await createClient();
+  const { data: membership } = await supabase
+    .from("memberships")
+    .select("id, user_id, role, status")
+    .eq("id", parsed.data.membership_id)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (!membership) return { ok: false, error: "Member not found." };
+  if (membership.role === "owner") return { ok: false, error: "The owner membership cannot be changed here." };
+  if (membership.user_id === session.userId && parsed.data.status === "disabled") {
+    return { ok: false, error: "You cannot disable your own access." };
+  }
   const patch: { role?: z.infer<typeof orgRoleSchema>; status?: "active" | "disabled" } = {};
   if (parsed.data.role) patch.role = parsed.data.role;
   if (parsed.data.status) patch.status = parsed.data.status;

@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireOrg } from "@/lib/auth/session";
+import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
 import { createClient } from "@/lib/supabase/server";
 import { AddItemForm } from "./add-item-form";
 import { PriceFromCatalog } from "./price-from-catalog";
 import { QuoteMetaForm } from "./quote-meta-form";
 import { SendQuoteButton } from "./send-quote-button";
+import { ReviseQuoteButton } from "./revise-quote-button";
 
 export const metadata: Metadata = { title: "Quote" };
 
@@ -46,18 +48,36 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
 
   const modifiers = (list?.modifiers as Modifiers | null) ?? defaultModifiers();
   const quantities: Record<string, number> = {};
-  for (const f of measurement?.measurement_features ?? []) {
-    if (f.category === "turf_front") quantities.turf_front_sqft = Number(f.area_sqft ?? 0);
-    else if (f.category === "turf_back") quantities.turf_back_sqft = Number(f.area_sqft ?? 0);
-    else if (f.category === "edging_line") quantities.edging_lf = Number(f.length_ft ?? 0);
-    else if (f.area_sqft) quantities[`${f.category}_sqft`] = Number(f.area_sqft);
+  const addQty = (key: string, amount: number) => {
+    if (!Number.isFinite(amount) || amount === 0) return;
+    quantities[key] = (quantities[key] ?? 0) + amount;
+  };
+  const quantityKey: Record<string, { key: string; field: "area_sqft" | "length_ft" }> = {
+    turf_front: { key: "turf_front_sqft", field: "area_sqft" },
+    turf_back: { key: "turf_back_sqft", field: "area_sqft" },
+    bed: { key: "bed_sqft", field: "area_sqft" },
+    hardscape: { key: "hardscape_sqft", field: "area_sqft" },
+    driveway: { key: "driveway_sqft", field: "area_sqft" },
+    sidewalk: { key: "sidewalk_sqft", field: "area_sqft" },
+    edging_line: { key: "edging_lf", field: "length_ft" },
+    fence_line: { key: "fence_lf", field: "length_ft" },
+    canopy: { key: "canopy_sqft", field: "area_sqft" },
+    roof: { key: "roof_sqft", field: "area_sqft" },
+  };
+  for (const feature of measurement?.measurement_features ?? []) {
+    const mapped = quantityKey[feature.category];
+    if (!mapped) continue;
+    addQty(mapped.key, Number(feature[mapped.field] ?? 0));
   }
   if (!quantities.turf_sqft && quote.properties?.lot_sqft) quantities.lot_sqft = Number(quote.properties.lot_sqft);
 
-  const included = (items ?? []).filter((i) => i.state === "included" || i.selected);
-  const total = included.reduce((s, i) => s + Number(i.price), 0);
-  const hours = included.reduce((s, i) => s + Number(i.hours), 0);
-  const cost = included.reduce((s, i) => s + Number(i.cost), 0);
+  const lines = items ?? [];
+  const picked = defaultSelectedIds(lines);
+  const total = sumSelected(lines, picked, "price");
+  const hours = sumSelected(lines, picked, "hours");
+  const cost = sumSelected(lines, picked, "cost");
+  const editable = quote.status === "draft" || quote.status === "changed";
+  const canRevise = quote.status === "sent" || quote.status === "viewed" || quote.status === "declined" || quote.status === "expired";
 
   return (
     <>
@@ -67,6 +87,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
         actions={
           <>
             <SendQuoteButton quoteId={quote.id} token={quote.public_token} status={quote.status} />
+            {canRevise ? <ReviseQuoteButton quoteId={quote.id} /> : null}
             {quote.status !== "draft" ? (
               <Button variant="outline" render={<Link href={`/q/${quote.public_token}`} target="_blank" />}>
                 View proposal
@@ -95,6 +116,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
                     <div className="text-xs text-muted-foreground">
                       {i.state}
                       {i.option_group ? ` · ${i.option_group} / ${i.option_tier}` : ""}
+                      {picked.includes(i.id) ? "" : " · not in default total"}
                       {i.range_low != null ? ` · range $${Number(i.range_low).toFixed(0)}–$${Number(i.range_high).toFixed(0)}` : ""}
                     </div>
                   </div>
@@ -109,7 +131,14 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               {(items ?? []).length === 0 ? <p className="text-sm text-muted-foreground">Add a line or price from the catalog.</p> : null}
             </CardContent>
           </Card>
-          {versionId ? <AddItemForm quoteId={quote.id} versionId={versionId} /> : null}
+          {editable && versionId ? <AddItemForm quoteId={quote.id} versionId={versionId} /> : null}
+          {!editable ? (
+            <p className="text-sm text-muted-foreground">
+              {quote.status === "accepted"
+                ? "This proposal is accepted and locked."
+                : "This proposal is frozen. Revise it to change the work or the price. The public link is hidden until you send the revision."}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col gap-4">
           <Card>
@@ -136,7 +165,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             </CardContent>
           </Card>
           <QuoteMetaForm quote={quote} />
-          {versionId ? (
+          {editable && versionId ? (
             <PriceFromCatalog
               quoteId={quote.id}
               versionId={versionId}

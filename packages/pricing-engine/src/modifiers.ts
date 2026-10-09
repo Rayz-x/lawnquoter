@@ -27,7 +27,7 @@ export function applyModifiers(base: PricedLine, ctx: PropertyContext, modifiers
 
   if (ctx.slope && modifiers.slope?.[ctx.slope]) {
     const s = modifiers.slope[ctx.slope]!;
-    add(`Slope (${ctx.slope})`, price * s.pricePct, hours * s.hoursPct, cost * s.hoursPct);
+    add(`Slope (${ctx.slope})`, price * s.pricePct, hours * s.hoursPct, cost * (s.costPct ?? s.pricePct));
   }
 
   if (modifiers.narrowGate && ctx.gateWidthIn != null && ctx.gateWidthIn < (modifiers.narrowGateInches ?? 48)) {
@@ -35,7 +35,7 @@ export function applyModifiers(base: PricedLine, ctx: PropertyContext, modifiers
   }
 
   if (ctx.bagging && modifiers.bagging) {
-    add("Bagging", price * modifiers.bagging.pricePct, hours * modifiers.bagging.hoursPct);
+    add("Bagging", price * modifiers.bagging.pricePct, hours * modifiers.bagging.hoursPct, cost * modifiers.bagging.hoursPct);
   }
 
   if (ctx.firstCut && modifiers.firstCut) {

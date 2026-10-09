@@ -10,13 +10,14 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "lint": "echo skip"
   },
   "dependencies": {
     "zod": "^4.1.0"
   },
   "devDependencies": {
+    "@types/node": "^22",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"
   }

@@ -22,7 +22,7 @@ export function SendQuoteButton({ quoteId, status }: { quoteId: string; token?: 
       }
     >
       {pending ? <Spinner data-icon="inline-start" /> : null}
-      {status === "draft" ? "Send proposal" : "Copy proposal link"}
+      {status === "draft" || status === "changed" ? "Send proposal" : "Copy proposal link"}
     </Button>
   );
 }

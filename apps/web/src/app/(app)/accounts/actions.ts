@@ -104,6 +104,13 @@ export async function addContact(accountId: string, fd: FormData): Promise<Actio
     return fail("Enter at least a name, email or phone.");
   }
   const supabase = await createClient();
+  const { data: account } = await supabase
+    .from("accounts")
+    .select("id")
+    .eq("id", accountId)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (!account) return fail("Account not found");
   if (parsed.data.is_primary) {
     await supabase.from("contacts").update({ is_primary: false }).eq("account_id", accountId).eq("is_primary", true);
   }
@@ -174,6 +181,13 @@ export async function createProperty(accountId: string, fd: FormData): Promise<A
   const parsed = parseProperty(fd);
   if (!parsed.success) return fail(parsed.error);
   const supabase = await createClient();
+  const { data: account } = await supabase
+    .from("accounts")
+    .select("id")
+    .eq("id", accountId)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (!account) return fail("Account not found");
 
   const { data, error } = await supabase
     .from("properties")
@@ -197,7 +211,9 @@ export async function updateProperty(id: string, fd: FormData): Promise<ActionRe
     .from("properties")
     .select("address_line1, city, region, postal_code, account_id")
     .eq("id", id)
-    .single();
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (!before) return fail("Property not found");
   const { error } = await supabase
     .from("properties")
     .update({ ...parsed.data, formatted_address: null })
@@ -218,12 +234,13 @@ export async function updateProperty(id: string, fd: FormData): Promise<ActionRe
 }
 
 export async function regeocodeProperty(id: string): Promise<ActionResult<{ warnings: string[] }>> {
-  await requireOrg();
+  const session = await requireOrg();
   const supabase = await createClient();
   const { data } = await supabase
     .from("properties")
     .select("address_line1, city, region, postal_code")
     .eq("id", id)
+    .eq("org_id", session.orgId)
     .single();
   if (!data) return fail("Property not found");
   const warnings = await resolveAndStoreGeometry(id, data);

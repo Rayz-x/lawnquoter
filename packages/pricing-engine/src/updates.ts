@@ -44,7 +44,14 @@ export function scaleRule(rule: PricingRule, factor: number): PricingRule {
   if (rule.type === "irrigation") {
     return { ...rule, pricePerZone: roundMoney(rule.pricePerZone * factor), costPerZone: roundMoney(rule.costPerZone * factor) };
   }
-  return rule;
+  return {
+    ...rule,
+    items: rule.items.map((item) =>
+      item.kind === "material"
+        ? { ...item, unitCost: roundMoney(item.unitCost * factor) }
+        : { ...item, hourlyRate: roundMoney(item.hourlyRate * factor) },
+    ),
+  };
 }
 
 export type MaterialCsvRow = { sku: string; name: string; unit: string; unitCost: number };

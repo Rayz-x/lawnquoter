@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
 import { AcceptForm } from "./accept-form";
 
 type Item = {
@@ -36,30 +37,33 @@ export function ProposalView({
 }) {
   const groups = [...new Set(payload.items.filter((i) => i.option_group).map((i) => i.option_group!))];
   const [picked, setPicked] = useState<Record<string, string>>(() => {
+    const defaults = new Set(defaultSelectedIds(payload.items));
     const init: Record<string, string> = {};
-    for (const g of groups) {
-      const best = payload.items.find((i) => i.option_group === g && i.selected) ?? payload.items.find((i) => i.option_group === g);
-      if (best) init[g] = best.id;
+    for (const item of payload.items) {
+      if (item.option_group && defaults.has(item.id)) init[item.option_group] = item.id;
     }
     return init;
   });
   const [extras, setExtras] = useState<Record<string, boolean>>(() => {
+    const defaults = new Set(defaultSelectedIds(payload.items));
     const init: Record<string, boolean> = {};
-    for (const i of payload.items) {
-      if (!i.option_group && i.state !== "included") init[i.id] = i.selected;
+    for (const item of payload.items) {
+      if (!item.option_group && item.state !== "included") init[item.id] = defaults.has(item.id);
     }
     return init;
   });
 
-  const total = useMemo(() => {
-    let n = 0;
-    for (const i of payload.items) {
-      if (i.option_group) {
-        if (picked[i.option_group] === i.id) n += Number(i.price);
-      } else if (i.state === "included" || extras[i.id]) n += Number(i.price);
+  const selectedIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const item of payload.items) {
+      if (item.option_group) {
+        if (picked[item.option_group] === item.id) ids.push(item.id);
+      } else if (item.state === "included" || extras[item.id]) ids.push(item.id);
     }
-    return n;
+    return ids;
   }, [payload.items, picked, extras]);
+
+  const total = useMemo(() => sumSelected(payload.items, selectedIds, "price"), [payload.items, selectedIds]);
 
   const brand = payload.org.brand_color ?? "#166534";
 
@@ -139,9 +143,9 @@ export function ProposalView({
           <div className="text-xs text-muted-foreground">Live total</div>
           <div className="text-2xl font-semibold tabular-nums">${total.toFixed(2)}</div>
         </div>
-        <Button render={<a href={`/q/${token}/pdf`} />}>Download PDF</Button>
+        <Button render={<a href={`/q/${token}/pdf?selected=${selectedIds.join(",")}`} />}>Download PDF</Button>
       </div>
-      <AcceptForm token={token} status={payload.status} />
+      <AcceptForm token={token} status={payload.status} selectedIds={selectedIds} />
       {payload.notes_customer ? <p className="mt-4 text-sm text-muted-foreground">{payload.notes_customer}</p> : null}
       <p className="mt-6 text-xs text-muted-foreground">
         {payload.org.phone} {payload.org.email ? `· ${payload.org.email}` : ""}

@@ -24,7 +24,7 @@ export function priceLine(input: PriceInput): PricedLine {
       result = priceTierMatrix(input.rule, input.quantities);
       break;
     case "assembly":
-      result = priceAssembly(input.rule, input.quantities);
+      result = priceAssembly(input.rule, input.quantities, ctx.complexity ?? 1);
       break;
     case "catalog":
       result = priceCatalog(input.rule);
@@ -39,7 +39,11 @@ export function priceLine(input: PriceInput): PricedLine {
       result = priceIrrigation(input.rule, input.quantities);
       break;
   }
-  result = applyModifiers(result, ctx, input.modifiers ?? defaultModifiers());
+  result = applyModifiers(
+    result,
+    input.rule.type === "assembly" ? { ...ctx, complexity: undefined } : ctx,
+    input.modifiers ?? defaultModifiers(),
+  );
   return applyConfidenceRange(result, ctx.confidence);
 }
 

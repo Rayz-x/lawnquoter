@@ -14,9 +14,9 @@ declare
 begin
   select id into v_id from auth.users where email = p_email;
   if v_id is null then
-    insert into auth.users (email, raw_user_meta_data)
-    values (p_email, jsonb_build_object('full_name', coalesce(p_full_name, p_email)))
-    returning id into v_id;
+    v_id := gen_random_uuid();
+    insert into auth.users (id, email, raw_user_meta_data)
+    values (v_id, p_email, jsonb_build_object('full_name', coalesce(p_full_name, p_email)));
   end if;
   -- The on_auth_user_created trigger inserts the profile; make sure it exists
   -- even when the trigger is absent (e.g. shim without migrations).
@@ -39,6 +39,8 @@ begin
   -- which role the previous impersonation left active.
   perform set_config('role', 'none', true);
   select email into v_email from auth.users where id = p_user;
+  perform set_config('request.jwt.claim.sub', p_user::text, true);
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
   perform set_config(
     'request.jwt.claims',
     jsonb_build_object(
@@ -60,6 +62,8 @@ language plpgsql
 as $$
 begin
   perform set_config('role', 'anon', true);
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('request.jwt.claim.role', 'anon', true);
   perform set_config('request.jwt.claims', '{"role":"anon"}', true);
 end;
 $$;
@@ -71,6 +75,8 @@ language plpgsql
 as $$
 begin
   perform set_config('role', 'none', true);
+  perform set_config('request.jwt.claim.sub', '', true);
+  perform set_config('request.jwt.claim.role', '', true);
   perform set_config('request.jwt.claims', '', true);
 end;
 $$;
