@@ -13,6 +13,9 @@ begin
   if exists (select 1 from pg_namespace where nspname = 'storage') then
     grant usage on schema storage to storage_not_owner;
   end if;
+  -- The creator is not always allowed to SET ROLE to a new role. Membership
+  -- here is not ownership of storage.objects, and the role is not reserved.
+  grant storage_not_owner to current_user with inherit false, set true;
 end
 $$;
 
