@@ -1,19 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { browserCrewStore, outboxBlocksSignOut } from "@/lib/crew/queue";
+import { browserCrewStore } from "@/lib/crew/queue";
+import { clearCrewCaches } from "@/lib/crew/sw-policy";
 
 export function CrewSignOut() {
-  const [blocked, setBlocked] = useState(false);
+  const [warn, setWarn] = useState(false);
 
   async function signOut() {
-    const store = browserCrewStore();
-    const rows = await store.listOutbox();
-    if (outboxBlocksSignOut(rows)) {
-      setBlocked(true);
+    const rows = await browserCrewStore().listOutbox();
+    const pending = rows.some((row) => !row.needs_office);
+    if (pending && !warn) {
+      setWarn(true);
       return;
     }
-    await store.clear();
+    await clearCrewCaches();
     const form = document.createElement("form");
     form.method = "post";
     form.action = "/auth/signout";
@@ -28,9 +29,11 @@ export function CrewSignOut() {
         onClick={() => void signOut()}
         className="inline-flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold"
       >
-        Sign out
+        {warn ? "Sign out anyway" : "Sign out"}
       </button>
-      {blocked ? <p className="text-[15px] text-warning">Sign out waits until the outbox is empty.</p> : null}
+      {warn ? (
+        <p className="text-[15px] text-warning">Unsent work stays on this phone until this lead signs in again.</p>
+      ) : null}
     </div>
   );
 }

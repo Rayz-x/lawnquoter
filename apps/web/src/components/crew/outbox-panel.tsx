@@ -7,7 +7,7 @@ import {
   notifyCrewQueue,
   type OutboxRow,
 } from "@/lib/crew/queue";
-import { sendCrewSync } from "@/lib/crew/sync";
+import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
 
 const LABELS: Record<string, string> = {
   visit_start: "Job started",
@@ -23,7 +23,7 @@ const LABELS: Record<string, string> = {
   enhancement_create: "Upsell",
 };
 
-export function OutboxPanel() {
+export function OutboxPanel({ userId, orgId }: { userId: string; orgId: string }) {
   const [rows, setRows] = useState<OutboxRow[]>([]);
   const [sending, setSending] = useState(false);
 
@@ -31,16 +31,22 @@ export function OutboxPanel() {
     const load = () => {
       void browserCrewStore()
         .listOutbox()
-        .then((next) => setRows(next.sort((a, b) => a.created_at.localeCompare(b.created_at))));
+        .then((next) =>
+          setRows(
+            next
+              .filter((row) => row.user_id === userId && row.org_id === orgId)
+              .sort((a, b) => a.created_at.localeCompare(b.created_at)),
+          ),
+        );
     };
     load();
     window.addEventListener("crew-queue", load);
     return () => window.removeEventListener("crew-queue", load);
-  }, []);
+  }, [userId, orgId]);
 
   async function send() {
     setSending(true);
-    await flushOutbox(browserCrewStore(), sendCrewSync);
+    await flushOutbox(browserCrewStore(), sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto);
     notifyCrewQueue();
     setSending(false);
   }
@@ -55,7 +61,7 @@ export function OutboxPanel() {
         {rows.map((row) => (
           <li key={row.client_id} className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
             <p className="text-[17px] font-semibold">{LABELS[row.kind] ?? row.kind}</p>
-            <p className="mt-1 text-[15px] text-muted-foreground">{row.last_error ?? "Waiting"}</p>
+            <p className="mt-1 text-[15px] text-muted-foreground">{row.needs_office ? "Needs the office" : (row.last_error ?? "Waiting")}</p>
           </li>
         ))}
       </ul>
