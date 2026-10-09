@@ -86,8 +86,8 @@ select is(
   (select accepted_total from public.acceptances where quote_id = :'qid'::uuid),
   (
     select sum(price)
-    from public.quote_line_items
-    where id in (:'mow'::uuid, :'bed'::uuid, :'better'::uuid, :'extra'::uuid)
+    from public.quote_line_item_amounts
+    where line_item_id in (:'mow'::uuid, :'bed'::uuid, :'better'::uuid, :'extra'::uuid)
   ),
   'accepted total matches those four line prices'
 );
@@ -95,8 +95,8 @@ select isnt(
   (select accepted_total from public.acceptances where quote_id = :'qid'::uuid),
   (
     select sum(price)
-    from public.quote_line_items
-    where id in (:'mow'::uuid, :'bed'::uuid, :'good'::uuid, :'extra'::uuid)
+    from public.quote_line_item_amounts
+    where line_item_id in (:'mow'::uuid, :'bed'::uuid, :'good'::uuid, :'extra'::uuid)
   ),
   'the unchosen option is not part of the accepted total'
 );

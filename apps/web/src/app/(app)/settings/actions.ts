@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { createClient as createBareClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { orgRoleSchema } from "@lawnquoter/shared";
 import { requireOrg } from "@/lib/auth/session";
+import { supabasePublishableKey, supabaseUrl } from "@/lib/supabase/env";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -48,61 +50,66 @@ const inviteSchema = z.object({
   role: orgRoleSchema,
 });
 
-async function findUserIdByEmail(
-  admin: ReturnType<typeof createAdminClient>,
-  email: string,
-): Promise<string | null> {
-  const { data: profile } = await admin.from("profiles").select("id").ilike("email", email).maybeSingle();
-  if (profile?.id) return profile.id;
-  for (let page = 1; page <= 10; page += 1) {
-    const { data } = await admin.auth.admin.listUsers({ page, perPage: 200 });
-    const found = data?.users.find((user) => user.email?.toLowerCase() === email.toLowerCase());
-    if (found) return found.id;
-    if (!data || data.users.length < 200) break;
-  }
-  return null;
+function appOrigin() {
+  return (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+}
+
+function alreadyRegistered(error: { message: string; status?: number }) {
+  const message = error.message.toLowerCase();
+  return error.status === 422 || message.includes("already been registered") || message.includes("already registered");
 }
 
 /**
- * Invites a teammate: creates (or finds) the auth user, adds an active
- * membership in the caller's org, and emails a sign-in link.
+ * Emails a sign-in link. The service role does not decide membership:
+ * create_org_invite already stored a pending invite the recipient must accept.
+ * Existing accounts cannot be invited again, so they get a magic link instead.
+ */
+async function emailInviteLink(email: string, nextPath: string): Promise<string | null> {
+  const redirectTo = `${appOrigin()}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo });
+  if (!error) return null;
+  if (!alreadyRegistered(error)) return error.message;
+
+  const anon = createBareClient(supabaseUrl(), supabasePublishableKey(), {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { error: otpError } = await anon.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: redirectTo, shouldCreateUser: false },
+  });
+  return otpError?.message ?? null;
+}
+
+/**
+ * Creates a pending invite after a live owner/admin check, then emails a link.
+ * The invitee gets a membership only by accepting.
  */
 export async function inviteMember(formData: FormData): Promise<ActionResult> {
-  const session = await requireOrg();
-  if (session.orgRole !== "owner" && session.orgRole !== "admin") {
-    return { ok: false, error: "Only owners and admins can invite." };
-  }
+  await requireOrg();
   const parsed = inviteSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, error: "Enter a valid email and role." };
   if (parsed.data.role === "owner") return { ok: false, error: "Transfer ownership from the member list instead." };
 
-  const admin = createAdminClient();
-  const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/auth/callback?next=/dashboard`,
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("create_org_invite", {
+    p_email: parsed.data.email,
+    p_role: parsed.data.role,
   });
-
-  let userId = invited?.user?.id ?? null;
-  if (inviteError) {
-    userId = await findUserIdByEmail(admin, parsed.data.email);
-    if (!userId) return { ok: false, error: inviteError.message };
+  if (error || !data || typeof data !== "object" || !("token" in data) || typeof data.token !== "string") {
+    return { ok: false, error: error?.message ?? "Could not create the invite." };
   }
-  if (!userId) return { ok: false, error: "Could not create the user." };
 
-  const { error: profileError } = await admin
-    .from("profiles")
-    .upsert({ id: userId, email: parsed.data.email }, { onConflict: "id" });
-  if (profileError) return { ok: false, error: profileError.message };
+  const emailError = await emailInviteLink(parsed.data.email, `/invites/accept?token=${data.token}`);
+  if (emailError) return { ok: false, error: emailError };
+  revalidatePath("/settings/team");
+  return { ok: true };
+}
 
-  const { error } = await admin.from("memberships").upsert(
-    {
-      org_id: session.orgId,
-      user_id: userId,
-      role: parsed.data.role,
-      status: "active",
-      invited_email: parsed.data.email,
-    },
-    { onConflict: "org_id,user_id" },
-  );
+export async function revokeInvite(inviteId: string): Promise<ActionResult> {
+  await requireOrg();
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("revoke_org_invite", { p_id: inviteId });
   if (error) return { ok: false, error: error.message };
   revalidatePath("/settings/team");
   return { ok: true };

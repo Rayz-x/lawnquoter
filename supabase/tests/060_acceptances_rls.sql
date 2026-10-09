@@ -1,4 +1,4 @@
-select plan(18);
+select plan(19);
 
 select tests.create_user('o1@example.com', 'Owner One') as owner1 \gset
 select tests.create_user('o2@example.com', 'Owner Two') as owner2 \gset
@@ -59,13 +59,19 @@ select throws_ok(
   'frozen version rejects new lines'
 );
 
+select set_config(
+  'request.headers',
+  '{"x-forwarded-for":"203.0.113.5, 10.0.0.1","user-agent":"vitest"}',
+  true
+);
 select tests.authenticate_anon();
 select ok(
-  (public.quote_accept(:'tok2'::uuid, 'Pat Buyer', 'pat@test.com', true, 'ua', '203.0.113.5', null::uuid[]) ->> 'ok') = 'true',
-  'accept records the signer'
+  (public.quote_accept(:'tok2'::uuid, 'Pat Buyer', 'pat@test.com', true, 'forged-ua', '198.51.100.9', null::uuid[]) ->> 'ok') = 'true',
+  'accept ignores caller-supplied ip and user agent'
 );
 select tests.authenticate_as(:'owner1'::uuid, :'org1'::uuid, 'owner');
-select is((select host(ip) from public.acceptances where quote_id = :'qid2'::uuid), '203.0.113.5', 'signer ip stored');
+select is((select host(ip) from public.acceptances where quote_id = :'qid2'::uuid), '203.0.113.5', 'signer ip comes from x-forwarded-for');
+select is((select user_agent from public.acceptances where quote_id = :'qid2'::uuid), 'vitest', 'user agent comes from the request header');
 select is(
   (select prev_hash from public.audit_events where quote_id = :'qid2'::uuid and kind = 'quote.accepted'),
   (select hash from public.audit_events where quote_id = :'qid2'::uuid and kind = 'quote.sent'),

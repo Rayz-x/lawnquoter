@@ -25,8 +25,9 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const { id } = await params;
   const session = await requireOrg();
   const supabase = await createClient();
-  const [{ data: property }, { data: geo }, { data: nearby }] = await Promise.all([
+  const [{ data: property }, { data: access }, { data: geo }, { data: nearby }] = await Promise.all([
     supabase.from("properties").select("*, accounts(id, name, type)").eq("id", id).eq("org_id", session.orgId).single(),
+    supabase.from("property_access").select("gate_code, access_notes").eq("property_id", id).eq("org_id", session.orgId).maybeSingle(),
     supabase.rpc("property_geometry", { p_property: id }),
     supabase.rpc("properties_near", { p_property: id, p_radius_m: 800 }),
   ]);
@@ -106,7 +107,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
             <TabsContent value="details">
               <Card className="max-w-2xl">
                 <CardContent className="pt-6">
-                  <PropertyForm accountId={property.account_id} property={property} />
+                  <PropertyForm accountId={property.account_id} property={property} access={access} />
                 </CardContent>
               </Card>
             </TabsContent>

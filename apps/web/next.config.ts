@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { securityHeaderGroups } from "./src/lib/http/security-headers";
 
 const nextConfig: NextConfig = {
   // Every authenticated page reads the session cookie, so static prerendering
@@ -9,6 +10,12 @@ const nextConfig: NextConfig = {
   // The fonts directory is named [token]; a literal glob treats that as a character class.
   outputFileTracingIncludes: {
     "/q/[token]/pdf": ["./src/app/q/**/fonts/**/*", "./public/brand/lq-mark-256.png"],
+  },
+  async headers() {
+    return securityHeaderGroups({
+      isDev: process.env.NODE_ENV === "development",
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    });
   },
   turbopack: {
     rules: {

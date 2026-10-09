@@ -26,7 +26,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const supabase = await createClient();
   const { data: quote } = await supabase
     .from("quotes")
-    .select("*, accounts(name), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs)")
+    .select(
+      "id, number, title, status, created_at, current_version, intro, notes_customer, notes_internal, public_token, property_id, accounts(name), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs)",
+    )
     .eq("id", id)
     .eq("org_id", session.orgId)
     .single();
@@ -35,8 +37,12 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const { data: versionId } = await supabase.rpc("quote_current_version", { p_quote: id });
   const [{ data: items }, { data: rules }, { data: list }, { data: measurement }] = await Promise.all([
     versionId
-      ? supabase.from("quote_line_items").select("*").eq("version_id", versionId).order("sort")
-      : Promise.resolve({ data: [] }),
+      ? supabase
+          .from("quote_line_items")
+          .select("id, name, state, option_group, option_tier, selected")
+          .eq("version_id", versionId)
+          .order("sort")
+      : Promise.resolve({ data: [] as { id: string; name: string; state: string; option_group: string | null; option_tier: string; selected: boolean }[] }),
     supabase.from("pricing_rules").select("id, name, rule_type, config, service_id").eq("org_id", session.orgId).eq("active", true),
     supabase.from("price_lists").select("modifiers").eq("org_id", session.orgId).eq("status", "active").maybeSingle(),
     quote.property_id
@@ -48,6 +54,31 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           .maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
+
+  const itemRows = items ?? [];
+  const { data: amounts } = itemRows.length
+    ? await supabase
+        .from("quote_line_item_amounts")
+        .select("line_item_id, price, hours, cost, range_low, range_high")
+        .in(
+          "line_item_id",
+          itemRows.map((item) => item.id),
+        )
+    : { data: [] };
+  const amountById = new Map((amounts ?? []).map((amount) => [amount.line_item_id, amount]));
+  const lines = itemRows.map((item) => {
+    const amount = amountById.get(item.id);
+    return {
+      ...item,
+      price: amount?.price ?? null,
+      hours: amount?.hours ?? null,
+      cost: amount?.cost ?? null,
+      range_low: amount?.range_low ?? null,
+      range_high: amount?.range_high ?? null,
+      priced: amount != null,
+    };
+  });
+  const pricesVisible = lines.every((line) => line.priced);
 
   const modifiers = (list?.modifiers as Modifiers | null) ?? defaultModifiers();
   const quantities: Record<string, number> = {};
@@ -74,7 +105,6 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   }
   if (!quantities.turf_sqft && quote.properties?.lot_sqft) quantities.lot_sqft = Number(quote.properties.lot_sqft);
 
-  const lines = items ?? [];
   const picked = defaultSelectedIds(lines);
   const total = sumSelected(lines, picked, "price");
   const hours = sumSelected(lines, picked, "hours");
@@ -113,7 +143,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               <CardDescription>Included / recommended / optional. Group Good / Better / Best with the same option group name.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
-              {(items ?? []).map((i) => (
+              {lines.map((i) => (
                 <div key={i.id} className="flex items-start justify-between gap-3 rounded-md border p-3 text-sm">
                   <div>
                     <div className="font-medium">{i.name}</div>
@@ -121,20 +151,20 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
                       {i.state}
                       {i.option_group ? ` · ${i.option_group} / ${i.option_tier}` : ""}
                       {picked.includes(i.id) ? "" : " · not in default total"}
-                      {i.range_low != null && i.range_high != null
+                      {i.priced && i.range_low != null && i.range_high != null
                         ? ` · range ${formatMoneyRange(Number(i.range_low), Number(i.range_high))}`
                         : ""}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-heading tabular-nums">{formatMoney(Number(i.price))}</div>
+                    <div className="font-heading tabular-nums">{i.priced ? formatMoney(Number(i.price)) : "—"}</div>
                     <div className="text-xs text-muted-foreground tabular-nums">
-                      {Number(i.hours).toFixed(2)}h · {formatMoney(Number(i.cost))} cost
+                      {i.priced ? `${Number(i.hours).toFixed(2)}h · ${formatMoney(Number(i.cost))} cost` : "Price hidden"}
                     </div>
                   </div>
                 </div>
               ))}
-              {(items ?? []).length === 0 ? <p className="text-sm text-muted-foreground">Add a line or price from the catalog.</p> : null}
+              {lines.length === 0 ? <p className="text-sm text-muted-foreground">Add a line or price from the catalog.</p> : null}
             </CardContent>
           </Card>
           {editable && versionId ? <AddItemForm quoteId={quote.id} versionId={versionId} /> : null}
@@ -154,19 +184,21 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             <CardContent className="text-sm tabular-nums">
               <div className="flex justify-between">
                 <span>Price</span>
-                <span className="font-heading text-xl font-semibold tabular-nums">{formatMoney(total, { cents: true })}</span>
+                <span className="font-heading text-xl font-semibold tabular-nums">
+                  {pricesVisible ? formatMoney(total, { cents: true }) : "—"}
+                </span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Hours</span>
-                <span>{hours.toFixed(2)}</span>
+                <span>{pricesVisible ? hours.toFixed(2) : "—"}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Cost</span>
-                <span className="font-heading tabular-nums">{formatMoney(cost, { cents: true })}</span>
+                <span className="font-heading tabular-nums">{pricesVisible ? formatMoney(cost, { cents: true }) : "—"}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Margin</span>
-                <span>{total > 0 ? `${Math.round(((total - cost) / total) * 100)}%` : "—"}</span>
+                <span>{pricesVisible && total > 0 ? `${Math.round(((total - cost) / total) * 100)}%` : "—"}</span>
               </div>
             </CardContent>
           </Card>
