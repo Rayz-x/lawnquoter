@@ -171,7 +171,7 @@ export function applySyncResults(rows: OutboxRow[], results: SyncResult[]) {
         ...row,
         attempts: row.attempts + 1,
         last_error: result.message,
-        needs_office: result.message !== "could not apply that change",
+        needs_office: result.message !== "could not apply that change" || row.attempts + 1 >= 5,
       };
       break;
     }

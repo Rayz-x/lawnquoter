@@ -126,6 +126,26 @@ describe("crew outbox", () => {
     expect(second).toEqual({ sent: 1, pending: 0 });
   });
 
+  it("hands a repeated generic error to the office so later work can send", async () => {
+    const store = createMemoryCrewStore();
+    await enqueueMutation(store, { kind: "visit_set_note", visit_id: "v", client_id: "bad", ...who }, now);
+    await enqueueMutation(store, { kind: "visit_finish", visit_id: "v2", client_id: "finish", ...who }, now);
+    const reject = async () => [{ client_id: "bad", status: "error" as const, message: "could not apply that change" }];
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      await flushOutbox(store, reject, scope);
+      expect((await store.listOutbox()).find((row) => row.client_id === "bad")?.needs_office).toBe(false);
+    }
+    await flushOutbox(store, reject, scope);
+    expect((await store.listOutbox()).find((row) => row.client_id === "bad")).toMatchObject({ attempts: 5, needs_office: true });
+    const seen: string[] = [];
+    const sent = await flushOutbox(store, async (items) => {
+      seen.push(...items.map((item) => item.client_id));
+      return items.map((item) => ({ client_id: item.client_id, status: "applied" as const, message: null }));
+    }, scope);
+    expect(seen).toEqual(["finish"]);
+    expect(sent).toEqual({ sent: 1, pending: 1 });
+  });
+
   it("parses crew_sync results", () => {
     expect(parseSyncResults({ results: [{ client_id: "a", status: "applied", message: null }, { status: "nope" }] })).toEqual([
       { client_id: "a", status: "applied", message: null },
