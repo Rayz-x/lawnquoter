@@ -1,6 +1,5 @@
 /** Columns the crew today list is allowed to read. Address, status, tasks, minutes. */
 export const CREW_TODAY_SELECTS = {
-  membership: "crew_id",
   route: "id",
   visit: "id, status, budget_minutes, sort, property_id",
   property: "id, formatted_address, address_line1",
@@ -19,7 +18,6 @@ const FORBIDDEN_SELECT_TOKENS = [
   "contact",
   "accounts",
   "contacts",
-  "note_office",
 ] as const;
 
 export function crewTodaySelectsAreFieldSafe(selects: Record<string, string> = CREW_TODAY_SELECTS): boolean {
@@ -46,7 +44,11 @@ export function budgetMinutesLabel(minutes: number | null): string {
   return `${minutes} min`;
 }
 
-/** Org-local calendar day as YYYY-MM-DD. Invalid zones fall back to UTC, matching private.org_local_today. */
+/**
+ * Org-local calendar day as YYYY-MM-DD.
+ * A bad IANA name falls back to UTC in this helper. private.org_local_today
+ * substitutes UTC only when the stored zone is null; an invalid name raises there.
+ */
 export function orgLocalDate(timeZone: string, now = new Date()): string {
   try {
     const parts = new Intl.DateTimeFormat("en-US", {
@@ -88,6 +90,33 @@ export type CrewTaskRow = {
   label: string;
   sort: number;
 };
+
+/** Row from public.my_crews(): the signed-in user's crews, id plus display name. */
+export type MyCrew = {
+  crew_id: string;
+  name: string;
+};
+
+export function crewIdsFromMyCrews(crews: MyCrew[]): string[] {
+  return [
+    ...new Set(
+      crews
+        .map((crew) => crew.crew_id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    ),
+  ];
+}
+
+export function crewNameLabel(crews: MyCrew[]): string {
+  return [
+    ...new Set(
+      crews
+        .filter((crew) => typeof crew.crew_id === "string" && crew.crew_id.length > 0)
+        .map((crew) => crew.name.trim())
+        .filter((name) => name.length > 0),
+    ),
+  ].join(", ");
+}
 
 export type CrewStop = {
   id: string;
