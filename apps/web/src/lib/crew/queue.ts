@@ -40,7 +40,6 @@ export type OutboxRow = {
 };
 
 export type PhotoUpload = (row: OutboxRow, bytes: Blob) => Promise<void>;
-export type PhotoIdLookup = (photoClientId: string) => Promise<string | null>;
 
 export type SyncItem = {
   client_id: string;
@@ -212,9 +211,8 @@ export function flushOutbox(
   scope: CrewScope,
   now = new Date(),
   upload?: PhotoUpload,
-  lookup?: PhotoIdLookup,
 ) {
-  const run = flushChain.then(() => flushOutboxOnce(store, send, scope, now, upload, lookup));
+  const run = flushChain.then(() => flushOutboxOnce(store, send, scope, now, upload));
   flushChain = run.then(
     () => undefined,
     () => undefined,
@@ -232,7 +230,6 @@ async function flushOutboxOnce(
   scope: CrewScope,
   now: Date,
   upload?: PhotoUpload,
-  lookup?: PhotoIdLookup,
 ) {
   let sent = 0;
   let pending = (await store.listOutbox()).length;
@@ -255,23 +252,6 @@ async function flushOutboxOnce(
           deferred = true;
           break;
         }
-        const row = rows.find((entry) => entry.client_id === item.client_id);
-        let photoId: string | null = null;
-        if (lookup) {
-          try {
-            photoId = await lookup(photoClientId);
-          } catch {
-            photoId = null;
-          }
-        }
-        if (!photoId || !row) {
-          if (row && lookup) await store.settle([], { ...row, attempts: row.attempts + 1, last_error: "The upsell photo needs the office.", needs_office: true });
-          continue;
-        }
-        const note = typeof item.payload.note === "string" ? item.payload.note : undefined;
-        const payload: CrewPayload = { tag: item.payload.tag, ...(note ? { note } : {}), photo_ids: [photoId] };
-        item.payload = payload;
-        await store.putOutbox({ ...row, payload });
       }
       if (item.kind !== "visit_photo_record") {
         ready.push(item);

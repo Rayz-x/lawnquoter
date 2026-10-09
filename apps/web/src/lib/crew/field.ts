@@ -1,5 +1,4 @@
 import { enqueueMutation, type CrewPayload, type CrewStore } from "./queue";
-import { createClient } from "@/lib/supabase/client";
 
 export const SKIP_REASONS = [
   ["gate_locked", "Gate locked"],
@@ -53,10 +52,4 @@ export async function queueEnhancement(
     },
     photoClientId ? new Date(now.getTime() + 1) : now,
   );
-}
-
-export async function lookupVisitPhoto(photoClientId: string): Promise<string | null> {
-  const { data, error } = await createClient().from("visit_photos").select("id").eq("client_id", photoClientId).maybeSingle();
-  if (error || !data) return null;
-  return data.id;
 }

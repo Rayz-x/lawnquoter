@@ -174,13 +174,12 @@ describe("day packs", () => {
       scope,
       now,
       async () => undefined,
-      async (id) => (id === photo.client_id ? "photo-row" : null),
     );
     expect(batches).toEqual([["visit_photo_record"], ["enhancement_create"]]);
     expect(result).toMatchObject({ sent: 2, pending: 0 });
   });
 
-  it("parks an upsell the phone cannot match and still sends finish", async () => {
+  it("sends an upsell with its photo client id so finish is not blocked", async () => {
     const store = createMemoryCrewStore();
     await enqueueMutation(store, {
       client_id: "enh-1",
@@ -195,36 +194,12 @@ describe("day packs", () => {
       visit_id: "v",
       ...who,
     }, new Date(now.getTime() + 1));
-    const batches: string[][] = [];
-    const send = async (items: { client_id: string; kind: string }[]) => {
-      batches.push(items.map((item) => item.kind));
-      return items.map((item) => ({ client_id: item.client_id, status: "applied" as const, message: null }));
-    };
-    const missed = await flushOutbox(store, send, scope, now, async () => undefined, async () => null);
-    expect(batches).toEqual([["visit_finish"]]);
-    expect(missed).toMatchObject({ sent: 1, pending: 1 });
-    expect(await store.listOutbox()).toMatchObject([{ client_id: "enh-1", needs_office: true }]);
-
-    const later = createMemoryCrewStore();
-    await enqueueMutation(later, {
-      client_id: "enh-2",
-      kind: "enhancement_create",
-      visit_id: "v",
-      ...who,
-      payload: { tag: "mulch", photo_client_id: "photo-gone" },
-    }, now);
-    await enqueueMutation(later, {
-      client_id: "fin-2",
-      kind: "visit_finish",
-      visit_id: "v",
-      ...who,
-    }, new Date(now.getTime() + 1));
-    const kinds: string[][] = [];
-    await flushOutbox(later, async (items) => {
-      kinds.push(items.map((item) => item.kind));
+    const batches: { kind: string; photo?: string }[][] = [];
+    const sent = await flushOutbox(store, async (items) => {
+      batches.push(items.map((item) => ({ kind: item.kind, photo: typeof item.payload.photo_client_id === "string" ? item.payload.photo_client_id : undefined })));
       return items.map((item) => ({ client_id: item.client_id, status: "applied" as const, message: null }));
     }, scope, now, async () => undefined);
-    expect(kinds).toEqual([["visit_finish"]]);
-    expect(await later.listOutbox()).toMatchObject([{ client_id: "enh-2", needs_office: false }]);
+    expect(batches).toEqual([[{ kind: "enhancement_create", photo: "photo-gone" }, { kind: "visit_finish" }]]);
+    expect(sent).toEqual({ sent: 2, pending: 0 });
   });
 });
