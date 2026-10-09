@@ -678,7 +678,11 @@ begin
   insert into public.visit_office_notes (visit_id, org_id, note)
   values (v_visit.id, v_visit.org_id, v_reason)
   on conflict (visit_id) do update
-    set note = excluded.note;
+    set note = case
+      when length(coalesce(public.visit_office_notes.note, '')) > 0
+      then public.visit_office_notes.note || E'\n' || excluded.note
+      else excluded.note
+    end;
 end;
 $$;
 
@@ -963,6 +967,10 @@ declare
   a public.agreements;
   v_kind public.agreement_kind;
   v_frequency public.agreement_frequency;
+  v_today date;
+  v_changed boolean;
+  v_anchor date;
+  v_step integer;
 begin
   select * into a
   from public.agreements
@@ -1001,6 +1009,9 @@ begin
     v_frequency := p_frequency::public.agreement_frequency;
   end if;
   v_kind := p_kind::public.agreement_kind;
+  v_changed := a.kind is distinct from v_kind
+    or a.frequency is distinct from v_frequency
+    or a.preferred_dow is distinct from p_preferred_dow;
 
   update public.agreements
   set kind = v_kind,
@@ -1008,6 +1019,73 @@ begin
       preferred_dow = p_preferred_dow,
       start_date = p_start_date
   where id = a.id;
+
+  -- A day, frequency, or kind change must not leave the old series scheduled.
+  -- Visits that still fall on the new cadence stay, because the occurrence
+  -- key would otherwise keep a cancelled row and block regeneration. Assigned
+  -- visits stay on their route. One-time cancels the future unassigned series
+  -- and does not generate a replacement.
+  if v_changed then
+    v_today := private.org_local_today(a.org_id);
+    if v_kind = 'recurring'::public.agreement_kind
+       and v_frequency in ('weekly'::public.agreement_frequency, 'biweekly'::public.agreement_frequency) then
+      v_step := case when v_frequency = 'biweekly'::public.agreement_frequency then 14 else 7 end;
+      v_anchor := p_start_date
+        + ((p_preferred_dow - extract(dow from p_start_date)::integer + 7) % 7);
+    end if;
+
+    with cancelled as (
+      update public.visits v
+      set status = 'cancelled'
+      where v.org_id = a.org_id
+        and v.agreement_id = a.id
+        and v.status = 'scheduled'::public.visit_status
+        and v.route_id is null
+        and v.occurrence_date >= v_today
+        and not (
+          v_kind = 'recurring'::public.agreement_kind
+          and v.occurrence_date >= p_start_date
+          and (a.end_date is null or v.occurrence_date <= a.end_date)
+          and (
+            (
+              v_frequency = 'monthly'::public.agreement_frequency
+              and exists (
+                select 1
+                from generate_series(0, 600) as n
+                where (p_start_date + make_interval(months => n))::date = v.occurrence_date
+              )
+            )
+            or (
+              v_frequency in ('weekly'::public.agreement_frequency, 'biweekly'::public.agreement_frequency)
+              and v_anchor is not null
+              and v_step is not null
+              and v.occurrence_date >= v_anchor
+              and ((v.occurrence_date - v_anchor) % v_step) = 0
+            )
+          )
+        )
+      returning v.id, v.org_id
+    )
+    insert into public.visit_office_notes (visit_id, org_id, note)
+    select c.id, c.org_id, 'schedule_changed'
+    from cancelled c
+    on conflict (visit_id) do update
+      set note = case
+        when length(coalesce(public.visit_office_notes.note, '')) > 0
+        then public.visit_office_notes.note || E'\n' || excluded.note
+        else excluded.note
+      end;
+
+    if v_kind = 'recurring'::public.agreement_kind
+       and exists (
+         select 1
+         from public.jobs j
+         where j.agreement_id = a.id
+           and j.org_id = a.org_id
+       ) then
+      perform private.fill_agreement_visits(a.id, v_today + 56);
+    end if;
+  end if;
 end;
 $$;
 

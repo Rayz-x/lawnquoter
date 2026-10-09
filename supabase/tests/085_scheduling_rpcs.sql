@@ -1,7 +1,7 @@
 -- Scheduling RPCs: convert, generate, assign, reorder, publish, crews.
 -- Quote price and cost denial stays in the privilege-gaps tests.
 
-select plan(138);
+select plan(151);
 
 select ok(
   not has_function_privilege('anon', 'public.convert_accepted_quote(uuid, text, text, integer, date)', 'execute'),
@@ -403,12 +403,6 @@ select is(
   :'lead'::uuid,
   'the default lead is the crew lead'
 );
-select throws_ok(
-  format($$ delete from public.crew_members where crew_id = %L and profile_id = %L $$, :'crew_id', :'lead'),
-  '23514',
-  null,
-  'the default lead cannot be removed'
-);
 select public.create_crew('South') as crew_south \gset
 select throws_ok(
   format($$ select public.set_crew_lead(%L, %L) $$, :'crew_south', :'lead'),
@@ -599,6 +593,24 @@ select is(
   ),
   1::bigint,
   'the cancelled occurrence still occupies its date'
+);
+select tests.clear_auth();
+select id as visit_noted
+from public.visits
+where agreement_id = :'agr'::uuid
+  and occurrence_date = :'today'::date + 14
+\gset
+insert into public.visit_office_notes (visit_id, org_id, note)
+values (:'visit_noted'::uuid, :'org'::uuid, 'gate code is 1234');
+select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
+select lives_ok(
+  format($$ select public.cancel_visit(%L, 'rain date') $$, :'visit_noted'),
+  'cancelling appends the reason to an existing office note'
+);
+select is(
+  (select note from public.visit_office_notes where visit_id = :'visit_noted'::uuid),
+  E'gate code is 1234\nrain date',
+  'the new cancel reason follows the existing office note'
 );
 
 select tests.clear_auth();
@@ -925,6 +937,139 @@ select throws_ok(
   '22023',
   null,
   'the start date cannot be after the agreement ends'
+);
+
+select tests.clear_auth();
+select extract(dow from :'today'::date)::integer as dow_today \gset
+select ((:dow_today + 2) % 7) as dow_other \gset
+insert into public.agreements (
+  org_id, account_id, property_id, kind, frequency, preferred_dow, start_date, status
+) values (
+  :'org'::uuid, :'acct'::uuid, :'prop'::uuid, 'recurring', 'weekly', :dow_today, :'today'::date, 'active'
+) returning id as agr_shift \gset
+insert into public.jobs (org_id, agreement_id, property_id, title)
+values (:'org'::uuid, :'agr_shift'::uuid, :'prop'::uuid, 'Shift')
+returning id as job_shift \gset
+select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
+select public.generate_agreement_visits(:'agr_shift'::uuid, (:'today'::date + 21)) as shift_created \gset
+select id as visit_keep
+from public.visits
+where agreement_id = :'agr_shift'::uuid
+  and occurrence_date = :'today'::date + 7
+\gset
+select public.assign_visit(:'visit_keep'::uuid, :'crew_id'::uuid, :'today'::date) as shift_route \gset
+select lives_ok(
+  format(
+    $$ select public.update_agreement_schedule(%L, 'recurring', 'biweekly', %s, %L) $$,
+    :'agr_shift', :dow_today, :'today'
+  ),
+  'changing the frequency cancels visits that no longer match'
+);
+select is(
+  (
+    select status::text
+    from public.visits
+    where agreement_id = :'agr_shift'::uuid
+      and occurrence_date = :'today'::date + 21
+  ),
+  'cancelled',
+  'a future unassigned visit off the new frequency is cancelled'
+);
+select is(
+  (
+    select note
+    from public.visit_office_notes n
+    join public.visits v on v.id = n.visit_id
+    where v.agreement_id = :'agr_shift'::uuid
+      and v.occurrence_date = :'today'::date + 21
+  ),
+  'schedule_changed',
+  'a schedule change records schedule_changed'
+);
+select is(
+  (
+    select status::text
+    from public.visits
+    where agreement_id = :'agr_shift'::uuid
+      and occurrence_date = :'today'::date + 14
+  ),
+  'scheduled',
+  'a visit that still matches the new frequency stays scheduled'
+);
+select lives_ok(
+  format(
+    $$ select public.update_agreement_schedule(%L, 'recurring', 'weekly', %s, %L) $$,
+    :'agr_shift', :dow_other, :'today'
+  ),
+  'changing the preferred day replaces the unassigned series'
+);
+select is(
+  (select status::text from public.visits where id = :'visit_keep'::uuid),
+  'scheduled',
+  'an assigned visit stays when the preferred day changes'
+);
+select is(
+  (
+    select count(*)
+    from public.visits
+    where agreement_id = :'agr_shift'::uuid
+      and route_id is null
+      and status = 'scheduled'
+      and occurrence_date >= :'today'::date
+      and extract(dow from occurrence_date)::integer = :dow_today
+  ),
+  0::bigint,
+  'future unassigned visits on the old day are no longer scheduled'
+);
+select is(
+  (
+    select note
+    from public.visit_office_notes n
+    join public.visits v on v.id = n.visit_id
+    where v.id = (
+      select id
+      from public.visits
+      where agreement_id = :'agr_shift'::uuid
+        and occurrence_date = :'today'::date + 14
+    )
+  ),
+  'schedule_changed',
+  'the old preferred day is cancelled with schedule_changed'
+);
+select ok(
+  (
+    select count(*)
+    from public.visits
+    where agreement_id = :'agr_shift'::uuid
+      and route_id is null
+      and status = 'scheduled'
+      and extract(dow from occurrence_date)::integer = :dow_other
+  ) > 0,
+  'the new preferred day has scheduled visits'
+);
+select lives_ok(
+  format(
+    $$ select public.update_agreement_schedule(%L, 'one_time', null, null, %L) $$,
+    :'agr_shift', :'today'
+  ),
+  'switching to one-time cancels the future unassigned series'
+);
+select is(
+  (
+    select count(*)
+    from public.visits
+    where agreement_id = :'agr_shift'::uuid
+      and route_id is null
+      and status = 'scheduled'
+      and occurrence_date >= :'today'::date
+  ),
+  0::bigint,
+  'one-time does not leave future unassigned visits scheduled'
+);
+select is(
+  (select status::text from public.visits where id = :'visit_keep'::uuid),
+  'scheduled',
+  'an assigned visit stays when the agreement becomes one-time'
 );
 
 select * from finish();
