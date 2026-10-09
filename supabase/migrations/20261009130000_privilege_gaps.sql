@@ -2,23 +2,28 @@
 -- payment intents, server-captured acceptance evidence, and field-role denial
 -- of prices, costs, and gate codes.
 --
--- Version is 20261009105000 so this sorts after 20261009104008 (PR #9,
--- property_clear_geometry) and does not collide with PR #8, which also
--- used 20261009180000. That timestamp is in the future relative to the
+-- Version is 20261009130000 so this sorts after 20261009120000 (PR #6,
+-- org branding, which replaces quote_public) and after 20261009104008
+-- (PR #9, property_clear_geometry). It does not collide with PR #8, which
+-- uses 20261009180000. That timestamp is in the future relative to the
 -- hosted database and would break migration ordering.
 --
--- REBASE: PR #8 (acceptance NTE, 20261009180000_acceptance_not_to_exceed.sql)
--- also replaces public.quote_accept. Whichever of these two migrations lands
--- second must merge both function bodies. Keep this file's request-header
--- capture (ignore p_ip and p_user_agent; read x-forwarded-for and user-agent
--- from request.headers) together with PR #8's required signer email, the
--- not-to-exceed cap, the clause, and the acceptance hash. Do not drop either
--- side when resolving the conflict.
+-- REBASE for PR #8 (acceptance NTE, 20261009180000_acceptance_not_to_exceed.sql).
+-- That migration lands after this file and replaces quote_accept. It must
+-- keep both marked blocks below. Do not drop either.
 --
--- REBASE: PR #6 also replaces public.quote_public. Whichever lands second
--- must keep this file's refusal: an authenticated crew or crew_lead member of
--- the quote's org gets null, and therefore no prices, even with the public
--- token. Anon customers still receive the public proposal.
+--   1. quote_accept — KEEP the request-header capture marked in that
+--      function. Ignore p_ip and p_user_agent. Read x-forwarded-for (first
+--      hop) and user-agent from request.headers. Merge that with PR #8's
+--      required signer email, the not-to-exceed cap, the clause, and the
+--      acceptance hash.
+--
+--   2. quote_public — KEEP the crew/crew_lead null check marked in that
+--      function. This body already includes every branding key from PR #6
+--      (20261009120000_org_branding.sql). An authenticated crew or crew_lead
+--      member of the quote's org gets null, and therefore no prices, even
+--      with the public token. Anon customers still receive the branded
+--      proposal.
 --
 -- New helper functions must be explicitly granted to authenticated and
 -- service_role. The default privileges at the bottom revoke EXECUTE from
@@ -168,9 +173,9 @@ create policy audit_events_select on public.audit_events
   for select to authenticated
   using ((select private.can_read_pricing(org_id)));
 
--- Hiding public_token is not enough: a logged-in field role that already
--- has the token can still call this anon RPC. Return null before any price
--- is built, and before the viewed/expired writes.
+-- Public proposal payload from 20261009120000 (PR #6), plus the field-role
+-- refusal. Hiding public_token is not enough: a logged-in crew or crew_lead
+-- that already has the token can still call this anon RPC.
 create or replace function public.quote_public(p_token uuid)
 returns jsonb
 language plpgsql
@@ -187,6 +192,9 @@ begin
     return null;
   end if;
 
+  -- KEEP on rebase (PR #8): crew and crew_lead of this org get null before
+  -- any price is built and before the viewed/expired writes. Anon
+  -- (auth.uid() is null) still receives the branded proposal below.
   if auth.uid() is not null and exists (
     select 1
     from public.memberships m
@@ -222,7 +230,27 @@ begin
     'notes_customer', q.notes_customer,
     'expires_at', q.expires_at,
     'status', q.status,
-    'org', jsonb_build_object('name', o.name, 'phone', o.phone, 'email', o.email, 'brand_color', o.brand_color),
+    'org', jsonb_build_object(
+      'name', o.name,
+      'phone', o.phone,
+      'email', o.email,
+      'website', o.website,
+      'brand_color', o.brand_color,
+      'logo_url', o.logo_path,
+      'logo_dark_url', o.logo_dark_path,
+      'logo_raster_url', o.logo_raster_path,
+      'logo_width', o.logo_width,
+      'logo_height', o.logo_height,
+      'logo_shows_name', o.logo_shows_name,
+      'logo_needs_chip', o.logo_needs_chip,
+      'heading_font', o.heading_font,
+      'address_line1', o.address_line1,
+      'address_line2', o.address_line2,
+      'city', o.city,
+      'region', o.region,
+      'postal_code', o.postal_code,
+      'country', o.country
+    ),
     'sections', coalesce((
       select jsonb_agg(jsonb_build_object('id', s.id, 'title', s.title, 'sort', s.sort) order by s.sort)
       from public.quote_sections s where s.version_id = v.id
@@ -242,6 +270,10 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- Acceptance evidence comes from request headers, not RPC arguments.
+-- KEEP on rebase (PR #8): the header capture below (ignore p_ip and
+-- p_user_agent; read x-forwarded-for and user-agent from request.headers).
+-- Merge it with PR #8's signer email, not-to-exceed cap, clause, and
+-- acceptance hash. Do not keep only one side.
 -- ---------------------------------------------------------------------------
 create or replace function public.quote_accept(
   p_token uuid,
@@ -280,6 +312,7 @@ begin
     raise exception 'signer name required' using errcode = '22023';
   end if;
 
+  -- KEEP on rebase (PR #8): IP and user agent come from request headers.
   begin
     if coalesce(current_setting('request.headers', true), '') <> '' then
       v_headers := current_setting('request.headers', true)::jsonb;
