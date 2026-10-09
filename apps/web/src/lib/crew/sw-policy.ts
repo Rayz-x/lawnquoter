@@ -1,6 +1,6 @@
 export const TILE_HOST_MARKERS = ["arcgis.com", "arcgisonline.com"] as const;
 
-export type CachePlan = "bypass" | "cache-first" | "network-only";
+export type CachePlan = "bypass" | "cache-first" | "network-first" | "network-only";
 
 const BUILD_ID = /^[A-Za-z0-9._-]{1,64}$/;
 
@@ -25,6 +25,7 @@ export function cachePlan(input: {
   hostname: string;
   pathname: string;
   sameOrigin: boolean;
+  mode: string;
 }): CachePlan {
   if (input.method !== "GET") return "bypass";
   const host = input.hostname.toLowerCase();
@@ -38,6 +39,12 @@ export function cachePlan(input: {
   ) {
     return "cache-first";
   }
+  if (input.pathname === "/crew/today" && input.mode === "navigate") return "network-first";
   if (input.pathname === "/sw.js" || input.pathname.startsWith("/crew")) return "network-only";
   return "bypass";
+}
+
+/** A crew page is stored only when the network returned this document, not a redirect. */
+export function canCacheCrewPage(response: { status: number; type: string; redirected: boolean }): boolean {
+  return response.status === 200 && response.type === "basic" && response.redirected !== true;
 }

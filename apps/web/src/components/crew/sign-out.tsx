@@ -14,6 +14,8 @@ export function CrewSignOut() {
       setWarn(true);
       return;
     }
+    const store = browserCrewStore();
+    await store.clearPacks();
     await clearCrewCaches();
     const form = document.createElement("form");
     form.method = "post";
