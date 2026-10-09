@@ -6,7 +6,161 @@ export type Database = {
   
   "public": {
           Tables: {
-            "memberships": {
+            "accounts": {
+                  Row: {
+                    "billing_address_line1": string | null,"billing_address_line2": string | null,"billing_city": string | null,"billing_email": string | null,"billing_postal_code": string | null,"billing_region": string | null,"company_name": string | null,"consolidated_invoicing": boolean,"created_at": string,"created_by": string | null,"email": string | null,"id": string,"lead_source": string | null,"name": string,"net_terms_days": number,"notes": string | null,"org_id": string,"parent_account_id": string | null,"phone": string | null,"po_required": boolean,"qbo_customer_id": string | null,"status": Database["public"]['Enums']["account_status"],"stripe_customer_id": string | null,"tags": (string)[],"tax_exempt": boolean,"tax_exempt_certificate": string | null,"type": Database["public"]['Enums']["account_type"],"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "billing_address_line1"?: string | null,"billing_address_line2"?: string | null,"billing_city"?: string | null,"billing_email"?: string | null,"billing_postal_code"?: string | null,"billing_region"?: string | null,"company_name"?: string | null,"consolidated_invoicing"?: boolean,"created_at"?: string,"created_by"?: string | null,"email"?: string | null,"id"?: string,"lead_source"?: string | null,"name": string,"net_terms_days"?: number,"notes"?: string | null,"org_id": string,"parent_account_id"?: string | null,"phone"?: string | null,"po_required"?: boolean,"qbo_customer_id"?: string | null,"status"?: Database["public"]['Enums']["account_status"],"stripe_customer_id"?: string | null,"tags"?: (string)[],"tax_exempt"?: boolean,"tax_exempt_certificate"?: string | null,"type"?: Database["public"]['Enums']["account_type"],"updated_at"?: string
+                  }
+                  Update: {
+                    "billing_address_line1"?: string | null,"billing_address_line2"?: string | null,"billing_city"?: string | null,"billing_email"?: string | null,"billing_postal_code"?: string | null,"billing_region"?: string | null,"company_name"?: string | null,"consolidated_invoicing"?: boolean,"created_at"?: string,"created_by"?: string | null,"email"?: string | null,"id"?: string,"lead_source"?: string | null,"name"?: string,"net_terms_days"?: number,"notes"?: string | null,"org_id"?: string,"parent_account_id"?: string | null,"phone"?: string | null,"po_required"?: boolean,"qbo_customer_id"?: string | null,"status"?: Database["public"]['Enums']["account_status"],"stripe_customer_id"?: string | null,"tags"?: (string)[],"tax_exempt"?: boolean,"tax_exempt_certificate"?: string | null,"type"?: Database["public"]['Enums']["account_type"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "accounts_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "accounts_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "accounts_parent_account_id_fkey"
+      columns: ["parent_account_id"]
+isOneToOne: false
+      referencedRelation: "accounts"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"activities": {
+                  Row: {
+                    "account_id": string | null,"actor_id": string | null,"created_at": string,"id": string,"kind": string,"meta": NonNullable<Json>,"occurred_at": string,"org_id": string,"property_id": string | null,"summary": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "account_id"?: string | null,"actor_id"?: string | null,"created_at"?: string,"id"?: string,"kind": string,"meta"?: NonNullable<Json>,"occurred_at"?: string,"org_id": string,"property_id"?: string | null,"summary": string
+                  }
+                  Update: {
+                    "account_id"?: string | null,"actor_id"?: string | null,"created_at"?: string,"id"?: string,"kind"?: string,"meta"?: NonNullable<Json>,"occurred_at"?: string,"org_id"?: string,"property_id"?: string | null,"summary"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "activities_account_id_fkey"
+      columns: ["account_id"]
+isOneToOne: false
+      referencedRelation: "accounts"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "activities_actor_id_fkey"
+      columns: ["actor_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "activities_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "activities_property_id_fkey"
+      columns: ["property_id"]
+isOneToOne: false
+      referencedRelation: "properties"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"contacts": {
+                  Row: {
+                    "account_id": string,"created_at": string,"email": string | null,"first_name": string,"id": string,"is_billing": boolean,"is_primary": boolean,"last_name": string,"notes": string | null,"org_id": string,"phone": string | null,"role": Database["public"]['Enums']["contact_role"],"sms_opt_in": boolean,"title": string | null,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "account_id": string,"created_at"?: string,"email"?: string | null,"first_name"?: string,"id"?: string,"is_billing"?: boolean,"is_primary"?: boolean,"last_name"?: string,"notes"?: string | null,"org_id": string,"phone"?: string | null,"role"?: Database["public"]['Enums']["contact_role"],"sms_opt_in"?: boolean,"title"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "account_id"?: string,"created_at"?: string,"email"?: string | null,"first_name"?: string,"id"?: string,"is_billing"?: boolean,"is_primary"?: boolean,"last_name"?: string,"notes"?: string | null,"org_id"?: string,"phone"?: string | null,"role"?: Database["public"]['Enums']["contact_role"],"sms_opt_in"?: boolean,"title"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "contacts_account_id_fkey"
+      columns: ["account_id"]
+isOneToOne: false
+      referencedRelation: "accounts"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "contacts_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"measurement_features": {
+                  Row: {
+                    "area_sqft": number | null,"category": Database["public"]['Enums']["feature_category"],"created_at": string,"geom": unknown,"id": string,"label": string | null,"length_ft": number | null,"measurement_id": string,"notes": string | null,"org_id": string,"source": Database["public"]['Enums']["feature_source"],"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "area_sqft"?: number | null,"category": Database["public"]['Enums']["feature_category"],"created_at"?: string,"geom"?: unknown,"id"?: string,"label"?: string | null,"length_ft"?: number | null,"measurement_id": string,"notes"?: string | null,"org_id": string,"source"?: Database["public"]['Enums']["feature_source"],"updated_at"?: string
+                  }
+                  Update: {
+                    "area_sqft"?: number | null,"category"?: Database["public"]['Enums']["feature_category"],"created_at"?: string,"geom"?: unknown,"id"?: string,"label"?: string | null,"length_ft"?: number | null,"measurement_id"?: string,"notes"?: string | null,"org_id"?: string,"source"?: Database["public"]['Enums']["feature_source"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "measurement_features_measurement_id_fkey"
+      columns: ["measurement_id"]
+isOneToOne: false
+      referencedRelation: "measurements"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "measurement_features_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"measurements": {
+                  Row: {
+                    "confidence": number | null,"confidence_reasons": (string)[],"created_at": string,"created_by": string | null,"id": string,"imagery_date": string | null,"imagery_source": string,"notes": string | null,"org_id": string,"property_id": string,"status": Database["public"]['Enums']["measurement_status"],"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "confidence"?: number | null,"confidence_reasons"?: (string)[],"created_at"?: string,"created_by"?: string | null,"id"?: string,"imagery_date"?: string | null,"imagery_source"?: string,"notes"?: string | null,"org_id": string,"property_id": string,"status"?: Database["public"]['Enums']["measurement_status"],"updated_at"?: string
+                  }
+                  Update: {
+                    "confidence"?: number | null,"confidence_reasons"?: (string)[],"created_at"?: string,"created_by"?: string | null,"id"?: string,"imagery_date"?: string | null,"imagery_source"?: string,"notes"?: string | null,"org_id"?: string,"property_id"?: string,"status"?: Database["public"]['Enums']["measurement_status"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "measurements_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "measurements_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "measurements_property_id_fkey"
+      columns: ["property_id"]
+isOneToOne: false
+      referencedRelation: "properties"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"memberships": {
                   Row: {
                     "created_at": string,"id": string,"invited_email": string | null,"org_id": string,"role": Database["public"]['Enums']["org_role"],"status": Database["public"]['Enums']["membership_status"],"updated_at": string,"user_id": string
                   }
@@ -66,6 +220,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"properties": {
+                  Row: {
+                    "access_notes": string | null,"account_id": string,"address_line1": string,"address_line2": string | null,"building_sqft": number | null,"city": string,"country": string,"created_at": string,"crew_notes": string | null,"footprint": unknown,"footprint_source": Database["public"]['Enums']["geo_source"],"formatted_address": string | null,"gate_code": string | null,"gate_width_in": number | null,"has_dogs": boolean,"has_stairs": boolean,"id": string,"imagery_date": string | null,"is_active": boolean,"location": unknown,"lot_sqft": number | null,"name": string | null,"obstacle_count": number,"org_id": string,"parcel": unknown,"parcel_apn": string | null,"parcel_source": Database["public"]['Enums']["geo_source"],"place_id": string | null,"postal_code": string,"region": string,"slope": Database["public"]['Enums']["slope_class"] | null,"updated_at": string,"zone": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "access_notes"?: string | null,"account_id": string,"address_line1": string,"address_line2"?: string | null,"building_sqft"?: number | null,"city": string,"country"?: string,"created_at"?: string,"crew_notes"?: string | null,"footprint"?: unknown,"footprint_source"?: Database["public"]['Enums']["geo_source"],"formatted_address"?: string | null,"gate_code"?: string | null,"gate_width_in"?: number | null,"has_dogs"?: boolean,"has_stairs"?: boolean,"id"?: string,"imagery_date"?: string | null,"is_active"?: boolean,"location"?: unknown,"lot_sqft"?: number | null,"name"?: string | null,"obstacle_count"?: number,"org_id": string,"parcel"?: unknown,"parcel_apn"?: string | null,"parcel_source"?: Database["public"]['Enums']["geo_source"],"place_id"?: string | null,"postal_code": string,"region": string,"slope"?: Database["public"]['Enums']["slope_class"] | null,"updated_at"?: string,"zone"?: string | null
+                  }
+                  Update: {
+                    "access_notes"?: string | null,"account_id"?: string,"address_line1"?: string,"address_line2"?: string | null,"building_sqft"?: number | null,"city"?: string,"country"?: string,"created_at"?: string,"crew_notes"?: string | null,"footprint"?: unknown,"footprint_source"?: Database["public"]['Enums']["geo_source"],"formatted_address"?: string | null,"gate_code"?: string | null,"gate_width_in"?: number | null,"has_dogs"?: boolean,"has_stairs"?: boolean,"id"?: string,"imagery_date"?: string | null,"is_active"?: boolean,"location"?: unknown,"lot_sqft"?: number | null,"name"?: string | null,"obstacle_count"?: number,"org_id"?: string,"parcel"?: unknown,"parcel_apn"?: string | null,"parcel_source"?: Database["public"]['Enums']["geo_source"],"place_id"?: string | null,"postal_code"?: string,"region"?: string,"slope"?: Database["public"]['Enums']["slope_class"] | null,"updated_at"?: string,"zone"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "properties_account_id_fkey"
+      columns: ["account_id"]
+isOneToOne: false
+      referencedRelation: "accounts"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "properties_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    }
+                  ]
                 }
           }
           Views: {
@@ -87,15 +267,35 @@ isOneToOne: false
 "gen_salt":
 { Args: { "": string }; Returns: string
                            },
+"measurement_ensure":
+{ Args: { "p_property": string }; Returns: string
+                           },
+"measurement_features_geojson":
+{ Args: { "p_measurement": string }; Returns: Json
+                           },
+"measurement_replace_features":
+{ Args: { "p_features": Json,"p_measurement": string }; Returns: undefined
+                           },
 "pgp_armor_headers":
 { Args: { "": string }; Returns: Record<string, unknown>[]
+                           },
+"properties_near":
+{ Args: { "p_property": string,"p_radius_m"?: number }; Returns: {
+              "account_id": string,"distance_m": number,"formatted_address": string,"id": string,"lot_sqft": number
+            }[]
+                           },
+"property_geometry":
+{ Args: { "p_property": string }; Returns: Json
+                           },
+"property_set_geometry":
+{ Args: { "p_footprint"?: Json,"p_footprint_source"?: Database["public"]['Enums']["geo_source"],"p_imagery_date"?: string,"p_location"?: Json,"p_parcel"?: Json,"p_parcel_apn"?: string,"p_parcel_source"?: Database["public"]['Enums']["geo_source"],"p_property": string }; Returns: undefined
                            },
 "set_active_org":
 { Args: { "p_org": string }; Returns: undefined
                            }
           }
           Enums: {
-            "membership_status": "invited"|"active"|"disabled","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only"
+            "account_status": "lead"|"active"|"inactive","account_type": "residential"|"commercial","contact_role": "primary"|"billing"|"site"|"decision_maker"|"other","feature_category": "turf_front"|"turf_back"|"bed"|"hardscape"|"driveway"|"sidewalk"|"edging_line"|"fence_line"|"canopy"|"roof","feature_source": "auto"|"traced"|"manual"|"imported","geo_source": "regrid"|"county"|"overture"|"osm"|"traced"|"manual"|"unknown","measurement_status": "draft"|"current"|"archived","membership_status": "invited"|"active"|"disabled","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only","slope_class": "flat"|"gentle"|"moderate"|"steep"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -211,7 +411,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "membership_status": ["invited", "active", "disabled"],"org_role": ["owner", "admin", "sales", "dispatcher", "crew_lead", "crew", "read_only"]
+            "account_status": ["lead", "active", "inactive"],"account_type": ["residential", "commercial"],"contact_role": ["primary", "billing", "site", "decision_maker", "other"],"feature_category": ["turf_front", "turf_back", "bed", "hardscape", "driveway", "sidewalk", "edging_line", "fence_line", "canopy", "roof"],"feature_source": ["auto", "traced", "manual", "imported"],"geo_source": ["regrid", "county", "overture", "osm", "traced", "manual", "unknown"],"measurement_status": ["draft", "current", "archived"],"membership_status": ["invited", "active", "disabled"],"org_role": ["owner", "admin", "sales", "dispatcher", "crew_lead", "crew", "read_only"],"slope_class": ["flat", "gentle", "moderate", "steep"]
           }
         }
 } as const
