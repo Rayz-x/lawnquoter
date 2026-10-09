@@ -23,11 +23,24 @@ Font.register({
     { src: path.join(fontsDir, "SourceSerif4-Bold.ttf"), fontWeight: 700 },
   ],
 });
+Font.register({
+  family: "Roboto Slab",
+  fonts: [
+    { src: path.join(fontsDir, "RobotoSlab-600.ttf"), fontWeight: 600 },
+    { src: path.join(fontsDir, "RobotoSlab-700.ttf"), fontWeight: 700 },
+  ],
+});
 Font.registerHyphenationCallback((word) => [word]);
 
 export const pdfFonts = { body: "Source Sans 3", heading: "Source Serif 4" } as const;
 
+export function pdfHeadingFamily(font: string | null | undefined) {
+  if (font === "clean") return pdfFonts.body;
+  if (font === "sturdy") return "Roboto Slab";
+  return pdfFonts.heading;
+}
+
 /** Raster mark for the "Powered by LawnQuoter" footer. react-pdf cannot load SVG. */
 export const pdfMarkPath = path.join(process.cwd(), "public/brand/lq-mark-256.png");
 
-export { resolvePdfBrand } from "./pdf-brand";
+export { pdfBrand } from "./pdf-brand";
