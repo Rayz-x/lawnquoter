@@ -22,8 +22,13 @@ function cachePlan(url, method) {
   ) {
     return "cache-first";
   }
+  if (url.pathname === "/crew/today") return "network-first";
   if (url.pathname === "/sw.js" || url.pathname.startsWith("/crew")) return "network-only";
   return "bypass";
+}
+
+function canCacheCrewPage(response) {
+  return response.status === 200 && response.type === "basic" && response.redirected !== true;
 }
 
 function cacheFirst(request) {
@@ -41,6 +46,22 @@ function cacheFirst(request) {
 
 function networkOnly(request) {
   return fetch(request).catch(() => offlineResponse(request));
+}
+
+function cachedThenOffline(request) {
+  return caches.open(CACHE).then((cache) => cache.match(request).then((hit) => hit || offlineResponse(request)));
+}
+
+function networkFirst(request) {
+  return fetch(request).then(
+    (response) => {
+      if (!canCacheCrewPage(response)) return cachedThenOffline(request);
+      const copy = response.clone();
+      void caches.open(CACHE).then((cache) => cache.put(request, copy));
+      return response;
+    },
+    () => cachedThenOffline(request),
+  );
 }
 
 function offlineResponse(request) {
@@ -73,6 +94,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const plan = cachePlan(new URL(event.request.url), event.request.method);
   if (plan === "cache-first") event.respondWith(cacheFirst(event.request));
+  else if (plan === "network-first") event.respondWith(networkFirst(event.request));
   else if (plan === "network-only") event.respondWith(networkOnly(event.request));
 });
 

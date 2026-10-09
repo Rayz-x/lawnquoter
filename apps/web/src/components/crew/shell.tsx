@@ -4,7 +4,7 @@ import { CalendarDays, Inbox, Map, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { browserCrewStore } from "@/lib/crew/queue";
+import { browserCrewStore, scopeKey } from "@/lib/crew/queue";
 import { clearCrewCaches, crewWorkerUrl } from "@/lib/crew/sw-policy";
 import { useCrewSync } from "@/lib/crew/use-crew-sync";
 
@@ -31,7 +31,7 @@ export function CrewShell({ children, userId, orgId }: { children: ReactNode; us
     void navigator.storage?.persist?.();
   }, []);
   useEffect(() => {
-    const key = `${userId}:${orgId}`;
+    const key = scopeKey(userId, orgId);
     const previous = localStorage.getItem("crew-cache-user");
     if (previous && previous !== key) {
       void clearCrewCaches();
