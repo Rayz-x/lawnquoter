@@ -4,6 +4,7 @@ import { CalendarDays, Inbox, Map, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
+import { clearCrewCaches, crewWorkerUrl } from "@/lib/crew/sw-policy";
 
 const TABS = [
   { href: "/crew/today", label: "Today", icon: CalendarDays },
@@ -12,12 +13,19 @@ const TABS = [
   { href: "/crew/me", label: "Me", icon: UserCircle },
 ] as const;
 
-export function CrewShell({ children }: { children: ReactNode }) {
+export function CrewShell({ children, userId, orgId }: { children: ReactNode; userId: string; orgId: string }) {
   const pathname = usePathname();
   useEffect(() => {
-    void navigator.serviceWorker?.register("/sw.js", { scope: "/crew/" }).catch(() => undefined);
+    const build = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA;
+    void navigator.serviceWorker?.register(crewWorkerUrl(build), { scope: "/crew/" }).catch(() => undefined);
     void navigator.storage?.persist?.();
   }, []);
+  useEffect(() => {
+    const key = `${userId}:${orgId}`;
+    const previous = localStorage.getItem("crew-cache-user");
+    if (previous && previous !== key) void clearCrewCaches();
+    localStorage.setItem("crew-cache-user", key);
+  }, [userId, orgId]);
 
   const tabs = !pathname.includes("/visits/");
   return (

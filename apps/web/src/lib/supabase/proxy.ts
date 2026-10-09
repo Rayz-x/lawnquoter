@@ -14,6 +14,7 @@ const PUBLIC_PREFIXES = [
   "/manifest.webmanifest",
   "/crew/manifest.webmanifest",
   "/sw.js",
+  "/offline.html",
 ];
 
 export function isPublicPath(pathname: string) {

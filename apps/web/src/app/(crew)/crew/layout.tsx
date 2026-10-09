@@ -18,6 +18,10 @@ export const viewport: Viewport = {
 };
 
 export default async function CrewLayout({ children }: { children: ReactNode }) {
-  await requireOrg();
-  return <CrewShell>{children}</CrewShell>;
+  const session = await requireOrg();
+  return (
+    <CrewShell userId={session.userId} orgId={session.orgId}>
+      {children}
+    </CrewShell>
+  );
 }
