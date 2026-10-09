@@ -8,11 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { OFFICE_ROLES } from "@/lib/auth/office-roles";
+import { OFFICE_ROLES, QUOTE_CONVERT_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
 import { defaultThroughDate } from "@/lib/scheduling/recurrence";
 import { orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/server";
+import { AgreementScheduleForm } from "./agreement-schedule-form";
 import { GenerateVisitsForm } from "./generate-visits-form";
 
 export const metadata: Metadata = { title: "Agreement" };
@@ -94,6 +95,7 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
     [property?.address_line1, property?.city].filter(Boolean).join(", ") ||
     "Address unavailable";
   const canGenerate = hasRole(session.orgRole, DISPATCH_ROLES);
+  const canEditSchedule = agreement.status !== "ended" && hasRole(session.orgRole, QUOTE_CONVERT_ROLES);
   const recurring = agreement.kind === "recurring" && agreement.frequency != null && agreement.status === "active";
   const through = defaultThroughDate(orgToday(org?.timezone));
   const loadError = jobsError?.message ?? visitsError?.message ?? null;
@@ -226,30 +228,42 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
             <CardHeader>
               <CardTitle>Schedule</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-2 text-sm">
-              <div className="flex justify-between gap-3">
-                <span className="text-muted-foreground">Kind</span>
-                <span className="capitalize">{label(agreement.kind)}</span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-muted-foreground">Frequency</span>
-                <span className="capitalize">{label(agreement.frequency)}</span>
-              </div>
+            <CardContent className="flex flex-col gap-4 text-sm">
+              {canEditSchedule ? (
+                <AgreementScheduleForm
+                  agreementId={agreement.id}
+                  kind={agreement.kind}
+                  frequency={agreement.frequency}
+                  preferredDow={agreement.preferred_dow}
+                  startDate={agreement.start_date}
+                />
+              ) : (
+                <>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">Kind</span>
+                    <span className="capitalize">{label(agreement.kind)}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">Frequency</span>
+                    <span className="capitalize">{label(agreement.frequency)}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">Starts</span>
+                    <span className="tabular-nums">{agreement.start_date}</span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-muted-foreground">Preferred day</span>
+                    <span>{weekday ?? "—"}</span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between gap-3">
                 <span className="text-muted-foreground">Status</span>
                 <span className="capitalize">{label(agreement.status)}</span>
               </div>
               <div className="flex justify-between gap-3">
-                <span className="text-muted-foreground">Starts</span>
-                <span className="tabular-nums">{agreement.start_date}</span>
-              </div>
-              <div className="flex justify-between gap-3">
                 <span className="text-muted-foreground">Ends</span>
                 <span className="tabular-nums">{agreement.end_date ?? "Open"}</span>
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-muted-foreground">Preferred day</span>
-                <span>{weekday ?? "—"}</span>
               </div>
               {agreement.service_kind ? (
                 <div className="flex justify-between gap-3">
@@ -280,7 +294,7 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
               ) : (
                 <p className="text-sm text-muted-foreground">
                   {agreement.kind !== "recurring"
-                    ? "One-time jobs are not generated on a calendar. The visit comes from the quote conversion."
+                    ? "One-time jobs are not generated on a calendar. Change the kind to recurring to build the visit dates."
                     : agreement.status !== "active"
                       ? "Paused and ended agreements do not generate new visits."
                       : !agreement.frequency

@@ -11,9 +11,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireOrg } from "@/lib/auth/session";
 import { formatMoney, formatMoneyRange } from "@/lib/money";
 import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
+import { orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/server";
 import { AddItemForm } from "./add-item-form";
-import { ConvertToJobButton } from "./convert-to-job-button";
+import { ConvertToJobForm } from "./convert-to-job-button";
 import { DeleteQuoteButton } from "./delete-quote-button";
 import { PriceFromCatalog } from "./price-from-catalog";
 import { QuoteMetaForm } from "./quote-meta-form";
@@ -44,6 +45,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     .maybeSingle();
   const canConvert =
     quote.status === "accepted" && !convertedAgreement && hasRole(session.orgRole, QUOTE_CONVERT_ROLES);
+  const { data: org } = canConvert
+    ? await supabase.from("orgs").select("timezone").eq("id", session.orgId).maybeSingle()
+    : { data: null };
 
   const { data: versionId } = await supabase.rpc("quote_current_version", { p_quote: id });
   const [{ data: items }, { data: rules }, { data: list }, { data: measurement }] = await Promise.all([
@@ -122,7 +126,6 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
         actions={
           <>
             <SendQuoteButton quoteId={quote.id} token={quote.public_token} status={quote.status} />
-            {canConvert ? <ConvertToJobButton quoteId={quote.id} /> : null}
             {convertedAgreement ? (
               <Button variant="outline" render={<Link href={`/agreements/${convertedAgreement.id}`} />}>
                 View agreement
@@ -185,6 +188,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           ) : null}
         </div>
         <div className="flex flex-col gap-4">
+          {canConvert ? <ConvertToJobForm quoteId={quote.id} defaultStartDate={orgToday(org?.timezone)} /> : null}
           <Card>
             <CardHeader>
               <CardTitle>Totals</CardTitle>

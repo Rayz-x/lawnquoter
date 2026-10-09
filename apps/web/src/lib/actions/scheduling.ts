@@ -7,24 +7,124 @@ import { createClient } from "@/lib/supabase/server";
 
 const idSchema = z.string().uuid();
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const kindSchema = z.enum(["one_time", "recurring"]);
+const frequencySchema = z.enum(["weekly", "biweekly", "monthly"]);
 
 const convertedSchema = z.object({
   agreement_id: idSchema,
   job_id: idSchema,
 });
 
+const convertInputSchema = z
+  .object({
+    kind: kindSchema,
+    frequency: frequencySchema.optional(),
+    preferredDow: z.number().int().min(0).max(6).optional(),
+    startDate: dateSchema,
+  })
+  .superRefine((input, ctx) => {
+    if (input.kind !== "recurring") return;
+    if (!input.frequency) {
+      ctx.addIssue({ code: "custom", message: "Recurring agreements need a frequency" });
+    }
+    if (input.preferredDow == null) {
+      ctx.addIssue({ code: "custom", message: "Recurring agreements need a preferred day" });
+    }
+  });
+
+export type ConvertQuoteInput = z.infer<typeof convertInputSchema>;
+
+type RpcClient = Awaited<ReturnType<typeof createClient>>;
+
+/** Calls an RPC whose generated args may lag the migration. */
+function rpcUntyped(supabase: RpcClient, fn: string, args: Record<string, string | number | null>) {
+  return (
+    supabase.rpc as unknown as (
+      name: string,
+      params: Record<string, string | number | null>,
+    ) => Promise<{ data: unknown; error: { message: string } | null }>
+  )(fn, args);
+}
+
 export async function convertAcceptedQuote(
   quoteId: string,
+  input: ConvertQuoteInput,
 ): Promise<ActionResult<{ agreementId: string; jobId: string }>> {
   await requireOrg();
-  const parsed = idSchema.safeParse(quoteId);
-  if (!parsed.success) return fail("Invalid quote");
+  const parsed = z.object({ quoteId: idSchema, input: convertInputSchema }).safeParse({ quoteId, input });
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid quote");
+  const recurring = parsed.data.input.kind === "recurring";
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("convert_accepted_quote", { p_quote_id: parsed.data });
+  const { data, error } = await rpcUntyped(supabase, "convert_accepted_quote", {
+    p_quote_id: parsed.data.quoteId,
+    p_kind: parsed.data.input.kind,
+    p_frequency: recurring ? (parsed.data.input.frequency ?? null) : null,
+    p_preferred_dow: recurring ? (parsed.data.input.preferredDow ?? null) : null,
+    p_start_date: parsed.data.input.startDate,
+  });
   if (error || data == null) return fail(error?.message ?? "Could not convert quote");
   const body = convertedSchema.safeParse(data);
   if (!body.success) return fail("Could not convert quote");
   return { ok: true, data: { agreementId: body.data.agreement_id, jobId: body.data.job_id } };
+}
+
+export async function updateAgreementSchedule(input: {
+  agreementId: string;
+  kind: "one_time" | "recurring";
+  frequency?: "weekly" | "biweekly" | "monthly";
+  preferredDow?: number;
+  startDate: string;
+}): Promise<ActionResult> {
+  const session = await requireOrg();
+  const parsed = z
+    .object({
+      agreementId: idSchema,
+      kind: kindSchema,
+      frequency: frequencySchema.optional(),
+      preferredDow: z.number().int().min(0).max(6).optional(),
+      startDate: dateSchema,
+    })
+    .superRefine((value, ctx) => {
+      if (value.kind !== "recurring") return;
+      if (!value.frequency) ctx.addIssue({ code: "custom", message: "Recurring agreements need a frequency" });
+      if (value.preferredDow == null) {
+        ctx.addIssue({ code: "custom", message: "Recurring agreements need a preferred day" });
+      }
+    })
+    .safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid agreement");
+
+  const supabase = await createClient();
+  const { data: existing, error: loadError } = await supabase
+    .from("agreements")
+    .select("id, status, end_date")
+    .eq("id", parsed.data.agreementId)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (loadError) return fail(loadError.message);
+  if (!existing) return fail("Agreement not found");
+  if (existing.status === "ended") return fail("Ended agreements cannot be changed");
+  if (existing.end_date && existing.end_date < parsed.data.startDate) {
+    return fail("Start date is after the agreement ends");
+  }
+
+  const recurring = parsed.data.kind === "recurring";
+  const { data: saved, error } = await supabase
+    .from("agreements")
+    .update({
+      kind: parsed.data.kind,
+      frequency: recurring ? (parsed.data.frequency ?? null) : null,
+      preferred_dow: recurring ? (parsed.data.preferredDow ?? null) : null,
+      start_date: parsed.data.startDate,
+    })
+    .eq("id", parsed.data.agreementId)
+    .eq("org_id", session.orgId)
+    .neq("status", "ended")
+    .select("id")
+    .maybeSingle();
+  if (error) return fail(error.message);
+  if (!saved) return fail("Ended agreements cannot be changed");
+  return { ok: true };
 }
 
 export async function generateVisits(
@@ -47,7 +147,6 @@ export async function assignVisit(input: {
   visitId: string;
   crewId: string;
   date: string;
-  sort?: number;
 }): Promise<ActionResult<{ routeId: string }>> {
   await requireOrg();
   const parsed = z
@@ -55,7 +154,6 @@ export async function assignVisit(input: {
       visitId: idSchema,
       crewId: idSchema,
       date: dateSchema,
-      sort: z.number().int().optional(),
     })
     .safeParse(input);
   if (!parsed.success) return fail("Invalid visit assignment");
@@ -64,7 +162,6 @@ export async function assignVisit(input: {
     p_visit_id: parsed.data.visitId,
     p_crew_id: parsed.data.crewId,
     p_service_date: parsed.data.date,
-    p_sort: parsed.data.sort ?? 0,
   });
   if (error || data == null) return fail(error?.message ?? "Could not assign visit");
   return { ok: true, data: { routeId: data } };
@@ -109,6 +206,19 @@ export async function addCrewMember(crewId: string, profileId: string): Promise<
   if (!parsed.success) return fail("Invalid crew member");
   const supabase = await createClient();
   const { error } = await supabase.rpc("add_crew_member", {
+    p_crew_id: parsed.data.crewId,
+    p_profile_id: parsed.data.profileId,
+  });
+  if (error) return fail(error.message);
+  return { ok: true };
+}
+
+export async function setCrewLead(crewId: string, profileId: string): Promise<ActionResult> {
+  await requireOrg();
+  const parsed = z.object({ crewId: idSchema, profileId: idSchema }).safeParse({ crewId, profileId });
+  if (!parsed.success) return fail("Invalid crew lead");
+  const supabase = await createClient();
+  const { error } = await rpcUntyped(supabase, "set_crew_lead", {
     p_crew_id: parsed.data.crewId,
     p_profile_id: parsed.data.profileId,
   });

@@ -65,20 +65,24 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
 
   const date = requested && isIsoDate(requested) ? requested : today;
   const canWrite = hasRole(session.orgRole, DISPATCH_ROLES);
-  const [{ data: crews, error: crewsError }, { data: routes, error: routesError }, { data: visits, error: visitsError }] =
+  const visitSelect =
+    "id, route_id, scheduled_date, sort, status, budget_minutes, window_start, window_end, jobs(title), properties(formatted_address, address_line1, city, accounts(name))";
+  const [{ data: crews, error: crewsError }, { data: routes, error: routesError }, { data: visits, error: visitsError }, { data: openVisits, error: openError }] =
     await Promise.all([
       supabase.from("crews").select("id, name, active").eq("org_id", session.orgId).order("name"),
       supabase.from("routes").select("id, crew_id, status").eq("org_id", session.orgId).eq("date", date),
+      supabase.from("visits").select(visitSelect).eq("org_id", session.orgId).eq("scheduled_date", date).order("sort"),
       supabase
         .from("visits")
-        .select(
-          "id, route_id, sort, status, budget_minutes, window_start, window_end, jobs(title), properties(formatted_address, address_line1, city, accounts(name))",
-        )
+        .select(visitSelect)
         .eq("org_id", session.orgId)
-        .eq("scheduled_date", date)
-        .order("sort"),
+        .not("status", "in", "(completed,cancelled)")
+        .or(`route_id.is.null,scheduled_date.lt.${today}`)
+        .order("scheduled_date")
+        .order("sort")
+        .limit(300),
     ]);
-  const error = crewsError?.message ?? routesError?.message ?? visitsError?.message ?? null;
+  const error = crewsError?.message ?? routesError?.message ?? visitsError?.message ?? openError?.message ?? null;
   const routeByCrew = new Map((routes ?? []).map((route) => [route.crew_id, route]));
   const routeIds = new Set((routes ?? []).map((route) => route.id));
   const visibleCrews = (crews ?? []).filter((crew) => crew.active || routeByCrew.has(crew.id));
@@ -95,24 +99,36 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         [property?.address_line1, property?.city].filter(Boolean).join(", ") ||
         "Address unavailable",
       status: visit.status,
-      sort: visit.sort,
+      scheduledDate: visit.scheduled_date,
+      overdue: visit.scheduled_date < today,
       budgetMinutes: visit.budget_minutes,
       windowLabel: windowLabel(visit.window_start, visit.window_end),
     };
   };
 
   const visitsByRoute = new Map<string, BoardVisit[]>();
-  const unassigned: BoardVisit[] = [];
+  const onThisDay = new Set<string>();
   for (const visit of visits ?? []) {
+    if (!visit.route_id || !routeIds.has(visit.route_id)) continue;
+    onThisDay.add(visit.id);
     const card = toVisit(visit);
-    if (!visit.route_id || !routeIds.has(visit.route_id)) {
-      unassigned.push(card);
-      continue;
-    }
     const list = visitsByRoute.get(visit.route_id) ?? [];
     list.push(card);
     visitsByRoute.set(visit.route_id, list);
   }
+
+  const unassignedById = new Map<string, BoardVisit>();
+  for (const visit of visits ?? []) {
+    if (onThisDay.has(visit.id)) continue;
+    unassignedById.set(visit.id, toVisit(visit));
+  }
+  for (const visit of openVisits ?? []) {
+    if (onThisDay.has(visit.id)) continue;
+    unassignedById.set(visit.id, toVisit(visit));
+  }
+  const unassigned = [...unassignedById.values()].sort(
+    (a, b) => a.scheduledDate.localeCompare(b.scheduledDate) || a.title.localeCompare(b.title),
+  );
 
   const columns: BoardColumn[] = visibleCrews.map((crew) => {
     const route = routeByCrew.get(crew.id);
