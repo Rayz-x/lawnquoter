@@ -37,7 +37,7 @@ jobs:
     services:
       postgres:
         # Supabase's Postgres image ships postgis, pgtap, the auth schema and roles.
-        image: supabase/postgres:17.6.1.016
+        image: public.ecr.aws/supabase/postgres:17.6.1.016
         env:
           POSTGRES_PASSWORD: postgres
         ports: ["5432:5432"]
