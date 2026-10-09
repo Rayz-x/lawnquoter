@@ -7,19 +7,37 @@ import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { InviteMemberForm } from "./invite-member-form";
 import { MemberRowActions } from "./member-row-actions";
+import { RevokeInviteButton } from "./revoke-invite-button";
 
 export const metadata: Metadata = { title: "Team" };
 
 export default async function TeamPage() {
   const session = await requireOrg();
   const supabase = await createClient();
-  const { data: members } = await supabase
-    .from("memberships")
-    .select("id, user_id, role, status, invited_email, created_at, profiles(full_name, email)")
-    .eq("org_id", session.orgId)
-    .order("created_at");
+  const [{ data: members }, { data: membership }] = await Promise.all([
+    supabase
+      .from("memberships")
+      .select("id, user_id, role, status, invited_email, created_at, profiles(full_name, email)")
+      .eq("org_id", session.orgId)
+      .order("created_at"),
+    supabase
+      .from("memberships")
+      .select("role")
+      .eq("org_id", session.orgId)
+      .eq("user_id", session.userId)
+      .eq("status", "active")
+      .maybeSingle(),
+  ]);
 
-  const canManage = session.orgRole === "owner" || session.orgRole === "admin";
+  const canManage = membership?.role === "owner" || membership?.role === "admin";
+  const { data: invites } = canManage
+    ? await supabase
+        .from("org_invites")
+        .select("id, email, role, status, expires_at")
+        .eq("org_id", session.orgId)
+        .eq("status", "pending")
+        .order("created_at")
+    : { data: [] };
 
   return (
     <>
@@ -77,10 +95,46 @@ export default async function TeamPage() {
           <Card>
             <CardHeader>
               <CardTitle>Invite a teammate</CardTitle>
-              <CardDescription>They get an email with a sign-in link.</CardDescription>
+              <CardDescription>They get an email and join only after they accept.</CardDescription>
             </CardHeader>
             <CardContent>
               <InviteMemberForm />
+            </CardContent>
+          </Card>
+        ) : null}
+        {canManage ? (
+          <Card className="lg:col-span-3">
+            <CardHeader>
+              <CardTitle>Pending invites</CardTitle>
+              <CardDescription>No membership exists until the invite is accepted.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!invites || invites.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No pending invites.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Expires</TableHead>
+                      <TableHead className="w-0" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {invites.map((invite) => (
+                      <TableRow key={invite.id}>
+                        <TableCell>{invite.email}</TableCell>
+                        <TableCell className="capitalize">{invite.role.replace("_", " ")}</TableCell>
+                        <TableCell className="text-muted-foreground">{new Date(invite.expires_at).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <RevokeInviteButton inviteId={invite.id} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         ) : null}

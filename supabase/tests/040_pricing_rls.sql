@@ -1,4 +1,4 @@
-select plan(9);
+select plan(10);
 
 select tests.create_user('o1@example.com', 'Owner One') as owner1 \gset
 select tests.create_user('s1@example.com', 'Sales One') as sales1 \gset
@@ -36,7 +36,8 @@ select throws_ok(
 );
 
 select tests.authenticate_as(:'crew1'::uuid, :'org1'::uuid, 'crew');
-select is((select count(*) from public.pricing_rules), 1::bigint, 'crew can read rules');
+select is((select count(*) from public.pricing_rules), 0::bigint, 'crew cannot read pricing rules');
+select is((select count(*) from public.price_lists), 0::bigint, 'crew cannot read price lists');
 select throws_ok(
   format($$ insert into public.materials (org_id, name, unit_cost) values (%L, 'Mulch', 40) $$, :'org1'),
   '42501',

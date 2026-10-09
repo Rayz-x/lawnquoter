@@ -7,9 +7,10 @@ import type { Database } from "@/lib/supabase/database.types";
 import { supabasePublishableKey, supabaseSecretKey, supabaseUrl } from "./env";
 
 /** Request-scoped client that acts as the signed-in user (RLS applies). */
-export async function createClient() {
+export async function createClient(options?: { headers?: Record<string, string> }) {
   const cookieStore = await cookies();
   return createServerClient<Database>(supabaseUrl(), supabasePublishableKey(), {
+    global: options?.headers ? { headers: options.headers } : undefined,
     cookies: {
       getAll() {
         return cookieStore.getAll();

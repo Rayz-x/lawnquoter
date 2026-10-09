@@ -85,7 +85,7 @@ export async function addLineItem(quoteId: string, versionId: string, fd: FormDa
     notes_customer: parsed.data.notes_customer || null,
     notes_crew: parsed.data.notes_crew || null,
     selected: parsed.data.state === "included",
-  });
+  }).select("id");
   if (error) return fail(error.message);
   revalidatePath(`/quotes/${quoteId}`);
   return { ok: true };
@@ -103,7 +103,7 @@ export async function deleteLineItem(quoteId: string, id: string): Promise<Actio
   const version = item?.quote_versions;
   if (!item || !version || version.quote_id !== quoteId) return fail("Line item not found");
   if (version.frozen) return fail("This proposal is frozen. Revise it before editing.");
-  const { error } = await supabase.from("quote_line_items").delete().eq("id", id).eq("org_id", session.orgId);
+  const { error } = await supabase.from("quote_line_items").delete().eq("id", id).eq("org_id", session.orgId).select("id");
   if (error) return fail(error.message);
   revalidatePath(`/quotes/${quoteId}`);
   return { ok: true };
@@ -148,7 +148,7 @@ export async function updateQuoteMeta(id: string, fd: FormData): Promise<ActionR
       }
     : { notes_internal: parsed.data.notes_internal || null };
   if (copyEditable && !patch.title) return fail("Title is required");
-  const { error } = await supabase.from("quotes").update(patch).eq("id", id).eq("org_id", session.orgId);
+  const { error } = await supabase.from("quotes").update(patch).eq("id", id).eq("org_id", session.orgId).select("id");
   if (error) return fail(error.message);
   revalidatePath(`/quotes/${id}`);
   return { ok: true };
@@ -187,7 +187,7 @@ export async function deleteQuote(id: string): Promise<ActionResult> {
   if (!quote) return fail("Quote not found");
   const blocked = deleteQuoteError(quote.status);
   if (blocked) return fail(blocked);
-  const { error } = await supabase.from("quotes").delete().eq("id", id).eq("org_id", session.orgId);
+  const { error } = await supabase.from("quotes").delete().eq("id", id).eq("org_id", session.orgId).select("id");
   if (error) {
     if (error.message.toLowerCase().includes("accepted quotes cannot be deleted")) {
       return fail(ACCEPTED_QUOTE_DELETE_ERROR);
@@ -239,7 +239,7 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
     option_group: parsed.data.option_group || null,
     option_tier: parsed.data.option_tier,
     selected: parsed.data.state === "included",
-  });
+  }).select("id");
   if (error) return fail(error.message);
   revalidatePath(`/quotes/${quoteId}`);
   return { ok: true };
