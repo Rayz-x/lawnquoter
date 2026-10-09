@@ -1,108 +1,129 @@
 import { describe, expect, it } from "vitest";
+import { orgToday } from "@/lib/scheduling/office-date";
 import {
-  CREW_TODAY_SELECTS,
-  assembleStops,
-  budgetMinutesLabel,
-  crewIdsFromMyCrews,
-  crewNameLabel,
-  parseMyCrews,
-  propertyAddress,
+  dayHeading,
+  driveUrl,
+  finishLabel,
+  listRows,
+  newStopIds,
+  officeTel,
+  offlineDayPack,
+  packErrorMessage,
+  packIsFresh,
+  parseDayPack,
+  progressLabel,
+  routeUpdateMessage,
+  syncPill,
 } from "./today";
 
-describe("crew today selects", () => {
-  it("reads address, status, task labels, and budget minutes only", () => {
-    expect(CREW_TODAY_SELECTS.property).toBe("id, formatted_address, address_line1");
-    expect(CREW_TODAY_SELECTS.visit).not.toMatch(/price|cost|phone|email|gate_code|access_notes/);
-    expect(CREW_TODAY_SELECTS.task).toBe("visit_id, label, sort");
-    expect(Object.values(CREW_TODAY_SELECTS).join(" ")).not.toMatch(/gate_code|access_notes/);
+const pack = {
+  date: "2026-10-09",
+  crew: { id: "c1", name: "North" },
+  office: { name: "Prairie Mow", phone: "217-555-0140" },
+  route: { id: "r1", date: "2026-10-09", status: "published", revision: 2 },
+  visits: [
+    visit("v1", "completed", 1, { budget_minutes: 20 }),
+    visit("v2", "skipped", 2, { skip_reason: "weather", budget_minutes: 30 }),
+    visit("v3", "scheduled", 3, {
+      budget_minutes: 35,
+      property: property({ gate_code: "4815", gate_width_in: 36, has_dogs: true, has_stairs: true, slope: "steep", lat: 40.1, lng: -89.2 }),
+    }),
+  ],
+};
+
+function visit(id: string, status: string, sort: number, extra: Record<string, unknown> = {}) {
+  return {
+    id,
+    sort,
+    status,
+    title: id === "v3" ? "Weekly mow" : "Cleanup",
+    budget_minutes: null,
+    skip_reason: null,
+    property: property(),
+    tasks: [{ label: "Edge" }],
+    photos: [],
+    plan: [],
+    ...extra,
+  };
+}
+
+function property(extra: Record<string, unknown> = {}) {
+  return {
+    formatted_address: "1503 Larkspur",
+    last_name: "Hollis",
+    gate_code: null,
+    gate_width_in: 60,
+    has_dogs: false,
+    has_stairs: false,
+    slope: "flat",
+    lat: null,
+    lng: null,
+    ...extra,
+  };
+}
+
+describe("parseDayPack", () => {
+  it("builds the route list without the gate code or prices", () => {
+    const view = parseDayPack(pack);
+    expect(view?.crewName).toBe("North");
+    expect(view?.officePhone).toBe("217-555-0140");
+    expect(view?.stops.map((stop) => stop.number)).toEqual([1, 2, 3]);
+    expect(view?.stops[2]).toMatchObject({
+      title: "Weekly mow",
+      lastName: "Hollis",
+      address: "1503 Larkspur",
+      lat: 40.1,
+      chips: [
+        { label: "Gate code", warning: false },
+        { label: "Dog", warning: true },
+        { label: "36″ gate", warning: true },
+        { label: "Steep", warning: true },
+        { label: "Stairs", warning: true },
+      ],
+    });
+    const encoded = JSON.stringify(view);
+    expect(encoded).not.toContain("4815");
+    expect(encoded).not.toMatch(/price|cost|margin|email/i);
+    expect(parseDayPack(null)).toBeNull();
   });
 });
 
-describe("my crews", () => {
-  it("keeps crew ids and names for the signed-in user", () => {
-    const crews = [
-      { id: "c1", name: "North", active: true, default_lead_id: null, members: [] },
-      { id: "c1", name: "North", active: true, default_lead_id: null, members: [] },
-      { id: "c2", name: "  South  ", active: true, default_lead_id: "lead", members: [{ profile_id: "p1", full_name: "Pat" }] },
-      { id: "", name: "Skip", active: false, default_lead_id: null, members: [] },
-    ];
-    expect(crewIdsFromMyCrews(crews)).toEqual(["c1", "c2"]);
-    expect(crewNameLabel(crews)).toBe("North, South");
+describe("day list rows", () => {
+  const stops = parseDayPack(pack)?.stops ?? [];
+
+  it("collapses finished stops and keeps the next open stop", () => {
+    expect(listRows(stops)).toMatchObject({
+      done: [{ id: "v1" }],
+      upNext: { id: "v3" },
+      rest: [{ id: "v2" }],
+    });
+    const active = { ...stops[2]!, id: "active", status: "in_progress", number: 4, startedAt: "2026-10-09T14:00:00.000Z", budgetMinutes: 40 };
+    expect(stops[1]?.skipReason).toBe("Weather");
+    expect(progressLabel(stops)).toBe("1 of 3 stops done");
+    expect(listRows([stops[2]!, { ...active, startedAt: "2026-10-09T14:30:00.000Z" }]).upNext?.id).toBe("active");
+    expect(finishLabel(stops, new Date("2026-10-09T15:00:00.000Z"))).toMatch(/^Finish ≈ /);
+    expect(finishLabel([{ ...stops[0]!, status: "completed" }], new Date())).toBeNull();
+    expect(finishLabel([active], new Date("2026-10-09T15:00:00.000Z"))).toBe("Running late");
   });
 
-  it("reads the my_crews jsonb shape", () => {
-    const crews = parseMyCrews([
-      {
-        id: "c1",
-        name: "North",
-        active: true,
-        default_lead_id: "lead",
-        members: [{ profile_id: "p1", full_name: "Pat" }],
-      },
-    ]);
-    expect(crews).toEqual([
-      {
-        id: "c1",
-        name: "North",
-        active: true,
-        default_lead_id: "lead",
-        members: [{ profile_id: "p1", full_name: "Pat" }],
-      },
-    ]);
-    expect(parseMyCrews({ crew_id: "c1", name: "North" })).toEqual([]);
-  });
-});
-
-describe("assembleStops", () => {
-  it("lists address, status, tasks, and minutes without other fields", () => {
-    const stops = assembleStops(
-      [
-        {
-          id: "v2",
-          status: "in_progress",
-          budget_minutes: 45,
-          sort: 2,
-          property_id: "p2",
-        },
-        {
-          id: "v1",
-          status: "scheduled",
-          budget_minutes: null,
-          sort: 1,
-          property_id: "p1",
-        },
-      ],
-      [
-        { id: "p1", formatted_address: "1 Oak St, Austin, TX", address_line1: "1 Oak St" },
-        { id: "p2", formatted_address: null, address_line1: "9 Pine Rd" },
-      ],
-      [
-        { visit_id: "v1", label: "Mow", sort: 1 },
-        { visit_id: "v1", label: "Edge", sort: 0 },
-        { visit_id: "v2", label: "Trim", sort: 0 },
-      ],
-    );
-
-    expect(stops).toEqual([
-      {
-        id: "v1",
-        address: "1 Oak St, Austin, TX",
-        statusLabel: "Scheduled",
-        budgetLabel: "—",
-        tasks: ["Edge", "Mow"],
-      },
-      {
-        id: "v2",
-        address: "9 Pine Rd",
-        statusLabel: "In progress",
-        budgetLabel: "45 min",
-        tasks: ["Trim"],
-      },
-    ]);
-    expect(stops.every((stop) => Object.keys(stop).sort().join() === "address,budgetLabel,id,statusLabel,tasks")).toBe(
-      true,
-    );
-    expect(propertyAddress(undefined)).toBe("Address unavailable");
-    expect(budgetMinutesLabel(0)).toBe("0 min");
+  it("describes sync, driving, and a route change", () => {
+    expect(syncPill(0, false)).toBe("Synced");
+    expect(syncPill(2, false)).toBe("2 waiting");
+    expect(syncPill(2, true)).toBe("Sending…");
+    expect(driveUrl(40.1, -89.2, true)).toContain("maps.apple.com");
+    expect(driveUrl(40.1, -89.2, false)).toContain("google.com/maps");
+    expect(officeTel("217-555-0140")).toBe("tel:2175550140");
+    expect(dayHeading("2026-10-09")).toContain("Oct");
+    expect(newStopIds(["v1"], ["v1", "v8"])).toEqual(["v8"]);
+    const at = new Date("2026-10-09T14:31:00.000Z");
+    expect(routeUpdateMessage([8], [], at)).toMatch(/Route updated .*stop 8 added/);
+    expect(routeUpdateMessage([], [4], at)).toMatch(/stop 4 removed/);
+    expect(packErrorMessage("not allowed")).toBe("Ask the office to add you to a crew.");
+    const morning = new Date("2026-10-09T13:30:00.000Z");
+    expect(orgToday("America/Chicago", new Date("2026-10-09T04:30:00.000Z"))).toBe("2026-10-08");
+    expect(orgToday("America/Chicago", morning)).toBe("2026-10-09");
+    expect(packIsFresh("2026-10-07T12:00:00.000Z", morning)).toBe(false);
+    expect(offlineDayPack({ date: "2026-10-08", savedAt: morning.toISOString() }, "2026-10-09", morning)).toBeNull();
+    expect(offlineDayPack({ date: "2026-10-09", savedAt: morning.toISOString() }, "2026-10-09", morning)?.date).toBe("2026-10-09");
   });
 });

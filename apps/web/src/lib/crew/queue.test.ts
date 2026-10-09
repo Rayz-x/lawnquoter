@@ -11,6 +11,7 @@ import {
   photoStoragePath,
   purgeExpiredPacks,
   saveDayPack,
+  scopeKey,
   syncItems,
   type SyncResult,
 } from "./queue";
@@ -20,6 +21,11 @@ const scope = { userId: "user-1", orgId: "org-1" };
 const who = { user_id: scope.userId, org_id: scope.orgId };
 
 describe("crew outbox", () => {
+  it("keeps user keys from colliding", () => {
+    expect(scopeKey("a:b", "c")).not.toBe(scopeKey("a", "b:c"));
+    expect(scopeKey("a:b", "c")).toBe(JSON.stringify(["a:b", "c"]));
+  });
+
   it("writes one client id and keeps the original time", async () => {
     const store = createMemoryCrewStore();
     const row = await enqueueMutation(
@@ -156,7 +162,7 @@ describe("crew outbox", () => {
           ? { client_id: item.client_id, status: "error" as const, message: "enhancement photo must belong to this visit" }
           : { client_id: item.client_id, status: "applied" as const, message: null },
       );
-    }, scope);
+    }, scope, now, async () => undefined, async () => "photo-row");
     expect(sent).toEqual({ sent: 1, pending: 1 });
     expect(await store.listOutbox()).toMatchObject([
       { client_id: "enh", needs_office: true, last_error: "enhancement photo must belong to this visit" },
@@ -193,5 +199,79 @@ describe("day packs", () => {
     await store.clear();
     expect(outboxBlocksSignOut(await store.listOutbox())).toBe(false);
     expect(await store.listPacks()).toEqual([]);
+  });
+
+  it("sends an upsell only after its photo is applied", async () => {
+    const store = createMemoryCrewStore();
+    const photo = await enqueuePhoto(store, { visit_id: "v", ...who, bytes: new Blob(["a"]), photo_kind: "upsell" }, now);
+    await enqueueMutation(store, {
+      client_id: "enh-1",
+      kind: "enhancement_create",
+      visit_id: "v",
+      ...who,
+      payload: { tag: "mulch", note: "beds", photo_client_id: photo.client_id },
+    }, new Date(now.getTime() + 1));
+    const batches: string[][] = [];
+    const result = await flushOutbox(
+      store,
+      async (items) => {
+        batches.push(items.map((item) => item.kind));
+        return items.map((item) => ({ client_id: item.client_id, status: "applied" as const, message: null }));
+      },
+      scope,
+      now,
+      async () => undefined,
+      async (id) => (id === photo.client_id ? "photo-row" : null),
+    );
+    expect(batches).toEqual([["visit_photo_record"], ["enhancement_create"]]);
+    expect(result).toMatchObject({ sent: 2, pending: 0 });
+  });
+
+  it("parks an upsell the phone cannot match and still sends finish", async () => {
+    const store = createMemoryCrewStore();
+    await enqueueMutation(store, {
+      client_id: "enh-1",
+      kind: "enhancement_create",
+      visit_id: "v",
+      ...who,
+      payload: { tag: "mulch", photo_client_id: "photo-gone" },
+    }, now);
+    await enqueueMutation(store, {
+      client_id: "fin-1",
+      kind: "visit_finish",
+      visit_id: "v",
+      ...who,
+    }, new Date(now.getTime() + 1));
+    const batches: string[][] = [];
+    const send = async (items: { client_id: string; kind: string }[]) => {
+      batches.push(items.map((item) => item.kind));
+      return items.map((item) => ({ client_id: item.client_id, status: "applied" as const, message: null }));
+    };
+    const missed = await flushOutbox(store, send, scope, now, async () => undefined, async () => null);
+    expect(batches).toEqual([["visit_finish"]]);
+    expect(missed).toMatchObject({ sent: 1, pending: 1 });
+    expect(await store.listOutbox()).toMatchObject([{ client_id: "enh-1", needs_office: true }]);
+
+    const later = createMemoryCrewStore();
+    await enqueueMutation(later, {
+      client_id: "enh-2",
+      kind: "enhancement_create",
+      visit_id: "v",
+      ...who,
+      payload: { tag: "mulch", photo_client_id: "photo-gone" },
+    }, now);
+    await enqueueMutation(later, {
+      client_id: "fin-2",
+      kind: "visit_finish",
+      visit_id: "v",
+      ...who,
+    }, new Date(now.getTime() + 1));
+    const kinds: string[][] = [];
+    await flushOutbox(later, async (items) => {
+      kinds.push(items.map((item) => item.kind));
+      return items.map((item) => ({ client_id: item.client_id, status: "applied" as const, message: null }));
+    }, scope, now, async () => undefined);
+    expect(kinds).toEqual([["visit_finish"]]);
+    expect(await later.listOutbox()).toMatchObject([{ client_id: "enh-2", needs_office: false }]);
   });
 });

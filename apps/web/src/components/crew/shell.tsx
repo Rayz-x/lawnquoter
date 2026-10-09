@@ -3,8 +3,11 @@
 import { CalendarDays, Inbox, Map, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { clearClocks, clearLiveLead } from "@/app/(crew)/crew/visits/visit";
+import { browserCrewStore, scopeKey } from "@/lib/crew/queue";
 import { clearCrewCaches, crewWorkerUrl } from "@/lib/crew/sw-policy";
+import { useCrewSync } from "@/lib/crew/use-crew-sync";
 
 const TABS = [
   { href: "/crew/today", label: "Today", icon: CalendarDays },
@@ -15,28 +18,80 @@ const TABS = [
 
 export function CrewShell({ children, userId, orgId }: { children: ReactNode; userId: string; orgId: string }) {
   const pathname = usePathname();
+  const waiting = useOutboxCount(userId, orgId);
+  useCrewSync(userId, orgId);
+  const display = useCrewDisplay();
+  useEffect(() => {
+    document.documentElement.classList.remove("sun");
+  }, []);
   useEffect(() => {
     const build = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA;
-    void navigator.serviceWorker?.register(crewWorkerUrl(build), { scope: "/crew/" }).catch(() => undefined);
+    void navigator.serviceWorker
+      ?.register(crewWorkerUrl(build), { scope: "/crew/" })
+      .then((registration) => {
+        const sync = (registration as ServiceWorkerRegistration & { sync?: { register(tag: string): Promise<void> } }).sync;
+        return sync?.register("crew-outbox");
+      })
+      .catch(() => undefined);
     void navigator.storage?.persist?.();
   }, []);
   useEffect(() => {
-    const key = `${userId}:${orgId}`;
+    const key = scopeKey(userId, orgId);
     const previous = localStorage.getItem("crew-cache-user");
-    if (previous && previous !== key) void clearCrewCaches();
+    if (previous && previous !== key) {
+      void clearCrewCaches();
+      void browserCrewStore().clearPacks();
+      clearClocks(localStorage);
+      clearLiveLead(localStorage);
+    }
     localStorage.setItem("crew-cache-user", key);
   }, [userId, orgId]);
 
   const tabs = !pathname.includes("/visits/");
+  const displayClass = display === "dark" ? "dark" : display === "sun" ? "crew-display-light sun" : "crew-display-light";
   return (
-    <div className="flex min-h-svh flex-col bg-background">
+    <div className={`flex min-h-svh flex-col bg-background ${displayClass}`}>
       <div className={tabs ? "flex flex-1 flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]" : "flex flex-1 flex-col"}>{children}</div>
-      {tabs ? <CrewTabs pathname={pathname} /> : null}
+      {tabs ? <CrewTabs pathname={pathname} waiting={waiting} /> : null}
     </div>
   );
 }
 
-function CrewTabs({ pathname }: { pathname: string }) {
+function useCrewDisplay() {
+  return useSyncExternalStore(subscribeCrewDisplay, readCrewDisplay, () => "light" as const);
+}
+
+function subscribeCrewDisplay(notify: () => void) {
+  window.addEventListener("crew-display", notify);
+  return () => window.removeEventListener("crew-display", notify);
+}
+
+function readCrewDisplay() {
+  const saved = localStorage.getItem("crew-display");
+  return saved === "dark" || saved === "sun" || saved === "light" ? saved : "light";
+}
+
+function useOutboxCount(userId: string, orgId: string) {
+  const [waiting, setWaiting] = useState(0);
+  useEffect(() => {
+    const store = browserCrewStore();
+    let stop = false;
+    const refresh = () => {
+      void store.listOutbox().then((rows) => {
+        if (!stop) setWaiting(rows.filter((row) => row.user_id === userId && row.org_id === orgId).length);
+      });
+    };
+    refresh();
+    window.addEventListener("crew-queue", refresh);
+    return () => {
+      stop = true;
+      window.removeEventListener("crew-queue", refresh);
+    };
+  }, [userId, orgId]);
+  return waiting;
+}
+
+function CrewTabs({ pathname, waiting }: { pathname: string; waiting: number }) {
   return (
     <nav aria-label="Crew" className="fixed inset-x-0 bottom-0 z-20 border-t bg-background px-2 pb-[env(safe-area-inset-bottom,0px)]">
       <ul className="mx-auto flex max-w-lg gap-2">
@@ -51,7 +106,12 @@ function CrewTabs({ pathname }: { pathname: string }) {
                 className={`flex min-h-16 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl text-[15px] font-semibold ${active ? "text-primary" : "text-muted-foreground"}`}
               >
                 <Icon aria-hidden className="size-5" />
-                {tab.label}
+                <span className="flex items-center gap-1">
+                  {tab.label}
+                  {tab.href === "/crew/outbox" && waiting > 0 ? (
+                    <span className="min-w-5 rounded-full bg-warning px-1 text-center text-xs text-warning-foreground">{waiting}</span>
+                  ) : null}
+                </span>
               </Link>
             </li>
           );
