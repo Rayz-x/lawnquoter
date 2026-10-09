@@ -3,8 +3,16 @@
 -- Derived shades are computed in the app, not stored.
 -- settings.hide_powered_by stays in orgs.settings, defaults to absent/false, and is not shown in the UI.
 --
+-- storage.objects is owned by supabase_storage_admin on hosted Supabase, and
+-- row level security is already enabled. Do not ALTER that table or re-grant
+-- its privileges. Public object URLs do not need a SELECT policy.
+--
 -- Rollback (forward-only migrations; run by hand if you need to revert):
---   drop policy if exists org_branding_public_read on storage.objects;
+--   alter table public.orgs
+--     drop constraint if exists orgs_logo_path_object_check,
+--     drop constraint if exists orgs_logo_dark_path_object_check,
+--     drop constraint if exists orgs_logo_raster_path_object_check;
+--   drop policy if exists org_branding_admin_select on storage.objects;
 --   drop policy if exists org_branding_admin_insert on storage.objects;
 --   drop policy if exists org_branding_admin_update on storage.objects;
 --   drop policy if exists org_branding_admin_delete on storage.objects;
@@ -33,16 +41,54 @@ alter table public.orgs
     check (heading_font in ('classic', 'clean', 'sturdy')),
   add column branding_updated_at timestamptz;
 
+-- Null, or this org's bucket key. Absolute URLs and root paths are rejected.
+alter table public.orgs
+  add constraint orgs_logo_path_object_check
+    check (
+      logo_path is null
+      or (
+        position('://' in logo_path) = 0
+        and logo_path ~* ('^' || id::text || '/')
+      )
+    ),
+  add constraint orgs_logo_dark_path_object_check
+    check (
+      logo_dark_path is null
+      or (
+        position('://' in logo_dark_path) = 0
+        and logo_dark_path ~* ('^' || id::text || '/')
+      )
+    ),
+  add constraint orgs_logo_raster_path_object_check
+    check (
+      logo_raster_path is null
+      or (
+        position('://' in logo_raster_path) = 0
+        and logo_raster_path ~* ('^' || id::text || '/')
+      )
+    );
+
 -- True when the caller is an owner or admin of the org named by the first folder.
 create or replace function private.can_write_org_branding(object_name text)
 returns boolean
-language sql
+language plpgsql
 stable
 set search_path = ''
 as $$
-  select object_name is not null
-     and (storage.foldername(object_name))[1] = (private.current_org_id())::text
-     and private.is_org_admin(((storage.foldername(object_name))[1])::uuid);
+declare
+  folder text;
+begin
+  if object_name is null or position('://' in object_name) > 0 then
+    return false;
+  end if;
+  folder := (storage.foldername(object_name))[1];
+  if folder is null
+     or folder !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
+    return false;
+  end if;
+  return folder = (private.current_org_id())::text
+     and private.is_org_admin(folder::uuid);
+end;
 $$;
 
 revoke all on function private.can_write_org_branding(text) from public;
@@ -61,18 +107,18 @@ on conflict (id) do update
       file_size_limit = excluded.file_size_limit,
       allowed_mime_types = excluded.allowed_mime_types;
 
-alter table storage.objects enable row level security;
-alter table storage.objects force row level security;
-
-grant usage on schema storage to anon, authenticated;
-grant select on storage.objects to anon, authenticated;
-grant insert, update, delete on storage.objects to authenticated;
-
+-- Admins can see their own objects so update and delete have a row to match.
+-- There is no public SELECT policy: a public bucket URL does not need one,
+-- and a bucket-wide policy would let anyone list every org's objects.
 drop policy if exists org_branding_public_read on storage.objects;
-create policy org_branding_public_read on storage.objects
+drop policy if exists org_branding_admin_select on storage.objects;
+create policy org_branding_admin_select on storage.objects
   for select
-  to anon, authenticated
-  using (bucket_id = 'org-branding');
+  to authenticated
+  using (
+    bucket_id = 'org-branding'
+    and private.can_write_org_branding(name)
+  );
 
 drop policy if exists org_branding_admin_insert on storage.objects;
 create policy org_branding_admin_insert on storage.objects

@@ -3,25 +3,10 @@ import { NextResponse } from "next/server";
 import { ProposalPdf } from "@/app/q/[token]/proposal-pdf";
 import { normalizeHex } from "@/lib/brand/derive-brand-theme";
 import { headingFontOf, type PublicOrg } from "@/lib/brand/public-org";
-import { brandingAssetUrl } from "@/lib/brand/urls";
+import { loadBrandingRaster } from "@/lib/brand/raster";
 import { getSession } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { SAMPLE_QUOTE_ITEMS } from "../../sample-quote";
-
-async function loadRaster(path: string | null): Promise<Buffer | null> {
-  const url = brandingAssetUrl(path);
-  if (!url) return null;
-  try {
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const bytes = Buffer.from(await response.arrayBuffer());
-    const png = bytes.length > 4 && bytes[0] === 0x89 && bytes[1] === 0x50;
-    const jpeg = bytes.length > 2 && bytes[0] === 0xff && bytes[1] === 0xd8;
-    return png || jpeg ? bytes : null;
-  } catch {
-    return null;
-  }
-}
 
 export async function GET(req: Request) {
   const session = await getSession();
@@ -53,7 +38,7 @@ export async function GET(req: Request) {
     postal_code: org.postal_code,
     country: org.country,
   };
-  const logo = await loadRaster(org.logo_raster_path);
+  const logo = await loadBrandingRaster(org.logo_raster_path, session.orgId);
   const base = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
   const buf = await renderToBuffer(
     ProposalPdf({

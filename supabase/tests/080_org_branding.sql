@@ -1,4 +1,4 @@
-select plan(32);
+select plan(46);
 
 select has_column('public', 'orgs', 'logo_dark_path', 'logo_dark_path exists');
 select has_column('public', 'orgs', 'logo_raster_path', 'logo_raster_path exists');
@@ -20,6 +20,25 @@ select ok(
   (select allowed_mime_types @> array['image/svg+xml', 'image/png', 'image/jpeg']::text[]
    from storage.buckets where id = 'org-branding'),
   'org-branding allows svg, png, and jpeg'
+);
+select is(
+  (
+    select pg_get_userbyid(c.relowner)::text
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'storage' and c.relname = 'objects'
+  ),
+  'supabase_storage_admin',
+  'storage.objects stays owned by supabase_storage_admin'
+);
+select ok(
+  (
+    select c.relrowsecurity
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'storage' and c.relname = 'objects'
+  ),
+  'storage.objects already has row level security'
 );
 
 select tests.create_user('brand-owner@example.com', 'Brand Owner') as owner \gset
@@ -60,8 +79,48 @@ select lives_ok(
 select tests.authenticate_anon();
 select is(
   (select count(*)::int from storage.objects where bucket_id = 'org-branding' and name = :'org' || '/logo-light-abc.png'),
-  1,
-  'anonymous clients can read org branding objects'
+  0,
+  'anonymous clients cannot list org branding objects'
+);
+select throws_ok(
+  format(
+    $$ insert into storage.objects (bucket_id, name) values ('org-branding', %L) $$,
+    :'org' || '/anon.png'
+  ),
+  '42501',
+  null,
+  'anonymous clients cannot upload branding'
+);
+
+select tests.authenticate_as(:'admin'::uuid, :'org'::uuid, 'admin');
+select lives_ok(
+  format(
+    $$ update storage.objects set metadata = '{"v":1}'::jsonb where bucket_id = 'org-branding' and name = %L $$,
+    :'org' || '/logo-light-abc.png'
+  ),
+  'an admin can update branding under their org prefix'
+);
+select throws_ok(
+  $$ insert into storage.objects (bucket_id, name) values ('org-branding', 'logo.png') $$,
+  '42501',
+  null,
+  'a root branding path is denied'
+);
+select throws_ok(
+  $$ insert into storage.objects (bucket_id, name) values ('org-branding', 'not-a-uuid/logo.png') $$,
+  '42501',
+  null,
+  'a non-uuid branding prefix is denied'
+);
+select tests.authenticate_as(:'sales'::uuid, :'org'::uuid, 'sales');
+update storage.objects
+set metadata = '{"v":2}'::jsonb
+where bucket_id = 'org-branding' and name = :'org' || '/logo-light-abc.png';
+select tests.clear_auth();
+select is(
+  (select metadata->>'v' from storage.objects where bucket_id = 'org-branding' and name = :'org' || '/logo-light-abc.png'),
+  '1',
+  'a member cannot update branding'
 );
 
 select tests.authenticate_as(:'sales'::uuid, :'org'::uuid, 'sales');
@@ -76,6 +135,7 @@ select throws_ok(
 );
 delete from storage.objects
 where bucket_id = 'org-branding' and name = :'org' || '/logo-light-abc.png';
+select tests.clear_auth();
 select is(
   (select count(*)::int from storage.objects where bucket_id = 'org-branding' and name = :'org' || '/logo-light-abc.png'),
   1,
@@ -107,6 +167,12 @@ select lives_ok(
     :'org' || '/logo-light-abc.png'
   ),
   'an admin can delete branding under their org prefix'
+);
+select tests.clear_auth();
+select is(
+  (select count(*)::int from storage.objects where bucket_id = 'org-branding' and name = :'org' || '/logo-light-abc.png'),
+  0,
+  'an admin delete removes the branding object'
 );
 
 select tests.authenticate_as(:'owner'::uuid, :'org'::uuid, 'owner');
@@ -150,5 +216,56 @@ select is(public.quote_public(:'tok'::uuid) #>> '{org,heading_font}', 'sturdy', 
 select is(public.quote_public(:'tok'::uuid) #>> '{org,website}', 'https://branded.example', 'quote_public returns the website');
 select is(public.quote_public(:'tok'::uuid) #>> '{org,address_line1}', '1 Main St', 'quote_public returns the address');
 select is(public.quote_public(:'tok'::uuid) #>> '{org,brand_color}', '#C62828', 'quote_public still returns brand_color');
+select is(
+  (
+    select count(*)::int
+    from jsonb_object_keys(public.quote_public(:'tok'::uuid) -> 'org') as k(key)
+    where k.key not in (
+      'name', 'phone', 'email', 'website', 'brand_color',
+      'logo_url', 'logo_dark_url', 'logo_raster_url',
+      'logo_width', 'logo_height', 'logo_shows_name', 'logo_needs_chip', 'heading_font',
+      'address_line1', 'address_line2', 'city', 'region', 'postal_code', 'country'
+    )
+  ),
+  0,
+  'quote_public returns no unexpected org keys'
+);
+
+select tests.clear_auth();
+select throws_ok(
+  format($$ update public.orgs set logo_path = 'https://evil.test/a.png' where id = %L::uuid $$, :'org'),
+  '23514',
+  null,
+  'logo_path rejects an absolute URL'
+);
+select throws_ok(
+  format($$ update public.orgs set logo_dark_path = 'logo.png' where id = %L::uuid $$, :'org'),
+  '23514',
+  null,
+  'logo_dark_path rejects a root path'
+);
+select throws_ok(
+  format($$ update public.orgs set logo_raster_path = 'not-a-uuid/logo.png' where id = %L::uuid $$, :'org'),
+  '23514',
+  null,
+  'logo_raster_path rejects a non-uuid prefix'
+);
+select throws_ok(
+  format(
+    $$ update public.orgs set logo_path = %L where id = %L::uuid $$,
+    '00000000-0000-4000-8000-000000000099/logo.png',
+    :'org'
+  ),
+  '23514',
+  null,
+  'logo_path must start with this org id'
+);
+select lives_ok(
+  format(
+    $$ update public.orgs set logo_path = null, logo_dark_path = null, logo_raster_path = null where id = %L::uuid $$,
+    :'org'
+  ),
+  'logo paths may be null'
+);
 
 select * from finish();

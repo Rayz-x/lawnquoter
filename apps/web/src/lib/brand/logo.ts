@@ -4,6 +4,48 @@ import { sanitizeSvg } from "./svg-sanitize";
 
 const MAX_UPLOAD = 2 * 1024 * 1024;
 const DARK_BG = "#0D1310";
+/** About 40 megapixels. Stops a huge SVG or PNG from expanding into a decode bomb. */
+export const SHARP_LIMIT_INPUT_PIXELS = 40_000_000;
+/** Longest SVG edge passed to sharp. Density 300 stays under the pixel cap. */
+const SVG_MAX_EDGE = 1400;
+
+function sharpInput(input: Buffer, svg: boolean, density?: number) {
+  return sharp(input, {
+    limitInputPixels: SHARP_LIMIT_INPUT_PIXELS,
+    ...(svg && density ? { density } : {}),
+  });
+}
+
+/** Rewrite a declared width/height so librsvg cannot rasterize a giant canvas. */
+export function capSvgDimensions(svg: Buffer, maxEdge: number): Buffer {
+  const text = svg.toString("utf8");
+  const capped = text.replace(/<svg\b([^>]*)>/i, (_full, attrs: string) => {
+    const viewBox = /\bviewBox\s*=\s*["']([^"']+)["']/i.exec(attrs);
+    const box = viewBox?.[1]?.trim().split(/[\s,]+/).map(Number) ?? [];
+    let width = box.length >= 4 ? box[2] : Number.NaN;
+    let height = box.length >= 4 ? box[3] : Number.NaN;
+    const read = (name: string) => {
+      const found = new RegExp(`\\b${name}\\s*=\\s*["']([0-9.]+)(?:px)?["']`, "i").exec(attrs);
+      return found ? Number(found[1]) : Number.NaN;
+    };
+    const attrW = read("width");
+    const attrH = read("height");
+    if (Number.isFinite(attrW) && attrW > 0) width = attrW;
+    if (Number.isFinite(attrH) && attrH > 0) height = attrH;
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      width = maxEdge;
+      height = maxEdge;
+    }
+    const scale = Math.min(1, maxEdge / Math.max(width, height));
+    const nextW = Math.max(1, Math.round(width * scale));
+    const nextH = Math.max(1, Math.round(height * scale));
+    const stripped = attrs
+      .replace(/\swidth\s*=\s*["'][^"']*["']/gi, "")
+      .replace(/\sheight\s*=\s*["'][^"']*["']/gi, "");
+    return `<svg${stripped} width="${nextW}" height="${nextH}">`;
+  });
+  return Buffer.from(capped);
+}
 
 export type PreparedLogo = {
   light: Buffer;
@@ -27,7 +69,7 @@ function sniff(bytes: Buffer): "image/svg+xml" | "image/png" | "image/jpeg" | nu
 
 async function cornerIsPadding(input: Buffer, svg: boolean): Promise<boolean> {
   try {
-    const { data } = await sharp(input, svg ? { density: 72 } : undefined)
+    const { data } = await sharpInput(input, svg, svg ? 72 : undefined)
       .ensureAlpha()
       .raw()
       .toBuffer({ resolveWithObject: true });
@@ -42,8 +84,9 @@ async function cornerIsPadding(input: Buffer, svg: boolean): Promise<boolean> {
 }
 
 async function rasterize(input: Buffer, svg: boolean): Promise<{ png: Buffer; width: number; height: number } | { error: string }> {
-  const trim = await cornerIsPadding(input, svg);
-  let pipeline = sharp(input, svg ? { density: 300 } : undefined).ensureAlpha();
+  const source = svg ? capSvgDimensions(input, SVG_MAX_EDGE) : input;
+  const trim = await cornerIsPadding(source, svg);
+  let pipeline = sharpInput(source, svg, svg ? 300 : undefined).ensureAlpha();
   if (svg) pipeline = pipeline.resize({ width: 1200, withoutEnlargement: false });
   if (trim) pipeline = pipeline.trim({ threshold: 12 });
   pipeline = pipeline.resize({ width: 1200, withoutEnlargement: true });
@@ -64,7 +107,7 @@ async function rasterize(input: Buffer, svg: boolean): Promise<{ png: Buffer; wi
 
 /** True when a transparent logo would disappear on the dark page. Solid backgrounds never need a chip. */
 export async function logoNeedsChip(png: Buffer): Promise<boolean> {
-  const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { data, info } = await sharpInput(png, false).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const channels = info.channels;
   let opaque = 0;
   let passing = 0;

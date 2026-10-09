@@ -239,17 +239,6 @@
     font-family: var(--font-heading-sturdy), ui-serif, Georgia, serif;
   }
 
-  /*
-   * LCD subpixel antialiasing paints red and blue fringes on glyph edges.
-   * On a branded quote those fringes read as the brand color inside ordinary
-   * words ("edging", "plan", "+"). A composited layer forces grayscale AA so
-   * body copy and titles stay the foreground color. The layer is on the text
-   * nodes only, so the sticky total bar still sticks to the viewport.
-   */
-  [data-tenant-brand] :is(h1, h2, h3, p, span) {
-    transform: translateZ(0);
-  }
-
   .num,
   [data-numeric] {
     font-variant-numeric: tabular-nums;

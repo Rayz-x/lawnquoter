@@ -38,6 +38,76 @@ describe("sanitizeSvg", () => {
     expect(result.svg).not.toMatch(/@import/i);
   });
 
+  it("keeps a local gradient, mask, and clip reference", () => {
+    const result = sanitizeSvg(
+      base(`
+        <defs>
+          <linearGradient id="brand"><stop offset="0" stop-color="#fff"/></linearGradient>
+          <clipPath id="cut"><rect width="10" height="10"/></clipPath>
+          <mask id="fade"><rect width="10" height="10" fill="#fff"/></mask>
+        </defs>
+        <rect width="100" height="40" fill="url(#brand)" clip-path="url(#cut)" mask="url(#fade)"/>
+      `),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.svg).toContain("url(#brand)");
+    expect(result.svg).toContain("url(#cut)");
+    expect(result.svg).toContain("url(#fade)");
+  });
+
+  it("strips onload on the root svg", () => {
+    const result = sanitizeSvg(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" onload="alert(1)"><rect width="10" height="10"/></svg>`,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.svg).not.toMatch(/\sonload\s*=/i);
+  });
+
+  it("strips xlink javascript hrefs, data image urls, and mixed-case or entity-encoded javascript", () => {
+    const result = sanitizeSvg(
+      base(`
+        <a xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="javascript:alert(1)">x</a>
+        <image href="data:image/svg+xml;base64,PHN2Zy8+"/>
+        <a href="JaVaScRiPt:alert(1)">y</a>
+        <a href="javascript&#58;alert(1)">z</a>
+      `),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.svg).not.toMatch(/javascript:/i);
+    expect(result.svg).not.toMatch(/data:/i);
+    expect(result.svg).not.toMatch(/xlink:href/i);
+  });
+
+  it("drops xml-stylesheet, comments, animateMotion, and animateTransform", () => {
+    const result = sanitizeSvg(
+      `<?xml-stylesheet type="text/css" href="https://evil.example/a.css"?>
+       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">
+         <!-- <script>alert(1)</script> -->
+         <rect width="10" height="10">
+           <animateMotion path="M0,0"/>
+           <animateTransform attributeName="transform" type="rotate" from="0" to="360"/>
+         </rect>
+       </svg>`,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.svg).not.toMatch(/xml-stylesheet/i);
+    expect(result.svg).not.toMatch(/<!--/);
+    expect(result.svg).not.toMatch(/animateMotion/i);
+    expect(result.svg).not.toMatch(/animateTransform/i);
+    expect(result.svg).not.toMatch(/<script/i);
+  });
+
+  it("strips an href with a malformed percent escape", () => {
+    const result = sanitizeSvg(base(`<a href="#%ZZ">x</a><rect id="mark" width="10" height="10"/>`));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.svg).not.toMatch(/href\s*=\s*["']#%ZZ/i);
+  });
+
   it("rejects a missing viewBox, a doctype, and an oversized file", () => {
     expect(sanitizeSvg(`<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>`).ok).toBe(false);
     expect(sanitizeSvg(`<!DOCTYPE svg [<!ENTITY x "y">]><svg viewBox="0 0 1 1"></svg>`).ok).toBe(false);

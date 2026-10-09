@@ -1,6 +1,7 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { NextResponse } from "next/server";
-import { brandingAssetUrl } from "@/lib/brand/urls";
+import { loadBrandingRaster } from "@/lib/brand/raster";
+import { brandingPathOrgId } from "@/lib/brand/urls";
 import { type PublicOrg } from "@/lib/brand/public-org";
 import { type SelectableItem } from "@/lib/quotes/selection";
 import { createClient } from "@/lib/supabase/server";
@@ -43,21 +44,6 @@ function orgFromPayload(raw: unknown): PublicOrg {
   };
 }
 
-async function loadRaster(path: string | null): Promise<Buffer | null> {
-  const url = brandingAssetUrl(path);
-  if (!url) return null;
-  try {
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const bytes = Buffer.from(await response.arrayBuffer());
-    const png = bytes.length > 4 && bytes[0] === 0x89 && bytes[1] === 0x50;
-    const jpeg = bytes.length > 2 && bytes[0] === 0xff && bytes[1] === 0xd8;
-    return png || jpeg ? bytes : null;
-  } catch {
-    return null;
-  }
-}
-
 export async function GET(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const supabase = await createClient();
@@ -82,7 +68,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   };
   const requested = new URL(req.url).searchParams.get("selected");
   const selectedIds = requested ? requested.split(",").filter((id) => /^[0-9a-f-]{36}$/i.test(id)) : null;
-  const logo = await loadRaster(org.logo_raster_url);
+  const logoOrgId = brandingPathOrgId(org.logo_raster_url);
+  const logo = logoOrgId ? await loadBrandingRaster(org.logo_raster_url, logoOrgId) : null;
   const base = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
   const buf = await renderToBuffer(ProposalPdf({ payload, selectedIds, logo, quoteUrl: `${base}/q/${token}` }));
   return new NextResponse(new Uint8Array(buf), {

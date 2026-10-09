@@ -56,10 +56,59 @@ for f in "$TESTS_DIR"/_shim/*.sql; do
 done
 "${PSQL[@]}" -c "alter database lawnquoter_test set search_path = public, extensions;" >/dev/null 2>&1 || true
 
+# Hosted Supabase owns storage.objects as supabase_storage_admin (RLS already
+# on). postgres is not that owner, so ALTER TABLE ... ENABLE/FORCE ROW LEVEL
+# SECURITY fails with "must be owner". supautils.policy_grants still lets the
+# migration role create policies. When that GUC exists, run storage DDL as
+# nosuperuser hosted_migrator. Vanilla Postgres has no supautils; the shim's
+# event trigger rejects the same ALTER instead.
+HOSTED_MIGRATOR=0
+POLICY_GRANTS="$("${PSQL[@]}" -tAc "select current_setting('supautils.policy_grants', true)")"
+if [[ -n "$POLICY_GRANTS" ]]; then
+  echo "==> applying storage DDL as non-superuser hosted_migrator"
+  NEW_GRANTS="$(POLICY_GRANTS="$POLICY_GRANTS" python3 -c '
+import json, os
+grants = json.loads(os.environ["POLICY_GRANTS"])
+tables = set(grants.get("hosted_migrator", []))
+tables.update(["storage.buckets", "storage.objects"])
+grants["hosted_migrator"] = sorted(tables)
+print(json.dumps(grants, separators=(",", ":")))
+')"
+  "${PSQL[@]}" -v grants="$NEW_GRANTS" <<'SQL'
+do $body$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'hosted_migrator') then
+    create role hosted_migrator nologin nosuperuser bypassrls inherit;
+  end if;
+end
+$body$;
+grant postgres to hosted_migrator;
+alter system set supautils.policy_grants = :'grants';
+select pg_reload_conf();
+SQL
+  ready=0
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    if [[ "$("${PSQL[@]}" -tAc "select current_setting('supautils.policy_grants', true) like '%hosted_migrator%'")" == "t" ]]; then
+      ready=1
+      break
+    fi
+    sleep 0.2
+  done
+  if [[ "$ready" != 1 ]]; then
+    echo "supautils.policy_grants did not include hosted_migrator after reload" >&2
+    exit 1
+  fi
+  HOSTED_MIGRATOR=1
+fi
+
 echo "==> applying migrations"
 for f in $(ls "$MIGRATIONS_DIR"/*.sql | sort); do
   echo "    $(basename "$f")"
-  "${PSQL[@]}" -f "$f" >/dev/null
+  if [[ "$HOSTED_MIGRATOR" == 1 ]] && grep -Eq 'storage\.(objects|buckets)' "$f"; then
+    { printf '%s\n' 'set role hosted_migrator;'; cat "$f"; } | psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q >/dev/null
+  else
+    "${PSQL[@]}" -f "$f" >/dev/null
+  fi
 done
 
 echo "==> applying test helpers"
