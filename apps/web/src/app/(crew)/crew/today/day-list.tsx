@@ -38,6 +38,7 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
   const [newIds, setNewIds] = useState<string[]>([]);
   const [showDone, setShowDone] = useState(false);
   const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
+  const display = useSyncExternalStore(subscribeDisplay, readDisplay, () => "light" as const);
 
   useEffect(() => {
     const store = browserCrewStore();
@@ -133,6 +134,9 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
         </div>
         <div className="flex items-center gap-2">
           <p className="rounded-full bg-muted px-3 py-2 text-[15px] font-semibold">{syncPill(waiting, sending)}</p>
+          <button type="button" className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-xl border px-3 text-[15px] font-semibold" onClick={cycleDisplay}>
+            {display === "sun" ? "Sun" : display === "dark" ? "Dark" : "Light"}
+          </button>
         </div>
       </header>
       {!online ? <p className="mt-3 rounded-xl bg-warning/15 px-3 py-2 text-[15px] font-semibold text-warning">No signal. Your work is saved on this phone.</p> : null}
@@ -214,6 +218,24 @@ function StopCard({ stop, fresh, next = false }: { stop: DayStop; fresh: boolean
       </Link>
     </article>
   );
+}
+
+const DISPLAY_MODES = ["light", "dark", "sun"] as const;
+type CrewDisplayMode = (typeof DISPLAY_MODES)[number];
+
+function subscribeDisplay(notify: () => void) {
+  window.addEventListener("crew-display", notify);
+  return () => window.removeEventListener("crew-display", notify);
+}
+function readDisplay(): CrewDisplayMode {
+  const saved = localStorage.getItem("crew-display");
+  return saved === "dark" || saved === "sun" || saved === "light" ? saved : "light";
+}
+function cycleDisplay() {
+  const current = readDisplay();
+  const next = DISPLAY_MODES[(DISPLAY_MODES.indexOf(current) + 1) % DISPLAY_MODES.length] ?? "light";
+  localStorage.setItem("crew-display", next);
+  window.dispatchEvent(new Event("crew-display"));
 }
 
 function subscribeOnline(notify: () => void) {
