@@ -6,74 +6,38 @@
 -- Quote price and cost denial is covered by the privilege-gaps tests; this
 -- file does not duplicate them.
 
-select plan(78);
+select plan(90);
 
--- PR #10 owns property_access and can_read_property_access. These talk to
--- whichever shape is present so the file stays green on main and after #10.
+-- Gate codes live on property_access. These helpers read that table.
 create or replace function tests.note_property_access(p_org uuid, p_property uuid, p_code text, p_notes text)
 returns void
 language plpgsql
 as $$
 begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'properties' and column_name = 'gate_code'
-  ) then
-    execute 'update public.properties set gate_code = $1, access_notes = $2 where id = $3'
-      using p_code, p_notes, p_property;
-  elsif to_regclass('public.property_access') is not null then
-    execute $q$
-      insert into public.property_access (property_id, org_id, gate_code, access_notes)
-      values ($1, $2, $3, $4)
-      on conflict (property_id) do update
-        set gate_code = excluded.gate_code,
-            access_notes = excluded.access_notes
-    $q$ using p_property, p_org, p_code, p_notes;
-  end if;
+  insert into public.property_access (property_id, org_id, gate_code, access_notes)
+  values (p_property, p_org, p_code, p_notes)
+  on conflict (property_id) do update
+    set gate_code = excluded.gate_code,
+        access_notes = excluded.access_notes;
 end;
 $$;
 
 create or replace function tests.gate_code(p_property uuid)
 returns text
-language plpgsql
+language sql
 stable
 as $$
-declare
-  v text;
-begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'properties' and column_name = 'gate_code'
-  ) then
-    execute 'select gate_code from public.properties where id = $1' into v using p_property;
-  elsif to_regclass('public.property_access') is not null then
-    execute 'select gate_code from public.property_access where property_id = $1' into v using p_property;
-  end if;
-  return v;
-end;
+  select gate_code from public.property_access where property_id = p_property;
 $$;
 
 create or replace function tests.access_notes(p_property uuid)
 returns text
-language plpgsql
+language sql
 stable
 as $$
-declare
-  v text;
-begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'properties' and column_name = 'access_notes'
-  ) then
-    execute 'select access_notes from public.properties where id = $1' into v using p_property;
-  elsif to_regclass('public.property_access') is not null then
-    execute 'select access_notes from public.property_access where property_id = $1' into v using p_property;
-  end if;
-  return v;
-end;
+  select access_notes from public.property_access where property_id = p_property;
 $$;
 
--- No-op success on main, where #10 has not created the helper yet.
 create or replace function tests.expect_property_access(
   p_expect boolean, p_org uuid, p_property uuid, p_desc text
 ) returns text
@@ -82,15 +46,11 @@ as $$
 declare
   v boolean;
 begin
-  if to_regprocedure('private.can_read_property_access(uuid,uuid)') is null then
-    return ok(true, p_desc || ' (helper arrives with PR #10)');
-  end if;
   execute 'select private.can_read_property_access($1, $2)' into v using p_org, p_property;
   return is(v, p_expect, p_desc);
 end;
 $$;
 
--- Created after the privilege migration revokes the PUBLIC execute default.
 grant execute on function tests.note_property_access(uuid, uuid, text, text) to public;
 grant execute on function tests.gate_code(uuid) to public;
 grant execute on function tests.access_notes(uuid) to public;
@@ -185,22 +145,25 @@ values (:'org1'::uuid, :'prop_open'::uuid, 'Unassigned yard')
 returning id as job_open \gset
 
 select is(
-  (select require_after_photo from public.jobs where id = :'job_mine'::uuid),
-  true,
-  'after photo defaults on'
+  (
+    select count(*)
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name in ('jobs', 'visits')
+      and column_name = 'require_after_photo'
+  ),
+  0::bigint,
+  'jobs and visits have no require_after_photo column'
 );
 select throws_ok(
-  format(
-    $$ insert into public.jobs (org_id, property_id, title, require_after_photo) values (%L, %L, 'No photo', false) $$,
-    :'org1', :'prop_mine'
-  ),
-  '23514',
+  format($$ update public.jobs set status = 'completed' where id = %L $$, :'job_mine'),
+  '42501',
   null,
-  'jobs cannot opt out of the after photo'
+  'job status cannot be written directly'
 );
 
-insert into public.crews (org_id, name, default_lead_id)
-values (:'org1'::uuid, 'North', :'lead_a'::uuid)
+insert into public.crews (org_id, name)
+values (:'org1'::uuid, 'North')
 returning id as crew_north \gset
 
 insert into public.crews (org_id, name)
@@ -214,8 +177,16 @@ returning id as crew_spare \gset
 insert into public.crew_members (org_id, crew_id, profile_id) values
   (:'org1'::uuid, :'crew_north'::uuid, :'crew_a'::uuid),
   (:'org1'::uuid, :'crew_north'::uuid, :'lead_a'::uuid),
-  (:'org1'::uuid, :'crew_south'::uuid, :'crew_b'::uuid),
-  (:'org1'::uuid, :'crew_spare'::uuid, :'crew_a'::uuid);
+  (:'org1'::uuid, :'crew_south'::uuid, :'crew_b'::uuid);
+
+select tests.clear_auth();
+update public.crews set default_lead_id = :'lead_a'::uuid where id = :'crew_north'::uuid;
+select throws_ok(
+  format($$ update public.jobs set status = 'completed' where id = %L $$, :'job_mine'),
+  '22023',
+  null,
+  'a job cannot be completed before an after photo exists'
+);
 
 insert into public.routes (org_id, crew_id, date, status)
 values (:'org1'::uuid, :'crew_north'::uuid, :'today'::date, 'published')
@@ -226,7 +197,7 @@ values (:'org1'::uuid, :'crew_north'::uuid, :'yesterday'::date, 'published')
 returning id as route_yest \gset
 
 insert into public.routes (org_id, crew_id, date, status)
-values (:'org1'::uuid, :'crew_north'::uuid, :'tomorrow'::date, 'published')
+values (:'org1'::uuid, :'crew_north'::uuid, :'tomorrow'::date, 'draft')
 returning id as route_tom \gset
 
 insert into public.routes (org_id, crew_id, date, status)
@@ -243,55 +214,55 @@ returning id as route_draft \gset
 
 insert into public.visits (
   org_id, agreement_id, job_id, property_id, route_id, sort,
-  scheduled_date, window_start, window_end, status, crew_size, budget_minutes, note_office
+  occurrence_date, scheduled_date, window_start, window_end, status, crew_size, budget_minutes
 ) values (
   :'org1'::uuid, :'agr'::uuid, :'job_mine'::uuid, :'prop_mine'::uuid, :'route_today'::uuid, 1,
-  :'today'::date, '08:00', '10:00', 'scheduled', 2, 45, 'office note'
+  :'today'::date, :'today'::date, '08:00', '10:00', 'scheduled', 2, 45
 ) returning id as visit_mine \gset
 
+insert into public.visit_office_notes (visit_id, org_id, note)
+values (:'visit_mine'::uuid, :'org1'::uuid, 'office note');
+
 insert into public.visits (
-  org_id, agreement_id, job_id, property_id, route_id, scheduled_date, status
+  org_id, agreement_id, job_id, property_id, route_id, occurrence_date, scheduled_date, status
 ) values (
   :'org1'::uuid, :'agr'::uuid, :'job_mine'::uuid, :'prop_mine'::uuid, :'route_yest'::uuid,
-  :'yesterday'::date, 'scheduled'
+  :'yesterday'::date, :'yesterday'::date, 'scheduled'
 ) returning id as visit_yest \gset
 
 insert into public.visits (
-  org_id, agreement_id, job_id, property_id, route_id, scheduled_date, status
+  org_id, agreement_id, job_id, property_id, route_id, occurrence_date, scheduled_date, status
 ) values (
   :'org1'::uuid, :'agr'::uuid, :'job_mine'::uuid, :'prop_mine'::uuid, :'route_tom'::uuid,
-  :'tomorrow'::date, 'scheduled'
+  :'tomorrow'::date, :'tomorrow'::date, 'scheduled'
 ) returning id as visit_tom \gset
 
 insert into public.visits (
-  org_id, job_id, property_id, route_id, scheduled_date, status
+  org_id, job_id, property_id, route_id, occurrence_date, scheduled_date, status
 ) values (
   :'org1'::uuid, :'job_far'::uuid, :'prop_far'::uuid, :'route_far'::uuid,
-  :'later'::date, 'scheduled'
+  :'later'::date, :'later'::date, 'scheduled'
 ) returning id as visit_far \gset
 
 insert into public.visits (
-  org_id, job_id, property_id, route_id, scheduled_date, status
+  org_id, job_id, property_id, route_id, occurrence_date, scheduled_date, status
 ) values (
   :'org1'::uuid, :'job_other'::uuid, :'prop_other'::uuid, :'route_south'::uuid,
-  :'today'::date, 'scheduled'
+  :'today'::date, :'today'::date, 'scheduled'
 ) returning id as visit_other \gset
 
 insert into public.visits (
-  org_id, job_id, property_id, scheduled_date, status, note_office
+  org_id, job_id, property_id, occurrence_date, scheduled_date, status
 ) values (
   :'org1'::uuid, :'job_open'::uuid, :'prop_open'::uuid,
-  :'today'::date, 'scheduled', 'not dispatched'
+  :'today'::date, :'today'::date, 'scheduled'
 ) returning id as visit_open \gset
 
 select throws_ok(
-  format(
-    $$ insert into public.visits (org_id, job_id, property_id, scheduled_date, require_after_photo) values (%L, %L, %L, %L, false) $$,
-    :'org1', :'job_open', :'prop_open', :'today'
-  ),
-  '23514',
+  format($$ update public.visits set status = 'completed' where id = %L $$, :'visit_mine'),
+  '22023',
   null,
-  'visits cannot opt out of the after photo'
+  'a visit cannot be completed before an after photo exists'
 );
 
 insert into public.visit_tasks (org_id, visit_id, label, quantity_text, sort)
@@ -302,7 +273,7 @@ insert into public.visit_tasks (org_id, visit_id, label, sort)
 values (:'org1'::uuid, :'visit_other'::uuid, 'Other mow', 0);
 
 select is((select count(*) from public.visits), 6::bigint, 'office sees every visit');
-select is((select count(*) from public.routes where status = 'draft'), 1::bigint, 'office sees draft routes');
+select is((select count(*) from public.routes where status = 'draft'), 2::bigint, 'office sees draft routes');
 
 -- Cross-org -----------------------------------------------------------------
 select tests.authenticate_as(:'owner2'::uuid, :'org2'::uuid, 'owner');
@@ -325,13 +296,16 @@ select throws_ok(
 
 -- Crew A: own crew, in window, not drafts -----------------------------------
 select tests.authenticate_as(:'crew_a'::uuid, :'org1'::uuid, 'crew');
-select is((select count(*) from public.visits), 3::bigint, 'crew sees only in-window visits on their crew');
-select is((select count(*) from public.routes), 3::bigint, 'crew sees only in-window routes on their crew');
+select is((select count(*) from public.visits), 2::bigint, 'crew sees only in-window visits on their crew');
+select is((select count(*) from public.routes), 2::bigint, 'crew sees only in-window routes on their crew');
 select is((select count(*) from public.routes where status = 'draft'), 0::bigint, 'crew cannot read draft routes');
+select is((select count(*) from public.visits where id = :'visit_tom'::uuid), 0::bigint, 'crew cannot read a visit on a draft route');
 select is((select count(*) from public.jobs), 1::bigint, 'crew sees only jobs on those visits');
 select is((select count(*) from public.visit_tasks), 1::bigint, 'crew sees only tasks on those visits');
 select is((select count(*) from public.agreements), 0::bigint, 'crew cannot read agreements');
-select is((select count(*) from public.crews), 0::bigint, 'crew cannot read the crew roster tables');
+select is((select count(*) from public.crews), 1::bigint, 'crew can read their own crew');
+select is((select count(*) from public.crew_members), 2::bigint, 'crew can read their own roster');
+select is((select count(*) from public.crews where id = :'crew_south'::uuid), 0::bigint, 'crew cannot read another crew');
 select is((select id from public.visits where id = :'visit_mine'::uuid), :'visit_mine'::uuid, 'crew sees today''s visit');
 select is((select budget_minutes from public.visits where id = :'visit_mine'::uuid), 45, 'crew can read the minute budget');
 select is((select count(*) from public.visits where id = :'visit_other'::uuid), 0::bigint, 'crew cannot read another crew''s visit');
@@ -421,12 +395,23 @@ select throws_ok(
   '42501', null, 'crew cannot insert visits'
 );
 
+select is((select count(*) from public.visit_office_notes), 0::bigint, 'crew cannot read office visit notes');
+select throws_ok(
+  format($$ update public.routes set status = 'done' where id = %L $$, :'route_today'),
+  '42501', null, 'crew cannot update route status'
+);
+select throws_ok(
+  format($$ update public.visits set status = 'completed' where id = %L $$, :'visit_mine'),
+  '42501', null, 'crew cannot mark a visit completed'
+);
+select throws_ok(
+  format($$ update public.visits set scheduled_date = %L where id = %L $$, :'later', :'visit_mine'),
+  '42501', null, 'crew cannot set scheduled_date'
+);
+update public.visits set window_start = '11:00' where id = :'visit_mine'::uuid;
+select is((select window_start from public.visits where id = :'visit_mine'::uuid), '08:00'::time, 'crew cannot update the visit window');
 update public.agreements set notes_office = 'crew' where id = :'agr'::uuid;
 update public.jobs set title = 'crew' where id = :'job_mine'::uuid;
-update public.routes set status = 'done' where id = :'route_today'::uuid;
-update public.visits set note_office = 'crew' where id = :'visit_mine'::uuid;
-select is((select note_office from public.visits where id = :'visit_mine'::uuid), 'office note', 'crew cannot update visits');
-select is((select status::text from public.routes where id = :'route_today'::uuid), 'published', 'crew cannot update routes');
 select is((select title from public.jobs where id = :'job_mine'::uuid), 'Weekly mow', 'crew cannot update jobs');
 
 delete from public.visits where id = :'visit_mine'::uuid;
@@ -463,8 +448,10 @@ select throws_ok(
   ),
   '42501', null, 'crew lead cannot insert visits'
 );
-update public.visits set note_office = 'lead' where id = :'visit_mine'::uuid;
-select is((select note_office from public.visits where id = :'visit_mine'::uuid), 'office note', 'crew lead cannot update visits');
+select throws_ok(
+  format($$ update public.visits set route_id = %L where id = %L $$, :'route_south', :'visit_mine'),
+  '42501', null, 'crew lead cannot set route_id'
+);
 
 -- Sales converts later; dispatcher owns crews --------------------------------
 select tests.authenticate_as(:'sales1'::uuid, :'org1'::uuid, 'sales');
@@ -479,6 +466,13 @@ select throws_ok(
   format($$ insert into public.crews (org_id, name) values (%L, 'Sales crew') $$, :'org1'),
   '42501', null, 'sales cannot create a crew'
 );
+select throws_ok(
+  format(
+    $$ update public.visits set route_id = %L, scheduled_date = %L where id = %L $$,
+    :'route_today', :'today', :'visit_mine'
+  ),
+  '42501', null, 'sales cannot set the route or scheduled date'
+);
 delete from public.visits where id = :'visit_mine'::uuid;
 select is((select count(*) from public.visits where id = :'visit_mine'::uuid), 1::bigint, 'sales cannot delete visits');
 
@@ -486,6 +480,15 @@ select tests.authenticate_as(:'dispatcher1'::uuid, :'org1'::uuid, 'dispatcher');
 select lives_ok(
   format($$ insert into public.crews (org_id, name) values (%L, 'Relief') $$, :'org1'),
   'dispatcher can create a crew'
+);
+
+select lives_ok(
+  format($$ update public.visits set window_end = '12:00' where id = %L $$, :'visit_mine'),
+  'dispatcher can update the visit window'
+);
+select throws_ok(
+  format($$ update public.visits set status = 'completed' where id = %L $$, :'visit_mine'),
+  '42501', null, 'dispatcher cannot mark a visit completed directly'
 );
 
 select tests.authenticate_as(:'read1'::uuid, :'org1'::uuid, 'read_only');
@@ -503,6 +506,17 @@ select tests.expect_property_access(
   true, :'org1'::uuid, :'prop_other'::uuid,
   'office can read property access for any property in the org'
 );
+
+select tests.clear_auth();
+update public.visits set status = 'cancelled' where id in (:'visit_mine'::uuid, :'visit_yest'::uuid);
+select tests.authenticate_as(:'crew_a'::uuid, :'org1'::uuid, 'crew');
+select is((select count(*) from public.visits where id = :'visit_mine'::uuid), 0::bigint, 'crew cannot read a cancelled visit');
+select tests.expect_property_access(
+  false, :'org1'::uuid, :'prop_mine'::uuid,
+  'a cancelled stop does not keep the gate code readable'
+);
+select tests.clear_auth();
+update public.visits set status = 'scheduled' where id in (:'visit_mine'::uuid, :'visit_yest'::uuid);
 
 -- JWT role crew is not enough once the membership row is gone.
 select tests.clear_auth();
