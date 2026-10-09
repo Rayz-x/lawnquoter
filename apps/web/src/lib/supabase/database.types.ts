@@ -230,6 +230,32 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"crew_mutation_receipts": {
+                  Row: {
+                    "client_id": string,"created_at": string,"kind": string,"org_id": string,"visit_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "client_id": string,"created_at"?: string,"kind": string,"org_id": string,"visit_id"?: string | null
+                  }
+                  Update: {
+                    "client_id"?: string,"created_at"?: string,"kind"?: string,"org_id"?: string,"visit_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "crew_mutation_receipts_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "crew_mutation_receipts_visit_id_fkey"
+      columns: ["visit_id"]
+isOneToOne: false
+      referencedRelation: "visits"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"crews": {
                   Row: {
                     "active": boolean,"created_at": string,"default_lead_id": string | null,"id": string,"name": string,"org_id": string,"updated_at": string
@@ -1040,14 +1066,14 @@ isOneToOne: false
                   ]
                 },"visits": {
                   Row: {
-                    "agreement_id": string | null,"budget_minutes": number | null,"cancel_reason": string | null,"client_id": string | null,"completed_after_cancel": boolean,"completed_at": string | null,"created_at": string,"crew_size": number,"id": string,"job_id": string,"occurrence_date": string,"org_id": string,"property_id": string,"reopen_until": string | null,"route_id": string | null,"scheduled_date": string | null,"skip_reason": Database["public"]['Enums']["visit_skip_reason"] | null,"sort": number,"started_at": string | null,"status": Database["public"]['Enums']["visit_status"],"updated_at": string,"window_end": string | null,"window_start": string | null
+                    "agreement_id": string | null,"budget_minutes": number | null,"cancel_reason": string | null,"client_id": string | null,"completed_after_cancel": boolean,"completed_at": string | null,"created_at": string,"crew_note": string | null,"crew_size": number,"id": string,"job_id": string,"occurrence_date": string,"org_id": string,"property_id": string,"reopen_until": string | null,"route_id": string | null,"scheduled_date": string | null,"skip_reason": Database["public"]['Enums']["visit_skip_reason"] | null,"sort": number,"started_at": string | null,"status": Database["public"]['Enums']["visit_status"],"updated_at": string,"window_end": string | null,"window_start": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "agreement_id"?: string | null,"budget_minutes"?: number | null,"cancel_reason"?: string | null,"client_id"?: string | null,"completed_after_cancel"?: boolean,"completed_at"?: string | null,"created_at"?: string,"crew_size"?: number,"id"?: string,"job_id": string,"occurrence_date": string,"org_id": string,"property_id": string,"reopen_until"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
+                    "agreement_id"?: string | null,"budget_minutes"?: number | null,"cancel_reason"?: string | null,"client_id"?: string | null,"completed_after_cancel"?: boolean,"completed_at"?: string | null,"created_at"?: string,"crew_note"?: string | null,"crew_size"?: number,"id"?: string,"job_id": string,"occurrence_date": string,"org_id": string,"property_id": string,"reopen_until"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
                   }
                   Update: {
-                    "agreement_id"?: string | null,"budget_minutes"?: number | null,"cancel_reason"?: string | null,"client_id"?: string | null,"completed_after_cancel"?: boolean,"completed_at"?: string | null,"created_at"?: string,"crew_size"?: number,"id"?: string,"job_id"?: string,"occurrence_date"?: string,"org_id"?: string,"property_id"?: string,"reopen_until"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
+                    "agreement_id"?: string | null,"budget_minutes"?: number | null,"cancel_reason"?: string | null,"client_id"?: string | null,"completed_after_cancel"?: boolean,"completed_at"?: string | null,"created_at"?: string,"crew_note"?: string | null,"crew_size"?: number,"id"?: string,"job_id"?: string,"occurrence_date"?: string,"org_id"?: string,"property_id"?: string,"reopen_until"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
                   }
                   Relationships: [
                     {
@@ -1111,6 +1137,12 @@ isOneToOne: false
                            },
 "create_org_invite":
 { Args: { "p_email": string,"p_role": Database["public"]['Enums']["org_role"] }; Returns: Json
+                           },
+"crew_day_pack":
+{ Args: { "p_date": string }; Returns: Json
+                           },
+"crew_sync":
+{ Args: { "p_mutations": Json }; Returns: Json
                            },
 "custom_access_token_hook":
 { Args: { "event": Json }; Returns: Json
