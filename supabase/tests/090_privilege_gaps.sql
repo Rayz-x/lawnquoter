@@ -109,8 +109,9 @@ select case
   else
     ok(
       not has_function_privilege('anon', 'public.rls_auto_enable()', 'execute')
+      and not has_function_privilege('authenticated', 'public.rls_auto_enable()', 'execute')
       and not has_function_privilege('public', 'public.rls_auto_enable()', 'execute'),
-      'anon and PUBLIC cannot execute rls_auto_enable'
+      'anon, authenticated, and PUBLIC cannot execute rls_auto_enable'
     )
 end;
 
