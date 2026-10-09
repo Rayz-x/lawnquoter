@@ -35,7 +35,7 @@ export default async function PricingPage() {
         title="Services & Pricing"
         description="One price list for the company. Every rule returns price, hours, and cost."
       />
-      <div className="p-4">
+      <div className="page-body">
         <Tabs defaultValue="services">
           <TabsList>
             <TabsTrigger value="services">Services</TabsTrigger>

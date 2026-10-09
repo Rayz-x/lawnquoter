@@ -29,7 +29,7 @@ export default async function QuotesPage() {
           <Button render={<Link href="/quotes/new" />}>New quote</Button>
         }
       />
-      <div className="p-4">
+      <div className="page-body">
         {!quotes || quotes.length === 0 ? (
           <Empty>
             <EmptyHeader>

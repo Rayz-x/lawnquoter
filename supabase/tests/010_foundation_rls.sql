@@ -119,5 +119,14 @@ select is(
   'owner',
   'hook stamps role'
 );
+select is(
+  jsonb_typeof(
+    public.custom_access_token_hook(
+      jsonb_build_object('user_id', gen_random_uuid()::text, 'claims', '{"app_metadata":{}}'::jsonb)
+    ) -> 'claims'
+  ),
+  'object',
+  'hook returns object claims when the user has no membership'
+);
 
 select * from finish();

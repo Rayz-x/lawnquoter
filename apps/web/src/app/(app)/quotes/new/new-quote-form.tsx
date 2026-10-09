@@ -43,7 +43,7 @@ export function NewQuoteForm({
             name="account_id"
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
-            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+            className="native-control"
           >
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
@@ -54,7 +54,7 @@ export function NewQuoteForm({
         </Field>
         <Field>
           <FieldLabel htmlFor="property_id">Property</FieldLabel>
-          <select id="property_id" name="property_id" className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
+          <select id="property_id" name="property_id" className="native-control">
             <option value="">None yet</option>
             {props.map((p) => (
               <option key={p.id} value={p.id}>

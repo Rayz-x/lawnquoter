@@ -43,7 +43,7 @@ export function AddItemForm({ quoteId, versionId }: { quoteId: string; versionId
           </Field>
           <Field>
             <FieldLabel htmlFor="li_state">State</FieldLabel>
-            <select id="li_state" name="state" defaultValue="included" className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
+            <select id="li_state" name="state" defaultValue="included" className="native-control">
               <option value="included">Included</option>
               <option value="recommended">Recommended</option>
               <option value="optional">Optional</option>
@@ -51,7 +51,7 @@ export function AddItemForm({ quoteId, versionId }: { quoteId: string; versionId
           </Field>
           <Field>
             <FieldLabel htmlFor="li_tier">Good / Better / Best</FieldLabel>
-            <select id="li_tier" name="option_tier" defaultValue="none" className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
+            <select id="li_tier" name="option_tier" defaultValue="none" className="native-control">
               <option value="none">None</option>
               <option value="good">Good</option>
               <option value="better">Better</option>

@@ -40,7 +40,7 @@ export function InviteMemberForm() {
             id="invite-role"
             name="role"
             defaultValue="crew"
-            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+            className="native-control"
           >
             {INVITABLE.map((r) => (
               <option key={r} value={r}>

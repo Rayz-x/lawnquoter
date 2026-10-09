@@ -17,16 +17,18 @@ export default async function DashboardPage() {
   return (
     <>
       <PageHeader title="Dashboard" description="What needs attention today" />
-      <div className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-4">
-        {TILES.map((t) => (
-          <Card key={t.title}>
-            <CardHeader>
-              <CardDescription>{t.title}</CardDescription>
-              <CardTitle className="text-3xl tabular-nums">{t.value}</CardTitle>
-              <CardDescription>{t.description}</CardDescription>
-            </CardHeader>
-          </Card>
-        ))}
+      <div className="page-body">
+        <div className="tiles">
+          {TILES.map((t) => (
+            <Card key={t.title}>
+              <CardHeader>
+                <CardDescription>{t.title}</CardDescription>
+                <CardTitle className="text-3xl tabular-nums">{t.value}</CardTitle>
+                <CardDescription>{t.description}</CardDescription>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
       </div>
     </>
   );

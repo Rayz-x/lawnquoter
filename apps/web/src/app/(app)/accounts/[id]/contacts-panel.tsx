@@ -92,7 +92,7 @@ export function ContactsPanel({ accountId, contacts }: { accountId: string; cont
               </Field>
               <Field>
                 <FieldLabel htmlFor="role">Role</FieldLabel>
-                <select id="role" name="role" defaultValue="primary" className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
+                <select id="role" name="role" defaultValue="primary" className="native-control">
                   <option value="primary">Primary</option>
                   <option value="billing">Billing</option>
                   <option value="site">Site contact</option>

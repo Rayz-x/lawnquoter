@@ -64,7 +64,7 @@ export function ProposalView({
   const brand = payload.org.brand_color ?? "#166534";
 
   return (
-    <main className="mx-auto min-h-svh max-w-xl px-4 py-10">
+    <main className="mx-auto min-h-svh max-w-xl px-4 py-10 [padding-inline-start:max(1rem,env(safe-area-inset-left,0px))] [padding-inline-end:max(1rem,env(safe-area-inset-right,0px))]">
       <p className="text-sm font-medium" style={{ color: brand }}>
         {payload.org.name}
       </p>
@@ -88,10 +88,12 @@ export function ProposalView({
                       onChange={() => setPicked((p) => ({ ...p, [g]: o.id }))}
                       className="mt-1"
                     />
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                       <div className="flex justify-between gap-2">
-                        <span className="font-medium capitalize">{o.option_tier === "none" ? o.name : o.option_tier}</span>
-                        <span className="tabular-nums">${Number(o.price).toFixed(0)}</span>
+                        <span className="min-w-0 font-medium capitalize [overflow-wrap:anywhere]">
+                          {o.option_tier === "none" ? o.name : o.option_tier}
+                        </span>
+                        <span className="shrink-0 tabular-nums">${Number(o.price).toFixed(0)}</span>
                       </div>
                       {o.description ? <p className="text-xs text-muted-foreground">{o.description}</p> : null}
                     </div>
@@ -111,24 +113,28 @@ export function ProposalView({
               ) : (
                 <input type="checkbox" checked={!!extras[i.id]} onChange={(e) => setExtras((x) => ({ ...x, [i.id]: e.target.checked }))} className="mt-1" />
               )}
-              <div className="flex-1">
+              <div className="min-w-0 flex-1">
                 <div className="flex justify-between gap-2">
-                  <span className="font-medium">{i.name}</span>
-                  <span className="tabular-nums">
+                  <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{i.name}</span>
+                  <span className="shrink-0 tabular-nums">
                     {i.range_low != null ? `$${Number(i.range_low).toFixed(0)}–$${Number(i.range_high).toFixed(0)}` : `$${Number(i.price).toFixed(0)}`}
                   </span>
                 </div>
                 {i.description ? <p className="text-xs text-muted-foreground">{i.description}</p> : null}
                 {i.photo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={i.photo_url} alt="" className="mt-2 max-h-40 rounded-md object-cover" />
+                  <img
+                    src={i.photo_url}
+                    alt=""
+                    className="mt-2 w-full rounded-md bg-muted object-cover [aspect-ratio:16/9] [block-size:auto]"
+                  />
                 ) : null}
               </div>
             </label>
           ))}
       </div>
 
-      <div className="sticky bottom-0 mt-8 flex items-center justify-between border-t bg-background py-4">
+      <div className="sticky bottom-0 mt-8 flex items-center justify-between gap-3 border-t bg-background py-4 [padding-block-end:calc(1rem+env(safe-area-inset-bottom,0px))]">
         <div>
           <div className="text-xs text-muted-foreground">Live total</div>
           <div className="text-2xl font-semibold tabular-nums">${total.toFixed(2)}</div>

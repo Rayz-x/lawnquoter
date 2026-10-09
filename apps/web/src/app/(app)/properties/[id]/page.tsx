@@ -56,7 +56,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           </>
         }
       />
-      <div className="grid gap-4 p-4 lg:grid-cols-3">
+      <div className="page-pad grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Site map</CardTitle>

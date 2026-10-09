@@ -19,7 +19,7 @@ export default async function ProfilePage() {
   return (
     <>
       <PageHeader title="Your profile" />
-      <div className="p-4">
+      <div className="page-body">
         <Card className="max-w-lg">
           <CardHeader>
             <CardTitle>Profile</CardTitle>

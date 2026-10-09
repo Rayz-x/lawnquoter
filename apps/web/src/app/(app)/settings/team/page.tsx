@@ -24,7 +24,7 @@ export default async function TeamPage() {
   return (
     <>
       <PageHeader title="Team" description="Everyone who can sign in to your workspace" />
-      <div className="grid gap-4 p-4 lg:grid-cols-3">
+      <div className="page-pad grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Members</CardTitle>

@@ -32,15 +32,15 @@ export function AppSidebar({ orgName, userEmail, userName, role }: AppSidebarPro
   const groups = visibleNav(role);
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="overscroll-contain">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/dashboard" />}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <Leaf />
               </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
+              <div className="grid min-w-0 flex-1 text-start text-sm leading-tight">
                 <span className="truncate font-semibold">{orgName}</span>
                 <span className="truncate text-xs text-muted-foreground">Lawnquoter</span>
               </div>
@@ -55,10 +55,14 @@ export function AppSidebar({ orgName, userEmail, userName, role }: AppSidebarPro
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => {
-                  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  const current = pathname === item.href || pathname.startsWith(`${item.href}/`);
                   return (
                     <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton isActive={active} tooltip={item.title} render={<Link href={item.href} />}>
+                      <SidebarMenuButton
+                        isActive={current}
+                        tooltip={item.title}
+                        render={<Link href={item.href} aria-current={current ? "page" : undefined} />}
+                      >
                         <item.icon />
                         <span>{item.title}</span>
                       </SidebarMenuButton>

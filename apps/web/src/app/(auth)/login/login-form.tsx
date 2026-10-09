@@ -33,6 +33,27 @@ export function LoginForm({ next, initialError }: { next: string; initialError: 
     });
   };
 
+  const signUp = () => {
+    if (!email || !password) {
+      setError("Enter an email and password to create an account.");
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
+      });
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      toast.success("Account created. If email confirmation is on, check your inbox; otherwise sign in.");
+    });
+  };
+
   const sendMagicLink = () => {
     if (!email) {
       setError("Enter your email first.");
@@ -89,6 +110,9 @@ export function LoginForm({ next, initialError }: { next: string; initialError: 
         <Button type="submit" disabled={pending || !password}>
           {pending ? <Spinner data-icon="inline-start" /> : null}
           Sign in
+        </Button>
+        <Button type="button" variant="outline" disabled={pending} onClick={signUp}>
+          Create account
         </Button>
         <Button type="button" variant="outline" disabled={pending || linkSent} onClick={sendMagicLink}>
           {linkSent ? "Link sent" : "Email me a sign-in link"}

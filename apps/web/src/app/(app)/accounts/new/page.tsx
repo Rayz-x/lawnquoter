@@ -20,7 +20,7 @@ export default async function NewAccountPage() {
   return (
     <>
       <PageHeader title="New account" />
-      <div className="p-4">
+      <div className="page-body">
         <Card className="max-w-2xl">
           <CardContent className="pt-6">
             <AccountForm parents={parents ?? []} />

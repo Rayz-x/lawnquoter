@@ -57,7 +57,7 @@ export function RuleForm({
             name="service_id"
             required
             defaultValue={rule?.service_id ?? services[0]?.id}
-            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+            className="native-control"
           >
             {services.map((s) => (
               <option key={s.id} value={s.id}>

@@ -11,7 +11,7 @@ export default async function LoginPage({
 }) {
   const { next, error } = await searchParams;
   return (
-    <main className="flex flex-1 items-center justify-center p-6">
+    <main className="flex flex-1 items-center justify-center p-6 [justify-content:safe_center] [padding-block-start:max(1.5rem,env(safe-area-inset-top,0px))] [padding-block-end:max(1.5rem,env(safe-area-inset-bottom,0px))]">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Sign in to Lawnquoter</CardTitle>

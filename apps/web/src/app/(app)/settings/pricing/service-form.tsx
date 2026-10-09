@@ -30,7 +30,7 @@ export function ServiceForm() {
         </Field>
         <Field>
           <FieldLabel htmlFor="svc_kind">Kind</FieldLabel>
-          <select id="svc_kind" name="kind" className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" defaultValue="mowing">
+          <select id="svc_kind" name="kind" className="native-control" defaultValue="mowing">
             <option value="mowing">Mowing</option>
             <option value="fert">Fert / weed</option>
             <option value="cleanup">Cleanup</option>

@@ -52,7 +52,7 @@ export function AccountForm({
               id="type"
               name="type"
               defaultValue={account?.type ?? "residential"}
-              className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+              className="native-control"
             >
               <option value="residential">Residential</option>
               <option value="commercial">Commercial</option>
@@ -64,7 +64,7 @@ export function AccountForm({
               id="status"
               name="status"
               defaultValue={account?.status ?? "lead"}
-              className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+              className="native-control"
             >
               <option value="lead">Lead</option>
               <option value="active">Active</option>
@@ -97,7 +97,7 @@ export function AccountForm({
             id="parent_account_id"
             name="parent_account_id"
             defaultValue={account?.parent_account_id ?? ""}
-            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+            className="native-control"
           >
             <option value="">None (top-level)</option>
             {parents

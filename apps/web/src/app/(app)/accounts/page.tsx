@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -44,28 +45,20 @@ export default async function AccountsPage({
           </Button>
         }
       />
-      <div className="flex flex-col gap-4 p-4">
+      <div className="page-body">
         <form className="flex flex-wrap items-center gap-2">
           <Input name="q" placeholder="Search by name" defaultValue={q ?? ""} className="max-w-xs" />
-          <select
-            name="type"
-            defaultValue={type ?? ""}
-            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-          >
+          <NativeSelect name="type" defaultValue={type ?? ""} className="w-auto">
             <option value="">All types</option>
             <option value="residential">Residential</option>
             <option value="commercial">Commercial</option>
-          </select>
-          <select
-            name="status"
-            defaultValue={status ?? ""}
-            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-          >
+          </NativeSelect>
+          <NativeSelect name="status" defaultValue={status ?? ""} className="w-auto">
             <option value="">All statuses</option>
             <option value="lead">Lead</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
-          </select>
+          </NativeSelect>
           <Button type="submit" variant="outline">
             Filter
           </Button>

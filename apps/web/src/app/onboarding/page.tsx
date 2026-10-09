@@ -11,7 +11,7 @@ export default async function OnboardingPage() {
   if (!session) redirect("/login");
   if (session.orgId) redirect("/dashboard");
   return (
-    <main className="flex flex-1 items-center justify-center p-6">
+    <main className="flex flex-1 items-center justify-center p-6 [justify-content:safe_center] [padding-block-start:max(1.5rem,env(safe-area-inset-top,0px))] [padding-block-end:max(1.5rem,env(safe-area-inset-bottom,0px))]">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Set up your company</CardTitle>

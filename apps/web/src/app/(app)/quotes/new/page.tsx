@@ -21,7 +21,7 @@ export default async function NewQuotePage({ searchParams }: { searchParams: Pro
   return (
     <>
       <PageHeader title="New quote" description="Pick the account and optional property" />
-      <div className="p-4">
+      <div className="page-body">
         <Card className="max-w-lg">
           <CardHeader>
             <CardTitle>Customer</CardTitle>

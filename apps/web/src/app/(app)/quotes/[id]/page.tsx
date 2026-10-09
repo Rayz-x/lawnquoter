@@ -75,7 +75,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           </>
         }
       />
-      <div className="grid gap-4 p-4 lg:grid-cols-3">
+      <div className="page-pad grid gap-4 lg:grid-cols-3">
         <div className="flex flex-col gap-3 lg:col-span-2">
           <Card>
             <CardHeader>

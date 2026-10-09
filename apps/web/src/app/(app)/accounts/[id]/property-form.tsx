@@ -75,7 +75,7 @@ export function PropertyForm({ accountId, property }: { accountId: string; prope
           </Field>
           <Field>
             <FieldLabel htmlFor="slope">Slope</FieldLabel>
-            <select id="slope" name="slope" defaultValue={property?.slope ?? ""} className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
+            <select id="slope" name="slope" defaultValue={property?.slope ?? ""} className="native-control">
               <option value="">Unknown</option>
               <option value="flat">Flat</option>
               <option value="gentle">Gentle</option>

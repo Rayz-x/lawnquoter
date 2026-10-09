@@ -16,7 +16,7 @@ export default async function SettingsPage() {
   return (
     <>
       <PageHeader title="Company settings" description="Branding, contact details and defaults" />
-      <div className="grid gap-4 p-4 lg:grid-cols-2">
+      <div className="page-pad grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Company profile</CardTitle>

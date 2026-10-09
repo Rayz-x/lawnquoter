@@ -145,9 +145,9 @@ export function MeasureStudio({
     });
 
   return (
-    <div className="grid gap-4 p-4 lg:grid-cols-[1fr_20rem]">
+    <div className="page-pad grid gap-4 lg:grid-cols-[minmax(0,1fr)_min(20rem,100%)]">
       <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 [justify-content:safe_start]">
           <Tool mode={mode} setMode={setMode} id="select" icon={<MousePointer2 data-icon="inline-start" />} label="Select" />
           <Tool mode={mode} setMode={setMode} id="polygon" icon={<Pentagon data-icon="inline-start" />} label="Polygon" />
           <Tool mode={mode} setMode={setMode} id="freehand" icon={<Pencil data-icon="inline-start" />} label="Freehand" />
@@ -277,7 +277,7 @@ export function MeasureStudio({
               <FieldGroup>
                 <Field>
                   <FieldLabel htmlFor="manual_cat">Category</FieldLabel>
-                  <select id="manual_cat" name="category" className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" defaultValue="turf_front">
+                  <select id="manual_cat" name="category" className="native-control" defaultValue="turf_front">
                     {FEATURE_CATEGORIES.map((c) => (
                       <option key={c} value={c}>
                         {FEATURE_LABELS[c]}

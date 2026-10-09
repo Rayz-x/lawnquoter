@@ -51,7 +51,7 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
           </Button>
         }
       />
-      <div className="p-4">
+      <div className="page-body">
         <Tabs defaultValue="properties">
           <TabsList>
             <TabsTrigger value="properties">Properties ({properties?.length ?? 0})</TabsTrigger>

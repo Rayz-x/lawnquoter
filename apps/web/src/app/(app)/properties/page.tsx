@@ -27,7 +27,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
   return (
     <>
       <PageHeader title="Properties" description="Every service site, with parcel and measurement status" />
-      <div className="flex flex-col gap-4 p-4">
+      <div className="page-body">
         <form className="flex items-center gap-2">
           <Input name="q" placeholder="Search address" defaultValue={q ?? ""} className="max-w-xs" />
           <Button type="submit" variant="outline">
