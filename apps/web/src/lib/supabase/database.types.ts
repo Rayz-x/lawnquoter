@@ -300,14 +300,14 @@ isOneToOne: false
                   ]
                 },"orgs": {
                   Row: {
-                    "address_line1": string | null,"address_line2": string | null,"brand_color": string | null,"city": string | null,"country": string,"created_at": string,"currency": string,"email": string | null,"id": string,"logo_path": string | null,"name": string,"phone": string | null,"postal_code": string | null,"region": string | null,"settings": NonNullable<Json>,"slug": string,"timezone": string,"updated_at": string,"website": string | null
+                    "address_line1": string | null,"address_line2": string | null,"brand_color": string | null,"city": string | null,"country": string,"created_at": string,"currency": string,"email": string | null,"id": string,"logo_path": string | null,"logo_dark_path": string | null,"logo_raster_path": string | null,"logo_width": number | null,"logo_height": number | null,"logo_shows_name": boolean | null,"logo_needs_chip": boolean,"heading_font": string,"branding_updated_at": string | null,"name": string,"phone": string | null,"postal_code": string | null,"region": string | null,"settings": NonNullable<Json>,"slug": string,"timezone": string,"updated_at": string,"website": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "address_line1"?: string | null,"address_line2"?: string | null,"brand_color"?: string | null,"city"?: string | null,"country"?: string,"created_at"?: string,"currency"?: string,"email"?: string | null,"id"?: string,"logo_path"?: string | null,"name": string,"phone"?: string | null,"postal_code"?: string | null,"region"?: string | null,"settings"?: NonNullable<Json>,"slug": string,"timezone"?: string,"updated_at"?: string,"website"?: string | null
+                    "address_line1"?: string | null,"address_line2"?: string | null,"brand_color"?: string | null,"city"?: string | null,"country"?: string,"created_at"?: string,"currency"?: string,"email"?: string | null,"id"?: string,"logo_path"?: string | null,"logo_dark_path"?: string | null,"logo_raster_path"?: string | null,"logo_width"?: number | null,"logo_height"?: number | null,"logo_shows_name"?: boolean | null,"logo_needs_chip"?: boolean,"heading_font"?: string,"branding_updated_at"?: string | null,"name": string,"phone"?: string | null,"postal_code"?: string | null,"region"?: string | null,"settings"?: NonNullable<Json>,"slug": string,"timezone"?: string,"updated_at"?: string,"website"?: string | null
                   }
                   Update: {
-                    "address_line1"?: string | null,"address_line2"?: string | null,"brand_color"?: string | null,"city"?: string | null,"country"?: string,"created_at"?: string,"currency"?: string,"email"?: string | null,"id"?: string,"logo_path"?: string | null,"name"?: string,"phone"?: string | null,"postal_code"?: string | null,"region"?: string | null,"settings"?: NonNullable<Json>,"slug"?: string,"timezone"?: string,"updated_at"?: string,"website"?: string | null
+                    "address_line1"?: string | null,"address_line2"?: string | null,"brand_color"?: string | null,"city"?: string | null,"country"?: string,"created_at"?: string,"currency"?: string,"email"?: string | null,"id"?: string,"logo_path"?: string | null,"logo_dark_path"?: string | null,"logo_raster_path"?: string | null,"logo_width"?: number | null,"logo_height"?: number | null,"logo_shows_name"?: boolean | null,"logo_needs_chip"?: boolean,"heading_font"?: string,"branding_updated_at"?: string | null,"name"?: string,"phone"?: string | null,"postal_code"?: string | null,"region"?: string | null,"settings"?: NonNullable<Json>,"slug"?: string,"timezone"?: string,"updated_at"?: string,"website"?: string | null
                   }
                   Relationships: [
                     
@@ -659,6 +659,9 @@ isOneToOne: false
 { Args: { "p_property": string,"p_radius_m"?: number }; Returns: {
               "account_id": string,"distance_m": number,"formatted_address": string,"id": string,"lot_sqft": number
             }[]
+                           },
+"property_clear_geometry":
+{ Args: { "p_property": string }; Returns: undefined
                            },
 "property_geometry":
 { Args: { "p_property": string }; Returns: Json

@@ -18,9 +18,9 @@ export async function resolvePropertyGeo(address: string): Promise<ResolvedPrope
   const geocode = await geocodeAddress(address);
   if (!geocode) {
     warnings.push(
-      process.env.GOOGLE_MAPS_SERVER_KEY
+      process.env.ARCGIS_API_KEY?.trim()
         ? "Address could not be geocoded."
-        : "Geocoding is not configured (GOOGLE_MAPS_SERVER_KEY).",
+        : "Geocoding is not configured (ARCGIS_API_KEY).",
     );
     return { geocode: null, parcel: null, footprint: null, warnings };
   }

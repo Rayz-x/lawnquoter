@@ -8,7 +8,7 @@ import { useEffect, useRef } from "react";
 import type { Geometry } from "@lawnquoter/shared";
 import bbox from "@turf/bbox";
 import { featureCollection, feature } from "@turf/helpers";
-import { imageryStyle } from "./basemap";
+import { ESRI_GEOCODE_ATTRIBUTION, imageryStyle, mapAttributionControl } from "./basemap";
 
 export type PropertyMapProps = {
   location: Geometry | null;
@@ -31,7 +31,7 @@ export function PropertyMap({ location, parcel, footprint, className, interactiv
       center: location?.type === "Point" ? location.coordinates : [-98.5, 39.8],
       zoom: location ? 18 : 3,
       interactive,
-      attributionControl: { compact: true },
+      attributionControl: mapAttributionControl,
     });
     if (interactive) map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     mapRef.current = map;
@@ -57,7 +57,11 @@ export function PropertyMap({ location, parcel, footprint, className, interactiv
       if (existing) {
         existing.setData(fc);
       } else {
-        map.addSource("property", { type: "geojson", data: fc });
+        map.addSource("property", {
+          type: "geojson",
+          data: fc,
+          attribution: ESRI_GEOCODE_ATTRIBUTION,
+        });
         map.addLayer({
           id: "parcel-fill",
           type: "fill",

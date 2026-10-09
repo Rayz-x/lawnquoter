@@ -65,16 +65,10 @@ export function OrgSettingsForm({ org }: { org: Tables<"orgs"> }) {
             <Input id="postal_code" name="postal_code" defaultValue={org.postal_code ?? ""} />
           </Field>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
-            <Input id="timezone" name="timezone" defaultValue={org.timezone} required />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="brand_color">Brand color</FieldLabel>
-            <Input id="brand_color" name="brand_color" placeholder="#2f7d32" defaultValue={org.brand_color ?? ""} />
-          </Field>
-        </div>
+        <Field>
+          <FieldLabel htmlFor="timezone">Timezone</FieldLabel>
+          <Input id="timezone" name="timezone" defaultValue={org.timezone} required />
+        </Field>
       </FieldGroup>
       <div>
         <Button type="submit" disabled={pending}>

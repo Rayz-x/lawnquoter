@@ -3,6 +3,8 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { headers } from "next/headers";
 import { z } from "zod";
+import { loadBrandingRaster } from "@/lib/brand/raster";
+import { brandingPathOrgId } from "@/lib/brand/urls";
 import { acceptedQuoteMessage } from "@/lib/email/accepted-quote";
 import { createEmailProvider } from "@/lib/email/provider";
 import { fail, type ActionResult } from "@/lib/actions/result";
@@ -35,10 +37,15 @@ async function emailSealedCopy(token: string, to: string): Promise<boolean> {
     const selected = Array.isArray(acceptance.selections)
       ? acceptance.selections.filter((id): id is string => typeof id === "string")
       : null;
+    const logoOrgId = brandingPathOrgId(payload.org.logo_raster_url);
+    const logo = logoOrgId ? await loadBrandingRaster(payload.org.logo_raster_url, logoOrgId) : null;
+    const base = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
     const pdf = await renderToBuffer(
       ProposalPdf({
         payload,
         selectedIds: selected,
+        logo,
+        quoteUrl: `${base}/q/${token}`,
         acceptance: {
           documentHash: acceptance.document_hash,
           acceptedAt: acceptance.accepted_at,

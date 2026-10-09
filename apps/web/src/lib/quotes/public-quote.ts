@@ -1,3 +1,5 @@
+import type { PublicOrg } from "@/lib/brand/public-org";
+
 export type PublicQuoteItem = {
   id: string;
   name: string;
@@ -32,7 +34,7 @@ export type PublicQuote = {
   notes_customer: string | null;
   expires_at: string | null;
   status: string;
-  org: { name: string; phone: string | null; email: string | null; brand_color: string | null };
+  org: PublicOrg;
   items: PublicQuoteItem[];
   acceptance: PublicAcceptance | null;
 };

@@ -332,6 +332,8 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Public read is safe. Viewed and expiry are recorded by quote_record_view.
 -- A past-due quote still reads as expired so the page can say so immediately.
+-- Org branding keys match 20261009120000_org_branding.sql. This replacement
+-- stays STABLE and does not lock or update the quote row.
 -- ---------------------------------------------------------------------------
 create or replace function public.quote_public(p_token uuid)
 returns jsonb
@@ -368,7 +370,27 @@ begin
     'notes_customer', q.notes_customer,
     'expires_at', q.expires_at,
     'status', v_status,
-    'org', jsonb_build_object('name', o.name, 'phone', o.phone, 'email', o.email, 'brand_color', o.brand_color),
+    'org', jsonb_build_object(
+      'name', o.name,
+      'phone', o.phone,
+      'email', o.email,
+      'website', o.website,
+      'brand_color', o.brand_color,
+      'logo_url', o.logo_path,
+      'logo_dark_url', o.logo_dark_path,
+      'logo_raster_url', o.logo_raster_path,
+      'logo_width', o.logo_width,
+      'logo_height', o.logo_height,
+      'logo_shows_name', o.logo_shows_name,
+      'logo_needs_chip', o.logo_needs_chip,
+      'heading_font', o.heading_font,
+      'address_line1', o.address_line1,
+      'address_line2', o.address_line2,
+      'city', o.city,
+      'region', o.region,
+      'postal_code', o.postal_code,
+      'country', o.country
+    ),
     'acceptance', (
       select jsonb_build_object(
         'document_hash', a.document_hash,

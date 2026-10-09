@@ -1,4 +1,4 @@
-select plan(16);
+select plan(19);
 
 select tests.create_user('o1@example.com', 'Owner One') as owner1 \gset
 select tests.create_user('c1@example.com', 'Crew One')  as crew1  \gset
@@ -88,6 +88,14 @@ select throws_ok(
 update public.properties set crew_notes = 'x' where id = :'prop1'::uuid;
 select tests.clear_auth();
 select is((select crew_notes from public.properties where id = :'prop1'::uuid), null, 'crew update is a no-op');
+select tests.authenticate_as(:'crew1'::uuid, :'org1'::uuid, 'crew');
+select throws_ok(
+  format($$ select public.property_clear_geometry(%L::uuid) $$, :'prop1'),
+  'P0002',
+  null,
+  'crew cannot clear property geometry'
+);
+select tests.clear_auth();
 
 -- Other org sees nothing --------------------------------------------------------
 select tests.authenticate_as(:'owner2'::uuid, :'org2'::uuid, 'owner');
@@ -102,6 +110,29 @@ select throws_ok(
   '23503',
   null,
   'contact account must belong to the same org'
+);
+
+select tests.authenticate_as(:'owner1'::uuid, :'org1'::uuid, 'owner');
+update public.properties
+  set place_id = 'match-1', building_sqft = 100
+  where id = :'prop1'::uuid;
+select lives_ok(
+  format($$ select public.property_clear_geometry(%L::uuid) $$, :'prop1'),
+  'owner can clear stored geometry'
+);
+select is(
+  (select location is null
+      and parcel is null
+      and footprint is null
+      and place_id is null
+      and parcel_apn is null
+      and parcel_source = 'unknown'
+      and footprint_source = 'unknown'
+      and lot_sqft is null
+      and building_sqft is null
+   from public.properties where id = :'prop1'::uuid),
+  true,
+  'clear removes the pin, parcel, outline, place id, and derived areas'
 );
 
 select * from finish();
