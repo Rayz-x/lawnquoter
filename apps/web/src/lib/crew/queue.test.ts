@@ -162,7 +162,7 @@ describe("crew outbox", () => {
           ? { client_id: item.client_id, status: "error" as const, message: "enhancement photo must belong to this visit" }
           : { client_id: item.client_id, status: "applied" as const, message: null },
       );
-    }, scope, now, async () => undefined, async () => "photo-row");
+    }, scope, now, async () => undefined);
     expect(sent).toEqual({ sent: 1, pending: 1 });
     expect(await store.listOutbox()).toMatchObject([
       { client_id: "enh", needs_office: true, last_error: "enhancement photo must belong to this visit" },
