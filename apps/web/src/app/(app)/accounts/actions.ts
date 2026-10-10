@@ -18,6 +18,11 @@ const accountSchema = z.object({
   email: z.string().trim().email().optional().or(z.literal("")),
   phone: optionalText(40),
   billing_email: z.string().trim().email().optional().or(z.literal("")),
+  billing_address_line1: optionalText(200),
+  billing_address_line2: optionalText(200),
+  billing_city: optionalText(100),
+  billing_region: optionalText(100),
+  billing_postal_code: optionalText(20),
   net_terms_days: z.coerce.number().int().min(0).max(120).default(0),
   po_required: z.coerce.boolean().default(false),
   tax_exempt: z.coerce.boolean().default(false),
@@ -235,6 +240,12 @@ export async function createProperty(accountId: string, fd: FormData): Promise<A
     .maybeSingle();
   if (!account) return fail("Account not found");
 
+  const { count: existingCount } = await supabase
+    .from("properties")
+    .select("id", { count: "exact", head: true })
+    .eq("account_id", accountId)
+    .eq("org_id", session.orgId);
+
   const { data, error } = await supabase
     .from("properties")
     .insert({ ...parsed.data, org_id: session.orgId, account_id: accountId })
@@ -243,6 +254,28 @@ export async function createProperty(accountId: string, fd: FormData): Promise<A
   if (error) return fail(error.message);
   const accessError = await savePropertyAccess(data.id, session.orgId, parsed.access);
   if (accessError) return fail(accessError);
+
+  if ((existingCount ?? 0) === 0) {
+    const { data: accountBilling } = await supabase
+      .from("accounts")
+      .select("billing_address_line1")
+      .eq("id", accountId)
+      .eq("org_id", session.orgId)
+      .maybeSingle();
+    if (!accountBilling?.billing_address_line1) {
+      await supabase
+        .from("accounts")
+        .update({
+          billing_address_line1: parsed.data.address_line1,
+          billing_address_line2: parsed.data.address_line2 ?? null,
+          billing_city: parsed.data.city,
+          billing_region: parsed.data.region,
+          billing_postal_code: parsed.data.postal_code,
+        })
+        .eq("id", accountId)
+        .eq("org_id", session.orgId);
+    }
+  }
 
   const warnings = await resolveAndStoreGeometry(data.id, parsed.data);
   revalidatePath(`/accounts/${accountId}`);

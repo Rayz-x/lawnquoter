@@ -45,7 +45,9 @@ export default async function AccountDetailPage({
     supabase.from("contacts").select("*").eq("account_id", id).order("is_primary", { ascending: false }).order("created_at"),
     supabase
       .from("properties")
-      .select("id, name, formatted_address, lot_sqft, building_sqft, parcel_source, is_active")
+      .select(
+        "id, name, formatted_address, address_line1, address_line2, city, region, postal_code, lot_sqft, building_sqft, parcel_source, is_active",
+      )
       .eq("account_id", id)
       .order("created_at"),
     supabase.from("accounts").select("id, name, status").eq("parent_account_id", id).order("name"),
@@ -214,7 +216,22 @@ export default async function AccountDetailPage({
           ]}
         />
         </div>
-        <AccountRail account={account} parents={parents ?? []} ownerName={owner?.full_name ?? "Unassigned"} />
+        <AccountRail
+          account={account}
+          parents={parents ?? []}
+          ownerName={owner?.full_name ?? "Unassigned"}
+          firstProperty={
+            properties?.[0]
+              ? {
+                  address_line1: properties[0].address_line1,
+                  address_line2: properties[0].address_line2,
+                  city: properties[0].city,
+                  region: properties[0].region,
+                  postal_code: properties[0].postal_code,
+                }
+              : null
+          }
+        />
         </div>
       </div>
     </>

@@ -22,6 +22,11 @@ function unchanged(error: { message: string; code?: string } | null, rows: { id:
 export type BillingDraft = {
   company_name: string;
   billing_email: string;
+  billing_address_line1: string;
+  billing_address_line2: string;
+  billing_city: string;
+  billing_region: string;
+  billing_postal_code: string;
   net_terms_days: number;
   po_required: boolean;
   tax_exempt: boolean;
@@ -56,9 +61,18 @@ export async function updateAccountBilling(id: string, values: BillingDraft): Pr
   if (!session) return fail("You don't have permission to edit customers.");
   const company = values.company_name.trim();
   const billingEmail = values.billing_email.trim();
+  const line1 = values.billing_address_line1.trim();
+  const line2 = values.billing_address_line2.trim();
+  const city = values.billing_city.trim();
+  const region = values.billing_region.trim();
+  const postal = values.billing_postal_code.trim();
   const parentId = values.parent_account_id.trim();
   if (company.length > 200) return fail("Company name is too long.");
   if (billingEmail && !EMAIL.test(billingEmail)) return fail("Enter a valid billing email.");
+  if (line1.length > 200 || line2.length > 200 || city.length > 100 || region.length > 100 || postal.length > 20) {
+    return fail("Billing address is too long.");
+  }
+  if (line1 && (!city || !region || !postal)) return fail("Enter city, state, and ZIP for the billing address.");
   if (!Number.isInteger(values.net_terms_days) || values.net_terms_days < 0 || values.net_terms_days > 120) {
     return fail("Net days must be from 0 to 120.");
   }
@@ -72,6 +86,11 @@ export async function updateAccountBilling(id: string, values: BillingDraft): Pr
     .update({
       company_name: company || null,
       billing_email: billingEmail || null,
+      billing_address_line1: line1 || null,
+      billing_address_line2: line2 || null,
+      billing_city: city || null,
+      billing_region: region || null,
+      billing_postal_code: postal || null,
       net_terms_days: values.net_terms_days,
       po_required: values.po_required,
       tax_exempt: values.tax_exempt,

@@ -10,6 +10,13 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import type { Tables } from "@/lib/supabase/types";
 import {
+  BILLING_DETAILS_LABEL,
+  billingAddressDraft,
+  billingEmailDraft,
+  shouldOpenBillingDetails,
+  type PropertyAddress,
+} from "../billing-details";
+import {
   updateAccountBilling,
   updateAccountNotes,
   updateAccountSales,
@@ -20,21 +27,6 @@ import {
 
 export const LEAD_SOURCES = ["Google", "Referral", "Door hanger", "Yard sign", "Repeat", "Other"];
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function showBilling(account: Tables<"accounts">) {
-  return (
-    account.type === "commercial" ||
-    Boolean(
-      account.company_name ||
-        account.billing_email ||
-        account.net_terms_days ||
-        account.po_required ||
-        account.tax_exempt ||
-        account.consolidated_invoicing ||
-        account.parent_account_id,
-    )
-  );
-}
 
 function termsChoice(days: number): "0" | "15" | "30" | "custom" {
   if (days === 0) return "0";
@@ -47,19 +39,21 @@ export function AccountRail({
   account,
   parents,
   ownerName,
+  firstProperty = null,
 }: {
   account: Tables<"accounts">;
   parents: { id: string; name: string }[];
   ownerName: string;
+  firstProperty?: PropertyAddress | null;
 }) {
-  const [billingOpen, setBillingOpen] = useState(showBilling(account));
+  const [billingOpen, setBillingOpen] = useState(shouldOpenBillingDetails(account));
   return (
     <div className="flex flex-col gap-4">
       {billingOpen ? (
-        <BillingCard account={account} parents={parents} />
+        <BillingCard account={account} parents={parents} firstProperty={firstProperty} />
       ) : (
-        <Button type="button" variant="outline" className="min-h-11 justify-start" onClick={() => setBillingOpen(true)}>
-          Add billing
+        <Button type="button" variant="ghost" className="min-h-11 justify-start" onClick={() => setBillingOpen(true)}>
+          {BILLING_DETAILS_LABEL}
         </Button>
       )}
       <SalesCard account={account} ownerName={ownerName} />
@@ -68,25 +62,35 @@ export function AccountRail({
   );
 }
 
-function BillingCard({ account, parents }: { account: Tables<"accounts">; parents: { id: string; name: string }[] }) {
+function BillingCard({
+  account,
+  parents,
+  firstProperty,
+}: {
+  account: Tables<"accounts">;
+  parents: { id: string; name: string }[];
+  firstProperty: PropertyAddress | null;
+}) {
   const router = useRouter();
-  const initial = useMemo<BillingDraft>(
-    () => ({
+  const initial = useMemo<BillingDraft>(() => {
+    const address = billingAddressDraft(account, firstProperty);
+    return {
       company_name: account.company_name ?? "",
-      billing_email: account.billing_email ?? "",
+      billing_email: billingEmailDraft(account.billing_email, account.email),
+      ...address,
       net_terms_days: account.net_terms_days,
       po_required: account.po_required,
       tax_exempt: account.tax_exempt,
       consolidated_invoicing: account.consolidated_invoicing,
       parent_account_id: account.parent_account_id ?? "",
-    }),
-    [account],
-  );
+    };
+  }, [account, firstProperty]);
   const [draft, setDraft] = useState(initial);
   const [choice, setChoice] = useState(termsChoice(initial.net_terms_days));
   const [customDays, setCustomDays] = useState(choice === "custom" ? String(initial.net_terms_days) : "");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [termsError, setTermsError] = useState<string | null>(null);
+  const addressDefaulted = !account.billing_address_line1 && Boolean(firstProperty?.address_line1);
   const { status, error, save, retry } = useSectionAutosave<BillingDraft>({
     initial,
     onRollback(values) {
@@ -113,6 +117,16 @@ function BillingCard({ account, parents }: { account: Tables<"accounts">; parent
     save({ [key]: checked }, { immediate: true, rollback: true });
   };
 
+  const saveAddress = () => {
+    save({
+      billing_address_line1: draft.billing_address_line1,
+      billing_address_line2: draft.billing_address_line2,
+      billing_city: draft.billing_city,
+      billing_region: draft.billing_region,
+      billing_postal_code: draft.billing_postal_code,
+    });
+  };
+
   return (
     <SectionCard title="Billing & terms" heading="h3" status={status} error={emailError ?? termsError ?? error} onRetry={emailError || termsError ? undefined : retry}>
       <Field>
@@ -136,7 +150,7 @@ function BillingCard({ account, parents }: { account: Tables<"accounts">; parent
           type="email"
           inputMode="email"
           value={draft.billing_email}
-          placeholder={account.email ?? ""}
+          autoComplete="off"
           aria-invalid={emailError ? true : undefined}
           className="max-md:h-12"
           onChange={(event) => setDraft({ ...draft, billing_email: event.target.value })}
@@ -152,9 +166,53 @@ function BillingCard({ account, parents }: { account: Tables<"accounts">; parent
             save({ billing_email });
           }}
         />
-        {account.email ? (
-          <FieldDescription>Account email is {account.email}. This stays blank until you type a billing email.</FieldDescription>
-        ) : null}
+        <FieldDescription>Stays blank until you enter a billing email.</FieldDescription>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="billing_address_line1">Billing address</FieldLabel>
+        <Input
+          id="billing_address_line1"
+          value={draft.billing_address_line1}
+          autoComplete="off"
+          className="max-md:h-12"
+          onChange={(event) => setDraft({ ...draft, billing_address_line1: event.target.value })}
+          onBlur={saveAddress}
+        />
+        <Input
+          aria-label="Billing address line 2"
+          value={draft.billing_address_line2}
+          autoComplete="off"
+          className="max-md:h-12"
+          onChange={(event) => setDraft({ ...draft, billing_address_line2: event.target.value })}
+          onBlur={saveAddress}
+        />
+        <div className="grid gap-2 sm:grid-cols-[1fr_5rem_6rem]">
+          <Input
+            aria-label="Billing city"
+            value={draft.billing_city}
+            autoComplete="off"
+            className="max-md:h-12"
+            onChange={(event) => setDraft({ ...draft, billing_city: event.target.value })}
+            onBlur={saveAddress}
+          />
+          <Input
+            aria-label="Billing state"
+            value={draft.billing_region}
+            autoComplete="off"
+            className="max-md:h-12"
+            onChange={(event) => setDraft({ ...draft, billing_region: event.target.value })}
+            onBlur={saveAddress}
+          />
+          <Input
+            aria-label="Billing ZIP"
+            value={draft.billing_postal_code}
+            autoComplete="off"
+            className="max-md:h-12"
+            onChange={(event) => setDraft({ ...draft, billing_postal_code: event.target.value })}
+            onBlur={saveAddress}
+          />
+        </div>
+        {addressDefaulted ? <FieldDescription>Defaults to the first property.</FieldDescription> : null}
       </Field>
       <Field data-invalid={termsError ? true : undefined}>
         <FieldLabel>Terms</FieldLabel>
