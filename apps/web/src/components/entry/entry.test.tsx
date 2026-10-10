@@ -1,8 +1,13 @@
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { ChipGroup } from "./chip-group";
+import { FactStrip } from "./fact-strip";
+import { InternalNote } from "./internal-note";
 import { MoreDisclosure } from "./more-disclosure";
 import { SectionCard } from "./section-card";
+import { Stepper } from "./stepper";
+import { ToggleRow } from "./toggle-row";
 import { SectionMenu, splitSectionMenuItems } from "./section-menu";
 import { createSectionAutosaveController, watchAutosaveLeave } from "./section-autosave";
 import { resolveEntryTab, TabBox } from "./tab-box";
@@ -41,7 +46,9 @@ describe("entry primitives", () => {
     expect(card).toContain("Mowing conditions");
     expect(card).toContain('role="status"');
     expect(card).toContain('aria-busy="false"');
+    expect(card).toContain("text-success");
     expect(card).toContain("Saved ✓");
+    expect(card).toContain("text-destructive");
     expect(card).toContain("Invalid slope");
     expect(card).toContain("Retry");
     expect(card).toContain("Edit Slope: Gentle");
@@ -55,6 +62,9 @@ describe("entry primitives", () => {
     expect(plain).toContain('role="status"');
     expect(plain).toContain("Gate");
     expect(plain).not.toContain("section-save");
+    const internal = html(createElement(SectionCard, { title: "Crew note", weight: "internal" }, "Dogs"));
+    expect(internal).toContain('data-weight="internal"');
+    expect(internal).toContain("bg-muted");
     const more = html(createElement(MoreDisclosure, null, "Exact inches"));
     expect(more).toContain('aria-expanded="false"');
     expect(more).toContain("aria-controls");
@@ -68,8 +78,12 @@ describe("entry primitives", () => {
         { value: "contacts", label: "Contacts", count: 0, menu: "Contact menu", content: "Contacts body" },
       ],
     }));
-    expect(tabs).toContain("Properties (2)");
-    expect(tabs).toContain("Contacts (0)");
+    expect(tabs).toContain("Properties");
+    expect(tabs).toContain('data-count=""');
+    expect(tabs).toContain(">2<");
+    expect(tabs).toContain("overflow-x-auto");
+    expect(tabs).toContain("max-lg:rounded-full");
+    expect(tabs).not.toContain("Properties (2)");
     expect(tabs).toContain("Contact menu");
     expect(tabs).not.toContain("Property menu");
     expect(tabs).toContain('data-variant="line"');
@@ -80,6 +94,50 @@ describe("entry primitives", () => {
       { id: "a", label: "Edit", onSelect: () => undefined },
     ]).actions.map((item) => item.id)).toEqual(["a"]);
     expect(html(createElement(Probe))).toContain("idle");
+  });
+
+  it("renders chips, a stepper, a toggle row, a fact strip, and an internal note", () => {
+    const chips = html(createElement(ChipGroup, {
+      label: "Slope",
+      value: "gentle",
+      onValueChange: () => undefined,
+      options: [
+        { value: "gentle", label: "Gentle" },
+        { value: "unknown", label: "Unknown" },
+      ],
+    }));
+    expect(chips).toContain('data-entry="chip-group"');
+    expect(chips).toContain("h-11");
+    expect(chips).toContain("lg:h-8");
+    expect(chips).toContain("Gentle");
+    expect(chips).toContain("Unknown");
+
+    const stepper = html(createElement(Stepper, { label: "Stairs", value: 2, onValueChange: () => undefined }));
+    expect(stepper).toContain('data-entry="stepper"');
+    expect(stepper).toContain('inputMode="numeric"');
+    expect(stepper).toContain("size-11");
+    expect(stepper).toContain('value="2"');
+    expect(stepper).toContain("Decrease Stairs");
+
+    const row = html(createElement(ToggleRow, { label: "Dogs", checked: true, onCheckedChange: () => undefined }));
+    expect(row).toContain('data-entry="toggle-row"');
+    expect(row).toContain("min-h-11");
+    expect(row).toContain("Dogs");
+
+    const facts = html(createElement(FactStrip, {
+      facts: [{ label: "Turf", value: "12,400", detail: "front / back", hint: "From parcel" }],
+    }));
+    expect(facts).toContain('data-entry="fact-strip"');
+    expect(facts).toContain("Turf");
+    expect(facts).toContain("12,400");
+    expect(facts).toContain("✦ From parcel");
+    expect(facts).toContain("front / back");
+
+    const note = html(createElement(InternalNote, null, "Gate sticks"));
+    expect(note).toContain('data-weight="internal"');
+    expect(note).toContain("bg-muted");
+    expect(note).toContain("Gate sticks");
+    expect(note).toContain("Internal note");
   });
 
   it("debounces text, saves chips immediately, and rolls a failed save back", async () => {
