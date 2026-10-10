@@ -17,16 +17,7 @@ import { PropertyForm } from "./property-form";
 
 export const metadata: Metadata = { title: "Account" };
 
-const ACCOUNT_TABS = ["properties", "contacts", "sites", "activity"];
 const OPEN_QUOTE_STATUSES = ["draft", "sent", "viewed", "changed"] as const;
-
-function termsLabel(days: number) {
-  return days === 0 ? "Due" : `Net ${days}`;
-}
-
-function customerSince(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
-}
 
 export default async function AccountDetailPage({
   params,
@@ -94,7 +85,10 @@ export default async function AccountDetailPage({
 
   const primary = (contacts ?? []).find((contact) => contact.is_primary) ?? contacts?.[0] ?? null;
   const primaryName = [primary?.first_name, primary?.last_name].filter(Boolean).join(" ") || null;
-  const tabValue = tab && ACCOUNT_TABS.includes(tab) && (tab !== "sites" || account.type === "commercial") ? tab : "properties";
+  const tabValue =
+    tab && ["properties", "contacts", "activity", "sites"].includes(tab) && (tab !== "sites" || account.type === "commercial")
+      ? tab
+      : "properties";
 
   return (
     <>
@@ -103,10 +97,8 @@ export default async function AccountDetailPage({
         <AccountHeader account={account} primaryName={primaryName} />
         <FactStrip
           facts={[
-            { label: "Annual value", value: "—" },
             { label: "Open quotes", value: openQuotes ?? 0 },
             { label: "Terms", value: termsLabel(account.net_terms_days) },
-            { label: "Balance", value: "—" },
             { label: "Customer since", value: customerSince(account.created_at), detail: account.lead_source },
           ]}
         />

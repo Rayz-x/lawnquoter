@@ -8,29 +8,12 @@ import { SectionMenu, type SectionMenuItem } from "@/components/entry";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Tables } from "@/lib/supabase/types";
-import { archiveAccount } from "../identity-action";
+import { archiveAccount, setAccountStatus } from "../identity-action";
 
-const STATUS_LABEL = { lead: "Lead", active: "Active", inactive: "Inactive" } as const;
-const TYPE_LABEL = { residential: "Residential", commercial: "Commercial" } as const;
+const STATUS_LABEL = { lead: "Lead", active: "Active", inactive: "Archived" } as const;
 
 function exportAccount(account: Tables<"accounts">) {
-  const payload = {
-    name: account.name,
-    type: account.type,
-    status: account.status,
-    phone: account.phone,
-    email: account.email,
-    company_name: account.company_name,
-    billing_email: account.billing_email,
-    net_terms_days: account.net_terms_days,
-    po_required: account.po_required,
-    tax_exempt: account.tax_exempt,
-    consolidated_invoicing: account.consolidated_invoicing,
-    lead_source: account.lead_source,
-    tags: account.tags,
-    notes: account.notes,
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(account, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -54,7 +37,7 @@ function ContactValue({ href, value, label }: { href: string; value: string; lab
       >
         {value}
       </Button>
-      <Button variant="ghost" size="icon-sm" aria-label={label} render={<a href={href} />}>
+      <Button variant="ghost" size="icon" className="size-11 lg:size-8" aria-label={label} render={<a href={href} />}>
         {label === "Call" ? <Phone /> : <Mail />}
       </Button>
     </span>
@@ -65,21 +48,36 @@ export function AccountHeader({ account, primaryName }: { account: Tables<"accou
   const router = useRouter();
   const contactName =
     primaryName && primaryName.trim().toLowerCase() !== account.name.trim().toLowerCase() ? primaryName : null;
-  const items: SectionMenuItem[] = [
-    { id: "export", label: "Export", onSelect: () => exportAccount(account) },
-  ];
+
+  const changeStatus = (status: "lead" | "active" | "inactive") => {
+    void setAccountStatus(account.id, status).then((result) => {
+      if (result.ok) router.refresh();
+      else toast.error(result.error);
+    });
+  };
+
+  const items: SectionMenuItem[] = [{ id: "export", label: "Export", onSelect: () => exportAccount(account) }];
+
+  if (account.status !== "lead") items.push({ id: "lead", label: "Mark as Lead", onSelect: () => changeStatus("lead") });
+  if (account.status !== "active") items.push({ id: "active", label: "Mark as Active", onSelect: () => changeStatus("active") });
   if (account.status !== "inactive") {
     items.push({
       id: "archive",
       label: "Archive",
       destructive: true,
-      confirm: "This account stays on file as inactive.",
+      confirm: "This account stays on file as archived.",
       onSelect: () => {
         void archiveAccount(account.id).then((result) => {
           if (result.ok) router.refresh();
           else toast.error(result.error);
         });
       },
+    });
+  } else {
+    items.push({
+      id: "unarchive",
+      label: "Un-archive",
+      onSelect: () => changeStatus("active"),
     });
   }
 
@@ -110,7 +108,6 @@ export function AccountHeader({ account, primaryName }: { account: Tables<"accou
           New quote
         </Button>
       </div>
-      <div className="h-16 lg:hidden" aria-hidden />
     </header>
   );
 }

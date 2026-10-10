@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChipGroup, SectionCard, useSectionAutosave } from "@/components/entry";
@@ -12,6 +12,7 @@ import { findAccountMatch, updateAccountIdentity } from "../identity-action";
 
 export function IdentityCard({ account }: { account: Tables<"accounts"> }) {
   const router = useRouter();
+  const fieldsRef = useRef<HTMLDivElement>(null);
   const initial = useMemo<IdentityDraft>(
     () => ({
       type: account.type,
@@ -54,6 +55,11 @@ export function IdentityCard({ account }: { account: Tables<"accounts"> }) {
     const normalized = normalizeIdentity(next);
     setDraft(normalized);
     save(normalized);
+  };
+
+  const blurField = (next: IdentityDraft, field: "name" | "phone" | "email", related: EventTarget | null) => {
+    if (related instanceof Node && fieldsRef.current?.contains(related)) return;
+    publish(next, field);
     setEditing(false);
   };
 
@@ -61,7 +67,6 @@ export function IdentityCard({ account }: { account: Tables<"accounts"> }) {
     <SectionCard
       title="Identity"
       heading="h3"
-      description="Phone or email is enough."
       status={status}
       error={fieldError ?? error}
       onRetry={fieldError ? undefined : retry}
@@ -88,47 +93,49 @@ export function IdentityCard({ account }: { account: Tables<"accounts"> }) {
           setEditing(false);
         }}
       />
-      <Field data-invalid={invalidField === "name" ? true : undefined}>
-        <FieldLabel htmlFor="account-name">Name</FieldLabel>
-        <Input
-          id="account-name"
-          autoComplete="name"
-          value={draft.name}
-          aria-invalid={invalidField === "name" ? true : undefined}
-          className="h-12 font-serif text-2xl"
-          onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-          onBlur={(event) => publish({ ...draft, name: event.target.value }, "name")}
-        />
-      </Field>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field data-invalid={invalidField === "phone" ? true : undefined}>
-          <FieldLabel htmlFor="account-phone">Mobile</FieldLabel>
+      <div ref={fieldsRef} className="flex flex-col gap-3">
+        <Field data-invalid={invalidField === "name" ? true : undefined}>
+          <FieldLabel htmlFor="account-name">Name</FieldLabel>
           <Input
-            id="account-phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            value={draft.phone}
-            aria-invalid={invalidField === "phone" ? true : undefined}
-            className="max-md:h-12"
-            onChange={(event) => setDraft({ ...draft, phone: event.target.value })}
-            onBlur={(event) => publish({ ...draft, phone: event.target.value }, "phone")}
+            id="account-name"
+            autoComplete="name"
+            value={draft.name}
+            aria-invalid={invalidField === "name" ? true : undefined}
+            className="h-12 font-serif text-2xl"
+            onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+            onBlur={(event) => blurField({ ...draft, name: event.target.value }, "name", event.relatedTarget)}
           />
         </Field>
-        <Field data-invalid={invalidField === "email" ? true : undefined}>
-          <FieldLabel htmlFor="account-email">Email</FieldLabel>
-          <Input
-            id="account-email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            value={draft.email}
-            aria-invalid={invalidField === "email" ? true : undefined}
-            className="max-md:h-12"
-            onChange={(event) => setDraft({ ...draft, email: event.target.value })}
-            onBlur={(event) => publish({ ...draft, email: event.target.value }, "email")}
-          />
-        </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field data-invalid={invalidField === "phone" ? true : undefined}>
+            <FieldLabel htmlFor="account-phone">Mobile</FieldLabel>
+            <Input
+              id="account-phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              value={draft.phone}
+              aria-invalid={invalidField === "phone" ? true : undefined}
+              className="max-md:h-12"
+              onChange={(event) => setDraft({ ...draft, phone: event.target.value })}
+              onBlur={(event) => blurField({ ...draft, phone: event.target.value }, "phone", event.relatedTarget)}
+            />
+          </Field>
+          <Field data-invalid={invalidField === "email" ? true : undefined}>
+            <FieldLabel htmlFor="account-email">Email</FieldLabel>
+            <Input
+              id="account-email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              value={draft.email}
+              aria-invalid={invalidField === "email" ? true : undefined}
+              className="max-md:h-12"
+              onChange={(event) => setDraft({ ...draft, email: event.target.value })}
+              onBlur={(event) => blurField({ ...draft, email: event.target.value }, "email", event.relatedTarget)}
+            />
+          </Field>
+        </div>
       </div>
       {match ? (
         <p className="text-sm">
