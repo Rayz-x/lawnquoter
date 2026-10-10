@@ -13,6 +13,15 @@ import { formatNotToExceedAmount, notToExceedClause } from "@/lib/quotes/legal-c
 import { acceptanceTotals, lineHasRange } from "@/lib/quotes/not-to-exceed";
 import type { PublicAcceptance, PublicQuote } from "@/lib/quotes/public-quote";
 import { defaultSelectedIds } from "@/lib/quotes/selection";
+import {
+  SITE_CHECK_EXPLANATION_TITLE,
+  SITE_CHECK_LINE_PILL,
+  acceptUpToLabel,
+  hasSiteCheck,
+  siteCheckCustomerBody,
+  siteCheckWhatHappensNext,
+  youPayNoMoreThan,
+} from "@/lib/quotes/site-check";
 import { AcceptForm } from "./accept-form";
 import { RecordView } from "./record-view";
 
@@ -21,9 +30,25 @@ type Item = PublicQuote["items"][number];
 const POWERED_BY = "https://lawnquoter.com/?utm_source=lawnquoter&utm_medium=quote&utm_campaign=powered_by";
 const LIVE_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function priceLabel(item: Item) {
-  if (lineHasRange(item)) return formatMoneyRange(Number(item.range_low), Number(item.range_high));
-  return formatMoney(Number(item.price));
+function priceBlock(item: Item) {
+  if (lineHasRange(item)) {
+    return (
+      <span className="shrink-0 text-right font-heading tabular-nums">
+        <span className="block">{formatMoneyRange(Number(item.range_low), Number(item.range_high))}</span>
+        <span className="block text-xs text-muted-foreground">est. {formatMoney(Number(item.price))}</span>
+      </span>
+    );
+  }
+  return <span className="shrink-0 font-heading tabular-nums">{formatMoney(Number(item.price))}</span>;
+}
+
+function SiteCheckPill() {
+  return (
+    <span className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+      <span className="size-1.5 rounded-full bg-warning" aria-hidden />
+      {SITE_CHECK_LINE_PILL}
+    </span>
+  );
 }
 
 function QuoteMark({ org }: { org: PublicOrg }) {
@@ -138,7 +163,20 @@ export function ProposalView({
   const hasRanges = stored?.has_ranges ?? live.hasRanges;
   const notToExceed = stored?.accepted_not_to_exceed ?? live.notToExceed;
   const estimate = stored?.accepted_total ?? live.acceptedTotal;
-  const clause = hasRanges ? (stored?.not_to_exceed_clause ?? notToExceedClause(formatNotToExceedAmount(notToExceed))) : null;
+  const nteLabel = formatNotToExceedAmount(notToExceed);
+  const clause = hasRanges ? (stored?.not_to_exceed_clause ?? notToExceedClause(nteLabel)) : null;
+  const selectedItems = payload.items.filter((item) => selectedIds.includes(item.id));
+  const selectedFlagged = selectedItems.filter((item) => hasSiteCheck(item.site_check_reasons));
+  const explanationReasons = selectedFlagged.flatMap((item) => item.site_check_reasons ?? []);
+  const showExplanation = selectedFlagged.length > 0;
+  const estimateLow = selectedItems.reduce(
+    (sum, item) => sum + (lineHasRange(item) ? Number(item.range_low) : Number(item.price)),
+    0,
+  );
+  const estimateHigh = selectedItems.reduce(
+    (sum, item) => sum + (lineHasRange(item) ? Number(item.range_high) : Number(item.price)),
+    0,
+  );
   const website = payload.org.website;
 
   return (
@@ -172,9 +210,10 @@ export function ProposalView({
                           <span className="min-w-0 font-medium capitalize [overflow-wrap:anywhere]">
                             {o.option_tier === "none" ? o.name : o.option_tier}
                           </span>
-                          <span className="shrink-0 font-heading tabular-nums">{priceLabel(o)}</span>
+                          {priceBlock(o)}
                         </div>
                         {o.description ? <p className="text-xs text-muted-foreground">{o.description}</p> : null}
+                        {hasSiteCheck(o.site_check_reasons) ? <SiteCheckPill /> : null}
                       </div>
                     </label>
                   ))}
@@ -202,9 +241,10 @@ export function ProposalView({
                 <div className="min-w-0 flex-1">
                   <div className="flex justify-between gap-2">
                     <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{i.name}</span>
-                    <span className="shrink-0 font-heading tabular-nums">{priceLabel(i)}</span>
+                    {priceBlock(i)}
                   </div>
                   {i.description ? <p className="text-xs text-muted-foreground">{i.description}</p> : null}
+                  {hasSiteCheck(i.site_check_reasons) ? <SiteCheckPill /> : null}
                   {i.state === "recommended" ? (
                     <span className="mt-1 inline-flex rounded-md bg-[var(--brand-soft)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--brand-text)]">
                       Recommended
@@ -223,23 +263,41 @@ export function ProposalView({
             ))}
         </div>
 
-        {clause ? <p className="mt-6 text-sm">{clause}</p> : null}
+        {showExplanation ? (
+          <section className="mt-6 rounded-xl bg-warning/10 p-4 text-sm ring-1 ring-warning/30" aria-labelledby="site-check-explain">
+            <h2 id="site-check-explain" className="font-medium text-warning">
+              {SITE_CHECK_EXPLANATION_TITLE}
+            </h2>
+            <p className="mt-2">{siteCheckCustomerBody(explanationReasons)}</p>
+            <ol className="mt-3 list-decimal space-y-1 pl-5">
+              {siteCheckWhatHappensNext(nteLabel).map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
         <div className="sticky bottom-0 mt-8 flex items-center justify-between gap-3 border-t bg-background py-4 [padding-block-end:calc(1rem+env(safe-area-inset-bottom,0px))]">
           <div>
-            <div className="text-xs text-muted-foreground">{hasRanges ? "Not to exceed" : "Total"}</div>
+            <div className="text-xs text-muted-foreground">{hasRanges ? "Estimated total" : "Total"}</div>
             <div className="font-heading text-2xl font-bold tabular-nums">
-              {formatMoney(hasRanges ? notToExceed : estimate, { cents: true })}
+              {hasRanges
+                ? formatMoneyRange(estimateLow, estimateHigh)
+                : formatMoney(estimate, { cents: true })}
             </div>
-            {hasRanges ? (
-              <div className="text-xs text-muted-foreground">Estimate {formatMoney(estimate, { cents: true })}</div>
-            ) : null}
+            {hasRanges ? <div className="text-xs text-warning">{youPayNoMoreThan(nteLabel)}</div> : null}
           </div>
           <Button size="lg" render={<a href={`/q/${token}/pdf?selected=${selectedIds.join(",")}`} />}>
             Download PDF
           </Button>
         </div>
         {LIVE_TOKEN.test(token) ? (
-          <AcceptForm token={token} status={payload.status} selectedIds={selectedIds} clause={clause} />
+          <AcceptForm
+            token={token}
+            status={payload.status}
+            selectedIds={selectedIds}
+            clause={clause}
+            acceptLabel={hasRanges ? acceptUpToLabel(nteLabel) : "Accept"}
+          />
         ) : null}
         {payload.notes_customer ? <p className="mt-4 text-sm text-muted-foreground">{payload.notes_customer}</p> : null}
         <p className="mt-6 text-xs text-muted-foreground">
