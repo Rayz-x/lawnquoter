@@ -151,7 +151,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     if (!mapped) continue;
     addQty(mapped.key, Number(feature[mapped.field] ?? 0));
   }
-  if (!quantities.turf_sqft && quote.properties?.lot_sqft) quantities.lot_sqft = Number(quote.properties.lot_sqft);
+  if (quote.properties?.lot_sqft) quantities.lot_sqft = Number(quote.properties.lot_sqft);
 
   const picked = defaultSelectedIds(lines);
   const total = sumSelected(lines, picked, "price");
@@ -167,7 +167,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
         description={`${quote.accounts?.name ?? ""}${quote.properties?.formatted_address ? ` · ${quote.properties.formatted_address}` : ""}`}
         actions={
           <>
-            <SendQuoteButton quoteId={quote.id} token={quote.public_token} status={quote.status} />
+            <SendQuoteButton quoteId={quote.id} status={quote.status} />
             {convertedAgreement ? (
               <Button variant="outline" render={<Link href={`/agreements/${convertedAgreement.id}`} />}>
                 View agreement

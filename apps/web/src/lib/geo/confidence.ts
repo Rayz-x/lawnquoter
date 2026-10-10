@@ -4,7 +4,6 @@ export type ConfidenceInput = {
   parcelSource?: string | null;
   footprintSource?: string | null;
   imageryDate?: string | Date | null;
-  canopyOverlapPct?: number | null;
   hasManualFallback?: boolean;
 };
 
@@ -20,7 +19,7 @@ function yearsSince(date: string | Date): number | null {
   return (Date.now() - d.getTime()) / (365.25 * 24 * 3600 * 1000);
 }
 
-/** Score a measurement from imagery age, parcel match, footprint, and canopy. */
+/** Score a measurement from imagery age, parcel match, and footprint. */
 export function scoreMeasurementConfidence(input: ConfidenceInput): ConfidenceResult {
   let score = 0;
   const reasons: string[] = [];
@@ -59,11 +58,6 @@ export function scoreMeasurementConfidence(input: ConfidenceInput): ConfidenceRe
   } else {
     score += 0.1;
     reasons.push("Imagery date unknown");
-  }
-
-  if (input.canopyOverlapPct != null && input.canopyOverlapPct > 35) {
-    score = Math.max(0, score - 0.15);
-    reasons.push("Heavy canopy may hide turf edges");
   }
 
   if (input.hasManualFallback) {

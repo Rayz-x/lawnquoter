@@ -34,9 +34,3 @@ export async function requireOrg(): Promise<SessionContext & { orgId: string; or
   if (!session.orgId || !session.orgRole) redirect("/onboarding");
   return { ...session, orgId: session.orgId, orgRole: session.orgRole };
 }
-
-export async function requireUser(): Promise<SessionContext> {
-  const session = await getSession();
-  if (!session) redirect("/login");
-  return session;
-}

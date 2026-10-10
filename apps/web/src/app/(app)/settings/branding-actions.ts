@@ -5,11 +5,10 @@ import { revalidatePath, revalidateTag, updateTag } from "next/cache";
 import { z } from "zod";
 import { normalizeHex } from "@/lib/brand/derive-brand-theme";
 import { prepareLogo } from "@/lib/brand/logo";
+import { type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import type { TablesUpdate } from "@/lib/supabase/types";
-
-export type ActionResult = { ok: true } | { ok: false; error: string };
 
 const schema = z.object({
   brand_color: z.string().trim().max(20),

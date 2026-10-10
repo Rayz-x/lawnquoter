@@ -46,7 +46,3 @@ export function priceLine(input: PriceInput): PricedLine {
   );
   return applyConfidenceRange(result, ctx.confidence);
 }
-
-export function priceMany(inputs: PriceInput[]): PricedLine[] {
-  return inputs.map(priceLine);
-}

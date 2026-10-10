@@ -58,15 +58,6 @@ export async function createService(fd: FormData): Promise<ActionResult<{ id: st
   return { ok: true, data: { id: data.id } };
 }
 
-export async function toggleService(id: string, active: boolean): Promise<ActionResult> {
-  const session = await requireOrg();
-  const supabase = await createClient();
-  const { error } = await supabase.from("services").update({ active }).eq("id", id).eq("org_id", session.orgId);
-  if (error) return fail(error.message);
-  path();
-  return { ok: true };
-}
-
 export async function saveRule(fd: FormData): Promise<ActionResult<{ id: string }>> {
   const session = await requireOrg();
   const raw = Object.fromEntries(fd);
@@ -164,7 +155,6 @@ export async function addMaterial(fd: FormData): Promise<ActionResult> {
       sku: z.string().trim().max(60).optional().or(z.literal("")),
       unit: z.string().trim().min(1).max(20).default("each"),
       unit_cost: z.coerce.number().nonnegative(),
-      vendor: z.string().trim().max(80).optional().or(z.literal("")),
     })
     .safeParse(Object.fromEntries(fd));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
@@ -175,7 +165,6 @@ export async function addMaterial(fd: FormData): Promise<ActionResult> {
     sku: parsed.data.sku || null,
     unit: parsed.data.unit,
     unit_cost: parsed.data.unit_cost,
-    vendor: parsed.data.vendor || null,
   });
   if (error) return fail(error.message);
   path();

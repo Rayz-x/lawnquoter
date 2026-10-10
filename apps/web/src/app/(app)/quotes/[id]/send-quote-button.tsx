@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { sendQuote } from "../actions";
 
-export function SendQuoteButton({ quoteId, status }: { quoteId: string; token?: string; status: string }) {
+export function SendQuoteButton({ quoteId, status }: { quoteId: string; status: string }) {
   const [pending, startTransition] = useTransition();
   return (
     <Button

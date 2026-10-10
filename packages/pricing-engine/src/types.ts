@@ -22,7 +22,6 @@ export const QUANTITY_KEYS = [
 ] as const;
 export type QuantityKey = (typeof QUANTITY_KEYS)[number];
 
-export const quantityMapSchema = z.record(z.string(), z.number().nonnegative());
 export type QuantityMap = Partial<Record<QuantityKey, number>> & Record<string, number | undefined>;
 
 export const SLOPES = ["flat", "gentle", "moderate", "steep"] as const;
@@ -32,17 +31,11 @@ export type PropertyContext = {
   slope?: Slope | null;
   gateWidthIn?: number | null;
   hasStairs?: boolean;
-  hasDogs?: boolean;
   obstacleCount?: number;
-  travelMinutes?: number;
-  zone?: string | null;
-  nearbyPropertyCount?: number;
   firstCut?: boolean;
-  bagging?: boolean;
   /** Go iLawn-style complexity slider. 1 = normal. */
   complexity?: number;
   confidence?: number;
-  seasonFactor?: number;
 };
 
 export type LineBreakdown = { label: string; price: number; hours: number; cost: number };
@@ -189,11 +182,8 @@ export const defaultModifiers = (): Modifiers => ({
   },
   narrowGateInches: 48,
   narrowGate: { extraHours: 0.15, extraPrice: 8 },
-  bagging: { pricePct: 0.2, hoursPct: 0.35 },
   firstCut: { multiplier: 1.5 },
   perObstacle: { extraHours: 0.05, extraPrice: 3 },
-  travel: { hourlyRate: 45, freeMinutes: 10 },
-  routeDensityDiscount: { minNearby: 4, pricePct: -0.05 },
   minimum: { price: 45, hours: 0.4 },
   stairs: { extraHours: 0.1, extraPrice: 5 },
 });

@@ -27,16 +27,12 @@ export function applyModifiers(base: PricedLine, ctx: PropertyContext, modifiers
 
   if (ctx.slope && modifiers.slope?.[ctx.slope]) {
     const s = modifiers.slope[ctx.slope]!;
-    // Cost follows the extra hours, the same way bagging does. pricePct stays on the price only.
+    // Cost follows the extra hours. pricePct stays on the price only.
     add(`Slope (${ctx.slope})`, price * s.pricePct, hours * s.hoursPct, cost * s.hoursPct);
   }
 
   if (modifiers.narrowGate && ctx.gateWidthIn != null && ctx.gateWidthIn < (modifiers.narrowGateInches ?? 48)) {
     add(`Narrow gate (${ctx.gateWidthIn} in)`, modifiers.narrowGate.extraPrice, modifiers.narrowGate.extraHours);
-  }
-
-  if (ctx.bagging && modifiers.bagging) {
-    add("Bagging", price * modifiers.bagging.pricePct, hours * modifiers.bagging.hoursPct, cost * modifiers.bagging.hoursPct);
   }
 
   if (ctx.firstCut && modifiers.firstCut) {
@@ -54,22 +50,6 @@ export function applyModifiers(base: PricedLine, ctx: PropertyContext, modifiers
 
   if (ctx.hasStairs && modifiers.stairs) {
     add("Stairs", modifiers.stairs.extraPrice, modifiers.stairs.extraHours);
-  }
-
-  if (ctx.travelMinutes != null && modifiers.travel) {
-    const billable = Math.max(0, ctx.travelMinutes - (modifiers.travel.freeMinutes ?? 0));
-    const dh = billable / 60;
-    add(`Travel ${billable} min`, dh * modifiers.travel.hourlyRate, dh, dh * modifiers.travel.hourlyRate);
-  }
-
-  if (ctx.nearbyPropertyCount != null && modifiers.routeDensityDiscount) {
-    if (ctx.nearbyPropertyCount >= modifiers.routeDensityDiscount.minNearby) {
-      add("Route density", price * modifiers.routeDensityDiscount.pricePct, 0);
-    }
-  }
-
-  if (ctx.seasonFactor && ctx.seasonFactor !== 1) {
-    add(`Season ×${ctx.seasonFactor}`, price * (ctx.seasonFactor - 1), 0, cost * (ctx.seasonFactor - 1));
   }
 
   if (modifiers.minimum && price < modifiers.minimum.price) {
