@@ -3,7 +3,13 @@
 -- on crew_day_pack.route.revision. This table records which pack version
 -- each phone last acknowledged for the crew route it actually downloaded.
 --
+-- A profile may belong to more than one crew. Phone sync therefore takes the
+-- crew id from the downloaded pack instead of membership order.
+--
 -- Dusty: merging applies this to the hosted database. Do not apply from CI.
+
+alter table public.crew_members
+  drop constraint if exists crew_members_org_id_profile_id_key;
 
 create table public.crew_phone_sync (
   org_id uuid not null references public.orgs (id) on delete cascade,
