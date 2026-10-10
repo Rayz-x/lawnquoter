@@ -7,7 +7,7 @@ describe("office visit horizon", () => {
     expect(addDays("2026-03-31", 1)).toBe("2026-04-01");
   });
 
-  it("defaults the through date to eight weeks", () => {
-    expect(defaultThroughDate("2026-03-02")).toBe("2026-04-27");
+  it("defaults the through date to about 10 weeks", () => {
+    expect(defaultThroughDate("2026-03-02")).toBe("2026-05-11");
   });
 });

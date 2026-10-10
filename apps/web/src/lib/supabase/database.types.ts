@@ -1156,6 +1156,9 @@ isOneToOne: false
 "gen_salt":
 { Args: { "": string }; Returns: string
                            },
+"extend_visit_horizons":
+{ Args: Record<PropertyKey, never>; Returns: number
+                           },
 "generate_agreement_visits":
 { Args: { "p_agreement_id": string,"p_through": string }; Returns: number
                            },
