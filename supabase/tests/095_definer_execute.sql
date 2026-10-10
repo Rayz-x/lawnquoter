@@ -25,6 +25,8 @@ select is(
       and has_function_privilege('anon', p.oid, 'execute')
   ),
   array[
+    'change_order_accept',
+    'change_order_public',
     'quote_accept',
     'quote_decline',
     'quote_public',
@@ -53,6 +55,8 @@ select is(
     'add_crew_member',
     'assign_visit',
     'cancel_visit',
+    'change_order_accept',
+    'change_order_public',
     'claim_lead_for_today',
     'convert_accepted_quote',
     'create_crew',
