@@ -52,6 +52,8 @@ const itemSchema = z.object({
   state: z.enum(["included", "recommended", "optional"]).default("included"),
   option_group: z.string().max(80).optional().or(z.literal("")),
   option_tier: z.enum(["none", "good", "better", "best"]).default("none"),
+  section_id: z.string().uuid().optional().or(z.literal("")),
+  section_title: z.string().trim().max(80).optional().or(z.literal("")),
   qty: z.coerce.number().positive().default(1),
   unit: z.string().max(20).default("each"),
   price: z.coerce.number().nonnegative().default(0),
@@ -77,7 +79,7 @@ async function editableVersion(quoteId: string, versionId: string, orgId: string
   return { supabase, error: null };
 }
 
-export async function addLineItem(quoteId: string, versionId: string, fd: FormData): Promise<ActionResult> {
+export async function addLineItem(quoteId: string, versionId: string, fd: FormData): Promise<ActionResult<{ sectionId: string | null }>> {
   const session = await requireOrg();
   const denied = denyUnlessSales(session.orgRole);
   if (denied) return denied;
@@ -85,9 +87,24 @@ export async function addLineItem(quoteId: string, versionId: string, fd: FormDa
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
   const { supabase, error: versionError } = await editableVersion(quoteId, versionId, session.orgId);
   if (versionError) return fail(versionError);
+  let sectionId = parsed.data.section_id || null;
+  if (parsed.data.section_title) {
+    const { data: created, error: sectionError } = await supabase.from("quote_sections").insert({
+      org_id: session.orgId,
+      version_id: versionId,
+      title: parsed.data.section_title,
+    }).select("id");
+    const missedSection = unchanged(created, sectionError);
+    if (missedSection) return missedSection;
+    sectionId = created?.[0]?.id ?? null;
+  } else if (sectionId) {
+    const { data: section } = await supabase.from("quote_sections").select("id, version_id").eq("id", sectionId).eq("org_id", session.orgId).maybeSingle();
+    if (!section || section.version_id !== versionId) return fail("Section not found");
+  }
   const { data, error } = await supabase.from("quote_line_items").insert({
     org_id: session.orgId,
     version_id: versionId,
+    section_id: sectionId,
     name: parsed.data.name,
     description: parsed.data.description || null,
     state: parsed.data.state,
@@ -108,7 +125,7 @@ export async function addLineItem(quoteId: string, versionId: string, fd: FormDa
   const missed = unchanged(data, error);
   if (missed) return missed;
   revalidatePath(`/quotes/${quoteId}`);
-  return { ok: true };
+  return { ok: true, data: { sectionId } };
 }
 
 function lineVersion(row: { quote_versions: { quote_id: string; frozen: boolean } | { quote_id: string; frozen: boolean }[] | null }) {
@@ -174,6 +191,53 @@ export async function reorderLineItems(quoteId: string, sourceId: string, target
   const { error: undoError } = await write(source.id, source.sort);
   if (undoError) return fail("Could not reorder these lines, and the first move could not be undone.");
   return secondMissed;
+}
+
+async function editableLine(quoteId: string, id: string, orgId: string) {
+  const supabase = await createClient();
+  const { data: item } = await supabase
+    .from("quote_line_items")
+    .select("id, quote_versions(quote_id, frozen)")
+    .eq("id", id)
+    .eq("org_id", orgId)
+    .maybeSingle();
+  const version = item ? lineVersion(item) : null;
+  if (!item || !version || version.quote_id !== quoteId) return { supabase, error: "Line item not found" as const };
+  if (version.frozen) return { supabase, error: "This proposal is frozen. Revise it before editing." as const };
+  return { supabase, error: null };
+}
+
+export async function updateLineItem(quoteId: string, id: string, fd: FormData): Promise<ActionResult> {
+  const session = await requireOrg();
+  const denied = denyUnlessSales(session.orgRole);
+  if (denied) return denied;
+  const parsed = z.object({ state: z.enum(["included", "recommended", "optional"]) }).safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
+  const { supabase, error: lineError } = await editableLine(quoteId, id, session.orgId);
+  if (lineError) return fail(lineError);
+  const { data, error } = await supabase
+    .from("quote_line_items")
+    .update({ state: parsed.data.state, selected: parsed.data.state === "included" })
+    .eq("id", id)
+    .eq("org_id", session.orgId)
+    .select("id");
+  const missed = unchanged(data, error);
+  if (missed) return missed;
+  revalidatePath(`/quotes/${quoteId}`);
+  return { ok: true };
+}
+
+export async function deleteLineItem(quoteId: string, id: string): Promise<ActionResult> {
+  const session = await requireOrg();
+  const denied = denyUnlessSales(session.orgRole);
+  if (denied) return denied;
+  const { supabase, error: lineError } = await editableLine(quoteId, id, session.orgId);
+  if (lineError) return fail(lineError);
+  const { data, error } = await supabase.from("quote_line_items").delete().eq("id", id).eq("org_id", session.orgId).select("id");
+  const missed = unchanged(data, error);
+  if (missed) return missed;
+  revalidatePath(`/quotes/${quoteId}`);
+  return { ok: true };
 }
 
 export async function updateQuoteMeta(id: string, fd: FormData): Promise<ActionResult> {
@@ -291,6 +355,7 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
     .object({
       rule_id: z.string().uuid(),
       state: z.enum(["included", "recommended", "optional"]).default("included"),
+      section_id: z.string().uuid().optional().or(z.literal("")),
       option_group: z.string().optional().or(z.literal("")),
       option_tier: z.enum(["none", "good", "better", "best"]).default("none"),
     })
@@ -298,6 +363,11 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
   const { supabase, error: versionError } = await editableVersion(quoteId, versionId, session.orgId);
   if (versionError) return fail(versionError);
+  const sectionId = parsed.data.section_id || null;
+  if (sectionId) {
+    const { data: section } = await supabase.from("quote_sections").select("id, version_id").eq("id", sectionId).eq("org_id", session.orgId).maybeSingle();
+    if (!section || section.version_id !== versionId) return fail("Section not found");
+  }
 
   const [{ data: quote, error: quoteError }, { data: rule, error: ruleError }] = await Promise.all([
     supabase.from("quotes").select("property_id").eq("id", quoteId).eq("org_id", session.orgId).maybeSingle(),
@@ -366,6 +436,7 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
   const { data, error } = await supabase.from("quote_line_items").insert({
     org_id: session.orgId,
     version_id: versionId,
+    section_id: sectionId,
     service_id: rule.service_id,
     name: rule.name,
     price: priced.priced.price,
