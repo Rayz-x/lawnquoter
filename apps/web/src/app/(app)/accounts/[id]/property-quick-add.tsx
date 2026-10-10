@@ -23,7 +23,7 @@ function fromSuggestion(result: GeocodeResult) {
   return { address_line1: result.addressLine1, city: result.city, region: result.region, postal_code: result.postalCode };
 }
 
-export function PropertyQuickAdd({ accountId }: { accountId: string }) {
+export function PropertyQuickAdd({ accountId, canEdit = true }: { accountId: string; canEdit?: boolean }) {
   const router = useRouter();
   const [address, setAddress] = useState("");
   const [picked, setPicked] = useState<GeocodeResult | null>(null);
@@ -64,6 +64,8 @@ export function PropertyQuickAdd({ accountId }: { accountId: string }) {
       router.push(`/properties/${result.data.id}/measure`);
     });
   };
+
+  if (!canEdit) return null;
 
   return (
     <form className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); submit(); }}>

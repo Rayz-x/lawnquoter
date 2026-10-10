@@ -1,4 +1,5 @@
 import type { Json } from "@/lib/supabase/database.types";
+import { crewPackIsPrivate } from "./pack-privacy";
 
 export const CREW_MUTATION_KINDS = [
   "visit_start",
@@ -315,6 +316,9 @@ async function flushOutboxOnce(
 }
 
 export async function saveDayPack(store: CrewStore, date: string, pack: Json, now = new Date()) {
+  if (!crewPackIsPrivate(pack)) {
+    throw new Error("Day pack includes price or customer contact fields");
+  }
   await store.putPack({ date, saved_at: now.toISOString(), pack });
   for (const drop of packDatesToDrop(await store.listPacks(), now)) await store.deletePack(drop);
 }

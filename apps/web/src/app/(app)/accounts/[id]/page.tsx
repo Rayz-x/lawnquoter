@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SALES_ROLES, hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { FactStrip } from "@/components/entry";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -98,12 +99,13 @@ export default async function AccountDetailPage({
   const showSites = account.type === "commercial" && (children?.length ?? 0) > 0;
   const allowed = ["properties", "contacts", "activity", ...(showSites ? ["sites"] : [])];
   const tabValue = tab && allowed.includes(tab) ? tab : "properties";
+  const canEdit = hasRole(session.orgRole, SALES_ROLES);
 
   return (
     <>
       <PageHeader title={account.name} />
-      <div className="page-body pb-24 lg:pb-0">
-        <AccountHeader account={account} primaryName={primaryName} />
+      <div className={`page-body lg:pb-0 ${canEdit ? "pb-24" : ""}`}>
+        <AccountHeader account={account} primaryName={primaryName} canEdit={canEdit} />
         <FactStrip
           facts={[
             { label: "Open quotes", value: openQuotes ?? 0 },
@@ -117,7 +119,7 @@ export default async function AccountDetailPage({
         />
         <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
         <div className="flex min-w-0 flex-col gap-4">
-        <IdentityCard account={account} />
+        <IdentityCard account={account} canEdit={canEdit} />
         <AccountTabBox
           initial={tabValue}
           tabs={[
@@ -130,11 +132,15 @@ export default async function AccountDetailPage({
                   <Empty className="border-0">
                     <EmptyHeader>
                       <EmptyTitle>No properties</EmptyTitle>
-                      <EmptyDescription>Add the service address to measure and quote it.</EmptyDescription>
+                      <EmptyDescription>
+                        {canEdit ? "Add the service address to measure and quote it." : "No properties on this account yet."}
+                      </EmptyDescription>
                     </EmptyHeader>
-                    <EmptyContent className="w-full items-stretch text-left">
-                      <PropertyQuickAdd accountId={account.id} />
-                    </EmptyContent>
+                    {canEdit ? (
+                      <EmptyContent className="w-full items-stretch text-left">
+                        <PropertyQuickAdd accountId={account.id} canEdit={canEdit} />
+                      </EmptyContent>
+                    ) : null}
                   </Empty>
                 </div>
               ) : (
@@ -158,7 +164,7 @@ export default async function AccountDetailPage({
                     </CardContent>
                   </Card>
               ))}
-            <PropertyQuickAdd accountId={account.id} />
+            <PropertyQuickAdd accountId={account.id} canEdit={canEdit} />
             </div>
               ),
             },
@@ -166,7 +172,7 @@ export default async function AccountDetailPage({
               value: "contacts",
               label: "Contacts",
               count: contacts?.length ?? 0,
-              content: <ContactsPanel accountId={account.id} contacts={contacts ?? []} />,
+              content: <ContactsPanel accountId={account.id} contacts={contacts ?? []} canEdit={canEdit} />,
             },
             ...(showSites
               ? [
@@ -221,6 +227,7 @@ export default async function AccountDetailPage({
           account={account}
           parents={parents ?? []}
           ownerName={owner?.full_name ?? "Unassigned"}
+          canEdit={canEdit}
           firstProperty={
             properties?.[0]
               ? {

@@ -191,6 +191,17 @@ describe("day packs", () => {
     expect(await store.listPacks()).toHaveLength(2);
   });
 
+  it("refuses to sync a pack that still carries prices or customer contact", async () => {
+    const store = createMemoryCrewStore();
+    await expect(saveDayPack(store, "2026-10-09", { visits: [{ price: 87.65 }] }, now)).rejects.toThrow(
+      /price or customer contact/i,
+    );
+    await expect(saveDayPack(store, "2026-10-09", { visits: [{ property: { phone: "555-0199" } }] }, now)).rejects.toThrow(
+      /price or customer contact/i,
+    );
+    expect(await store.listPacks()).toEqual([]);
+  });
+
   it("blocks sign-out while rows are waiting and wipes packs on clear", async () => {
     const store = createMemoryCrewStore();
     await enqueueMutation(store, { kind: "visit_start", visit_id: "v", ...who }, now);

@@ -14,7 +14,15 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { Tables } from "@/lib/supabase/types";
 import { addContact, deleteContact } from "../actions";
 
-export function ContactsPanel({ accountId, contacts }: { accountId: string; contacts: Tables<"contacts">[] }) {
+export function ContactsPanel({
+  accountId,
+  contacts,
+  canEdit = true,
+}: {
+  accountId: string;
+  contacts: Tables<"contacts">[];
+  canEdit?: boolean;
+}) {
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -71,57 +79,61 @@ export function ContactsPanel({ accountId, contacts }: { accountId: string; cont
                 {c.sms_opt_in ? " · SMS ok" : ""}
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button variant="ghost" size="sm" disabled={pending} onClick={() => remove(c.id)}>
-                <Trash2 data-icon="inline-start" />
-                Remove
-              </Button>
-            </CardContent>
+            {canEdit ? (
+              <CardContent>
+                <Button variant="ghost" size="sm" disabled={pending} onClick={() => remove(c.id)}>
+                  <Trash2 data-icon="inline-start" />
+                  Remove
+                </Button>
+              </CardContent>
+            ) : null}
           </Card>
         ))}
         {contacts.length === 0 ? <p className="text-sm text-muted-foreground">No contacts yet.</p> : null}
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Add contact</CardTitle>
-          <CardDescription>Site contact, billing contact, or decision maker.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="flex flex-col gap-3">
-            <Field>
-              <FieldLabel htmlFor="contact-name">Name</FieldLabel>
-              <Input id="contact-name" value={name} autoComplete="name" className="max-md:h-12" onChange={(event) => setName(event.target.value)} />
-            </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
+      {canEdit ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Add contact</CardTitle>
+            <CardDescription>Site contact, billing contact, or decision maker.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={onSubmit} className="flex flex-col gap-3">
               <Field>
-                <FieldLabel htmlFor="contact-phone">Mobile</FieldLabel>
-                <Input id="contact-phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} className="max-md:h-12" onChange={(event) => setPhone(event.target.value)} />
+                <FieldLabel htmlFor="contact-name">Name</FieldLabel>
+                <Input id="contact-name" value={name} autoComplete="name" className="max-md:h-12" onChange={(event) => setName(event.target.value)} />
               </Field>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor="contact-phone">Mobile</FieldLabel>
+                  <Input id="contact-phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} className="max-md:h-12" onChange={(event) => setPhone(event.target.value)} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="contact-email">Email</FieldLabel>
+                  <Input id="contact-email" type="email" inputMode="email" autoComplete="email" value={email} className="max-md:h-12" onChange={(event) => setEmail(event.target.value)} />
+                </Field>
+              </div>
               <Field>
-                <FieldLabel htmlFor="contact-email">Email</FieldLabel>
-                <Input id="contact-email" type="email" inputMode="email" autoComplete="email" value={email} className="max-md:h-12" onChange={(event) => setEmail(event.target.value)} />
+                <FieldLabel htmlFor="contact-role">Role</FieldLabel>
+                <NativeSelect id="contact-role" value={role} className="max-md:h-12" onChange={(event) => setRole(event.target.value)}>
+                  <option value="site">Site contact</option>
+                  <option value="decision_maker">Decision maker</option>
+                  <option value="other">Other</option>
+                </NativeSelect>
               </Field>
-            </div>
-            <Field>
-              <FieldLabel htmlFor="contact-role">Role</FieldLabel>
-              <NativeSelect id="contact-role" value={role} className="max-md:h-12" onChange={(event) => setRole(event.target.value)}>
-                <option value="site">Site contact</option>
-                <option value="decision_maker">Decision maker</option>
-                <option value="other">Other</option>
-              </NativeSelect>
-            </Field>
-            <ToggleGroup aria-label="Contact flags" spacing={0} multiple variant="outline" value={flags} onValueChange={setFlags}>
-              <ToggleGroupItem value="primary" aria-label="Primary" className="max-md:h-11">Primary</ToggleGroupItem>
-              <ToggleGroupItem value="billing" aria-label="Billing" className="max-md:h-11">Billing</ToggleGroupItem>
-              <ToggleGroupItem value="sms" aria-label="SMS" className="max-md:h-11">SMS</ToggleGroupItem>
-            </ToggleGroup>
-            <Button type="submit" disabled={pending} className="min-h-11 lg:min-h-9">
-              {pending ? <Spinner data-icon="inline-start" /> : null}
-              Add contact
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              <ToggleGroup aria-label="Contact flags" spacing={0} multiple variant="outline" value={flags} onValueChange={setFlags}>
+                <ToggleGroupItem value="primary" aria-label="Primary" className="max-md:h-11">Primary</ToggleGroupItem>
+                <ToggleGroupItem value="billing" aria-label="Billing" className="max-md:h-11">Billing</ToggleGroupItem>
+                <ToggleGroupItem value="sms" aria-label="SMS" className="max-md:h-11">SMS</ToggleGroupItem>
+              </ToggleGroup>
+              <Button type="submit" disabled={pending} className="min-h-11 lg:min-h-9">
+                {pending ? <Spinner data-icon="inline-start" /> : null}
+                Add contact
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

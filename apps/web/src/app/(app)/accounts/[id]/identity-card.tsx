@@ -10,7 +10,7 @@ import type { Tables } from "@/lib/supabase/types";
 import { identityError, normalizeIdentity, type IdentityDraft } from "../account-format";
 import { findAccountMatch, updateAccountIdentity } from "../identity-action";
 
-export function IdentityCard({ account }: { account: Tables<"accounts"> }) {
+export function IdentityCard({ account, canEdit = true }: { account: Tables<"accounts">; canEdit?: boolean }) {
   const router = useRouter();
   const fieldsRef = useRef<HTMLDivElement>(null);
   const initial = useMemo<IdentityDraft>(
@@ -59,6 +59,8 @@ export function IdentityCard({ account }: { account: Tables<"accounts"> }) {
     setEditing(false);
   };
 
+  const inEdit = canEdit && editing;
+
   return (
     <SectionCard
       title="Identity"
@@ -66,8 +68,8 @@ export function IdentityCard({ account }: { account: Tables<"accounts"> }) {
       status={status}
       error={fieldError ? null : error}
       onRetry={retry}
-      mode={editing ? "edit" : "view"}
-      onEdit={() => setEditing(true)}
+      mode={inEdit ? "edit" : "view"}
+      onEdit={canEdit ? () => setEditing(true) : undefined}
       facts={[
         { label: "Type", value: draft.type === "commercial" ? "Commercial" : "Residential" },
         { label: "Name", value: draft.name },
