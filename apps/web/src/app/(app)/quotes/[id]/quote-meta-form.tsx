@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { SectionCard, useSectionAutosave } from "@/components/entry";
+import { useSectionAutosave } from "@/components/entry";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +13,13 @@ type QuoteCopy = { id: string; title: string; intro: string | null; notes_custom
 
 type ProposalDraft = { title: string; intro: string; notes_customer: string };
 type NotesDraft = { notes_internal: string };
+
+function SaveStatus({ status, error }: { status: string; error: string | null }) {
+  if (error) return <p className="text-sm text-destructive">{error}</p>;
+  if (status === "saving") return <p className="text-xs text-muted-foreground" role="status">Saving…</p>;
+  if (status === "saved") return <p className="text-xs text-success" role="status">Saved ✓</p>;
+  return null;
+}
 
 export function ProposalCard({ quote, editable }: { quote: QuoteCopy; editable: boolean }) {
   const router = useRouter();
@@ -24,7 +32,7 @@ export function ProposalCard({ quote, editable }: { quote: QuoteCopy; editable: 
     [quote.title, quote.intro, quote.notes_customer],
   );
   const [draft, setDraft] = useState(initial);
-  const { status, error, save, retry } = useSectionAutosave<ProposalDraft>({
+  const { status, error, save } = useSectionAutosave<ProposalDraft>({
     initial,
     action: async (values) => {
       if (!editable) return { ok: true as const };
@@ -39,54 +47,60 @@ export function ProposalCard({ quote, editable }: { quote: QuoteCopy; editable: 
   });
 
   return (
-    <SectionCard title="Proposal text" heading="h3" status={editable ? status : "idle"} error={error} onRetry={retry}>
-      {!editable ? <p className="text-sm text-muted-foreground">Title, intro, and customer notes are locked. Revise the proposal to change them.</p> : null}
-      <Field>
-        <FieldLabel htmlFor="q_title">Title</FieldLabel>
-        <Input
-          id="q_title"
-          value={draft.title}
-          required={editable}
-          disabled={!editable}
-          onChange={(event) => setDraft({ ...draft, title: event.target.value })}
-          onBlur={(event) => {
-            const title = event.target.value;
-            setDraft((current) => ({ ...current, title }));
-            if (editable) save({ title, intro: draft.intro, notes_customer: draft.notes_customer });
-          }}
-        />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="q_intro">Customer intro</FieldLabel>
-        <Textarea
-          id="q_intro"
-          rows={3}
-          value={draft.intro}
-          disabled={!editable}
-          onChange={(event) => setDraft({ ...draft, intro: event.target.value })}
-          onBlur={(event) => {
-            const intro = event.target.value;
-            setDraft((current) => ({ ...current, intro }));
-            if (editable) save({ title: draft.title, intro, notes_customer: draft.notes_customer });
-          }}
-        />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="q_notes">Customer notes</FieldLabel>
-        <Textarea
-          id="q_notes"
-          rows={2}
-          value={draft.notes_customer}
-          disabled={!editable}
-          onChange={(event) => setDraft({ ...draft, notes_customer: event.target.value })}
-          onBlur={(event) => {
-            const notes_customer = event.target.value;
-            setDraft((current) => ({ ...current, notes_customer }));
-            if (editable) save({ title: draft.title, intro: draft.intro, notes_customer });
-          }}
-        />
-      </Field>
-    </SectionCard>
+    <Card>
+      <CardHeader>
+        <CardTitle>Proposal text</CardTitle>
+        {editable ? null : <CardDescription>Title, intro, and customer notes are locked. Revise the proposal to change them.</CardDescription>}
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <Field>
+          <FieldLabel htmlFor="q_title">Title</FieldLabel>
+          <Input
+            id="q_title"
+            value={draft.title}
+            required={editable}
+            disabled={!editable}
+            onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+            onBlur={(event) => {
+              const title = event.target.value;
+              setDraft((current) => ({ ...current, title }));
+              if (editable) save({ title, intro: draft.intro, notes_customer: draft.notes_customer });
+            }}
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="q_intro">Customer intro</FieldLabel>
+          <Textarea
+            id="q_intro"
+            rows={3}
+            value={draft.intro}
+            disabled={!editable}
+            onChange={(event) => setDraft({ ...draft, intro: event.target.value })}
+            onBlur={(event) => {
+              const intro = event.target.value;
+              setDraft((current) => ({ ...current, intro }));
+              if (editable) save({ title: draft.title, intro, notes_customer: draft.notes_customer });
+            }}
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="q_notes">Customer notes</FieldLabel>
+          <Textarea
+            id="q_notes"
+            rows={2}
+            value={draft.notes_customer}
+            disabled={!editable}
+            onChange={(event) => setDraft({ ...draft, notes_customer: event.target.value })}
+            onBlur={(event) => {
+              const notes_customer = event.target.value;
+              setDraft((current) => ({ ...current, notes_customer }));
+              if (editable) save({ title: draft.title, intro: draft.intro, notes_customer });
+            }}
+          />
+        </Field>
+        {editable ? <SaveStatus status={status} error={error} /> : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -94,7 +108,7 @@ export function InternalCard({ quote }: { quote: QuoteCopy }) {
   const router = useRouter();
   const initial = useMemo<NotesDraft>(() => ({ notes_internal: quote.notes_internal ?? "" }), [quote.notes_internal]);
   const [notes, setNotes] = useState(initial.notes_internal);
-  const { status, error, save, retry } = useSectionAutosave<NotesDraft>({
+  const { status, error, save } = useSectionAutosave<NotesDraft>({
     initial,
     action: async (values) => {
       const fd = new FormData();
@@ -106,22 +120,28 @@ export function InternalCard({ quote }: { quote: QuoteCopy }) {
   });
 
   return (
-    <SectionCard title="Internal notes" heading="h3" status={status} error={error} onRetry={retry}>
-      <Field>
-        <FieldLabel htmlFor="q_internal">Internal notes</FieldLabel>
-        <Textarea
-          id="q_internal"
-          rows={2}
-          value={notes}
-          onChange={(event) => setNotes(event.target.value)}
-          onBlur={(event) => {
-            const notes_internal = event.target.value;
-            setNotes(notes_internal);
-            save({ notes_internal });
-          }}
-        />
-      </Field>
-    </SectionCard>
+    <Card>
+      <CardHeader>
+        <CardTitle>Internal notes</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <Field>
+          <FieldLabel htmlFor="q_internal">Internal notes</FieldLabel>
+          <Textarea
+            id="q_internal"
+            rows={2}
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            onBlur={(event) => {
+              const notes_internal = event.target.value;
+              setNotes(notes_internal);
+              save({ notes_internal });
+            }}
+          />
+        </Field>
+        <SaveStatus status={status} error={error} />
+      </CardContent>
+    </Card>
   );
 }
 
