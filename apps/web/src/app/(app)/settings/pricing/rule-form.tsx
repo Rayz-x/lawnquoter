@@ -1,15 +1,18 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
+import { pricingRuleSchema } from "@lawnquoter/pricing-engine";
 import { toast } from "sonner";
+import { SectionCard } from "@/components/entry";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { deleteRule, saveRule } from "./actions";
 
-const STARTER = `{
+export const STARTER = `{
   "type": "tier_matrix",
   "quantityKey": "turf_sqft",
   "rows": [
@@ -20,26 +23,88 @@ const STARTER = `{
   "tail": { "every": 1000, "over": 15000, "addPrice": 5, "addHours": 0.08, "addCost": 2 }
 }`;
 
+function jsonIssues(text: string): string[] {
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch (error) {
+    const pos = Number(/position (\d+)/.exec(String(error))?.[1] ?? 0);
+    return [`Line ${text.slice(0, pos).split("\n").length}: Rule config must be valid JSON`];
+  }
+  const parsed = pricingRuleSchema.safeParse(json);
+  if (parsed.success) return [];
+  return parsed.error.issues.map((issue) => {
+    const row = issue.path.find((part) => typeof part === "number");
+    const key = [...issue.path].reverse().find((part) => typeof part === "string");
+    let line = 1;
+    if (typeof key === "string") {
+      let seen = 0;
+      text.split("\n").some((source, index) => {
+        if (!source.includes(`"${key}"`)) return false;
+        if (typeof row === "number" && seen++ !== row) return false;
+        line = index + 1;
+        return true;
+      });
+    }
+    return `Line ${line}: ${issue.message}`;
+  });
+}
+
 export function RuleForm({
   priceListId,
   services,
   rule,
+  onClose,
+  showDelete = true,
 }: {
   priceListId: string;
   services: { id: string; name: string }[];
   rule?: { id: string; service_id: string; name: string; config: string };
+  onClose?: () => void;
+  showDelete?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  const [issues, setIssues] = useState<string[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const formId = `rule-${rule?.id ?? "new"}`;
   return (
+    <SectionCard
+      title="Rule JSON"
+      description="Advanced. Changes apply to new quotes."
+      actions={
+        <>
+          <Button type="submit" form={formId} disabled={pending || services.length === 0}>
+            {pending ? <Spinner data-icon="inline-start" /> : null}
+            Save
+          </Button>
+          {onClose ? (
+            <Button type="button" variant="outline" disabled={pending} onClick={onClose}>
+              Cancel
+            </Button>
+          ) : null}
+          {rule && showDelete ? (
+            <Button type="button" variant="destructive" disabled={pending} onClick={() => setConfirmDelete(true)}>
+              Delete
+            </Button>
+          ) : null}
+        </>
+      }
+    >
     <form
+      id={formId}
       className="flex flex-col gap-3"
       onSubmit={(e) => {
         e.preventDefault();
         const fd = new FormData(e.currentTarget);
+        const found = jsonIssues(String(fd.get("config") ?? ""));
+        setIssues(found);
+        if (found.length) return;
         startTransition(async () => {
           const r = await saveRule(fd);
-          if (r.ok) toast.success("Rule saved");
-          else toast.error(r.error);
+          if (r.ok) {
+            toast.success("Rule saved");
+            onClose?.();
+          } else toast.error(r.error);
         });
       }}
     >
@@ -70,29 +135,44 @@ export function RuleForm({
           <FieldLabel htmlFor={`cfg-${rule?.id ?? "new"}`}>Rule JSON</FieldLabel>
           <Textarea id={`cfg-${rule?.id ?? "new"}`} name="config" rows={12} className="font-mono text-xs" defaultValue={rule?.config ?? STARTER} required />
           <FieldDescription>type: tier_matrix, assembly, catalog, program, snow, or irrigation. Always store price, hours, and cost.</FieldDescription>
+          {issues.length ? (
+            <FieldError>
+              <ul>
+                {issues.map((issue) => (
+                  <li key={issue}>{issue}</li>
+                ))}
+              </ul>
+            </FieldError>
+          ) : null}
         </Field>
       </FieldGroup>
-      <div className="flex gap-2">
-        <Button type="submit" disabled={pending || services.length === 0}>
-          {pending ? <Spinner data-icon="inline-start" /> : null}
-          Save rule
-        </Button>
-        {rule ? (
-          <Button
-            type="button"
-            variant="destructive"
-            disabled={pending}
-            onClick={() =>
-              startTransition(async () => {
-                const r = await deleteRule(rule.id);
-                if (!r.ok) toast.error(r.error);
-              })
-            }
-          >
-            Delete
-          </Button>
-        ) : null}
-      </div>
     </form>
+    {rule && showDelete ? (
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete rule</AlertDialogTitle>
+            <AlertDialogDescription>{"This can't be undone."}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                setConfirmDelete(false);
+                startTransition(async () => {
+                  const r = await deleteRule(rule.id);
+                  if (!r.ok) toast.error(r.error);
+                });
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    ) : null}
+    </SectionCard>
   );
 }

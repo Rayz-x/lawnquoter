@@ -6,7 +6,17 @@ import { priceIrrigation } from "./rules/irrigation";
 import { priceProgram } from "./rules/program";
 import { priceSnow } from "./rules/snow";
 import { priceTierMatrix } from "./rules/tier-matrix";
-import { defaultModifiers, type Modifiers, type PricedLine, type PricingRule, type PropertyContext, type QuantityMap } from "./types";
+import { SKIPPABLE_MODIFIER_KEYS, defaultModifiers, type Modifiers, type PricedLine, type PricingRule, type PropertyContext, type QuantityMap } from "./types";
+
+const SKIPPABLE = new Set<string>(SKIPPABLE_MODIFIER_KEYS);
+
+function modifiersFor(rule: PricingRule, modifiers: Modifiers): Modifiers {
+  const skip = rule.type === "tier_matrix" ? (rule.skipModifiers ?? []).filter((key) => SKIPPABLE.has(key)) : [];
+  if (!skip.length) return modifiers;
+  const next: Modifiers = { ...modifiers };
+  for (const key of skip) delete next[key as keyof Modifiers];
+  return next;
+}
 
 export type PriceInput = {
   rule: PricingRule;
@@ -42,7 +52,7 @@ export function priceLine(input: PriceInput): PricedLine {
   result = applyModifiers(
     result,
     input.rule.type === "assembly" ? { ...ctx, complexity: undefined } : ctx,
-    input.modifiers ?? defaultModifiers(),
+    modifiersFor(input.rule, input.modifiers ?? defaultModifiers()),
   );
   return applyConfidenceRange(result, ctx.confidence);
 }
