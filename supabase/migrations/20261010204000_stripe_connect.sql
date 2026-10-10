@@ -1,4 +1,5 @@
--- I06: one Stripe Connect Express account per company. Owner-only RLS.
+-- I06: one Stripe Connect Express account per company.
+-- Authenticated: SELECT only (owner+admin). Writes are service_role / trusted server.
 -- Hosted apply requires Dusty's OK; this migration is not applied here.
 
 create type public.stripe_connect_status as enum ('not_connected', 'pending', 'ready');
@@ -26,17 +27,8 @@ create policy org_stripe_connect_select on public.org_stripe_connect
   for select to authenticated
   using ((select private.has_org_role(org_id, array['owner', 'admin']::public.org_role[])));
 
-create policy org_stripe_connect_insert on public.org_stripe_connect
-  for insert to authenticated
-  with check ((select private.has_org_role(org_id, array['owner']::public.org_role[])));
-
-create policy org_stripe_connect_update on public.org_stripe_connect
-  for update to authenticated
-  using ((select private.has_org_role(org_id, array['owner']::public.org_role[])))
-  with check ((select private.has_org_role(org_id, array['owner']::public.org_role[])));
-
-revoke all on public.org_stripe_connect from public, anon;
-grant select, insert, update on public.org_stripe_connect to authenticated;
+revoke all on public.org_stripe_connect from public, anon, authenticated;
+grant select on public.org_stripe_connect to authenticated;
 grant all on public.org_stripe_connect to service_role;
 
 create or replace function public.org_payments_ready()
