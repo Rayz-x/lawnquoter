@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -25,12 +25,26 @@ export function splitSectionMenuItems(items: SectionMenuItem[]) {
 
 export function SectionMenu({ label = "Section actions", items }: { label?: string; items: SectionMenuItem[] }) {
   const [pending, setPending] = useState<SectionMenuItem | null>(null);
+  const desktopRef = useRef<HTMLButtonElement>(null);
+  const mobileRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLButtonElement | null>(null);
   const { actions, destructive } = splitSectionMenuItems(items);
   if (items.length === 0) return null;
 
-  const choose = (item: SectionMenuItem) => {
-    if (item.destructive) setPending(item);
-    else item.onSelect();
+  const choose = (item: SectionMenuItem, opener: HTMLButtonElement | null) => {
+    if (item.destructive) {
+      openerRef.current = opener;
+      setPending(item);
+      return;
+    }
+    item.onSelect();
+  };
+
+  const dismiss = (confirm: boolean) => {
+    if (confirm) pending?.onSelect();
+    const opener = openerRef.current;
+    setPending(null);
+    queueMicrotask(() => opener?.focus());
   };
   const divided = actions.length > 0 && destructive.length > 0;
 
@@ -38,14 +52,14 @@ export function SectionMenu({ label = "Section actions", items }: { label?: stri
     <>
       <div className="hidden lg:block">
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button type="button" variant="ghost" size="icon-sm" aria-label={label} />}>
+          <DropdownMenuTrigger render={<Button ref={desktopRef} type="button" variant="ghost" size="icon-sm" aria-label={label} />}>
             <MoreHorizontal />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {actions.length > 0 ? (
               <DropdownMenuGroup>
                 {actions.map((item) => (
-                  <DropdownMenuItem key={item.id} onClick={() => choose(item)}>{item.label}</DropdownMenuItem>
+                  <DropdownMenuItem key={item.id} onClick={() => choose(item, desktopRef.current)}>{item.label}</DropdownMenuItem>
                 ))}
               </DropdownMenuGroup>
             ) : null}
@@ -53,7 +67,7 @@ export function SectionMenu({ label = "Section actions", items }: { label?: stri
             {destructive.length > 0 ? (
               <DropdownMenuGroup>
                 {destructive.map((item) => (
-                  <DropdownMenuItem key={item.id} variant="destructive" onClick={() => choose(item)}>{item.label}</DropdownMenuItem>
+                  <DropdownMenuItem key={item.id} variant="destructive" onClick={() => choose(item, desktopRef.current)}>{item.label}</DropdownMenuItem>
                 ))}
               </DropdownMenuGroup>
             ) : null}
@@ -62,7 +76,7 @@ export function SectionMenu({ label = "Section actions", items }: { label?: stri
       </div>
       <div className="lg:hidden">
         <Sheet>
-          <SheetTrigger render={<Button type="button" variant="ghost" size="icon" className="size-11" aria-label={label} />}>
+          <SheetTrigger render={<Button ref={mobileRef} type="button" variant="ghost" size="icon" className="size-11" aria-label={label} />}>
             <MoreHorizontal />
           </SheetTrigger>
           <SheetContent side="bottom" className="pb-[env(safe-area-inset-bottom)]">
@@ -71,13 +85,13 @@ export function SectionMenu({ label = "Section actions", items }: { label?: stri
             </SheetHeader>
             <div className="flex flex-col gap-2 px-4 pb-4">
               {actions.map((item) => (
-                <Button key={item.id} type="button" variant="outline" className="min-h-11 justify-start" onClick={() => choose(item)}>
+                <Button key={item.id} type="button" variant="outline" className="min-h-11 justify-start" onClick={() => choose(item, mobileRef.current)}>
                   {item.label}
                 </Button>
               ))}
               {divided ? <Separator /> : null}
               {destructive.map((item) => (
-                <Button key={item.id} type="button" variant="destructive" className="min-h-11 justify-start" onClick={() => choose(item)}>
+                <Button key={item.id} type="button" variant="destructive" className="min-h-11 justify-start" onClick={() => choose(item, mobileRef.current)}>
                   {item.label}
                 </Button>
               ))}
@@ -85,7 +99,7 @@ export function SectionMenu({ label = "Section actions", items }: { label?: stri
           </SheetContent>
         </Sheet>
       </div>
-      <AlertDialog open={pending !== null} onOpenChange={(open) => { if (!open) setPending(null); }}>
+      <AlertDialog open={pending !== null} onOpenChange={(open) => { if (!open) dismiss(false); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{pending?.label ?? "Confirm"}</AlertDialogTitle>
@@ -93,7 +107,7 @@ export function SectionMenu({ label = "Section actions", items }: { label?: stri
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
-            <AlertDialogAction type="button" variant="destructive" onClick={() => { pending?.onSelect(); setPending(null); }}>
+            <AlertDialogAction type="button" variant="destructive" onClick={() => dismiss(true)}>
               {pending?.label ?? "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>
