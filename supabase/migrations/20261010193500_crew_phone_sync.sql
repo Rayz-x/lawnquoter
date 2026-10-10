@@ -1,7 +1,7 @@
--- S07 + S08 survivor: phone sync / pack versioning after the gate-code window.
--- Merge #113 before this PR so helpers land first; this migration's
--- create or replace public.crew_day_pack keeps server_today + gate-code window
--- and adds top-level version (routes.revision) for phone ack / office board.
+-- S07 phone sync / pack versioning (with folded S08 gate-code window body).
+-- Merge order: #112 (Needs attention tray) → this PR (#107) → #113.
+-- #113 rebases onto this tip; its later migration re-asserts the gate window
+-- without dropping top-level pack version (routes.revision) or phone ack.
 --
 alter table public.crew_members
   drop constraint if exists crew_members_org_id_profile_id_key;

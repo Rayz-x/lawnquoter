@@ -14,6 +14,7 @@ import {
   type AttentionTray,
   type AttentionVisit,
 } from "@/lib/scheduling/attention-tray";
+import { boardPhonesForCrew } from "@/lib/scheduling/phone-sync";
 import { createClient } from "@/lib/supabase/server";
 import { DayBoard, type BoardColumn, type BoardVisit, type PhoneSync } from "./day-board";
 
@@ -140,12 +141,17 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     { data: routes, error: routesError },
     { data: visits, error: visitsError },
     { data: trayData, error: trayError },
+    { data: memberRows, error: memberError },
     { data: phoneRows, error: phoneError },
   ] = await Promise.all([
       supabase.from("crews").select("id, name, active").eq("org_id", session.orgId).order("name"),
       supabase.from("routes").select("id, crew_id, status, revision").eq("org_id", session.orgId).eq("date", date),
       supabase.from("visits").select(visitSelect).eq("org_id", session.orgId).eq("scheduled_date", date).order("sort"),
       supabase.rpc("office_attention_tray", { p_as_of: today }),
+      supabase
+        .from("crew_members")
+        .select("crew_id, profile_id, profiles(full_name, email)")
+        .eq("org_id", session.orgId),
       supabase
         .from("crew_phone_sync")
         .select("crew_id, profile_id, pack_version, last_synced_at, profiles(full_name, email)")
@@ -157,6 +163,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     routesError?.message ??
     visitsError?.message ??
     trayError?.message ??
+    memberError?.message ??
     phoneError?.message ??
     null;
   const tray = parseAttentionTray(trayData, today);
@@ -192,29 +199,45 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     visitsByRoute.set(visit.route_id, list);
   }
 
-  const phonesByCrew = new Map<string, PhoneSync[]>();
-  for (const row of phoneRows ?? []) {
+  const membersByCrew = new Map<string, { profileId: string; name: string }[]>();
+  for (const row of memberRows ?? []) {
     const profile = one(row.profiles);
-    const phone: PhoneSync = {
+    const member = {
       profileId: row.profile_id,
       name: profile?.full_name?.trim() || profile?.email?.trim() || "Phone",
+    };
+    const list = membersByCrew.get(row.crew_id) ?? [];
+    list.push(member);
+    membersByCrew.set(row.crew_id, list);
+  }
+  for (const [crewId, members] of membersByCrew) {
+    members.sort((a, b) => a.name.localeCompare(b.name) || a.profileId.localeCompare(b.profileId));
+    membersByCrew.set(crewId, members);
+  }
+
+  const syncByCrew = new Map<string, Map<string, { packVersion: number; lastSyncedAt: string }>>();
+  for (const row of phoneRows ?? []) {
+    const byProfile = syncByCrew.get(row.crew_id) ?? new Map();
+    byProfile.set(row.profile_id, {
       packVersion: row.pack_version,
       lastSyncedAt: row.last_synced_at,
-    };
-    const list = phonesByCrew.get(row.crew_id) ?? [];
-    list.push(phone);
-    phonesByCrew.set(row.crew_id, list);
+    });
+    syncByCrew.set(row.crew_id, byProfile);
   }
 
   const columns: BoardColumn[] = visibleCrews.map((crew) => {
     const route = routeByCrew.get(crew.id);
+    const phones: PhoneSync[] = boardPhonesForCrew({
+      members: membersByCrew.get(crew.id) ?? [],
+      syncByProfile: syncByCrew.get(crew.id) ?? new Map(),
+    });
     return {
       crewId: crew.id,
       crewName: crew.name,
       routeId: route?.id ?? null,
       routeStatus: route?.status ?? null,
       routeVersion: route?.revision ?? null,
-      phones: phonesByCrew.get(crew.id) ?? [],
+      phones,
       visits: route ? (visitsByRoute.get(route.id) ?? []) : [],
     };
   });

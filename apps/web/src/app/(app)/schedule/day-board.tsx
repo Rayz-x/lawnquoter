@@ -31,7 +31,7 @@ export type BoardVisit = {
 export type PhoneSync = {
   profileId: string;
   name: string;
-  packVersion: number;
+  packVersion: number | null;
   lastSyncedAt: string | null;
 };
 
@@ -313,7 +313,12 @@ function PhoneSyncLines({
 }) {
   const now = new Date();
   if (phones.length === 0) {
-    return <p className="text-xs text-muted-foreground">No phone has synced today</p>;
+    return (
+      <p className="inline-flex items-center gap-1 text-xs text-warning">
+        <TriangleAlert aria-hidden className="size-3.5 shrink-0" />
+        <span>No phone has synced today</span>
+      </p>
+    );
   }
   return (
     <ul className="mt-1 flex flex-col gap-1 text-xs">

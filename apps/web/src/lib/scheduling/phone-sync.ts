@@ -8,6 +8,27 @@ export type PhoneSyncStatus = {
   attention: boolean;
 };
 
+/** One board row per crew member; sync fields stay null until they ack a pack. */
+export function boardPhonesForCrew(input: {
+  members: { profileId: string; name: string }[];
+  syncByProfile: Map<string, { packVersion: number; lastSyncedAt: string }>;
+}): {
+  profileId: string;
+  name: string;
+  packVersion: number | null;
+  lastSyncedAt: string | null;
+}[] {
+  return input.members.map((member) => {
+    const sync = input.syncByProfile.get(member.profileId);
+    return {
+      profileId: member.profileId,
+      name: member.name,
+      packVersion: sync?.packVersion ?? null,
+      lastSyncedAt: sync?.lastSyncedAt ?? null,
+    };
+  });
+}
+
 export function phoneSyncStatus(input: {
   phoneName: string;
   packVersion: number | null;

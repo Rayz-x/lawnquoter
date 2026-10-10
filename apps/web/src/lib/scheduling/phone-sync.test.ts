@@ -1,5 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { phoneSyncStatus } from "./phone-sync";
+import { boardPhonesForCrew, phoneSyncStatus } from "./phone-sync";
+
+describe("boardPhonesForCrew", () => {
+  it("lists every member and keeps Never synced until they ack", () => {
+    const syncByProfile = new Map([
+      ["p2", { packVersion: 2, lastSyncedAt: "2026-10-09T14:31:00.000Z" }],
+    ]);
+    expect(
+      boardPhonesForCrew({
+        members: [
+          { profileId: "p1", name: "Ana" },
+          { profileId: "p2", name: "Bo" },
+        ],
+        syncByProfile,
+      }),
+    ).toEqual([
+      { profileId: "p1", name: "Ana", packVersion: null, lastSyncedAt: null },
+      {
+        profileId: "p2",
+        name: "Bo",
+        packVersion: 2,
+        lastSyncedAt: "2026-10-09T14:31:00.000Z",
+      },
+    ]);
+  });
+});
 
 describe("phoneSyncStatus", () => {
   const now = new Date("2026-10-09T15:00:00.000Z");
