@@ -44,11 +44,12 @@ values (:'org'::uuid, :'acct'::uuid, '21 Return Ln', 'Springfield', 'IL', '62701
 returning id as prop \gset
 select tests.clear_auth();
 
-insert into public.crews (org_id, name, default_lead_id)
-values (:'org'::uuid, 'Partly Crew', :'lead'::uuid)
+insert into public.crews (org_id, name)
+values (:'org'::uuid, 'Partly Crew')
 returning id as crew_id \gset
 insert into public.crew_members (org_id, crew_id, profile_id)
 values (:'org'::uuid, :'crew_id'::uuid, :'lead'::uuid);
+update public.crews set default_lead_id = :'lead'::uuid where id = :'crew_id'::uuid;
 insert into public.jobs (org_id, property_id, title, status)
 values (:'org'::uuid, :'prop'::uuid, 'Mow front', 'scheduled')
 returning id as job_id \gset
@@ -110,6 +111,9 @@ select public.crew_sync(jsonb_build_array(jsonb_build_object(
 ))) as sync_partly \gset
 select is((:'sync_partly')::jsonb->'results'->0->>'status', 'applied', 'partly done finish applies');
 
+select tests.clear_auth();
+-- Office can see the completed visit and the unassigned return (crew RLS cannot).
+select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
 select is(
   (select status::text from public.visits where id = :'visit_id'::uuid),
   'completed',
@@ -138,8 +142,6 @@ select is(
   'return visit is not on a crew route'
 );
 
-select tests.clear_auth();
-select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
 select ok(exists (
   select 1
   from jsonb_array_elements(public.office_attention_tray(:'today'::date) -> 'unassigned') i
