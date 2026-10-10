@@ -16,7 +16,7 @@ import { orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/server";
 import { ConvertToJobForm } from "./convert-to-job-button";
 import { DeleteQuoteButton } from "./delete-quote-button";
-import { QuoteLines } from "./price-from-catalog";
+import { QuoteLines } from "./quote-lines";
 import { QuoteMetaForm } from "./quote-meta-form";
 import { SendQuoteButton } from "./send-quote-button";
 import { ReviseQuoteButton } from "./revise-quote-button";
