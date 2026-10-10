@@ -43,14 +43,7 @@ export function PriceFromCatalog({
               onClick={() =>
                 startTransition(async () => {
                   const fd = new FormData();
-                  fd.set("name", r.name);
-                  fd.set("price", String(r.priced.price));
-                  fd.set("hours", String(r.priced.hours));
-                  fd.set("cost", String(r.priced.cost));
-                  if (r.priced.range) {
-                    fd.set("range_low", String(r.priced.range.low));
-                    fd.set("range_high", String(r.priced.range.high));
-                  }
+                  fd.set("rule_id", r.id);
                   fd.set("state", "included");
                   const res = await addPricedService(quoteId, versionId, fd);
                   if (res.ok) toast.success("Added");

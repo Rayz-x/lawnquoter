@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { mergeModifiers } from "@lawnquoter/pricing-engine";
 import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
+import { priceCatalogLine, type MeasuredFeature, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
 import { customerCopyUpdateError } from "@/lib/quotes/customer-copy";
 import { ACCEPTED_QUOTE_DELETE_ERROR, deleteQuoteError } from "@/lib/quotes/delete-quote";
 import { createClient } from "@/lib/supabase/server";
@@ -194,12 +196,7 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
   const session = await requireOrg();
   const parsed = z
     .object({
-      name: z.string().min(1),
-      price: z.coerce.number().nonnegative(),
-      hours: z.coerce.number().nonnegative(),
-      cost: z.coerce.number().nonnegative(),
-      range_low: z.coerce.number().nonnegative().optional().or(z.literal("")),
-      range_high: z.coerce.number().nonnegative().optional().or(z.literal("")),
+      rule_id: z.string().uuid(),
       state: z.enum(["included", "recommended", "optional"]).default("included"),
       option_group: z.string().optional().or(z.literal("")),
       option_tier: z.enum(["none", "good", "better", "best"]).default("none"),
@@ -208,15 +205,81 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
   const { supabase, error: versionError } = await editableVersion(quoteId, versionId, session.orgId);
   if (versionError) return fail(versionError);
+
+  const [{ data: quote, error: quoteError }, { data: rule, error: ruleError }] = await Promise.all([
+    supabase.from("quotes").select("property_id").eq("id", quoteId).eq("org_id", session.orgId).maybeSingle(),
+    supabase
+      .from("pricing_rules")
+      .select("name, config, service_id, price_list_id")
+      .eq("id", parsed.data.rule_id)
+      .eq("org_id", session.orgId)
+      .eq("active", true)
+      .maybeSingle(),
+  ]);
+  if (quoteError) return fail(quoteError.message);
+  if (!quote) return fail("Quote not found");
+  if (ruleError) return fail(ruleError.message);
+  if (!rule) return fail("Pricing rule not found");
+
+  const { data: list, error: listError } = await supabase
+    .from("price_lists")
+    .select("modifiers, status")
+    .eq("id", rule.price_list_id)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (listError) return fail(listError.message);
+  if (!list) return fail("Price list not found");
+  if (list.status !== "active") return fail("Price list is not active");
+
+  let features: MeasuredFeature[] = [];
+  let property: PropertyPricingInput | null = null;
+  if (quote.property_id) {
+    const [{ data: propertyRow, error: propertyError }, { data: measurement, error: measurementError }] = await Promise.all([
+      supabase
+        .from("properties")
+        .select("lot_sqft, slope, gate_width_in, obstacle_count, has_stairs")
+        .eq("id", quote.property_id)
+        .eq("org_id", session.orgId)
+        .maybeSingle(),
+      supabase
+        .from("measurements")
+        .select("confidence, measurement_features(category, area_sqft, length_ft)")
+        .eq("property_id", quote.property_id)
+        .eq("status", "current")
+        .maybeSingle(),
+    ]);
+    if (propertyError) return fail(propertyError.message);
+    if (!propertyRow) return fail("Property not found");
+    if (measurementError) return fail(measurementError.message);
+    features = measurement?.measurement_features ?? [];
+    property = {
+      lotSqft: propertyRow?.lot_sqft,
+      slope: propertyRow?.slope,
+      gateWidthIn: propertyRow?.gate_width_in,
+      obstacleCount: propertyRow?.obstacle_count,
+      hasStairs: propertyRow?.has_stairs,
+      confidence: measurement?.confidence != null ? Number(measurement.confidence) : undefined,
+    };
+  }
+
+  const priced = priceCatalogLine({
+    config: rule.config,
+    modifiers: mergeModifiers(list.modifiers),
+    features,
+    property,
+  });
+  if (!priced.ok) return fail(priced.error);
+
   const { error } = await supabase.from("quote_line_items").insert({
     org_id: session.orgId,
     version_id: versionId,
-    name: parsed.data.name,
-    price: parsed.data.price,
-    hours: parsed.data.hours,
-    cost: parsed.data.cost,
-    range_low: parsed.data.range_low === "" || parsed.data.range_low == null ? null : Number(parsed.data.range_low),
-    range_high: parsed.data.range_high === "" || parsed.data.range_high == null ? null : Number(parsed.data.range_high),
+    service_id: rule.service_id,
+    name: rule.name,
+    price: priced.priced.price,
+    hours: priced.priced.hours,
+    cost: priced.priced.cost,
+    range_low: priced.priced.range?.low ?? null,
+    range_high: priced.priced.range?.high ?? null,
     state: parsed.data.state,
     option_group: parsed.data.option_group || null,
     option_tier: parsed.data.option_tier,
