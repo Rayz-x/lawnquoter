@@ -312,12 +312,11 @@ function NotesCard({ account }: { account: Tables<"accounts"> }) {
       <div role="status" aria-live="polite" className="text-xs text-muted-foreground">
         {status === "saving" ? "Saving" : status === "saved" ? "Saved" : null}
       </div>
-      <InternalNote>
-        <h3 className="text-base font-medium">Internal notes</h3>
+      <InternalNote label="Internal notes">
         <Field data-invalid={error ? true : undefined}>
-          <FieldLabel htmlFor="notes">Notes</FieldLabel>
           <Textarea
             id="notes"
+            aria-label="Notes"
             value={notes}
             rows={4}
             aria-invalid={error ? true : undefined}
