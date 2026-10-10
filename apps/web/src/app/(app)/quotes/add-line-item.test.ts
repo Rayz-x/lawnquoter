@@ -90,6 +90,19 @@ describe("addLineItem", () => {
     expect(inserts).toEqual([]);
   });
 
+  it("inserts a price of 100 when the range fields are blank", async () => {
+    const result = await addLineItem(
+      QUOTE_ID,
+      VERSION_ID,
+      lineForm({ price: "100", range_low: "", range_high: "" }),
+    );
+
+    expect(result).toEqual({ ok: true, data: { sectionId: null } });
+    expect(inserts).toEqual([
+      expect.objectContaining({ table: "quote_line_items", price: 100, range_low: null, range_high: null }),
+    ]);
+  });
+
   it("rejects a price of 100 with a range of 1–2 and inserts nothing", async () => {
     const result = await addLineItem(
       QUOTE_ID,

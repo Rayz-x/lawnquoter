@@ -46,6 +46,11 @@ export async function createQuoteAndGo(accountId: string, propertyId?: string | 
   redirect(`/quotes/${r.data.id}`);
 }
 
+const optionalRange = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.coerce.number().nonnegative().optional(),
+);
+
 const itemSchema = z.object({
   name: z.string().trim().min(1).max(200),
   description: z.string().max(2000).optional().or(z.literal("")),
@@ -59,8 +64,8 @@ const itemSchema = z.object({
   price: z.coerce.number().nonnegative().default(0),
   hours: z.coerce.number().nonnegative().default(0),
   cost: z.coerce.number().nonnegative().default(0),
-  range_low: z.coerce.number().nonnegative().optional().or(z.literal("")),
-  range_high: z.coerce.number().nonnegative().optional().or(z.literal("")),
+  range_low: optionalRange,
+  range_high: optionalRange,
   photo_url: z.string().url().optional().or(z.literal("")),
   notes_customer: z.string().max(2000).optional().or(z.literal("")),
   notes_crew: z.string().max(2000).optional().or(z.literal("")),
@@ -85,8 +90,8 @@ export async function addLineItem(quoteId: string, versionId: string, fd: FormDa
   if (denied) return denied;
   const parsed = itemSchema.safeParse(Object.fromEntries(fd));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
-  const rangeLow = parsed.data.range_low === "" || parsed.data.range_low == null ? null : Number(parsed.data.range_low);
-  const rangeHigh = parsed.data.range_high === "" || parsed.data.range_high == null ? null : Number(parsed.data.range_high);
+  const rangeLow = parsed.data.range_low ?? null;
+  const rangeHigh = parsed.data.range_high ?? null;
   if (rangeLow != null && rangeHigh != null) {
     if (rangeLow > rangeHigh) return fail("The low end of the range cannot be above the high end.");
     if (parsed.data.price < rangeLow || parsed.data.price > rangeHigh) {
