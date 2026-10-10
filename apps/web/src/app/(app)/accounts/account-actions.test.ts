@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => {
   const query = {
-    eq: (): typeof query => query,
-    select: (): typeof query => query,
-    then: (ok: (v: unknown) => unknown, err?: (v: unknown) => unknown) =>
-      Promise.resolve({ data: state.rows, error: null }).then(ok, err),
+    eq() { return query; },
+    select() { return query; },
+    then(ok: (v: unknown) => unknown, err?: (v: unknown) => unknown) {
+      return Promise.resolve({ data: state.rows, error: null }).then(ok, err);
+    },
   };
   return { role: "owner", rows: [{ id: "acct-1" }] as { id: string }[], query };
 });
