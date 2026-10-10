@@ -1,5 +1,5 @@
 -- I01 / audit A3: billing ledger RLS, payment write lockdown, issued-invoice lock.
-select plan(21);
+select plan(23);
 
 select tests.create_user('bill-owner@example.com', 'Bill Owner') as owner \gset
 select tests.create_user('bill-crew@example.com', 'Bill Crew') as crew \gset
@@ -64,6 +64,15 @@ select throws_ok(
   null,
   'staff cannot insert billing events'
 );
+select throws_ok(
+  format(
+    $$ insert into public.invoice_counters (org_id, next_number) values (%L, 1) $$,
+    :'org'
+  ),
+  '42501',
+  null,
+  'staff cannot insert invoice counters'
+);
 
 -- Issued invoice locks lines and totals ---------------------------------------
 select tests.clear_auth();
@@ -104,6 +113,15 @@ insert into public.billing_events (org_id, invoice_id, kind, payload)
 values (:'org'::uuid, :'inv'::uuid, 'invoice.issued', '{}'::jsonb);
 insert into public.stripe_events (org_id, stripe_event_id, event_type, payload)
 values (:'org'::uuid, 'evt_billing_1', 'payment_intent.succeeded', '{}'::jsonb);
+
+select tests.clear_auth();
+select tests.authenticate_as(:'owner'::uuid, :'org'::uuid, 'owner');
+select throws_ok(
+  format($$ update public.invoice_counters set next_number = 1 where org_id = %L $$, :'org'),
+  '42501',
+  null,
+  'staff cannot reset invoice counter next_number'
+);
 
 -- Crew / crew_lead see zero billing rows --------------------------------------
 select tests.clear_auth();

@@ -403,10 +403,8 @@ alter table public.stripe_events force row level security;
 create policy invoice_counters_select on public.invoice_counters
   for select to authenticated
   using ((select private.can_read_pricing(org_id)));
-create policy invoice_counters_write on public.invoice_counters
-  for all to authenticated
-  using ((select private.can_edit_customers(org_id)))
-  with check ((select private.can_edit_customers(org_id)));
+-- No authenticated insert/update: next_number advances only via service_role
+-- or a SECURITY DEFINER RPC (not direct office writes).
 
 create policy invoices_select on public.invoices
   for select to authenticated
@@ -466,7 +464,7 @@ create policy stripe_events_select on public.stripe_events
     and (select private.can_read_pricing(org_id))
   );
 
-grant select, insert, update on public.invoice_counters to authenticated;
+grant select on public.invoice_counters to authenticated;
 grant select, insert, update on public.invoices to authenticated;
 grant select, insert, update, delete on public.invoice_lines to authenticated;
 grant select on public.payments to authenticated;
@@ -475,6 +473,7 @@ grant select, insert, update, delete on public.account_credits to authenticated;
 grant select on public.billing_events to authenticated;
 grant select on public.stripe_events to authenticated;
 
+revoke insert, update, delete on public.invoice_counters from public, anon, authenticated;
 revoke insert, update, delete on public.payments from public, anon, authenticated;
 revoke insert, update, delete on public.billing_events from public, anon, authenticated;
 revoke insert, update, delete on public.stripe_events from public, anon, authenticated;
