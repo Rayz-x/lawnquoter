@@ -10,11 +10,7 @@ describe("org settings writes", () => {
   });
 
   it("fails a zero-row update and allows only owners and admins", () => {
-    expect(orgUpdateFailure(null, null)).toBe(SETTINGS_NOT_SAVED);
-    expect(orgUpdateFailure(null, { id: "org" })).toBeNull();
-    expect(orgUpdateFailure({ message: "invalid timezone" }, null)).toBe("invalid timezone");
-    expect(orgSettingsDenied("owner")).toBeNull();
-    expect(orgSettingsDenied("admin")).toBeNull();
-    expect(ORG_ROLES.filter((role) => role !== "owner" && role !== "admin").every((role) => orgSettingsDenied(role) === SETTINGS_ADMIN_ONLY)).toBe(true);
+    expect(orgUpdateFailure(null, null)).toBe(SETTINGS_NOT_SAVED); expect(orgUpdateFailure(null, { id: "org" })).toBeNull(); expect(orgUpdateFailure({ message: "invalid timezone" }, null)).toBe("invalid timezone");
+    expect(orgSettingsDenied("owner")).toBeNull(); expect(orgSettingsDenied("admin")).toBeNull(); expect(ORG_ROLES.filter((role) => role !== "owner" && role !== "admin").every((role) => orgSettingsDenied(role) === SETTINGS_ADMIN_ONLY)).toBe(true);
   });
 });
