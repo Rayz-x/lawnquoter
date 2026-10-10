@@ -47,6 +47,8 @@ export function createSectionAutosaveController<T>({
   let committed = initial;
   let generation = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let pendingValues: T | undefined;
+  let hasPending = false;
   let snapshot: SectionAutosaveSnapshot<T> = { status: "idle", error: null, rollback: null };
   const listeners = new Set<() => void>();
 
@@ -94,20 +96,30 @@ export function createSectionAutosaveController<T>({
     save(values, options) {
       if (timer) clearTimeout(timer);
       timer = null;
+      hasPending = false;
       const wait = options?.immediate ? 0 : readDebounce();
       if (wait <= 0) {
         void run(values);
         return;
       }
+      pendingValues = values;
+      hasPending = true;
       timer = setTimeout(() => {
         timer = null;
+        hasPending = false;
         void run(values);
       }, wait);
     },
     dispose() {
       if (timer) clearTimeout(timer);
       timer = null;
-      generation += 1;
+      if (!hasPending) {
+        generation += 1;
+        return;
+      }
+      const values = pendingValues as T;
+      hasPending = false;
+      void run(values);
     },
   };
 }

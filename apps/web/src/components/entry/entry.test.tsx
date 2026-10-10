@@ -107,4 +107,28 @@ describe("entry primitives", () => {
     autosave.dispose();
     vi.useRealTimers();
   });
+
+  it("flushes an edit that is still inside the debounce window", async () => {
+    vi.useFakeTimers();
+    const action = vi.fn(async () => ({ ok: true as const }));
+    const autosave = createSectionAutosaveController({
+      action,
+      debounceMs: () => 600,
+      initial: "flat",
+    });
+
+    autosave.save("gentle");
+    autosave.save("gentle slope");
+    await vi.advanceTimersByTimeAsync(200);
+    expect(action).not.toHaveBeenCalled();
+
+    autosave.dispose();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(action).toHaveBeenCalledWith("gentle slope");
+
+    await vi.advanceTimersByTimeAsync(600);
+    expect(action).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
 });
