@@ -1,7 +1,7 @@
 -- Crew day pack, crew_sync, and the visit mutations. Prices, customer
 -- phone, and customer email stay out of the pack. Replays do not duplicate.
 
-select plan(99);
+select plan(102);
 
 create or replace function tests.apply_crew(
   p_kind text,
@@ -40,7 +40,7 @@ select ok(
     from (
       values
         ('public.crew_day_pack(date)'),
-        ('public.crew_ack_day_pack(date)'),
+        ('public.crew_ack_day_pack(date,uuid)'),
         ('public.crew_sync(jsonb)')
     ) as fns(fn)
   ),
@@ -847,7 +847,7 @@ select is(
 
 select tests.clear_auth();
 select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
-select public.crew_ack_day_pack(:'today'::date) as ack1 \gset
+select public.crew_ack_day_pack(:'today'::date, :'crew_north'::uuid) as ack1 \gset
 select is(
   ((:'ack1')::jsonb->>'version')::int,
   (select revision from public.routes where id = :'route_today'::uuid),
@@ -875,11 +875,40 @@ select is(
 );
 select tests.clear_auth();
 select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
-select public.crew_ack_day_pack(:'today'::date) as ack2 \gset
+select public.crew_ack_day_pack(:'today'::date, :'crew_north'::uuid) as ack2 \gset
 select is(
   ((:'ack2')::jsonb->>'version')::int,
   (select revision from public.routes where id = :'route_today'::uuid),
   'ack after reorder advances the phone sync version'
+);
+
+-- Two-crew member: ack stores the crew passed from the pack, not membership order.
+insert into public.crew_members (org_id, crew_id, profile_id)
+values (:'org'::uuid, :'crew_south'::uuid, :'hand'::uuid);
+select tests.clear_auth();
+select tests.authenticate_as(:'hand'::uuid, :'org'::uuid, 'crew');
+select (public.crew_day_pack(:'today'::date)->'crew'->>'id')::uuid as pack_crew \gset
+select case
+  when :'pack_crew'::uuid = :'crew_north'::uuid then :'crew_south'::uuid
+  else :'crew_north'::uuid
+end as other_crew \gset
+select ok(
+  :'pack_crew'::uuid is distinct from :'other_crew'::uuid,
+  'the two-crew hand has a membership-order pack crew and a different other crew'
+);
+select public.crew_ack_day_pack(:'today'::date, :'other_crew'::uuid) as ack_other \gset
+select is(
+  ((:'ack_other')::jsonb->>'crew_id')::uuid,
+  :'other_crew'::uuid,
+  'ack returns the crew from the downloaded route, not membership order'
+);
+select tests.clear_auth();
+select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
+select is(
+  (select crew_id from public.crew_phone_sync
+    where org_id = :'org'::uuid and profile_id = :'hand'::uuid and route_date = :'today'::date),
+  :'other_crew'::uuid,
+  'phone sync stores the acked crew for a two-crew member'
 );
 
 select tests.clear_auth();

@@ -113,10 +113,12 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
         }
         if (!stop && shouldCloseOpenVisit(openIdRef.current, previousIds, nextIds)) setOpenId(null);
         await saveDayPack(store, date, data as Json);
-        try {
-          await createClient().rpc("crew_ack_day_pack", { p_date: date });
-        } catch {
-          // Pack still works offline; office sync status updates on the next successful ack.
+        if (next.crewId) {
+          try {
+            await createClient().rpc("crew_ack_day_pack", { p_date: date, p_crew_id: next.crewId });
+          } catch {
+            // Pack still works offline; office sync status updates on the next successful ack.
+          }
         }
         if (liveLeadFromPack(data) !== null) {
           saveLeadForPack(localStorage, userId, orgId, data, null, null);

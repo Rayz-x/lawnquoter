@@ -1171,7 +1171,7 @@ isOneToOne: false
 { Args: { "p_email": string,"p_role": Database["public"]['Enums']["org_role"] }; Returns: Json
                            },
 "crew_ack_day_pack":
-{ Args: { "p_date": string }; Returns: Json
+{ Args: { "p_crew_id": string,"p_date": string }; Returns: Json
                            },
 "crew_day_pack":
 { Args: { "p_date": string }; Returns: Json

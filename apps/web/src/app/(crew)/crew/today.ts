@@ -19,6 +19,7 @@ export type DayStop = {
 
 export type DayPackView = {
   date: string;
+  crewId: string | null;
   crewName: string;
   officePhone: string | null;
   revision: number | null;
@@ -91,6 +92,7 @@ export function parseDayPack(data: unknown): DayPackView | null {
       : revision ?? 0;
   return {
     date: pack.date,
+    crewId: typeof crew?.id === "string" ? crew.id : null,
     crewName: text(crew?.name) ?? "Crew",
     officePhone: text(office?.phone),
     revision,

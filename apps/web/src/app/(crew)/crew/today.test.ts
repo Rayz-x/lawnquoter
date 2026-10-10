@@ -67,8 +67,10 @@ function property(extra: Record<string, unknown> = {}) {
 describe("parseDayPack", () => {
   it("builds the route list without the gate code or prices", () => {
     const view = parseDayPack(pack);
+    expect(view?.crewId).toBe("c1");
     expect(view?.crewName).toBe("North");
     expect(view?.officePhone).toBe("217-555-0140");
+    expect(view?.version).toBe(2);
     expect(view?.stops.map((stop) => stop.number)).toEqual([1, 2, 3]);
     expect(view?.stops[2]).toMatchObject({
       title: "Weekly mow",
