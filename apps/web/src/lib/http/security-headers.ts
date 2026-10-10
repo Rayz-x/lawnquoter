@@ -9,8 +9,6 @@ const TILE_HOSTS = [
   "https://services.arcgisonline.com",
 ];
 
-const GEOCODER_HOSTS = ["https://maps.googleapis.com", "https://places.googleapis.com"];
-
 function originOf(raw: string | undefined): { http: string; ws: string } | null {
   if (!raw) return null;
   try {
@@ -25,10 +23,9 @@ function originOf(raw: string | undefined): { http: string; ws: string } | null 
 export function contentSecurityPolicy(options: {
   isDev: boolean;
   supabaseUrl?: string;
-  frameAncestors: "'none'" | "*";
 }): string {
   const supabase = originOf(options.supabaseUrl);
-  const connect = ["'self'", supabase?.http, supabase?.ws, ...TILE_HOSTS, ...GEOCODER_HOSTS].filter(Boolean);
+  const connect = ["'self'", supabase?.http, supabase?.ws, ...TILE_HOSTS].filter(Boolean);
   const img = ["'self'", "blob:", "data:", supabase?.http, ...TILE_HOSTS].filter(Boolean);
   const script = ["'self'", "'unsafe-inline'", options.isDev ? "'unsafe-eval'" : null].filter(Boolean);
   return [
@@ -42,7 +39,7 @@ export function contentSecurityPolicy(options: {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    `frame-ancestors ${options.frameAncestors}`,
+    "frame-ancestors 'none'",
     "frame-src 'none'",
     options.isDev ? null : "upgrade-insecure-requests",
   ]
@@ -55,7 +52,7 @@ function sharedHeaders(csp: string, isDev: boolean): { key: string; value: strin
     { key: "Content-Security-Policy", value: csp },
     { key: "X-Content-Type-Options", value: "nosniff" },
     { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-    { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), browsing-topics=()" },
+    { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self), browsing-topics=()" },
   ];
   if (!isDev) {
     headers.push({
@@ -66,20 +63,10 @@ function sharedHeaders(csp: string, isDev: boolean): { key: string; value: strin
   return headers;
 }
 
-/**
- * Security headers for every route. The embeddable widget path may be framed;
- * every other route, including public proposals, sends frame-ancestors 'none'.
- */
 export function securityHeaderGroups(options: { isDev: boolean; supabaseUrl?: string }): HeaderGroup[] {
-  const strict = sharedHeaders(
-    contentSecurityPolicy({ ...options, frameAncestors: "'none'" }),
-    options.isDev,
-  );
-  const widget = sharedHeaders(contentSecurityPolicy({ ...options, frameAncestors: "*" }), options.isDev);
+  const headers = sharedHeaders(contentSecurityPolicy(options), options.isDev);
   return [
-    { source: "/", headers: strict },
-    { source: "/:path*", headers: strict },
-    { source: "/widget", headers: widget },
-    { source: "/widget/:path*", headers: widget },
+    { source: "/", headers },
+    { source: "/:path*", headers },
   ];
 }
