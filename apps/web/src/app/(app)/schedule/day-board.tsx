@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { assignVisit, cancelVisit, publishRoute, reorderVisits, skipVisit } from "@/lib/actions/scheduling";
 import type { AttentionTray } from "@/lib/scheduling/attention-tray";
+import { phoneSyncStatus } from "@/lib/scheduling/phone-sync";
 import { AttentionTrayPanel } from "./attention-tray-panel";
 
 export type BoardVisit = {
@@ -26,11 +28,20 @@ export type BoardVisit = {
   windowLabel: string | null;
 };
 
+export type PhoneSync = {
+  profileId: string;
+  name: string;
+  packVersion: number;
+  lastSyncedAt: string | null;
+};
+
 export type BoardColumn = {
   crewId: string;
   crewName: string;
   routeId: string | null;
   routeStatus: string | null;
+  routeVersion: number | null;
+  phones: PhoneSync[];
   visits: BoardVisit[];
 };
 
@@ -64,11 +75,13 @@ function moveIds(ids: string[], index: number, delta: number): string[] {
 export function DayBoard({
   date,
   canWrite,
+  timeZone,
   tray,
   columns,
 }: {
   date: string;
   canWrite: boolean;
+  timeZone: string;
   tray: AttentionTray;
   columns: BoardColumn[];
 }) {
@@ -117,6 +130,11 @@ export function DayBoard({
                 <CardDescription>
                   {column.visits.length === 0 ? "No stops this day." : `${column.visits.length} stops`}
                 </CardDescription>
+                <PhoneSyncLines
+                  phones={column.phones}
+                  routeVersion={column.routeVersion}
+                  timeZone={timeZone}
+                />
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
                 {column.visits.length === 0 ? (
@@ -281,6 +299,55 @@ function AssignControls({
         {fieldLabel === "Move to" ? "Move" : "Assign"}
       </Button>
     </div>
+  );
+}
+
+function PhoneSyncLines({
+  phones,
+  routeVersion,
+  timeZone,
+}: {
+  phones: PhoneSync[];
+  routeVersion: number | null;
+  timeZone: string;
+}) {
+  const now = new Date();
+  if (phones.length === 0) {
+    return <p className="text-xs text-muted-foreground">No phone has synced today</p>;
+  }
+  return (
+    <ul className="mt-1 flex flex-col gap-1 text-xs">
+      {phones.map((phone) => {
+        const status = phoneSyncStatus({
+          phoneName: phone.name,
+          packVersion: phone.packVersion,
+          routeVersion,
+          lastSyncedAt: phone.lastSyncedAt,
+          now,
+          timeZone,
+        });
+        // Mismatch label already includes the name ("Route v3 · Ana has v2").
+        const text =
+          status.versionLabel == null
+            ? `${phone.name} · ${status.syncLabel}`
+            : status.attention && status.versionLabel.includes(" has v")
+              ? `${status.versionLabel} · ${status.syncLabel}`
+              : `${phone.name} · ${status.versionLabel} · ${status.syncLabel}`;
+        return (
+          <li
+            key={phone.profileId}
+            className={
+              status.attention
+                ? "inline-flex items-center gap-1 text-warning"
+                : "text-muted-foreground"
+            }
+          >
+            {status.attention ? <TriangleAlert aria-hidden className="size-3.5 shrink-0" /> : null}
+            <span>{text}</span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

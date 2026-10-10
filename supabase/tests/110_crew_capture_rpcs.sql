@@ -324,6 +324,15 @@ select is(
   (select revision from public.routes where id = :'route_today'::uuid),
   'the day pack carries the route revision as version'
 );
+select is(
+  ((:'pack')::jsonb->>'version')::int,
+  (select revision from public.routes where id = :'route_today'::uuid),
+  'the day pack exposes revision as top-level version'
+);
+select ok(
+  (:'pack')::jsonb ? 'server_today',
+  'the day pack includes server_today from the org clock'
+);
 select is(((:'pack')::jsonb->>'is_live_lead')::boolean, true, 'the day pack marks the live lead');
 select ok(
   position('555-0199' in :'pack') = 0

@@ -15,7 +15,7 @@ import {
   type AttentionVisit,
 } from "@/lib/scheduling/attention-tray";
 import { createClient } from "@/lib/supabase/server";
-import { DayBoard, type BoardColumn, type BoardVisit } from "./day-board";
+import { DayBoard, type BoardColumn, type BoardVisit, type PhoneSync } from "./day-board";
 
 export const metadata: Metadata = { title: "Schedule" };
 
@@ -135,14 +135,30 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const canWrite = hasRole(session.orgRole, DISPATCH_ROLES);
   const visitSelect =
     "id, route_id, scheduled_date, sort, status, budget_minutes, window_start, window_end, jobs(title), properties(formatted_address, address_line1, city, accounts(name))";
-  const [{ data: crews, error: crewsError }, { data: routes, error: routesError }, { data: visits, error: visitsError }, { data: trayData, error: trayError }] =
-    await Promise.all([
+  const [
+    { data: crews, error: crewsError },
+    { data: routes, error: routesError },
+    { data: visits, error: visitsError },
+    { data: trayData, error: trayError },
+    { data: phoneRows, error: phoneError },
+  ] = await Promise.all([
       supabase.from("crews").select("id, name, active").eq("org_id", session.orgId).order("name"),
-      supabase.from("routes").select("id, crew_id, status").eq("org_id", session.orgId).eq("date", date),
+      supabase.from("routes").select("id, crew_id, status, revision").eq("org_id", session.orgId).eq("date", date),
       supabase.from("visits").select(visitSelect).eq("org_id", session.orgId).eq("scheduled_date", date).order("sort"),
       supabase.rpc("office_attention_tray", { p_as_of: today }),
+      supabase
+        .from("crew_phone_sync")
+        .select("crew_id, profile_id, pack_version, last_synced_at, profiles(full_name, email)")
+        .eq("org_id", session.orgId)
+        .eq("route_date", date),
     ]);
-  const error = crewsError?.message ?? routesError?.message ?? visitsError?.message ?? trayError?.message ?? null;
+  const error =
+    crewsError?.message ??
+    routesError?.message ??
+    visitsError?.message ??
+    trayError?.message ??
+    phoneError?.message ??
+    null;
   const tray = parseAttentionTray(trayData, today);
   const routeByCrew = new Map((routes ?? []).map((route) => [route.crew_id, route]));
   const routeIds = new Set((routes ?? []).map((route) => route.id));
@@ -176,6 +192,20 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     visitsByRoute.set(visit.route_id, list);
   }
 
+  const phonesByCrew = new Map<string, PhoneSync[]>();
+  for (const row of phoneRows ?? []) {
+    const profile = one(row.profiles);
+    const phone: PhoneSync = {
+      profileId: row.profile_id,
+      name: profile?.full_name?.trim() || profile?.email?.trim() || "Phone",
+      packVersion: row.pack_version,
+      lastSyncedAt: row.last_synced_at,
+    };
+    const list = phonesByCrew.get(row.crew_id) ?? [];
+    list.push(phone);
+    phonesByCrew.set(row.crew_id, list);
+  }
+
   const columns: BoardColumn[] = visibleCrews.map((crew) => {
     const route = routeByCrew.get(crew.id);
     return {
@@ -183,6 +213,8 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
       crewName: crew.name,
       routeId: route?.id ?? null,
       routeStatus: route?.status ?? null,
+      routeVersion: route?.revision ?? null,
+      phones: phonesByCrew.get(crew.id) ?? [],
       visits: route ? (visitsByRoute.get(route.id) ?? []) : [],
     };
   });
@@ -227,7 +259,13 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : (
-          <DayBoard date={date} canWrite={canWrite} tray={tray} columns={columns} />
+          <DayBoard
+            date={date}
+            canWrite={canWrite}
+            timeZone={org?.timezone ?? "UTC"}
+            tray={tray}
+            columns={columns}
+          />
         )}
       </div>
     </>
