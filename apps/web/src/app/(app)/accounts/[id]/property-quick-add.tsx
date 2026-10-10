@@ -15,22 +15,12 @@ function parseStreetAddress(raw: string) {
   const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
   const regionZip = parts[2]?.match(/^([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)$/);
   if (!parts[0] || !parts[1] || !regionZip?.[1] || !regionZip[2]) return null;
-  return {
-    address_line1: parts[0],
-    city: parts[1],
-    region: regionZip[1].toUpperCase(),
-    postal_code: regionZip[2],
-  };
+  return { address_line1: parts[0], city: parts[1], region: regionZip[1].toUpperCase(), postal_code: regionZip[2] };
 }
 
 function fromSuggestion(result: GeocodeResult) {
   if (!result.addressLine1 || !result.city || !result.region || !result.postalCode) return null;
-  return {
-    address_line1: result.addressLine1,
-    city: result.city,
-    region: result.region,
-    postal_code: result.postalCode,
-  };
+  return { address_line1: result.addressLine1, city: result.city, region: result.region, postal_code: result.postalCode };
 }
 
 export function PropertyQuickAdd({ accountId }: { accountId: string }) {
@@ -53,10 +43,7 @@ export function PropertyQuickAdd({ accountId }: { accountId: string }) {
         if (current) setSuggestions(next);
       });
     }, 300);
-    return () => {
-      current = false;
-      clearTimeout(timer);
-    };
+    return () => { current = false; clearTimeout(timer); };
   }, [address, picked]);
 
   const submit = () => {
@@ -82,13 +69,7 @@ export function PropertyQuickAdd({ accountId }: { accountId: string }) {
   };
 
   return (
-    <form
-      className="flex flex-col gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        submit();
-      }}
-    >
+    <form className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); submit(); }}>
       <Field data-invalid={error ? true : undefined}>
         <FieldLabel htmlFor="quick-property">Add a property</FieldLabel>
         <Input

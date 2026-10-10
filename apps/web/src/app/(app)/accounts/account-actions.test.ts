@@ -1,36 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const state = vi.hoisted(() => ({ role: "owner", rows: [{ id: "acct-1" }] as { id: string }[] }));
-
+const state = vi.hoisted(() => {
+  const query = {
+    eq: (): typeof query => query,
+    select: (): typeof query => query,
+    then: (ok: (v: unknown) => unknown, err?: (v: unknown) => unknown) =>
+      Promise.resolve({ data: state.rows, error: null }).then(ok, err),
+  };
+  return { role: "owner", rows: [{ id: "acct-1" }] as { id: string }[], query };
+});
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/geo/resolve", () => ({ resolvePropertyGeo: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({
   requireOrg: vi.fn(async () => ({ userId: "user-1", email: null, orgId: "org-1", orgRole: state.role })),
 }));
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: vi.fn(async () => ({
-    from: () => ({
-      update: () => query,
-      eq: () => query,
-      select: () => query,
-      then: (ok: (v: unknown) => unknown, err?: (v: unknown) => unknown) =>
-        Promise.resolve({ data: state.rows, error: null }).then(ok, err),
-    }),
-  })),
+  createClient: vi.fn(async () => ({ from: () => ({ update: () => state.query }) })),
 }));
-
-const query = {
-  eq() {
-    return query;
-  },
-  select() {
-    return query;
-  },
-  then(ok: (v: unknown) => unknown, err?: (v: unknown) => unknown) {
-    return Promise.resolve({ data: state.rows, error: null }).then(ok, err);
-  },
-};
-
 import { updateAccount } from "./actions";
 
 function form() {
@@ -40,24 +26,18 @@ function form() {
   fd.set("email", "ada@example.com");
   return fd;
 }
-
 beforeEach(() => {
   state.role = "owner";
   state.rows = [{ id: "acct-1" }];
 });
-
 describe("updateAccount", () => {
-  it("blocks dispatcher, read-only, and crew", async () => {
+  it("blocks dispatcher, read-only, and crew, and fails on zero rows", async () => {
     for (const role of ["dispatcher", "read_only", "crew"]) {
       state.role = role;
-      const result = await updateAccount("acct-1", form());
-      expect(result).toEqual({ ok: false, error: "You don't have permission to edit customers." });
+      expect(await updateAccount("acct-1", form())).toEqual({ ok: false, error: "You don't have permission to edit customers." });
     }
-  });
-
-  it("fails when the update changes zero rows", async () => {
+    state.role = "owner";
     state.rows = [];
-    const result = await updateAccount("acct-1", form());
-    expect(result.ok).toBe(false);
+    expect((await updateAccount("acct-1", form())).ok).toBe(false);
   });
 });
