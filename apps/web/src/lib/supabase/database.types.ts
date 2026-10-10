@@ -1306,6 +1306,9 @@ isOneToOne: false
 "extend_visit_horizons":
 { Args: Record<PropertyKey, never>; Returns: number
                            },
+"claim_lead_follow_up_digest":
+{ Args: { "p_org_id": string,"p_assignee_id": string,"p_digest_on": string }; Returns: boolean
+                           },
 "generate_agreement_visits":
 { Args: { "p_agreement_id": string,"p_through": string }; Returns: number
                            },
