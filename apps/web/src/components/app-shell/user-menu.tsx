@@ -57,7 +57,7 @@ export function UserMenu({ email, name, role }: { email: string | null; name: st
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <form action="/auth/signout" method="post">
-                <DropdownMenuItem render={<button type="submit" className="w-full" />}>
+                <DropdownMenuItem nativeButton render={<button type="submit" className="w-full" />}>
                   <LogOut />
                   Sign out
                 </DropdownMenuItem>
