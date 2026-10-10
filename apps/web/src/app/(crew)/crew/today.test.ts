@@ -10,14 +10,22 @@ import {
   offlineDayPack,
   packErrorMessage,
   packIsFresh,
+  packRequestDate,
   parseDayPack,
+  pickOfflinePack,
   progressLabel,
+  crewStatusBanner,
+  routeDayBanner,
+  routeDayBannerText,
   routeUpdateMessage,
+  shouldCloseOpenVisit,
   syncPill,
 } from "./today";
 
 const pack = {
   date: "2026-10-09",
+  server_today: "2026-10-09",
+  version: 2,
   crew: { id: "c1", name: "North" },
   office: { name: "Prairie Mow", phone: "217-555-0140" },
   route: { id: "r1", date: "2026-10-09", status: "published", revision: 2 },
@@ -66,6 +74,9 @@ describe("parseDayPack", () => {
   it("builds the route list without the gate code or prices", () => {
     const view = parseDayPack(pack);
     expect(view?.crewName).toBe("North");
+    expect(view?.crewId).toBe("c1");
+    expect(view?.serverToday).toBe("2026-10-09");
+    expect(view?.version).toBe(2);
     expect(view?.officePhone).toBe("217-555-0140");
     expect(view?.stops.map((stop) => stop.number)).toEqual([1, 2, 3]);
     expect(view?.stops[2]).toMatchObject({
@@ -118,12 +129,57 @@ describe("day list rows", () => {
     const at = new Date("2026-10-09T14:31:00.000Z");
     expect(routeUpdateMessage([8], [], at)).toMatch(/Route updated .*stop 8 added/);
     expect(routeUpdateMessage([], [4], at)).toMatch(/stop 4 removed/);
+    expect(routeUpdateMessage([8], [], at)).not.toMatch(/0 removed/);
     expect(packErrorMessage("not allowed")).toBe("Ask the office to add you to a crew.");
+    expect(shouldCloseOpenVisit("v3", ["v1", "v2", "v3"], ["v3", "v1", "v2"])).toBe(false);
+    expect(shouldCloseOpenVisit("v3", ["v1", "v3"], ["v1"])).toBe(true);
     const morning = new Date("2026-10-09T13:30:00.000Z");
     expect(orgToday("America/Chicago", new Date("2026-10-09T04:30:00.000Z"))).toBe("2026-10-08");
     expect(orgToday("America/Chicago", morning)).toBe("2026-10-09");
     expect(packIsFresh("2026-10-07T12:00:00.000Z", morning)).toBe(false);
-    expect(offlineDayPack({ date: "2026-10-08", savedAt: morning.toISOString() }, "2026-10-09", morning)).toBeNull();
+    expect(offlineDayPack({ date: "2026-10-08", savedAt: morning.toISOString() }, "2026-10-09", morning)?.date).toBe("2026-10-08");
     expect(offlineDayPack({ date: "2026-10-09", savedAt: morning.toISOString() }, "2026-10-09", morning)?.date).toBe("2026-10-09");
+    expect(offlineDayPack({ date: "2026-10-10", savedAt: morning.toISOString() }, "2026-10-09", morning)).toBeNull();
+  });
+});
+
+describe("stale pack and clock mismatch", () => {
+  const morning = new Date("2026-10-09T13:30:00.000Z");
+
+  it("shows Yesterday's route for a stale offline pack", () => {
+    expect(routeDayBanner("2026-10-08", "2026-10-09")).toBe("yesterday");
+    expect(routeDayBannerText("yesterday")).toBe("Yesterday's route");
+    expect(routeDayBanner("2026-10-07", "2026-10-09")).toBe("mismatch");
+    expect(routeDayBanner("2026-10-10", "2026-10-09")).toBe("mismatch");
+    expect(routeDayBannerText("mismatch", "2026-10-09")).toBe(
+      "Your phone's date looks wrong. Showing the office's route for Fri Oct 9.",
+    );
+    expect(routeDayBanner("2026-10-09", "2026-10-09")).toBeNull();
+    // Fast phone clock + org-correct pack → mismatch, not Yesterday's route.
+    expect(routeDayBanner("2026-10-09", "2026-10-10", "2026-10-09")).toBe("mismatch");
+    expect(
+      pickOfflinePack(
+        [
+          { date: "2026-10-08", saved_at: "2026-10-08T20:00:00.000Z", pack: { n: 1 } },
+          { date: "2026-10-10", saved_at: morning.toISOString(), pack: { n: 2 } },
+        ],
+        "2026-10-09",
+        morning,
+      )?.date,
+    ).toBe("2026-10-08");
+    expect(packRequestDate("2026-10-10", "2026-10-09")).toBe("2026-10-09");
+    expect(packRequestDate("2026-10-09", "2026-10-09")).toBe("2026-10-09");
+  });
+
+  it("merges no-signal with Yesterday's route into one banner", () => {
+    expect(crewStatusBanner(true, null)).toBeNull();
+    expect(crewStatusBanner(true, "yesterday")).toBe("Yesterday's route");
+    expect(crewStatusBanner(true, "mismatch", "2026-10-09")).toBe(
+      "Your phone's date looks wrong. Showing the office's route for Fri Oct 9.",
+    );
+    expect(crewStatusBanner(false, null)).toBe("No signal. Your work is saved on this phone.");
+    expect(crewStatusBanner(false, "yesterday")).toBe(
+      "No signal · Yesterday's route. Pull to refresh when you have signal.",
+    );
   });
 });

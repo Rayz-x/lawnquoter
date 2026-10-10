@@ -2,11 +2,11 @@
 
 import { TriangleAlert } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { VisitScreen } from "../visits/[id]/visit-screen";
 import { liveLeadFromPack, saveLeadForPack } from "../visits/visit";
-import { browserCrewStore, flushOutbox, loadDayPack, notifyCrewQueue, saveDayPack, scopeKey } from "@/lib/crew/queue";
+import { browserCrewStore, flushOutbox, notifyCrewQueue, saveDayPack, scopeKey } from "@/lib/crew/queue";
 import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
 import { orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/client";
@@ -18,15 +18,21 @@ import {
   listRows,
   newStopIds,
   officeTel,
+  crewStatusBanner,
   offlineDayPack,
   packErrorMessage,
+  packRequestDate,
   parseDayPack,
+  pickOfflinePack,
   progressLabel,
+  routeDayBanner,
   routeUpdateMessage,
+  shouldCloseOpenVisit,
   statusLabel,
   syncPill,
   type DayPackView,
   type DayStop,
+  type RouteDayBanner,
 } from "../today";
 
 export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId: string; orgId: string }) {
@@ -37,11 +43,18 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
   const [waiting, setWaiting] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [dayBanner, setDayBanner] = useState<RouteDayBanner>(null);
   const [newIds, setNewIds] = useState<string[]>([]);
   const [showDone, setShowDone] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const openIdRef = useRef<string | null>(null);
+  const serverTodayRef = useRef<string | null>(null);
   const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
   const display = useSyncExternalStore(subscribeDisplay, readDisplay, () => "light" as const);
+
+  useEffect(() => {
+    openIdRef.current = openId;
+  }, [openId]);
 
   useEffect(() => {
     const store = browserCrewStore();
@@ -74,21 +87,38 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
         await store.clearPacks();
         localStorage.setItem("crew-session", sessionKey);
       }
-      const stored = await loadDayPack(store, date);
-      const row = offlineDayPack(stored ? { date: stored.date, savedAt: stored.saved_at, pack: stored.pack } : null, date, new Date());
-      if (stored && !row) await store.deletePack(date);
+      const phoneToday = date;
+      const stored = pickOfflinePack(await store.listPacks(), phoneToday, new Date());
+      const row = offlineDayPack(
+        stored ? { date: stored.date, savedAt: stored.saved_at, pack: stored.pack } : null,
+        phoneToday,
+        new Date(),
+      );
       const cached = row ? parseDayPack(row.pack) : null;
-      if (!stop && cached) setView(cached);
-      else if (!stop && !cached) setView(null);
+      if (!stop && cached) {
+        setView(cached);
+        if (cached.serverToday) serverTodayRef.current = cached.serverToday;
+        setDayBanner(
+          routeDayBanner(cached.date, phoneToday, cached.serverToday ?? serverTodayRef.current),
+        );
+      } else if (!stop && !cached) {
+        setView(null);
+        setDayBanner(null);
+      }
       try {
         await flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto);
         notifyCrewQueue();
-        const { data, error: rpcError } = await createClient().rpc("crew_day_pack", { p_date: date });
+        // Prefer the last server calendar day so a fast phone clock does not
+        // request an extra day of gate codes.
+        const requestDate = packRequestDate(phoneToday, serverTodayRef.current ?? cached?.serverToday ?? null);
+        const { data, error: rpcError } = await createClient().rpc("crew_day_pack", { p_date: requestDate });
         if (rpcError) throw new Error(rpcError.message);
         const next = parseDayPack(data);
         if (!next) throw new Error("empty");
-        const added = cached ? newStopIds(cached.stops.map((stop) => stop.id), next.stops.map((stop) => stop.id)) : [];
-        const removed = cached ? newStopIds(next.stops.map((stop) => stop.id), cached.stops.map((stop) => stop.id)) : [];
+        const previousIds = cached?.stops.map((stop) => stop.id) ?? [];
+        const nextIds = next.stops.map((stop) => stop.id);
+        const added = cached ? newStopIds(previousIds, nextIds) : [];
+        const removed = cached ? newStopIds(nextIds, previousIds) : [];
         const message = routeUpdateMessage(
           added.flatMap((id) => {
             const number = next.stops.find((stop) => stop.id === id)?.number;
@@ -104,7 +134,15 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
           setNotice(message);
           toast(message);
         }
-        await saveDayPack(store, date, data as Json);
+        if (!stop && shouldCloseOpenVisit(openIdRef.current, previousIds, nextIds)) setOpenId(null);
+        await saveDayPack(store, next.date, data as Json);
+        if (next.crewId) {
+          try {
+            await createClient().rpc("crew_ack_day_pack", { p_date: next.date, p_crew_id: next.crewId });
+          } catch {
+            // Pack still works offline; office sync status updates on the next successful ack.
+          }
+        }
         if (liveLeadFromPack(data) !== null) {
           saveLeadForPack(localStorage, userId, orgId, data, null, null);
         } else {
@@ -121,6 +159,8 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
         }
         if (!stop) {
           setView(next);
+          if (next.serverToday) serverTodayRef.current = next.serverToday;
+          setDayBanner(routeDayBanner(next.date, phoneToday, next.serverToday));
           setError(null);
           setNewIds(added);
         }
@@ -145,6 +185,7 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
   const finish = view ? finishLabel(view.stops, new Date()) : null;
   const tel = officeTel(view?.officePhone ?? null);
   const drive = rows?.upNext?.lat != null && rows.upNext.lng != null ? rows.upNext : null;
+  const statusBanner = crewStatusBanner(online, dayBanner, view?.date ?? null);
 
   return (
     <section className="flex flex-1 flex-col px-4 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-28">
@@ -160,7 +201,7 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
           </button>
         </div>
       </header>
-      {!online ? <p className="mt-3 rounded-xl bg-warning/15 px-3 py-2 text-[15px] font-semibold text-warning">No signal. Your work is saved on this phone.</p> : null}
+      {statusBanner ? <p className="mt-3 rounded-xl bg-warning/15 px-3 py-2 text-[15px] font-semibold text-warning">{statusBanner}</p> : null}
       {notice ? <p className="mt-3 text-[15px] font-semibold">{notice}</p> : null}
       {!view && sending ? <p className="mt-6 text-[17px]">Loading the route.</p> : null}
       {!view && error ? <p className="mt-6 text-[17px]">{error}</p> : null}

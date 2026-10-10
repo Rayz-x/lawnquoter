@@ -1,7 +1,7 @@
 -- Scheduling RPCs: convert, generate, assign, reorder, publish, crews.
 -- Quote price and cost denial stays in the privilege-gaps tests.
 
-select plan(169);
+select plan(170);
 
 select ok(
   not has_function_privilege('anon', 'public.convert_accepted_quote(uuid, text, text, integer, date)', 'execute'),
@@ -404,11 +404,14 @@ select is(
   'the default lead is the crew lead'
 );
 select public.create_crew('South') as crew_south \gset
-select throws_ok(
+select lives_ok(
   format($$ select public.set_crew_lead(%L, %L) $$, :'crew_south', :'lead'),
-  '23505',
-  null,
-  'a person can belong to one crew'
+  'a person can belong to more than one crew'
+);
+select is(
+  (select count(*) from public.crew_members where profile_id = :'lead'::uuid),
+  2::bigint,
+  'the lead is on both crews after set_crew_lead'
 );
 select throws_ok(
   $$ select public.create_crew('   ') $$,

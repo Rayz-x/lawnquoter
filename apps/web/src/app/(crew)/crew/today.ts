@@ -19,11 +19,17 @@ export type DayStop = {
 
 export type DayPackView = {
   date: string;
+  serverToday: string | null;
+  crewId: string | null;
   crewName: string;
   officePhone: string | null;
   revision: number | null;
+  version: number;
   stops: DayStop[];
 };
+
+/** Banner when the pack day and the phone's calendar day disagree. */
+export type RouteDayBanner = "yesterday" | "mismatch" | null;
 
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
@@ -83,11 +89,16 @@ export function parseDayPack(data: unknown): DayPackView | null {
       chips: accessChips(property),
     });
   });
+  const revision = typeof route?.revision === "number" ? route.revision : null;
+  const version = typeof pack.version === "number" ? pack.version : (revision ?? 0);
   return {
     date: pack.date,
+    serverToday: typeof pack.server_today === "string" ? pack.server_today : null,
+    crewId: typeof crew?.id === "string" ? crew.id : null,
     crewName: text(crew?.name) ?? "Crew",
     officePhone: text(office?.phone),
-    revision: typeof route?.revision === "number" ? route.revision : null,
+    revision,
+    version,
     stops,
   };
 }
@@ -138,18 +149,101 @@ export function newStopIds(previousIds: string[], nextIds: string[]): string[] {
 }
 
 export function routeUpdateMessage(added: number[], removed: number[], at: Date): string | null {
-  const part = (numbers: number[], verb: string) => (numbers.length === 0 ? "" : numbers.length === 1 ? `stop ${numbers[0]} ${verb}` : `${numbers.length} stops ${verb}`);
+  const part = (numbers: number[], verb: string) =>
+    numbers.length === 0 ? "" : numbers.length === 1 ? `stop ${numbers[0]} ${verb}` : `${numbers.length} stops ${verb}`;
   const parts = [part(added, "added"), part(removed, "removed")].filter(Boolean);
   if (parts.length === 0) return null;
   return `Route updated ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(at)}: ${parts.join(", ")}`;
 }
 
+/** Reorders keep the open visit; a stop removed from the pack closes it. */
+export function shouldCloseOpenVisit(openId: string | null, previousIds: string[], nextIds: string[]): boolean {
+  if (!openId) return false;
+  const sameMembers =
+    previousIds.length === nextIds.length && previousIds.every((id) => nextIds.includes(id));
+  if (sameMembers) return false;
+  return !nextIds.includes(openId);
+}
+
+export { phoneSyncStatus } from "@/lib/scheduling/phone-sync";
+
 export function packIsFresh(savedAt: string, now: Date) {
   const age = now.getTime() - Date.parse(savedAt);
   return Number.isFinite(age) && age >= 0 && age <= 48 * 60 * 60 * 1000;
 }
-export function offlineDayPack<T extends { date: string; savedAt: string }>(pack: T | null, today: string, now: Date): T | null {
-  return pack && pack.date === today && packIsFresh(pack.savedAt, now) ? pack : null;
+
+/**
+ * Offline, keep today's pack or a fresh prior-day pack so a stale download
+ * can still show "Yesterday's route". Future packs (fast phone clock) stay unused.
+ */
+export function offlineDayPack<T extends { date: string; savedAt: string }>(
+  pack: T | null,
+  phoneToday: string,
+  now: Date,
+): T | null {
+  if (!pack || !packIsFresh(pack.savedAt, now)) return null;
+  if (pack.date === phoneToday || pack.date < phoneToday) return pack;
+  return null;
+}
+
+/** Prefer the phone's today pack; otherwise the newest fresh past pack. */
+export function pickOfflinePack<T extends { date: string; saved_at: string }>(
+  packs: T[],
+  phoneToday: string,
+  now: Date,
+): T | null {
+  const fresh = packs
+    .filter((pack) => packIsFresh(pack.saved_at, now))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return fresh.find((pack) => pack.date === phoneToday) ?? fresh.find((pack) => pack.date < phoneToday) ?? null;
+}
+
+export function routeDayBanner(
+  packDate: string,
+  phoneToday: string,
+  serverToday: string | null = null,
+): RouteDayBanner {
+  if (packDate === phoneToday) return null;
+  // Org-correct pack while the phone calendar disagrees is a clock mismatch,
+  // not a stale "Yesterday's route" download.
+  if (serverToday && packDate === serverToday) return "mismatch";
+  if (packDate > phoneToday) return "mismatch";
+  const packMs = Date.parse(`${packDate}T12:00:00Z`);
+  const todayMs = Date.parse(`${phoneToday}T12:00:00Z`);
+  const days = Math.round((todayMs - packMs) / 86_400_000);
+  return days === 1 ? "yesterday" : "mismatch";
+}
+
+export function routeDayBannerText(banner: RouteDayBanner, packDate?: string | null): string | null {
+  if (banner === "yesterday") return "Yesterday's route";
+  if (banner === "mismatch") {
+    const when = packDate ? dayHeading(packDate).replace(/,/g, "") : null;
+    return when
+      ? `Your phone's date looks wrong. Showing the office's route for ${when}.`
+      : "Your phone's date looks wrong. Showing the office's route.";
+  }
+  return null;
+}
+
+/** One warning bar for offline and/or route-day disagreement (avoids stacked banners). */
+export function crewStatusBanner(
+  online: boolean,
+  banner: RouteDayBanner,
+  packDate?: string | null,
+): string | null {
+  if (!online && banner === "yesterday") {
+    return "No signal · Yesterday's route. Pull to refresh when you have signal.";
+  }
+  if (!online) {
+    const day = routeDayBannerText(banner, packDate);
+    return day ? `No signal · ${day}` : "No signal. Your work is saved on this phone.";
+  }
+  return routeDayBannerText(banner, packDate);
+}
+
+/** Prefer the server calendar day from the pack when the phone clock disagrees. */
+export function packRequestDate(phoneToday: string, serverToday: string | null): string {
+  return serverToday && serverToday !== phoneToday ? serverToday : phoneToday;
 }
 
 export function packErrorMessage(message: string): string {
