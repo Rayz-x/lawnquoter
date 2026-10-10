@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { cn } from "cn";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldError } from "@/components/ui/field";
@@ -47,6 +48,7 @@ export function SectionCard({
   weight = "standard",
   tone,
   actions,
+  className,
   children,
 }: {
   title: string;
@@ -64,6 +66,7 @@ export function SectionCard({
   tone?: "warning";
   /** Explicit Save/Cancel slot. Office address and pricing JSON use it. Other cards autosave and omit it. */
   actions?: ReactNode;
+  className?: string;
   children?: ReactNode;
 }) {
   const titleId = useId();
@@ -90,16 +93,20 @@ export function SectionCard({
       data-mode={mode}
       data-weight={weight}
       data-tone={tone}
-      className={tone === "warning" ? "bg-warning/10 ring-warning/40" : weight === "internal" ? "bg-muted" : weight === "critical" ? "bg-destructive/5" : undefined}
+      className={cn(
+        "w-full min-w-0",
+        tone === "warning" ? "bg-warning/10 ring-warning/40" : weight === "internal" ? "bg-muted" : weight === "critical" ? "bg-destructive/5" : undefined,
+        className,
+      )}
     >
-      <section aria-labelledby={titleId}>
-        <CardHeader>
-          <CardTitle>
+      <section aria-labelledby={titleId} className="min-w-0">
+        <CardHeader className="min-w-0">
+          <CardTitle className="min-w-0">
             <HeadingTag id={titleId} className={tone === "warning" ? "text-base leading-snug font-medium text-warning" : "text-base leading-snug font-medium"}>
               {title}
             </HeadingTag>
           </CardTitle>
-          {description ? <CardDescription>{description}</CardDescription> : null}
+          {description ? <CardDescription className="min-w-0 text-pretty">{description}</CardDescription> : null}
           <CardAction>
             <div className="flex items-center gap-2">
               <div role="status" aria-live="polite" aria-busy={status === "saving"} data-status={status}>

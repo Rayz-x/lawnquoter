@@ -12,6 +12,11 @@ import { StripeConnectCard } from "./stripe-connect-card";
 
 export const metadata: Metadata = { title: "Settings" };
 
+function accountLast4(accountId: string | null | undefined) {
+  if (!accountId || accountId.length < 4) return null;
+  return accountId.slice(-4);
+}
+
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const session = await requireOrg();
   const { tab } = await searchParams;
@@ -35,13 +40,17 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const isOwner = session.orgRole === "owner";
 
   let connectStatus: ConnectStatus = "not_connected";
+  let stripeAccountId: string | null = null;
+  let payoutsEnabled = false;
   if (session.orgRole === "owner" || session.orgRole === "admin") {
     const { data: connect } = await supabase
       .from("org_stripe_connect")
-      .select("status")
+      .select("status, stripe_account_id, payouts_enabled")
       .eq("org_id", session.orgId)
       .maybeSingle();
     if (connect?.status) connectStatus = connect.status;
+    stripeAccountId = connect?.stripe_account_id ?? null;
+    payoutsEnabled = Boolean(connect?.payouts_enabled);
   } else {
     const { data: ready } = await supabase.rpc("org_payments_ready");
     connectStatus = ready ? "ready" : "not_connected";
@@ -56,7 +65,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           canEdit={canEdit}
           tab={tab}
           branding={<BrandingForm org={org} canEdit={canEdit} />}
-          payments={<StripeConnectCard isOwner={isOwner} status={connectStatus} />}
+          payments={
+            <StripeConnectCard
+              isOwner={isOwner}
+              status={connectStatus}
+              accountLast4={accountLast4(stripeAccountId)}
+              payoutsEnabled={payoutsEnabled}
+            />
+          }
         />
       </div>
     </div>

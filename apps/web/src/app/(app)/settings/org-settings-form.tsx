@@ -207,14 +207,14 @@ export function OrgSettingsForm({ org, canEdit, tab, branding, payments }: { org
   const show = (next: (typeof TABS)[number]) => { setCurrent(next); setOpen(null); };
   const itemClass = (active: boolean) => `shrink-0 whitespace-nowrap rounded-md px-3 text-left max-lg:inline-flex max-lg:h-11 max-lg:items-center lg:w-full lg:px-2 lg:py-1.5 ${active ? "bg-muted font-medium" : "hover:bg-muted"}`;
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-      <nav aria-label="Settings" className="flex flex-nowrap gap-1 overflow-x-auto text-sm lg:w-44 lg:shrink-0 lg:flex-col lg:overflow-visible">
+    <div className="flex w-full min-w-0 flex-col gap-4 lg:flex-row lg:items-start">
+      <nav aria-label="Settings" className="flex w-full min-w-0 flex-nowrap gap-1 overflow-x-auto text-sm lg:w-44 lg:shrink-0 lg:flex-col lg:overflow-visible">
         {NAV.map((item) => "href" in item ? <Link key={item.href} href={item.href} className={itemClass(false)}>{item.label}</Link> : <button key={item.tab} type="button" className={itemClass(current === item.tab)} aria-current={current === item.tab ? "page" : undefined} onClick={() => show(item.tab)}>{item.label}</button>)}
       </nav>
-      <div className="flex min-w-0 flex-1 flex-col gap-4">
+      <div className="flex w-full min-w-0 flex-1 flex-col gap-4">
         {current === "identity" ? <IdentityCard org={org} {...edit("identity")} /> : null}
         {current === "company" ? (
-          <section aria-labelledby="settings-company-heading" className="grid items-start gap-4 lg:grid-cols-2">
+          <section aria-labelledby="settings-company-heading" className="grid w-full min-w-0 items-start gap-4 lg:grid-cols-2">
             <h2 id="settings-company-heading" className="text-base font-medium lg:col-span-2">Company</h2>
             <ContactCard org={org} {...edit("contact")} />
             <AddressCard org={org} {...edit("address")} />
@@ -222,11 +222,7 @@ export function OrgSettingsForm({ org, canEdit, tab, branding, payments }: { org
           </section>
         ) : null}
         {current === "branding" ? branding : null}
-        {current === "payments" ? (
-          <SectionCard title="Payments" heading="h2" description="Take deposits and card payments. Money goes straight to your Stripe account.">
-            {payments}
-          </SectionCard>
-        ) : null}
+        {current === "payments" ? <div className="w-full min-w-0">{payments}</div> : null}
       </div>
     </div>
   );
