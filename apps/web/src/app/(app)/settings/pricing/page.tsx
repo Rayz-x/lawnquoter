@@ -1,155 +1,64 @@
 import type { Metadata } from "next";
-import { defaultModifiers, type Modifiers, type PricingRule } from "@lawnquoter/pricing-engine";
+import { defaultModifiers, type Modifiers } from "@lawnquoter/pricing-engine";
 import { PageHeader } from "@/components/app-shell/page-header";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { resolveEntryTab } from "@/components/entry";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { MaterialsPanel } from "./materials-panel";
-import { ModifiersForm } from "./modifiers-form";
-import { PreviewCard } from "./preview-card";
-import { RuleForm } from "./rule-form";
-import { ServiceForm } from "./service-form";
+import { PricingHeaderActions, PricingStudio } from "./pricing-studio";
 
 export const metadata: Metadata = { title: "Services & Pricing" };
 
-export default async function PricingPage() {
+const OPEN = new Set(["draft", "sent", "viewed", "changed"]);
+const TABS = ["tiers", "modifiers", "checklist", "details"];
+
+function one<T>(value: T | T[] | null | undefined): T | null {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
+}
+
+function subtitle(list: { name: string; version: number; status: string; effective_from: string | null } | null) {
+  if (!list) return "No price list yet";
+  const [year, month, day] = (list.effective_from ?? "").split("-").map(Number);
+  const since = year && month && day
+    ? ` since ${new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`
+    : "";
+  return `${list.name} price list · v${list.version} ${list.status}${since}`;
+}
+
+export default async function PricingPage({ searchParams }: { searchParams: Promise<{ service?: string; tab?: string }> }) {
   const session = await requireOrg();
+  const params = await searchParams;
   const supabase = await createClient();
-  const [{ data: services, error: servicesError }, { data: lists, error: listsError }, { data: materials, error: materialsError }] = await Promise.all([
+  const [{ data: services }, { data: lists }, { data: materials }] = await Promise.all([
     supabase.from("services").select("*").eq("org_id", session.orgId).order("sort").order("name"),
     supabase.from("price_lists").select("*").eq("org_id", session.orgId).order("version", { ascending: false }),
     supabase.from("materials").select("*").eq("org_id", session.orgId).order("name").limit(200),
   ]);
-  const list = (lists ?? []).find((l) => l.status === "active") ?? (lists ?? [])[0];
-  const { data: rules, error: rulesError } = list
-    ? await supabase.from("pricing_rules").select("*").eq("price_list_id", list.id).order("sort")
-    : { data: [], error: null };
-  const loadError = servicesError?.message ?? listsError?.message ?? materialsError?.message ?? rulesError?.message ?? null;
-  if (loadError) {
-    return (
-      <>
-        <PageHeader title="Services & Pricing" description="One price list for the company. Every rule returns price, hours, and cost." />
-        <div className="page-body">
-          <Alert variant="destructive">
-            <AlertTitle>Could not load pricing</AlertTitle>
-            <AlertDescription>{loadError}</AlertDescription>
-          </Alert>
-        </div>
-      </>
-    );
-  }
-
+  const list = (lists ?? []).find((item) => item.status === "active") ?? (lists ?? [])[0];
+  const [{ data: rules }, { data: usage }] = await Promise.all([
+    list ? supabase.from("pricing_rules").select("*").eq("price_list_id", list.id).order("sort") : Promise.resolve({ data: [] }),
+    supabase.from("quote_line_items").select("service_id, quote_versions(version, quotes(id, status, current_version))").eq("org_id", session.orgId).not("service_id", "is", null),
+  ]);
   const modifiers = (list?.modifiers as Modifiers | null) ?? defaultModifiers();
+  const openQuotes = new Map<string, Set<string>>();
+  for (const row of usage ?? []) {
+    const version = one(row.quote_versions);
+    const quote = one(version?.quotes);
+    if (!row.service_id || !quote || version?.version !== quote.current_version || !OPEN.has(quote.status)) continue;
+    openQuotes.set(row.service_id, (openQuotes.get(row.service_id) ?? new Set()).add(quote.id));
+  }
 
   return (
     <>
-      <PageHeader
-        title="Services & Pricing"
-        description="One price list for the company. Every rule returns price, hours, and cost."
-      />
+      <PageHeader title="Services & Pricing" description={subtitle(list ?? null)} actions={<PricingHeaderActions priceListId={list?.id ?? null} modifiers={modifiers} materials={materials ?? []} />} />
       <div className="page-body">
-        <Tabs defaultValue="services">
-          <TabsList>
-            <TabsTrigger value="services">Services</TabsTrigger>
-            <TabsTrigger value="rules">Rules</TabsTrigger>
-            <TabsTrigger value="modifiers">Modifiers</TabsTrigger>
-            <TabsTrigger value="materials">Materials</TabsTrigger>
-            <TabsTrigger value="preview">Preview</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="services" className="grid gap-4 lg:grid-cols-3">
-            <div className="flex flex-col gap-3 lg:col-span-2">
-              {(services ?? []).map((s) => (
-                <Card key={s.id}>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      {s.name}
-                      <Badge variant="outline" className="capitalize">
-                        {s.kind}
-                      </Badge>
-                      {!s.active ? <Badge variant="secondary">Off</Badge> : null}
-                    </CardTitle>
-                    <CardDescription>{s.description}</CardDescription>
-                  </CardHeader>
-                </Card>
-              ))}
-              {(services ?? []).length === 0 ? <p className="text-sm text-muted-foreground">Add weekly mow, fert, snow…</p> : null}
-            </div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Add service</CardTitle>
-                <CardDescription>Mowing services get a starter rate matrix you can edit.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ServiceForm />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="rules" className="grid gap-4 lg:grid-cols-3">
-            <div className="flex flex-col gap-3 lg:col-span-2">
-              {(rules ?? []).map((r) => (
-                <Card key={r.id}>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      {r.name}
-                      <Badge variant="outline">{r.rule_type}</Badge>
-                    </CardTitle>
-                    <CardDescription>
-                      {(services ?? []).find((s) => s.id === r.service_id)?.name ?? "Service"}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <RuleForm
-                      priceListId={list?.id ?? ""}
-                      services={services ?? []}
-                      rule={{
-                        id: r.id,
-                        service_id: r.service_id,
-                        name: r.name,
-                        config: JSON.stringify(r.config, null, 2),
-                      }}
-                    />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <Card>
-              <CardHeader>
-                <CardTitle>New rule</CardTitle>
-                <CardDescription>Tier matrix, assembly, catalog, program, snow, or irrigation.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {list ? <RuleForm priceListId={list.id} services={services ?? []} /> : <p className="text-sm text-muted-foreground">No price list yet.</p>}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="modifiers">
-            {list ? (
-              <ModifiersForm priceListId={list.id} modifiers={modifiers} />
-            ) : (
-              <p className="text-sm text-muted-foreground">No price list.</p>
-            )}
-          </TabsContent>
-
-          <TabsContent value="materials">
-            <MaterialsPanel materials={materials ?? []} />
-          </TabsContent>
-
-          <TabsContent value="preview">
-            <PreviewCard
-              rules={(rules ?? []).flatMap((r) => {
-                const parsed = r.config as PricingRule;
-                return parsed?.type ? [{ name: r.name, rule: parsed }] : [];
-              })}
-              modifiers={modifiers}
-            />
-          </TabsContent>
-        </Tabs>
+        <PricingStudio
+          priceListId={list?.id ?? null}
+          services={(services ?? []).map((item) => ({ id: item.id, name: item.name, kind: item.kind, description: item.description, active: item.active, openQuotes: openQuotes.get(item.id)?.size ?? 0 }))}
+          rules={(rules ?? []).map((rule) => ({ id: rule.id, serviceId: rule.service_id, name: rule.name, config: rule.config }))}
+          modifiers={modifiers}
+          initialServiceId={params.service ?? null}
+          initialTab={resolveEntryTab(params.tab, TABS, "tiers")}
+        />
       </div>
     </>
   );
