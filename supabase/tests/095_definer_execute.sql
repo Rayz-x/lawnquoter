@@ -46,6 +46,7 @@ select is(
     'add_crew_member',
     'assign_visit',
     'cancel_visit',
+    'claim_lead_for_today',
     'convert_accepted_quote',
     'create_crew',
     'create_org',
@@ -65,6 +66,7 @@ select is(
     'revoke_org_invite',
     'set_active_org',
     'set_crew_lead',
+    'set_lead_for_today',
     'skip_visit',
     'update_agreement_schedule'
   ]::text[],
