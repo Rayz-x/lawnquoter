@@ -104,14 +104,14 @@ isOneToOne: false
                   ]
                 },"agreements": {
                   Row: {
-                    "account_id": string,"created_at": string,"end_date": string | null,"frequency": Database["public"]['Enums']["agreement_frequency"] | null,"id": string,"kind": Database["public"]['Enums']["agreement_kind"],"notes_office": string | null,"org_id": string,"preferred_dow": number | null,"property_id": string,"quote_id": string | null,"quote_version_id": string | null,"service_kind": string | null,"start_date": string,"status": Database["public"]['Enums']["agreement_status"],"updated_at": string
+                    "account_id": string,"created_at": string,"end_date": string | null,"frequency": Database["public"]['Enums']["agreement_frequency"] | null,"id": string,"kind": Database["public"]['Enums']["agreement_kind"],"notes_office": string | null,"org_id": string,"preferred_dow": number | null,"property_id": string,"quote_id": string | null,"quote_version_id": string | null,"resume_on": string | null,"season_end_day": number | null,"season_end_month": number | null,"season_start_day": number | null,"season_start_month": number | null,"service_kind": string | null,"start_date": string,"status": Database["public"]['Enums']["agreement_status"],"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "account_id": string,"created_at"?: string,"end_date"?: string | null,"frequency"?: Database["public"]['Enums']["agreement_frequency"] | null,"id"?: string,"kind": Database["public"]['Enums']["agreement_kind"],"notes_office"?: string | null,"org_id": string,"preferred_dow"?: number | null,"property_id": string,"quote_id"?: string | null,"quote_version_id"?: string | null,"service_kind"?: string | null,"start_date": string,"status"?: Database["public"]['Enums']["agreement_status"],"updated_at"?: string
+                    "account_id": string,"created_at"?: string,"end_date"?: string | null,"frequency"?: Database["public"]['Enums']["agreement_frequency"] | null,"id"?: string,"kind": Database["public"]['Enums']["agreement_kind"],"notes_office"?: string | null,"org_id": string,"preferred_dow"?: number | null,"property_id": string,"quote_id"?: string | null,"quote_version_id"?: string | null,"resume_on"?: string | null,"season_end_day"?: number | null,"season_end_month"?: number | null,"season_start_day"?: number | null,"season_start_month"?: number | null,"service_kind"?: string | null,"start_date": string,"status"?: Database["public"]['Enums']["agreement_status"],"updated_at"?: string
                   }
                   Update: {
-                    "account_id"?: string,"created_at"?: string,"end_date"?: string | null,"frequency"?: Database["public"]['Enums']["agreement_frequency"] | null,"id"?: string,"kind"?: Database["public"]['Enums']["agreement_kind"],"notes_office"?: string | null,"org_id"?: string,"preferred_dow"?: number | null,"property_id"?: string,"quote_id"?: string | null,"quote_version_id"?: string | null,"service_kind"?: string | null,"start_date"?: string,"status"?: Database["public"]['Enums']["agreement_status"],"updated_at"?: string
+                    "account_id"?: string,"created_at"?: string,"end_date"?: string | null,"frequency"?: Database["public"]['Enums']["agreement_frequency"] | null,"id"?: string,"kind"?: Database["public"]['Enums']["agreement_kind"],"notes_office"?: string | null,"org_id"?: string,"preferred_dow"?: number | null,"property_id"?: string,"quote_id"?: string | null,"quote_version_id"?: string | null,"resume_on"?: string | null,"season_end_day"?: number | null,"season_end_month"?: number | null,"season_start_day"?: number | null,"season_start_month"?: number | null,"service_kind"?: string | null,"start_date"?: string,"status"?: Database["public"]['Enums']["agreement_status"],"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -626,14 +626,14 @@ isOneToOne: true
                   ]
                 },"orgs": {
                   Row: {
-                    "address_line1": string | null,"address_line2": string | null,"brand_color": string | null,"branding_updated_at": string | null,"city": string | null,"country": string,"created_at": string,"currency": string,"email": string | null,"heading_font": string,"id": string,"logo_dark_path": string | null,"logo_height": number | null,"logo_needs_chip": boolean,"logo_path": string | null,"logo_raster_path": string | null,"logo_shows_name": boolean | null,"logo_width": number | null,"name": string,"phone": string | null,"postal_code": string | null,"region": string | null,"settings": NonNullable<Json>,"slug": string,"timezone": string,"updated_at": string,"website": string | null
+                    "address_line1": string | null,"address_line2": string | null,"brand_color": string | null,"branding_updated_at": string | null,"city": string | null,"country": string,"created_at": string,"currency": string,"email": string | null,"heading_font": string,"id": string,"logo_dark_path": string | null,"logo_height": number | null,"logo_needs_chip": boolean,"logo_path": string | null,"logo_raster_path": string | null,"logo_shows_name": boolean | null,"logo_width": number | null,"name": string,"phone": string | null,"postal_code": string | null,"region": string | null,"season_end_day": number,"season_end_month": number,"season_start_day": number,"season_start_month": number,"settings": NonNullable<Json>,"slug": string,"timezone": string,"updated_at": string,"website": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "address_line1"?: string | null,"address_line2"?: string | null,"brand_color"?: string | null,"branding_updated_at"?: string | null,"city"?: string | null,"country"?: string,"created_at"?: string,"currency"?: string,"email"?: string | null,"heading_font"?: string,"id"?: string,"logo_dark_path"?: string | null,"logo_height"?: number | null,"logo_needs_chip"?: boolean,"logo_path"?: string | null,"logo_raster_path"?: string | null,"logo_shows_name"?: boolean | null,"logo_width"?: number | null,"name": string,"phone"?: string | null,"postal_code"?: string | null,"region"?: string | null,"settings"?: NonNullable<Json>,"slug": string,"timezone"?: string,"updated_at"?: string,"website"?: string | null
+                    "address_line1"?: string | null,"address_line2"?: string | null,"brand_color"?: string | null,"branding_updated_at"?: string | null,"city"?: string | null,"country"?: string,"created_at"?: string,"currency"?: string,"email"?: string | null,"heading_font"?: string,"id"?: string,"logo_dark_path"?: string | null,"logo_height"?: number | null,"logo_needs_chip"?: boolean,"logo_path"?: string | null,"logo_raster_path"?: string | null,"logo_shows_name"?: boolean | null,"logo_width"?: number | null,"name": string,"phone"?: string | null,"postal_code"?: string | null,"region"?: string | null,"season_end_day"?: number,"season_end_month"?: number,"season_start_day"?: number,"season_start_month"?: number,"settings"?: NonNullable<Json>,"slug": string,"timezone"?: string,"updated_at"?: string,"website"?: string | null
                   }
                   Update: {
-                    "address_line1"?: string | null,"address_line2"?: string | null,"brand_color"?: string | null,"branding_updated_at"?: string | null,"city"?: string | null,"country"?: string,"created_at"?: string,"currency"?: string,"email"?: string | null,"heading_font"?: string,"id"?: string,"logo_dark_path"?: string | null,"logo_height"?: number | null,"logo_needs_chip"?: boolean,"logo_path"?: string | null,"logo_raster_path"?: string | null,"logo_shows_name"?: boolean | null,"logo_width"?: number | null,"name"?: string,"phone"?: string | null,"postal_code"?: string | null,"region"?: string | null,"settings"?: NonNullable<Json>,"slug"?: string,"timezone"?: string,"updated_at"?: string,"website"?: string | null
+                    "address_line1"?: string | null,"address_line2"?: string | null,"brand_color"?: string | null,"branding_updated_at"?: string | null,"city"?: string | null,"country"?: string,"created_at"?: string,"currency"?: string,"email"?: string | null,"heading_font"?: string,"id"?: string,"logo_dark_path"?: string | null,"logo_height"?: number | null,"logo_needs_chip"?: boolean,"logo_path"?: string | null,"logo_raster_path"?: string | null,"logo_shows_name"?: boolean | null,"logo_width"?: number | null,"name"?: string,"phone"?: string | null,"postal_code"?: string | null,"region"?: string | null,"season_end_day"?: number,"season_end_month"?: number,"season_start_day"?: number,"season_start_month"?: number,"settings"?: NonNullable<Json>,"slug"?: string,"timezone"?: string,"updated_at"?: string,"website"?: string | null
                   }
                   Relationships: [
                     
@@ -1376,6 +1376,9 @@ isOneToOne: false
 "gen_salt":
 { Args: { "": string }; Returns: string
                            },
+"end_agreement":
+{ Args: { "p_agreement_id": string,"p_end_date"?: string }; Returns: undefined
+                           },
 "extend_visit_horizons":
 { Args: Record<PropertyKey, never>; Returns: number
                            },
@@ -1387,6 +1390,18 @@ isOneToOne: false
                            },
 "line_billing_cap_cents":
 { Args: { "p_line_item_id": string }; Returns: number
+                           },
+"pause_agreement":
+{ Args: { "p_agreement_id": string,"p_resume_on"?: string }; Returns: undefined
+                           },
+"resume_agreement":
+{ Args: { "p_agreement_id": string }; Returns: undefined
+                           },
+"update_agreement_season":
+{ Args: { "p_agreement_id": string,"p_end_day"?: number,"p_end_month"?: number,"p_start_day"?: number,"p_start_month"?: number }; Returns: undefined
+                           },
+"update_org_season":
+{ Args: { "p_end_day": number,"p_end_month": number,"p_start_day": number,"p_start_month": number }; Returns: undefined
                            },
 "measurement_ensure":
 { Args: { "p_property": string }; Returns: string

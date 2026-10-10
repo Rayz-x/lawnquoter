@@ -69,6 +69,7 @@ select is(
     'crew_ack_day_pack',
     'crew_day_pack',
     'crew_sync',
+    'end_agreement',
     'generate_agreement_visits',
     'issue_invoice',
     'my_crews',
@@ -76,6 +77,7 @@ select is(
     'office_rain_day_push',
     'office_reschedule_visit',
     'org_payments_ready',
+    'pause_agreement',
     'publish_route',
     'quote_accept',
     'quote_decline',
@@ -84,6 +86,7 @@ select is(
     'quote_revise',
     'quote_send',
     'reorder_route_visits',
+    'resume_agreement',
     'revoke_org_invite',
     'set_active_org',
     'set_agreement_season_price',
@@ -95,7 +98,9 @@ select is(
     'site_check_request',
     'skip_visit',
     'true_up_installment_agreement',
-    'update_agreement_schedule'
+    'update_agreement_schedule',
+    'update_agreement_season',
+    'update_org_season'
   ]::text[],
   'anon or authenticated can execute only the intended public security definers'
 );

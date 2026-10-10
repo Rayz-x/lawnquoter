@@ -101,6 +101,11 @@ select tests.create_user('rpc-other@example.com', 'RPC Other') as other \gset
 
 select tests.create_org('RPC One', 'rpc-one', :'owner'::uuid) as org \gset
 select tests.create_org('RPC Two', 'rpc-two', :'other'::uuid) as org2 \gset
+-- Cadence tests are season-agnostic; use a year-round window (S02 defaults Apr–Nov).
+update public.orgs
+set season_start_month = 1, season_start_day = 1,
+    season_end_month = 12, season_end_day = 31
+where id in (:'org'::uuid, :'org2'::uuid);
 select tests.add_member(:'org'::uuid, :'sales'::uuid, 'sales');
 select tests.add_member(:'org'::uuid, :'dispatcher'::uuid, 'dispatcher');
 select tests.add_member(:'org'::uuid, :'crew'::uuid, 'crew');

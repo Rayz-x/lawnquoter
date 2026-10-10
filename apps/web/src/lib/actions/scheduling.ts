@@ -326,3 +326,91 @@ export async function setCrewLead(crewId: string, profileId: string): Promise<Ac
   if (error) return fail(error.message);
   return { ok: true };
 }
+
+const monthDay = z.object({
+  startMonth: z.number().int().min(1).max(12),
+  startDay: z.number().int().min(1).max(31),
+  endMonth: z.number().int().min(1).max(12),
+  endDay: z.number().int().min(1).max(31),
+});
+
+export async function updateOrgSeason(input: z.infer<typeof monthDay>): Promise<ActionResult> {
+  await requireOrg();
+  const parsed = monthDay.safeParse(input);
+  if (!parsed.success) return fail("Enter a valid season");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("update_org_season", {
+    p_start_month: parsed.data.startMonth,
+    p_start_day: parsed.data.startDay,
+    p_end_month: parsed.data.endMonth,
+    p_end_day: parsed.data.endDay,
+  });
+  if (error) return fail(error.message);
+  return { ok: true };
+}
+
+export async function updateAgreementSeason(
+  agreementId: string,
+  season: z.infer<typeof monthDay> | null,
+): Promise<ActionResult> {
+  await requireOrg();
+  const id = idSchema.safeParse(agreementId);
+  if (!id.success) return fail("Invalid agreement");
+  const supabase = await createClient();
+  if (season == null) {
+    const { error } = await supabase.rpc("update_agreement_season", { p_agreement_id: id.data });
+    if (error) return fail(error.message);
+    return { ok: true };
+  }
+  const parsed = monthDay.safeParse(season);
+  if (!parsed.success) return fail("Enter a valid season");
+  const { error } = await supabase.rpc("update_agreement_season", {
+    p_agreement_id: id.data,
+    p_start_month: parsed.data.startMonth,
+    p_start_day: parsed.data.startDay,
+    p_end_month: parsed.data.endMonth,
+    p_end_day: parsed.data.endDay,
+  });
+  if (error) return fail(error.message);
+  return { ok: true };
+}
+
+export async function pauseAgreement(agreementId: string, resumeOn: string | null): Promise<ActionResult> {
+  await requireOrg();
+  const parsed = z
+    .object({ agreementId: idSchema, resumeOn: dateSchema.nullable() })
+    .safeParse({ agreementId, resumeOn });
+  if (!parsed.success) return fail("Invalid pause");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("pause_agreement", {
+    p_agreement_id: parsed.data.agreementId,
+    ...(parsed.data.resumeOn ? { p_resume_on: parsed.data.resumeOn } : {}),
+  });
+  if (error) return fail(error.message);
+  return { ok: true };
+}
+
+export async function resumeAgreement(agreementId: string): Promise<ActionResult> {
+  await requireOrg();
+  const parsed = idSchema.safeParse(agreementId);
+  if (!parsed.success) return fail("Invalid agreement");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("resume_agreement", { p_agreement_id: parsed.data });
+  if (error) return fail(error.message);
+  return { ok: true };
+}
+
+export async function endAgreement(agreementId: string, endDate: string | null): Promise<ActionResult> {
+  await requireOrg();
+  const parsed = z
+    .object({ agreementId: idSchema, endDate: dateSchema.nullable() })
+    .safeParse({ agreementId, endDate });
+  if (!parsed.success) return fail("Invalid end date");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("end_agreement", {
+    p_agreement_id: parsed.data.agreementId,
+    ...(parsed.data.endDate ? { p_end_date: parsed.data.endDate } : {}),
+  });
+  if (error) return fail(error.message);
+  return { ok: true };
+}
