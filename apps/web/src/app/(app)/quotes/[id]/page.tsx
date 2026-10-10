@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireOrg } from "@/lib/auth/session";
 import { formatMoney, formatMoneyRange } from "@/lib/money";
-import { catalogPickerRules, priceCatalogLine, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
+import { catalogPickerRules, measurementQuantities, priceCatalogLine, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
 import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
 import { orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/server";
@@ -146,6 +146,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const total = sumSelected(lines, picked, "price");
   const hours = sumSelected(lines, picked, "hours");
   const cost = sumSelected(lines, picked, "cost");
+  const quantities = measurementQuantities(features, propertyPricing.lotSqft);
+  const turf = (quantities.turf_front_sqft ?? 0) + (quantities.turf_back_sqft ?? 0);
+  const basis = turf > 0 ? `Priced from ${Math.round(turf).toLocaleString("en-US")} sq ft` : "Priced from this property";
   const editable = quote.status === "draft" || quote.status === "changed";
   const canRevise = quote.status === "sent" || quote.status === "viewed" || quote.status === "declined" || quote.status === "expired";
 
@@ -250,6 +253,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             <PriceFromCatalog
               quoteId={quote.id}
               versionId={versionId}
+              basis={basis}
               rules={catalogPickerRules(rules ?? [], lists ?? []).flatMap((r) => {
                 const stored = listModifiers.get(r.price_list_id);
                 if (stored === undefined) return [];
