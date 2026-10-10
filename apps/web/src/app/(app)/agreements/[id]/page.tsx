@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DISPATCH_ROLES, hasRole } from "@lawnquoter/shared";
+import { hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -10,11 +10,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { OFFICE_ROLES, QUOTE_CONVERT_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
-import { defaultThroughDate } from "@/lib/scheduling/recurrence";
-import { orgToday } from "@/lib/scheduling/office-date";
+import { nextVisitsThroughLabel } from "@/lib/scheduling/horizon";
 import { createClient } from "@/lib/supabase/server";
 import { AgreementScheduleForm } from "./agreement-schedule-form";
-import { GenerateVisitsForm } from "./generate-visits-form";
 
 export const metadata: Metadata = { title: "Agreement" };
 
@@ -80,7 +78,7 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
     supabase
       .from("visits")
       .select(
-        "id, scheduled_date, status, budget_minutes, crew_size, sort, routes(status, crews(name)), visit_tasks(id, label, quantity_text, sort, done_at)",
+        "id, scheduled_date, occurrence_date, status, budget_minutes, crew_size, sort, routes(status, crews(name)), visit_tasks(id, label, quantity_text, sort, done_at)",
       )
       .eq("agreement_id", id)
       .eq("org_id", session.orgId)
@@ -94,10 +92,15 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
     property?.formatted_address ||
     [property?.address_line1, property?.city].filter(Boolean).join(", ") ||
     "Address unavailable";
-  const canGenerate = hasRole(session.orgRole, DISPATCH_ROLES);
   const canEditSchedule = agreement.status !== "ended" && hasRole(session.orgRole, QUOTE_CONVERT_ROLES);
   const recurring = agreement.kind === "recurring" && agreement.frequency != null && agreement.status === "active";
-  const through = defaultThroughDate(orgToday(org?.timezone));
+  const visitsThrough =
+    visits
+      ?.filter((visit) => visit.status !== "cancelled" && visit.occurrence_date)
+      .map((visit) => visit.occurrence_date as string)
+      .sort()
+      .at(-1) ?? null;
+  const horizonLabel = nextVisitsThroughLabel(visitsThrough);
   const loadError = jobsError?.message ?? visitsError?.message ?? null;
   const weekday =
     agreement.preferred_dow != null && agreement.preferred_dow >= 0 && agreement.preferred_dow <= 6
@@ -174,7 +177,7 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
                     <EmptyTitle>No visits yet</EmptyTitle>
                     <EmptyDescription>
                       {recurring
-                        ? "Generate the next stretch of dates. Running it again will not duplicate a day."
+                        ? "Visits roll forward nightly about ten weeks ahead."
                         : "A one-time agreement gets its visit when the quote is converted."}
                     </EmptyDescription>
                   </EmptyHeader>
@@ -284,21 +287,26 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
 
           <Card>
             <CardHeader>
-              <CardTitle>Generate visits</CardTitle>
-              <CardDescription>Default range is eight weeks from today. Generating again skips days that already exist.</CardDescription>
+              <CardTitle>Visit horizon</CardTitle>
+              <CardDescription>
+                A nightly job keeps recurring visits about eight to ten weeks ahead in {org?.timezone ?? "the company"} time.
+                Started, moved, noted, and locked visits are left alone.
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              {recurring && canGenerate ? (
-                <GenerateVisitsForm agreementId={agreement.id} defaultThrough={through} />
+            <CardContent className="text-sm">
+              {recurring ? (
+                horizonLabel ? (
+                  <p className="font-medium">{horizonLabel}</p>
+                ) : (
+                  <p className="text-muted-foreground">No visits on the horizon yet. The nightly job will fill the next ten weeks.</p>
+                )
               ) : (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-muted-foreground">
                   {agreement.kind !== "recurring"
-                    ? "One-time jobs are not generated on a calendar. Change the kind to recurring to build the visit dates."
+                    ? "One-time jobs are not generated on a calendar."
                     : agreement.status !== "active"
-                      ? "Paused and ended agreements do not generate new visits."
-                      : !agreement.frequency
-                        ? "This agreement needs a frequency before visits can be generated."
-                        : "Owners, admins, and dispatchers generate visits."}
+                      ? "Paused and ended agreements do not get new visits."
+                      : "This agreement needs a frequency before visits can roll forward."}
                 </p>
               )}
             </CardContent>
