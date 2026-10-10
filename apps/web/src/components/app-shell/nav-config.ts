@@ -3,6 +3,7 @@ import {
   BarChart3,
   Building2,
   CalendarDays,
+  CircleDollarSign,
   FileText,
   HardHat,
   Inbox,
@@ -53,6 +54,12 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Operations",
     items: [
       { title: "Schedule", href: "/schedule", icon: CalendarDays, roles: OFFICE_ROLES },
+      {
+        title: "Billing review",
+        href: "/billing/review",
+        icon: CircleDollarSign,
+        roles: OFFICE_ROLES,
+      },
       { title: "Crew App", href: "/crew/today", icon: Smartphone, roles: FIELD_ROLES },
     ],
   },
