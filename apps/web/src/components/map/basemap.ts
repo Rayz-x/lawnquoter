@@ -1,4 +1,5 @@
 import type { StyleSpecification } from "maplibre-gl";
+import "./maplibre-worker";
 
 /**
  * Required wherever a stored ArcGIS geocode is drawn. Esri's location-services
