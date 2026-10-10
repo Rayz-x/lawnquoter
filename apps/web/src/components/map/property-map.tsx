@@ -34,7 +34,7 @@ export function PropertyMap({ location, parcel, footprint, className, interactiv
       center: location?.type === "Point" ? location.coordinates : (fallbackCenter ?? [-98.5, 39.8]),
       zoom: location ? 18 : fallbackCenter ? 13 : 3,
       interactive,
-      attributionControl: mapAttributionControl,
+      attributionControl: { ...mapAttributionControl, compact: window.matchMedia("(max-width: 1023px)").matches },
     });
     if (interactive && !hideNavigation) map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     if (onPick) map.on("click", (event) => onPick(event.lngLat.toArray() as [number, number]));
