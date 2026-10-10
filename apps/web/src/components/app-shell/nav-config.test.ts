@@ -20,6 +20,14 @@ describe("Crew App nav", () => {
     }
   });
 
+  it("shows Leads to office roles and read_only, and hides it from crew", () => {
+    for (const role of ["owner", "admin", "sales", "dispatcher", "read_only"] as const) {
+      expect(item(role, "Leads")?.href).toBe("/leads");
+    }
+    expect(item("crew", "Leads")).toBeUndefined();
+    expect(item("crew_lead", "Leads")).toBeUndefined();
+  });
+
   it("keeps Agreements, Schedule, Lead sources, and Crews as office items", () => {
     expect(item("owner", "Agreements")?.href).toBe("/agreements");
     expect(item("sales", "Agreements")?.href).toBe("/agreements");

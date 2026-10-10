@@ -5,6 +5,7 @@ import {
   CalendarDays,
   FileText,
   HardHat,
+  Inbox,
   LayoutDashboard,
   MapPinned,
   Repeat,
@@ -35,6 +36,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Sales",
     items: [
+      { title: "Leads", href: "/leads", icon: Inbox, roles: OFFICE_ROLES },
       { title: "Quotes", href: "/quotes", icon: FileText, roles: SALES_ROLES },
       { title: "Lead sources", href: "/leads/report", icon: BarChart3, roles: OFFICE_ROLES },
     ],
