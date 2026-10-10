@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { geocodeAddress } from "@/lib/geo/geocode";
+import { formatMoney } from "@/lib/money";
 import { PropertyWorkspace } from "./property-workspace";
 
 export const metadata: Metadata = { title: "Property" };
@@ -45,7 +46,7 @@ export default async function PropertyDetailPage({ params, searchParams }: { par
     supabase.from("measurements").select("measurement_features(category, area_sqft)").eq("property_id", id).eq("org_id", org).eq("status", "current").order("updated_at", { ascending: false }).limit(1),
     supabase.from("price_lists").select("modifiers").eq("org_id", org).eq("status", "active").order("version", { ascending: false }).limit(1),
     supabase.from("properties").select("zone").eq("org_id", org).not("zone", "is", null).limit(200),
-    supabase.from("quotes").select("id", { count: "exact", head: true }).eq("property_id", id).eq("org_id", org).in("status", [...OPEN_QUOTES]),
+    supabase.from("quotes").select("current_version, quote_versions(version, quote_line_items(price, selected))").eq("property_id", id).eq("org_id", org).in("status", [...OPEN_QUOTES]),
   ]);
   const loadError = propertyError?.message ?? accessError?.message ?? geoError?.message ?? nearbyError?.message ?? null;
   if (loadError) {
@@ -76,14 +77,16 @@ export default async function PropertyDetailPage({ params, searchParams }: { par
   const back = features ? area("turf_back") : null;
   const pinHint = location == null ? await geocodeAddress(`${property.city}, ${property.region} ${property.postal_code}`) : null;
   const crew = nextVisit?.routes?.crews?.name;
-  return (<><PageHeader title={property.accounts?.name ?? "Property"} /><PropertyWorkspace data={{
+  const openRows = (openQuotes.data ?? []) as { current_version: number; quote_versions: { version: number; quote_line_items: { price: number; selected: boolean }[] | null }[] | null }[];
+  const openTotal = openRows.reduce((sum, quote) => sum + (quote.quote_versions?.find((item) => item.version === quote.current_version)?.quote_line_items ?? []).reduce((lineSum, line) => lineSum + (line.selected ? Number(line.price) : 0), 0), 0);
+  return (<PropertyWorkspace data={{
     id: property.id, accountId: property.account_id, accountName: property.accounts?.name ?? "Account", street: property.address_line1, place: `${property.city}, ${property.region} ${property.postal_code}`, label: property.name, archived: !property.is_active,
     slope: property.slope, slopeHint: slopeHint(property.slope, priceLists.data?.[0]?.modifiers), gateWidthIn: gateWidthIn(property.gate_width_in), obstacleCount: property.obstacle_count, hasStairs: property.has_stairs, hasDogs: property.has_dogs,
     gateCode: access?.gate_code ?? null, accessNotes: access?.access_notes ?? "", crewNotes: property.crew_notes ?? "", zone: property.zone, zones: [...new Set((zoneRows.data ?? []).map((row) => row.zone).filter((zone): zone is string => Boolean(zone)))].sort(),
     lot: sqft(property.lot_sqft == null ? null : Number(property.lot_sqft)), lotAuto: property.lot_sqft != null && property.parcel_source !== "unknown", building: sqft(property.building_sqft == null ? null : Number(property.building_sqft)), apn: property.parcel_apn, parcelSource: property.parcel_source, footprintSource: property.footprint_source,
-    turf: front == null && back == null ? "—" : `${sqft(front)} / ${sqft(back)}`, openQuotes: openQuotes.count ?? 0, service: crew && day ? `${crew} · ${day}` : day ?? agreement.data?.[0]?.frequency ?? "—", ungeocoded: location == null, pinCenter: pinHint?.location.coordinates ?? null,
+    turf: front == null && back == null ? "—" : `${sqft(front)} / ${sqft(back)}`, openQuotes: `${formatMoney(openTotal)} · ${openRows.length} open`, service: crew && day ? `${crew} · ${day}` : day ?? agreement.data?.[0]?.frequency ?? "—", ungeocoded: location == null, pinCenter: pinHint?.location.coordinates ?? null,
     quotes: (quotes.data ?? []).map((quote) => ({ id: quote.id, label: `#${quote.number} ${quote.title}`, status: quote.status })), jobs: (jobs.data ?? []).map((job) => ({ id: job.id, label: job.title, status: job.status })),
     visits: visitRows.map((visit) => ({ id: visit.id, label: visit.scheduled_date ?? visit.occurrence_date, status: visit.status })), activity: (activities.data ?? []).map((item) => ({ id: item.id, summary: item.summary, when: new Date(item.occurred_at).toLocaleDateString() })),
     nearby: ((nearby ?? []) as { id: string; formatted_address: string | null; distance_m: number }[]).slice(0, 8).map((item) => ({ id: item.id, address: item.formatted_address ?? "Nearby property", meters: Math.round(Number(item.distance_m)) })), location, parcel, footprint, tab: tab ?? null,
-  }} /></>);
+  }} />);
 }
