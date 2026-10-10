@@ -45,5 +45,5 @@ as $$
   );
 $$;
 
-revoke all on function public.org_payments_ready() from public;
+revoke all on function public.org_payments_ready() from public, anon;
 grant execute on function public.org_payments_ready() to authenticated, service_role;
