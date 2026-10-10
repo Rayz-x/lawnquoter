@@ -944,14 +944,14 @@ isOneToOne: false
                   ]
                 },"site_checks": {
                   Row: {
-                    "actuals": Json | null,"assigned_to": string | null,"completed_at": string | null,"completed_by": string | null,"created_at": string,"decline_reason": string | null,"due_on": string | null,"id": string,"line_ids": (string)[],"measurement_id": string | null,"method": Database["public"]['Enums']["site_check_method"],"org_id": string,"origin": Database["public"]['Enums']["site_check_origin"],"outcome": string | null,"photo_paths": (string)[],"property_id": string,"quote_id": string,"reasons": (string)[],"request_note": string | null,"requested_email": string | null,"resolved_version": number | null,"status": Database["public"]['Enums']["site_check_status"],"updated_at": string,"visit_id": string | null,"waive_reason": string | null,"window_end": string | null,"window_start": string | null
+                    "actuals": Json | null,"assigned_to": string | null,"completed_at": string | null,"completed_by": string | null,"created_at": string,"decline_reason": string | null,"due_on": string | null,"id": string,"line_ids": (string)[],"measurement_id": string | null,"method": Database["public"]['Enums']["site_check_method"],"org_id": string,"origin": Database["public"]['Enums']["site_check_origin"],"outcome": string | null,"photo_paths": (string)[],"property_id": string,"quote_id": string,"reasons": (string)[],"request_note": string | null,"request_version": number | null,"requested_email": string | null,"resolved_version": number | null,"status": Database["public"]['Enums']["site_check_status"],"updated_at": string,"visit_id": string | null,"waive_reason": string | null,"window_end": string | null,"window_start": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "actuals"?: Json | null,"assigned_to"?: string | null,"completed_at"?: string | null,"completed_by"?: string | null,"created_at"?: string,"decline_reason"?: string | null,"due_on"?: string | null,"id"?: string,"line_ids"?: (string)[],"measurement_id"?: string | null,"method"?: Database["public"]['Enums']["site_check_method"],"org_id": string,"origin": Database["public"]['Enums']["site_check_origin"],"outcome"?: string | null,"photo_paths"?: (string)[],"property_id": string,"quote_id": string,"reasons"?: (string)[],"request_note"?: string | null,"requested_email"?: string | null,"resolved_version"?: number | null,"status"?: Database["public"]['Enums']["site_check_status"],"updated_at"?: string,"visit_id"?: string | null,"waive_reason"?: string | null,"window_end"?: string | null,"window_start"?: string | null
+                    "actuals"?: Json | null,"assigned_to"?: string | null,"completed_at"?: string | null,"completed_by"?: string | null,"created_at"?: string,"decline_reason"?: string | null,"due_on"?: string | null,"id"?: string,"line_ids"?: (string)[],"measurement_id"?: string | null,"method"?: Database["public"]['Enums']["site_check_method"],"org_id": string,"origin": Database["public"]['Enums']["site_check_origin"],"outcome"?: string | null,"photo_paths"?: (string)[],"property_id": string,"quote_id": string,"reasons"?: (string)[],"request_note"?: string | null,"request_version"?: number | null,"requested_email"?: string | null,"resolved_version"?: number | null,"status"?: Database["public"]['Enums']["site_check_status"],"updated_at"?: string,"visit_id"?: string | null,"waive_reason"?: string | null,"window_end"?: string | null,"window_start"?: string | null
                   }
                   Update: {
-                    "actuals"?: Json | null,"assigned_to"?: string | null,"completed_at"?: string | null,"completed_by"?: string | null,"created_at"?: string,"decline_reason"?: string | null,"due_on"?: string | null,"id"?: string,"line_ids"?: (string)[],"measurement_id"?: string | null,"method"?: Database["public"]['Enums']["site_check_method"],"org_id"?: string,"origin"?: Database["public"]['Enums']["site_check_origin"],"outcome"?: string | null,"photo_paths"?: (string)[],"property_id"?: string,"quote_id"?: string,"reasons"?: (string)[],"request_note"?: string | null,"requested_email"?: string | null,"resolved_version"?: number | null,"status"?: Database["public"]['Enums']["site_check_status"],"updated_at"?: string,"visit_id"?: string | null,"waive_reason"?: string | null,"window_end"?: string | null,"window_start"?: string | null
+                    "actuals"?: Json | null,"assigned_to"?: string | null,"completed_at"?: string | null,"completed_by"?: string | null,"created_at"?: string,"decline_reason"?: string | null,"due_on"?: string | null,"id"?: string,"line_ids"?: (string)[],"measurement_id"?: string | null,"method"?: Database["public"]['Enums']["site_check_method"],"org_id"?: string,"origin"?: Database["public"]['Enums']["site_check_origin"],"outcome"?: string | null,"photo_paths"?: (string)[],"property_id"?: string,"quote_id"?: string,"reasons"?: (string)[],"request_note"?: string | null,"request_version"?: number | null,"requested_email"?: string | null,"resolved_version"?: number | null,"status"?: Database["public"]['Enums']["site_check_status"],"updated_at"?: string,"visit_id"?: string | null,"waive_reason"?: string | null,"window_end"?: string | null,"window_start"?: string | null
                   }
                   Relationships: [
                     {
@@ -1382,6 +1382,18 @@ isOneToOne: false
                            },
 "set_crew_lead":
 { Args: { "p_crew_id": string,"p_profile_id": string }; Returns: undefined
+                           },
+"site_check_approve":
+{ Args: { "p_id": string }; Returns: Json
+                           },
+"site_check_cancel_request":
+{ Args: { "p_token": string }; Returns: Json
+                           },
+"site_check_decline":
+{ Args: { "p_id": string,"p_reason": string }; Returns: Json
+                           },
+"site_check_request":
+{ Args: { "p_email": string,"p_note"?: string,"p_selected"?: (string)[],"p_token": string }; Returns: Json
                            },
 "skip_visit":
 { Args: { "p_reason": string,"p_visit_id": string }; Returns: undefined
