@@ -168,16 +168,17 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
   const clickLock = useRef({ at: 0 });
   const [patch, setPatch] = useState<TierMatrixRule | null>(null);
   const [seenConfig, setSeenConfig] = useState(rule.config);
+  const [tierIds, setTierIds] = useState(() => tier.rows.map((_, index) => `${rule.id}:${index}`));
   const [active, setActive] = useState(service.active);
   const [priceNote, setPriceNote] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  if (rule.config !== seenConfig) { setSeenConfig(rule.config); setPatch(null); setFormError(null); }
+  if (rule.config !== seenConfig) { const next = asTier(rule.config); setSeenConfig(rule.config); setPatch(null); setFormError(null); setTierIds((ids) => next && ids.length === next.rows.length ? ids : (next?.rows ?? []).map(() => crypto.randomUUID())); }
   const current = patch ?? tier;
   const unit = qtyOf(current.quantityKey).unit;
   const chips = QTY.some((item) => item.key === current.quantityKey) ? QTY : [...QTY, qtyOf(current.quantityKey)];
   const ruleSave = useSectionAutosave<RuleSave>({
     initial: { id: rule.id, serviceId: rule.serviceId, name: rule.name, config: tier },
-    onRollback: (values) => { setPatch(values.config); setPriceNote(false); },
+    onRollback: (values) => { setPatch(values.config); setPriceNote(false); setTierIds(values.config.rows.map(() => crypto.randomUUID())); },
     action: async (values) => {
       if (!priceListId) return { ok: false, error: "No price list" };
       const fd = new FormData();
@@ -187,7 +188,7 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
   });
   const activeSave = useSectionAutosave<boolean>({ initial: service.active, onRollback: setActive, action: (on) => toggleService(service.id, on) });
   const descSave = useSectionAutosave<string>({ initial: service.description ?? "", action: (description) => { const fd = new FormData(); fd.set("id", service.id); fd.set("description", description); return updateService(fd); } });
-  const commit = (next: TierMatrixRule, choice = false, note = false) => {
+  const commit = (next: TierMatrixRule, choice = false, note = false, ids?: string[]) => {
     const parsed = pricingRuleSchema.safeParse(next);
     if (!canEdit) return;
     if (!parsed.success || parsed.data.type !== "tier_matrix") {
@@ -195,7 +196,7 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
       return;
     }
     setFormError(null);
-    setPatch(parsed.data);
+    setPatch(parsed.data); if (ids) setTierIds(ids);
     if (note) setPriceNote(true);
     ruleSave.save({ id: rule.id, serviceId: rule.serviceId, name: rule.name, config: parsed.data }, tierSaveOptions(choice));
   };
@@ -218,7 +219,7 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
         error={error}
         onRetry={() => { if (ruleSave.status === "error") ruleSave.retry(); else if (activeSave.status === "error") activeSave.retry(); else descSave.retry(); }}
         menu={canEdit ? <SectionMenu label="Service actions" items={[
-          { id: "add", label: "Add tier", onSelect: () => { if (!allowClick(clickLock.current, Date.now())) return; commit(addTier(current), true); } },
+          { id: "add", label: "Add tier", onSelect: () => { if (!allowClick(clickLock.current, Date.now())) return; commit(addTier(current), true, false, [...tierIds, crypto.randomUUID()]); } },
           { id: "json", label: "Edit as JSON", onSelect: onJson },
           { id: "copy", label: "Duplicate rule", onSelect: () => { if (!allowClick(clickLock.current, Date.now()) || !priceListId) return; const fd = new FormData(); fd.set("price_list_id", priceListId); fd.set("service_id", service.id); fd.set("name", `Copy of ${rule.name}`); fd.set("config", JSON.stringify(rule.config)); void saveRule(fd).then((result) => { if (!result.ok) toast.error(result.error); else { onPickRule(result.data.id); router.refresh(); } }); } },
           { id: "delete", label: "Delete rule", destructive: true, confirm: "Open quotes keep the price they already have.", onSelect: () => { void deleteRule(rule.id).then((result) => { if (!result.ok) toast.error(result.error); else { toast.success("Rule deleted"); onPickRule(null); router.refresh(); } }); } },
@@ -242,12 +243,12 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
             {current.rows.map((row, index) => {
               const prev = index === 0 ? 0 : current.rows[index - 1]?.upTo;
               return (
-                <div key={`${rule.id}-${index}`} className="grid grid-cols-2 gap-2 border-t py-2 md:grid-cols-[minmax(8rem,1.4fr)_7rem_5.5rem_6.5rem_2rem] md:items-center">
+                <div key={`${tierIds[index] ?? index}-${row.upTo}-${row.price}-${row.hours}-${row.cost}`} className="grid grid-cols-2 gap-2 border-t py-2 md:grid-cols-[minmax(8rem,1.4fr)_7rem_5.5rem_6.5rem_2rem] md:items-center">
                   <div className="col-span-2 text-sm tabular-nums md:col-span-1">{prev == null ? "And up" : `${(index === 0 ? 0 : Math.floor(prev) + 1).toLocaleString()} – `}<Input aria-label={`Up to tier ${index + 1}`} inputMode="numeric" readOnly={!canEdit} className="inline-flex h-8 w-24 tabular-nums max-md:h-11" defaultValue={row.upTo ?? ""} placeholder="no cap" onBlur={(event) => setCell(index, "upTo", event.target.value)} /></div>
                   <label className="block"><span className="mb-1 block text-xs text-muted-foreground md:hidden">Price, tier {index + 1}</span><Input aria-label={`Price, tier ${index + 1}`} data-weight="critical" inputMode="decimal" readOnly={!canEdit} className="h-8 tabular-nums max-md:h-11" defaultValue={row.price} onBlur={(event) => setCell(index, "price", event.target.value)} /></label>
                   <label className="block"><span className="mb-1 block text-xs text-muted-foreground md:hidden">Hours, tier {index + 1}</span><Input aria-label={`Hours, tier ${index + 1}`} data-weight="internal" inputMode="decimal" readOnly={!canEdit} className="h-8 border-dashed bg-muted tabular-nums max-md:h-11" defaultValue={row.hours} onBlur={(event) => setCell(index, "hours", event.target.value)} /></label>
                   <label className="block"><span className="mb-1 block text-xs text-muted-foreground md:hidden">Cost, tier {index + 1}</span><Input aria-label={`Cost, tier ${index + 1}`} data-weight="internal" inputMode="decimal" readOnly={!canEdit} className="h-8 border-dashed bg-muted tabular-nums max-md:h-11" defaultValue={row.cost} onBlur={(event) => setCell(index, "cost", event.target.value)} /></label>
-                  {canEdit ? <Button type="button" variant="ghost" size="icon-sm" className="max-md:size-11" aria-label={`Remove tier ${index + 1}`} disabled={current.rows.length === 1} onClick={() => commit({ ...current, rows: current.rows.filter((_, rowIndex) => rowIndex !== index) }, true)}>×</Button> : <span />}
+                  {canEdit ? <Button type="button" variant="ghost" size="icon-sm" className="max-md:size-11" aria-label={`Remove tier ${index + 1}`} disabled={current.rows.length === 1} onClick={() => commit({ ...current, rows: current.rows.filter((_, rowIndex) => rowIndex !== index) }, true, false, tierIds.filter((_, rowIndex) => rowIndex !== index))}>×</Button> : <span />}
                 </div>
               );
             })}
