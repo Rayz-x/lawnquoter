@@ -1167,7 +1167,63 @@ isOneToOne: false
                 }
           }
           Views: {
-            [_ in never]: never
+            "site_checks_crew": {
+                  Row: {
+                    "actuals": Json | null,"assigned_to": string | null,"completed_at": string | null,"completed_by": string | null,"created_at": string | null,"decline_reason": string | null,"due_on": string | null,"id": string | null,"line_ids": (string)[] | null,"measurement_id": string | null,"method": Database["public"]['Enums']["site_check_method"] | null,"org_id": string | null,"origin": Database["public"]['Enums']["site_check_origin"] | null,"outcome": string | null,"photo_paths": (string)[] | null,"property_id": string | null,"quote_id": string | null,"reasons": (string)[] | null,"resolved_version": number | null,"status": Database["public"]['Enums']["site_check_status"] | null,"updated_at": string | null,"visit_id": string | null,"waive_reason": string | null,"window_end": string | null,"window_start": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                           "actuals"?: Json | null,"assigned_to"?: string | null,"completed_at"?: string | null,"completed_by"?: string | null,"created_at"?: string | null,"decline_reason"?: string | null,"due_on"?: string | null,"id"?: string | null,"line_ids"?: (string)[] | null,"measurement_id"?: string | null,"method"?: Database["public"]['Enums']["site_check_method"] | null,"org_id"?: string | null,"origin"?: Database["public"]['Enums']["site_check_origin"] | null,"outcome"?: string | null,"photo_paths"?: (string)[] | null,"property_id"?: string | null,"quote_id"?: string | null,"reasons"?: (string)[] | null,"resolved_version"?: number | null,"status"?: Database["public"]['Enums']["site_check_status"] | null,"updated_at"?: string | null,"visit_id"?: string | null,"waive_reason"?: string | null,"window_end"?: string | null,"window_start"?: string | null
+                         }
+                        Update: {
+                           "actuals"?: Json | null,"assigned_to"?: string | null,"completed_at"?: string | null,"completed_by"?: string | null,"created_at"?: string | null,"decline_reason"?: string | null,"due_on"?: string | null,"id"?: string | null,"line_ids"?: (string)[] | null,"measurement_id"?: string | null,"method"?: Database["public"]['Enums']["site_check_method"] | null,"org_id"?: string | null,"origin"?: Database["public"]['Enums']["site_check_origin"] | null,"outcome"?: string | null,"photo_paths"?: (string)[] | null,"property_id"?: string | null,"quote_id"?: string | null,"reasons"?: (string)[] | null,"resolved_version"?: number | null,"status"?: Database["public"]['Enums']["site_check_status"] | null,"updated_at"?: string | null,"visit_id"?: string | null,"waive_reason"?: string | null,"window_end"?: string | null,"window_start"?: string | null
+                         }
+                        Relationships: [
+                    {
+      foreignKeyName: "site_checks_assigned_to_fkey"
+      columns: ["assigned_to"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "site_checks_completed_by_fkey"
+      columns: ["completed_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "site_checks_measurement_id_fkey"
+      columns: ["measurement_id"]
+isOneToOne: false
+      referencedRelation: "measurements"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "site_checks_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "site_checks_property_id_fkey"
+      columns: ["property_id"]
+isOneToOne: false
+      referencedRelation: "properties"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "site_checks_quote_id_fkey"
+      columns: ["quote_id"]
+isOneToOne: false
+      referencedRelation: "quotes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "site_checks_visit_id_fkey"
+      columns: ["visit_id"]
+isOneToOne: false
+      referencedRelation: "visits"
+      referencedColumns: ["id"]
+    }
+                  ]
+                }
           }
           Functions: {
             "accept_org_invite":

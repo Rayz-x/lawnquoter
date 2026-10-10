@@ -1,8 +1,9 @@
 -- Site-check schema, org setting defaults, and RLS.
--- Crew may select checks attached to a visit they can read; they never get
--- price columns from this table (there are none). Cross-org denied.
+-- Office selects site_checks (including request contact fields). Crews read
+-- through site_checks_crew, which omits requested_email / request_note.
+-- Cross-org denied.
 
-select plan(31);
+select plan(35);
 
 select has_table('public', 'site_checks', 'site_checks exists');
 select has_type('public', 'site_check_status', 'site_check_status enum exists');
@@ -219,28 +220,61 @@ insert into public.visits (
 
 select tests.authenticate_as(:'owner1'::uuid, :'org1'::uuid, 'owner');
 update public.site_checks
-set visit_id = :'visit_id'::uuid, method = 'crew_stop', status = 'scheduled'
+set
+  visit_id = :'visit_id'::uuid,
+  method = 'crew_stop',
+  status = 'scheduled',
+  requested_email = 'customer@example.com',
+  request_note = 'side gate locked Mondays'
 where id = :'sc1'::uuid;
+
+select is(
+  (
+    select requested_email || ':' || request_note
+    from public.site_checks
+    where id = :'sc1'::uuid
+  ),
+  'customer@example.com:side gate locked Mondays',
+  'office can read requested_email and request_note on site_checks'
+);
+
+select ok(
+  not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'site_checks_crew'
+      and column_name in ('requested_email', 'request_note')
+  ),
+  'site_checks_crew omits requested_email and request_note'
+);
 
 select tests.authenticate_as(:'crew1'::uuid, :'org1'::uuid, 'crew');
 select is(
   (select count(*) from public.site_checks where id = :'sc1'::uuid),
+  0::bigint,
+  'crew cannot select the site_checks table even when attached to their visit'
+);
+select is(
+  (select count(*) from public.site_checks_crew where id = :'sc1'::uuid),
   1::bigint,
-  'crew can select a site check attached to their in-window visit'
+  'crew can select a site check through site_checks_crew'
 );
 select is(
   (
     select count(*)
-    from public.site_checks sc
+    from public.site_checks_crew sc
     where sc.id = :'sc1'::uuid
       and sc.actuals is null
+      and sc.method = 'crew_stop'
   ),
   1::bigint,
-  'crew select returns the site_checks row without needing quote prices'
+  'crew view returns the site check without quote prices or request contact fields'
 );
 
 -- RLS UPDATE with a failing USING clause updates zero rows (no exception).
 update public.site_checks set status = 'done' where id = :'sc1'::uuid;
+select tests.authenticate_as(:'owner1'::uuid, :'org1'::uuid, 'owner');
 select is(
   (select status::text from public.site_checks where id = :'sc1'::uuid),
   'scheduled',
@@ -250,8 +284,13 @@ select is(
 select tests.authenticate_as(:'lead1'::uuid, :'org1'::uuid, 'crew_lead');
 select is(
   (select count(*) from public.site_checks where id = :'sc1'::uuid),
+  0::bigint,
+  'crew_lead cannot select the site_checks table'
+);
+select is(
+  (select count(*) from public.site_checks_crew where id = :'sc1'::uuid),
   1::bigint,
-  'crew_lead can select a site check on their visit'
+  'crew_lead can select a site check through site_checks_crew'
 );
 
 -- Same-org guard: property from org2 cannot be attached

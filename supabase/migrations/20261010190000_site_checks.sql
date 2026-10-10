@@ -11,8 +11,8 @@
 --   * site_checks table + one-open-per-quote unique index
 --   * org settings helpers: site_check_auto_approve (default false),
 --     site_check_threshold (default 0.55)
---   * RLS: office via can_read_pricing / can_edit_customers; crew may select
---     checks attached to a visit they can read (no price columns on the table)
+--   * RLS: office via can_read_pricing / can_edit_customers on site_checks.
+--     Crews read through site_checks_crew (omits requested_email / request_note).
 
 -- ---------------------------------------------------------------------------
 -- Enums
@@ -228,6 +228,49 @@ grant execute on function private.site_check_auto_approve(uuid) to authenticated
 grant execute on function private.site_check_threshold(uuid) to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
+-- Crew-safe read surface (no customer request contact fields)
+-- ---------------------------------------------------------------------------
+-- Office keeps full select on site_checks (including requested_email /
+-- request_note). Crews never select the base table; they use this view, which
+-- omits those columns and only returns checks on visits they can read.
+create view public.site_checks_crew as
+select
+  sc.id,
+  sc.org_id,
+  sc.quote_id,
+  sc.property_id,
+  sc.measurement_id,
+  sc.status,
+  sc.origin,
+  sc.window_start,
+  sc.window_end,
+  sc.decline_reason,
+  sc.resolved_version,
+  sc.method,
+  sc.reasons,
+  sc.line_ids,
+  sc.due_on,
+  sc.visit_id,
+  sc.assigned_to,
+  sc.actuals,
+  sc.photo_paths,
+  sc.outcome,
+  sc.completed_by,
+  sc.completed_at,
+  sc.waive_reason,
+  sc.created_at,
+  sc.updated_at
+from public.site_checks sc
+where sc.visit_id is not null
+  and private.crew_can_read_visit(sc.org_id, sc.visit_id);
+
+comment on view public.site_checks_crew is
+  'Crew/crew_lead site-check rows for their visits. Omits requested_email and request_note.';
+
+revoke all on public.site_checks_crew from public, anon;
+grant select on public.site_checks_crew to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
 -- RLS
 -- ---------------------------------------------------------------------------
 alter table public.site_checks enable row level security;
@@ -235,13 +278,7 @@ alter table public.site_checks force row level security;
 
 create policy site_checks_select on public.site_checks
   for select to authenticated
-  using (
-    (select private.can_read_pricing(org_id))
-    or (
-      visit_id is not null
-      and private.crew_can_read_visit(org_id, visit_id)
-    )
-  );
+  using ((select private.can_read_pricing(org_id)));
 
 create policy site_checks_insert on public.site_checks
   for insert to authenticated
