@@ -42,5 +42,3 @@ export function pdfHeadingFamily(font: string | null | undefined) {
 
 /** Raster mark for the "Powered by LawnQuoter" footer. react-pdf cannot load SVG. */
 export const pdfMarkPath = path.join(process.cwd(), "public/brand/lq-mark-256.png");
-
-export { pdfBrand } from "./pdf-brand";
