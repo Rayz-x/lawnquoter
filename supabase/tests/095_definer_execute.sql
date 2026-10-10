@@ -55,6 +55,7 @@ select is(
     'crew_day_pack',
     'crew_sync',
     'generate_agreement_visits',
+    'issue_invoice',
     'my_crews',
     'office_attention_tray',
     'office_reschedule_visit',
