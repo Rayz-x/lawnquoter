@@ -51,11 +51,14 @@ select is(
   array[
     'accept_org_invite',
     'add_crew_member',
+    'agreement_installment_balance',
     'assign_visit',
     'cancel_visit',
     'claim_lead_for_today',
+    'configure_seasonal_installments',
     'convert_accepted_quote',
     'create_crew',
+    'create_installment_invoice',
     'create_org',
     'create_org_invite',
     'crew_ack_day_pack',
@@ -78,6 +81,7 @@ select is(
     'reorder_route_visits',
     'revoke_org_invite',
     'set_active_org',
+    'set_agreement_season_price',
     'set_crew_lead',
     'set_lead_for_today',
     'site_check_approve',
@@ -85,6 +89,7 @@ select is(
     'site_check_decline',
     'site_check_request',
     'skip_visit',
+    'true_up_installment_agreement',
     'update_agreement_schedule'
   ]::text[],
   'anon or authenticated can execute only the intended public security definers'
