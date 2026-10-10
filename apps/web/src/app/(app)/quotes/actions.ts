@@ -249,6 +249,7 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
         .maybeSingle(),
     ]);
     if (propertyError) return fail(propertyError.message);
+    if (!propertyRow) return fail("Property not found");
     if (measurementError) return fail(measurementError.message);
     features = measurement?.measurement_features ?? [];
     property = {

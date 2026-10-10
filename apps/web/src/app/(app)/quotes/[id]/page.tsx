@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireOrg } from "@/lib/auth/session";
 import { formatMoney, formatMoneyRange } from "@/lib/money";
-import { priceCatalogLine, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
+import { catalogPickerRules, priceCatalogLine, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
 import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
 import { orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/server";
@@ -250,7 +250,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             <PriceFromCatalog
               quoteId={quote.id}
               versionId={versionId}
-              rules={(rules ?? []).flatMap((r) => {
+              rules={catalogPickerRules(rules ?? [], lists ?? []).flatMap((r) => {
                 const stored = listModifiers.get(r.price_list_id);
                 if (stored === undefined) return [];
                 const priced = priceCatalogLine({

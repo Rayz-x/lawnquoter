@@ -53,6 +53,14 @@ export type PropertyPricingInput = {
   confidence?: number | null;
 };
 
+export function catalogPickerRules<T extends { price_list_id: string }>(
+  rules: readonly T[],
+  lists: readonly { id: string; status: string }[] | null | undefined,
+): T[] {
+  const active = new Set((lists ?? []).filter((list) => list.status === "active").map((list) => list.id));
+  return rules.filter((rule) => active.has(rule.price_list_id));
+}
+
 export function propertyPricingContext(input: PropertyPricingInput): PropertyContext {
   const slope = input.slope && (SLOPES as readonly string[]).includes(input.slope) ? (input.slope as Slope) : undefined;
   return {

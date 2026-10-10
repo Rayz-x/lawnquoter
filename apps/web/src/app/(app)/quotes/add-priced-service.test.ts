@@ -139,13 +139,35 @@ describe("addPricedService", () => {
     expect(inserts[0]?.price).toBe(80);
   });
 
-  it.each(["quotes", "properties", "measurements"])("does not price a line when the %s read fails", async (table) => {
-    tables[table] = [{ __error: "read failed" }];
+  it.each(["quotes", "properties", "measurements", "pricing_rules", "price_lists"])(
+    "does not price a line when the %s read fails",
+    async (table) => {
+      tables[table] = [{ __error: "read failed" }];
+      const result = await addPricedService(QUOTE_ID, VERSION_ID, forgedForm());
+      expect(result).toEqual({ ok: false, error: "read failed" });
+      expect(inserts).toHaveLength(0);
+    },
+  );
 
+  it("does not price a line when the property row is missing", async () => {
+    tables.properties = [];
     const result = await addPricedService(QUOTE_ID, VERSION_ID, forgedForm());
-
-    expect(result).toEqual({ ok: false, error: "read failed" });
+    expect(result).toEqual({ ok: false, error: "Property not found" });
     expect(inserts).toHaveLength(0);
+  });
+
+  it("does not price a rule from another company", async () => {
+    tables.pricing_rules = [{ ...tables.pricing_rules[0], org_id: "org-2" }];
+    const result = await addPricedService(QUOTE_ID, VERSION_ID, forgedForm());
+    expect(result).toEqual({ ok: false, error: "Pricing rule not found" });
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("does not charge a narrow gate when the width is zero", async () => {
+    tables.properties = [{ ...tables.properties[0], gate_width_in: 0 }];
+    const result = await addPricedService(QUOTE_ID, VERSION_ID, forgedForm());
+    expect(result).toEqual({ ok: true });
+    expect(inserts[0]?.price).toBe(68.75);
   });
 
   it("does not price a line from an inactive price list", async () => {
