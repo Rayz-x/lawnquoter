@@ -10,7 +10,7 @@ import {
 describe("gate width chips", () => {
   it("lists Under 48 in, 48 in+, and No gate — not Unknown", () => {
     expect(GATE_WIDTH_CHIPS.map((chip) => chip.label)).toEqual(["Under 48 in", "48 in+", "No gate"]);
-    expect(GATE_WIDTH_CHIPS.some((chip) => chip.value === "unknown")).toBe(false);
+    expect(GATE_WIDTH_CHIPS.map((chip) => chip.value)).not.toContain("unknown");
   });
 
   it("maps chips to stored widths and back; empty chip is unknown", () => {
