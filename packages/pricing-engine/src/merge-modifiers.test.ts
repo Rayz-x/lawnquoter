@@ -34,6 +34,14 @@ describe("mergeModifiers", () => {
     expect(priced.price).toBe(45);
   });
 
+  it("does not charge a narrow gate when the width is 0 or less", () => {
+    const merged = mergeModifiers({});
+    for (const gateWidthIn of [0, -4]) {
+      const priced = priceLine({ rule: small, quantities: {}, modifiers: merged, context: { gateWidthIn } });
+      expect(priced.breakdown.some((row) => row.label.startsWith("Narrow gate"))).toBe(false);
+    }
+  });
+
   it("keeps a stored override and fills every omitted key", () => {
     const merged = mergeModifiers({ minimum: { price: 80 } });
     expect(merged.minimum).toEqual({ price: 80 });
