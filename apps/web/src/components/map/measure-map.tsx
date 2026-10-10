@@ -6,7 +6,7 @@ import * as maplibregl from "maplibre-gl";
 import type { Map as MlMap } from "maplibre-gl";
 import { useEffect, useRef } from "react";
 import type { FeatureCategory, Geometry } from "@lawnquoter/shared";
-import { FEATURE_COLORS, isLineCategory } from "@lawnquoter/shared";
+import { FEATURE_COLORS } from "@lawnquoter/shared";
 import bbox from "@turf/bbox";
 import { feature, featureCollection } from "@turf/helpers";
 import { TerraDraw } from "terra-draw";
@@ -22,12 +22,11 @@ type Props = {
   footprint: Geometry | null;
   features: StudioFeature[];
   mode: DrawMode;
-  category: FeatureCategory;
   onDrawn: (geometry: Geometry) => void;
   className?: string;
 };
 
-export function MeasureMap({ location, parcel, footprint, features, mode, category, onDrawn, className }: Props) {
+export function MeasureMap({ location, parcel, footprint, features, mode, onDrawn, className }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const drawRef = useRef<TerraDraw | null>(null);
@@ -206,8 +205,6 @@ export function MeasureMap({ location, parcel, footprint, features, mode, catego
     <div
       ref={containerRef}
       className={className}
-      data-category={category}
-      data-line={isLineCategory(category) ? "1" : "0"}
     />
   );
 }

@@ -166,7 +166,6 @@ export function MeasureStudio({
           footprint={footprint}
           features={features}
           mode={mode}
-          category={category}
           onDrawn={onDrawn}
           className="h-[min(70vh,40rem)] w-full overflow-hidden rounded-lg"
         />
