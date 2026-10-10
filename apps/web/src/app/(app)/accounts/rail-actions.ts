@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { SALES_ROLES, hasRole } from "@lawnquoter/shared";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
+import { WEBSITE_FORM_SOURCE, parseLeadSource } from "@/lib/leads/lead-source";
 import { createClient } from "@/lib/supabase/server";
 
 async function editor() {
@@ -29,7 +30,7 @@ export type BillingDraft = {
   parent_account_id: string;
 };
 
-export type SalesDraft = { lead_source: string; tags: string };
+export type SalesDraft = { lead_source: string; lead_source_other: string; tags: string };
 export type NotesDraft = { notes: string };
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -90,18 +91,35 @@ export async function updateAccountBilling(id: string, values: BillingDraft): Pr
 export async function updateAccountSales(id: string, values: SalesDraft): Promise<ActionResult> {
   const session = await editor();
   if (!session) return fail("You don't have permission to edit customers.");
-  const leadSource = values.lead_source.trim();
-  if (leadSource.length > 100) return fail("Lead source is too long.");
   const tags = values.tags
     .split(",")
     .map((tag) => tag.trim())
     .filter(Boolean)
     .slice(0, 20);
   if (tags.some((tag) => tag.length > 40)) return fail("Each tag must be 40 characters or less.");
+
   const supabase = await createClient();
+  // Preserve system-set Website form when the rail only saves tags / other fields.
+  if (values.lead_source.trim() === WEBSITE_FORM_SOURCE) {
+    const { data, error } = await supabase
+      .from("accounts")
+      .update({ tags })
+      .eq("id", id)
+      .eq("org_id", session.orgId)
+      .eq("lead_source", WEBSITE_FORM_SOURCE)
+      .select("id");
+    const blocked = unchanged(error, data);
+    if (blocked) return blocked;
+    revalidatePath(`/accounts/${id}`);
+    return { ok: true };
+  }
+
+  const lead = parseLeadSource(values.lead_source, values.lead_source_other);
+  if (!lead.ok) return fail(lead.error);
+
   const { data, error } = await supabase
     .from("accounts")
-    .update({ lead_source: leadSource || null, tags })
+    .update({ lead_source: lead.lead_source, lead_source_other: lead.lead_source_other, tags })
     .eq("id", id)
     .eq("org_id", session.orgId)
     .select("id");

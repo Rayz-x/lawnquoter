@@ -6,6 +6,7 @@ import { SALES_ROLES, hasRole } from "@lawnquoter/shared";
 import { requireOrg } from "@/lib/auth/session";
 import { emptyToNull, fail, type ActionResult } from "@/lib/actions/result";
 import { resolvePropertyGeo } from "@/lib/geo/resolve";
+import { parseLeadSource } from "@/lib/leads/lead-source";
 import { createClient } from "@/lib/supabase/server";
 
 const optionalText = (max: number) => z.string().trim().max(max).optional().or(z.literal(""));
@@ -23,9 +24,20 @@ const accountSchema = z.object({
   tax_exempt: z.coerce.boolean().default(false),
   consolidated_invoicing: z.coerce.boolean().default(false),
   parent_account_id: z.string().uuid().optional().or(z.literal("")),
-  lead_source: optionalText(100),
+  lead_source: optionalText(40),
+  lead_source_other: optionalText(100),
   notes: optionalText(5000),
 });
+
+function leadFields(source: string | undefined, other: string | undefined) {
+  const parsed = parseLeadSource(source ?? "", other ?? "");
+  if (!parsed.ok) return parsed;
+  return {
+    ok: true as const,
+    lead_source: parsed.lead_source,
+    lead_source_other: parsed.lead_source_other,
+  };
+}
 
 async function requireAccountEditor() {
   const session = await requireOrg();
@@ -52,10 +64,19 @@ export async function createAccount(fd: FormData): Promise<ActionResult<{ id: st
   if (!session) return fail("You don't have permission to edit customers.");
   const parsed = parseAccount(fd);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
+  const lead = leadFields(parsed.data.lead_source, parsed.data.lead_source_other);
+  if (!lead.ok) return fail(lead.error);
+  const { lead_source: _ls, lead_source_other: _lso, ...rest } = parsed.data;
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("accounts")
-    .insert({ ...emptyToNull(parsed.data), org_id: session.orgId, created_by: session.userId })
+    .insert({
+      ...emptyToNull(rest),
+      lead_source: lead.lead_source,
+      lead_source_other: lead.lead_source_other,
+      org_id: session.orgId,
+      created_by: session.userId,
+    })
     .select("id")
     .single();
   if (error) return fail(error.message);
@@ -75,10 +96,17 @@ export async function updateAccount(id: string, fd: FormData): Promise<ActionRes
   if (!session) return fail("You don't have permission to edit customers.");
   const parsed = parseAccount(fd);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
+  const lead = leadFields(parsed.data.lead_source, parsed.data.lead_source_other);
+  if (!lead.ok) return fail(lead.error);
+  const { lead_source: _ls, lead_source_other: _lso, ...rest } = parsed.data;
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("accounts")
-    .update(emptyToNull(parsed.data))
+    .update({
+      ...emptyToNull(rest),
+      lead_source: lead.lead_source,
+      lead_source_other: lead.lead_source_other,
+    })
     .eq("id", id)
     .eq("org_id", session.orgId)
     .select("id");
