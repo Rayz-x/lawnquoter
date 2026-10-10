@@ -9,18 +9,12 @@ import type { FeatureCategory, Geometry } from "@lawnquoter/shared";
 import { FEATURE_COLORS, isLineCategory } from "@lawnquoter/shared";
 import bbox from "@turf/bbox";
 import { feature, featureCollection } from "@turf/helpers";
-import {
-  TerraDraw,
-  TerraDrawFreehandMode,
-  TerraDrawLineStringMode,
-  TerraDrawPolygonMode,
-  TerraDrawSelectMode,
-} from "terra-draw";
-import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
+import { TerraDraw } from "terra-draw";
 import type { StudioFeature } from "@/lib/geo/features";
 import { ESRI_GEOCODE_ATTRIBUTION, imageryStyle, mapAttributionControl } from "./basemap";
+import { MeasureDrawAdapter, applyMeasureTool, createMeasureDrawModes, type DrawMode } from "./measure-gestures";
 
-export type DrawMode = "static" | "polygon" | "linestring" | "freehand" | "select" | "cut";
+export type { DrawMode };
 
 type Props = {
   location: Geometry | null;
@@ -37,6 +31,8 @@ export function MeasureMap({ location, parcel, footprint, features, mode, catego
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const drawRef = useRef<TerraDraw | null>(null);
+  const adapterRef = useRef<MeasureDrawAdapter | null>(null);
+  const modeRef = useRef(mode);
   const onDrawnRef = useRef(onDrawn);
   const fittedRef = useRef(false);
 
@@ -52,32 +48,24 @@ export function MeasureMap({ location, parcel, footprint, features, mode, catego
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     mapRef.current = map;
 
-    const snap = { toCoordinate: true, toLine: true };
+    const adapter = new MeasureDrawAdapter(map);
+    adapterRef.current = adapter;
     const draw = new TerraDraw({
-      adapter: new TerraDrawMapLibreGLAdapter({ map }),
-      modes: [
-        new TerraDrawPolygonMode({ snapping: snap }),
-        new TerraDrawLineStringMode({ snapping: snap }),
-        new TerraDrawFreehandMode(),
-        new TerraDrawSelectMode({
-          flags: {
-            polygon: { feature: { draggable: true, coordinates: { midpoints: true, draggable: true, deletable: true } } },
-            linestring: { feature: { draggable: true, coordinates: { midpoints: true, draggable: true, deletable: true } } },
-          },
-        }),
-      ],
+      adapter,
+      modes: createMeasureDrawModes(),
     });
     drawRef.current = draw;
 
     map.on("load", () => {
       draw.start();
-      draw.setMode("select");
       draw.on("finish", (id) => {
         const f = draw.getSnapshotFeature(id);
         if (!f?.geometry) return;
         onDrawnRef.current(f.geometry as Geometry);
         draw.removeFeatures([id]);
       });
+      const current = adapterRef.current;
+      if (current) applyMeasureTool(draw, current, modeRef.current);
     });
 
     return () => {
@@ -89,6 +77,7 @@ export function MeasureMap({ location, parcel, footprint, features, mode, catego
       map.remove();
       mapRef.current = null;
       drawRef.current = null;
+      adapterRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -98,14 +87,11 @@ export function MeasureMap({ location, parcel, footprint, features, mode, catego
   }, [onDrawn]);
 
   useEffect(() => {
+    modeRef.current = mode;
     const draw = drawRef.current;
-    if (!draw?.enabled) return;
-    const next = mode === "cut" ? "polygon" : mode === "static" ? "select" : mode;
-    try {
-      draw.setMode(next);
-    } catch {
-      /* mode not ready yet */
-    }
+    const adapter = adapterRef.current;
+    if (!draw || !adapter) return;
+    applyMeasureTool(draw, adapter, mode);
   }, [mode]);
 
   useEffect(() => {
