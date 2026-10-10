@@ -2,7 +2,9 @@
 -- Integer cents, issued-invoice lock, visit billed-once, unique Stripe event id.
 -- Staff have no insert/update on payments. Crew roles cannot read billing tables.
 
--- Allow invoice/payment parents in same-org child guards.
+-- Same-org child guards. Keep every parent table from main's latest
+-- definition (20261009190000_jobs_scheduling_schema.sql), then add
+-- visit_tasks / invoices / payments for this ledger.
 create or replace function private.assert_same_org(p_table text, p_id text, p_org uuid)
 returns void
 language plpgsql
@@ -17,10 +19,12 @@ begin
     return;
   end if;
   if p_table not in (
+    -- main (jobs scheduling) allowlist — do not drop any of these
     'accounts', 'properties', 'measurements', 'quotes', 'quote_versions',
     'quote_sections', 'quote_line_items', 'services', 'price_lists',
-    'agreements', 'jobs', 'crews', 'routes', 'visits', 'visit_tasks',
-    'invoices', 'payments'
+    'agreements', 'jobs', 'crews', 'routes', 'visits',
+    -- billing ledger additions
+    'visit_tasks', 'invoices', 'payments'
   ) then
     raise exception 'unsupported parent table %', p_table using errcode = '0A000';
   end if;
@@ -452,9 +456,8 @@ create policy account_credits_write on public.account_credits
 create policy billing_events_select on public.billing_events
   for select to authenticated
   using ((select private.can_read_pricing(org_id)));
-create policy billing_events_insert on public.billing_events
-  for insert to authenticated
-  with check ((select private.can_edit_customers(org_id)));
+-- No authenticated insert/update/delete: append-only history is written only
+-- by service_role (server-side functions / webhooks).
 
 create policy stripe_events_select on public.stripe_events
   for select to authenticated
@@ -469,10 +472,11 @@ grant select, insert, update, delete on public.invoice_lines to authenticated;
 grant select on public.payments to authenticated;
 grant select, insert, update, delete on public.credit_notes to authenticated;
 grant select, insert, update, delete on public.account_credits to authenticated;
-grant select, insert on public.billing_events to authenticated;
+grant select on public.billing_events to authenticated;
 grant select on public.stripe_events to authenticated;
 
 revoke insert, update, delete on public.payments from public, anon, authenticated;
+revoke insert, update, delete on public.billing_events from public, anon, authenticated;
 revoke insert, update, delete on public.stripe_events from public, anon, authenticated;
 
 grant all on public.invoice_counters, public.invoices, public.invoice_lines,

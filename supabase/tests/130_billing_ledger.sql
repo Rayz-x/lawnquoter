@@ -1,5 +1,5 @@
 -- I01 / audit A3: billing ledger RLS, payment write lockdown, issued-invoice lock.
-select plan(20);
+select plan(21);
 
 select tests.create_user('bill-owner@example.com', 'Bill Owner') as owner \gset
 select tests.create_user('bill-crew@example.com', 'Bill Crew') as crew \gset
@@ -53,6 +53,16 @@ select throws_ok(
   '42501',
   null,
   'staff cannot update payment status'
+);
+select throws_ok(
+  format(
+    $$ insert into public.billing_events (org_id, invoice_id, kind, payload)
+       values (%L, %L, 'invoice.issued', '{}'::jsonb) $$,
+    :'org', :'inv'
+  ),
+  '42501',
+  null,
+  'staff cannot insert billing events'
 );
 
 -- Issued invoice locks lines and totals ---------------------------------------
