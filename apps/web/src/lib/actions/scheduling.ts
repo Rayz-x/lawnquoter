@@ -156,6 +156,30 @@ export async function assignVisit(input: {
   return { ok: true, data: { routeId: data } };
 }
 
+export async function rescheduleVisit(input: {
+  visitId: string;
+  crewId: string;
+  date: string;
+}): Promise<ActionResult<{ routeId: string }>> {
+  await requireOrg();
+  const parsed = z
+    .object({
+      visitId: idSchema,
+      crewId: idSchema,
+      date: dateSchema,
+    })
+    .safeParse(input);
+  if (!parsed.success) return fail("Invalid visit reschedule");
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("office_reschedule_visit", {
+    p_visit_id: parsed.data.visitId,
+    p_crew_id: parsed.data.crewId,
+    p_service_date: parsed.data.date,
+  });
+  if (error || data == null) return fail(error?.message ?? "Could not reschedule visit");
+  return { ok: true, data: { routeId: data } };
+}
+
 export async function skipVisit(
   visitId: string,
   reason: "gate_locked" | "dog_loose" | "customer_skip" | "weather" | "equipment" | "unsafe" | "other",
