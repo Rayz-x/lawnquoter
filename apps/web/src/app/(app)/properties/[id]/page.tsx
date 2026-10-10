@@ -1,35 +1,51 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Ruler } from "lucide-react";
 import { geometrySchema } from "@lawnquoter/shared";
+import { mergeModifiers } from "@lawnquoter/pricing-engine";
 import { PageHeader } from "@/components/app-shell/page-header";
-import { PropertyMap } from "@/components/map/property-map";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { PropertyForm } from "../../accounts/[id]/property-form";
-import { RegeocodeButton } from "./regeocode-button";
+import { geocodeAddress } from "@/lib/geo/geocode";
+import { PropertyWorkspace } from "./property-workspace";
 
 export const metadata: Metadata = { title: "Property" };
+
+const OPEN_QUOTES = ["draft", "sent", "viewed", "changed"] as const;
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function parseGeom(value: unknown) {
   const parsed = geometrySchema.safeParse(value);
   return parsed.success ? parsed.data : null;
 }
 
-export default async function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
+const gateWidthIn = (raw: number | null) => (raw != null && raw > 0 ? raw : null);
+function slopeHint(slope: string | null, raw: unknown) {
+  const row = slope ? mergeModifiers(raw).slope?.[slope] : null;
+  if (!row?.hoursPct && !row?.pricePct) return slope ? "No price change" : "Set a slope to price it";
+  const pct = (n: number, label: string) => `${n > 0 ? "+" : ""}${Math.round(n * 100)}% ${label}`;
+  return [row.hoursPct ? pct(row.hoursPct, "hours") : "", row.pricePct ? pct(row.pricePct, "price") : ""].filter(Boolean).join(" · ");
+}
+export default async function PropertyDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ tab?: string }> }) {
   const { id } = await params;
+  const { tab } = await (searchParams ?? Promise.resolve({ tab: undefined }));
   const session = await requireOrg();
   const supabase = await createClient();
-  const [{ data: property, error: propertyError }, { data: access, error: accessError }, { data: geo, error: geoError }, { data: nearby, error: nearbyError }] = await Promise.all([
+  const org = session.orgId;
+  const [{ data: property, error: propertyError }, { data: access, error: accessError }, { data: geo, error: geoError }, { data: nearby, error: nearbyError }, quotes, jobs, visits, agreement, activities, measurement, priceLists, zoneRows, openQuotes] = await Promise.all([
     supabase.from("properties").select("*, accounts(id, name, type)").eq("id", id).eq("org_id", session.orgId).maybeSingle(),
     supabase.from("property_access").select("gate_code, access_notes").eq("property_id", id).eq("org_id", session.orgId).maybeSingle(),
     supabase.rpc("property_geometry", { p_property: id }),
     supabase.rpc("properties_near", { p_property: id, p_radius_m: 800 }),
+    supabase.from("quotes").select("id, number, title, status").eq("property_id", id).eq("org_id", org).order("created_at", { ascending: false }).limit(8),
+    supabase.from("jobs").select("id, title, status").eq("property_id", id).eq("org_id", org).order("created_at", { ascending: false }).limit(8),
+    supabase.from("visits").select("id, status, scheduled_date, occurrence_date, routes(crews(name))").eq("property_id", id).eq("org_id", org).order("occurrence_date", { ascending: false }).limit(8),
+    supabase.from("agreements").select("frequency, preferred_dow").eq("property_id", id).eq("org_id", org).eq("status", "active").limit(1),
+    supabase.from("activities").select("id, summary, occurred_at").eq("property_id", id).eq("org_id", org).order("occurred_at", { ascending: false }).limit(8),
+    supabase.from("measurements").select("measurement_features(category, area_sqft)").eq("property_id", id).eq("org_id", org).eq("status", "current").order("updated_at", { ascending: false }).limit(1),
+    supabase.from("price_lists").select("modifiers").eq("org_id", org).eq("status", "active").order("version", { ascending: false }).limit(1),
+    supabase.from("properties").select("zone").eq("org_id", org).not("zone", "is", null).limit(200),
+    supabase.from("quotes").select("id", { count: "exact", head: true }).eq("property_id", id).eq("org_id", org).in("status", [...OPEN_QUOTES]),
   ]);
   const loadError = propertyError?.message ?? accessError?.message ?? geoError?.message ?? nearbyError?.message ?? null;
   if (loadError) {
@@ -46,81 +62,28 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
     );
   }
   if (!property) notFound();
-
   const g = (geo ?? {}) as Record<string, unknown>;
   const location = parseGeom(g.location);
   const parcel = parseGeom(g.parcel);
   const footprint = parseGeom(g.footprint);
-
-  return (
-    <>
-      <PageHeader
-        title={property.name ?? property.formatted_address ?? property.address_line1}
-        description={
-          property.accounts ? (
-            `${property.accounts.name}`
-          ) : undefined
-        }
-        actions={
-          <>
-            <RegeocodeButton propertyId={property.id} />
-            <Button render={<Link href={`/properties/${property.id}/measure`} />}>
-              <Ruler data-icon="inline-start" />
-              Measure
-            </Button>
-          </>
-        }
-      />
-      <div className="page-pad grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Site map</CardTitle>
-            <CardDescription>
-              Yellow: parcel ({property.parcel_source}). Red: building footprint ({property.footprint_source}). Imagery: Esri World Imagery.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <PropertyMap location={location} parcel={parcel} footprint={footprint} className="h-[28rem] w-full overflow-hidden rounded-lg" />
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge variant="outline">Lot {property.lot_sqft ? `${Math.round(Number(property.lot_sqft)).toLocaleString()} sq ft` : "unknown"}</Badge>
-              <Badge variant="outline">
-                Building {property.building_sqft ? `${Math.round(Number(property.building_sqft)).toLocaleString()} sq ft` : "unknown"}
-              </Badge>
-              {property.parcel_apn ? <Badge variant="outline">APN {property.parcel_apn}</Badge> : null}
-              {property.gate_width_in ? <Badge variant="outline">Gate {property.gate_width_in} in</Badge> : null}
-              {property.slope ? <Badge variant="outline" className="capitalize">Slope: {property.slope}</Badge> : null}
-              {property.has_dogs ? <Badge variant="outline">Dogs</Badge> : null}
-              {property.has_stairs ? <Badge variant="outline">Stairs</Badge> : null}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="flex flex-col gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Nearby properties</CardTitle>
-              <CardDescription>Within 800 m. Route density and neighborhood price memory.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2 text-sm">
-              {(nearby ?? []).slice(0, 8).map((n) => (
-                <Link key={n.id} href={`/properties/${n.id}`} className="flex justify-between gap-2 hover:underline">
-                  <span className="truncate">{n.formatted_address}</span>
-                  <span className="shrink-0 text-muted-foreground">{Math.round(Number(n.distance_m))} m</span>
-                </Link>
-              ))}
-              {(nearby ?? []).length === 0 ? <p className="text-muted-foreground">None yet.</p> : null}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="lg:col-span-3">
-          <Card className="max-w-2xl">
-            <CardContent className="pt-6">
-              <PropertyForm accountId={property.account_id} property={property} access={access} />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </>
-  );
+  const features = (measurement.data?.[0]?.measurement_features ?? null) as { category: string; area_sqft: number | null }[] | null;
+  const area = (category: string) => features?.filter((feature) => feature.category === category).reduce((sum, feature) => sum + Number(feature.area_sqft ?? 0), 0) ?? null;
+  const visitRows = (visits.data ?? []) as { id: string; status: string; scheduled_date: string | null; occurrence_date: string; routes: { crews: { name: string } | null } | null }[];
+  const nextVisit = visitRows.find((visit) => visit.status === "scheduled" || visit.status === "in_progress");
+  const day = nextVisit?.scheduled_date ? new Date(`${nextVisit.scheduled_date}T12:00:00`).toLocaleDateString("en-US", { weekday: "short" }) : agreement.data?.[0]?.preferred_dow != null ? DAYS[agreement.data[0].preferred_dow] : null;
+  const sqft = (value: number | null) => (value == null ? "—" : `${Math.round(Number(value)).toLocaleString()} sq ft`);
+  const front = features ? area("turf_front") : null;
+  const back = features ? area("turf_back") : null;
+  const pinHint = location == null ? await geocodeAddress(`${property.city}, ${property.region} ${property.postal_code}`) : null;
+  const crew = nextVisit?.routes?.crews?.name;
+  return (<><PageHeader title={property.accounts?.name ?? "Property"} /><PropertyWorkspace data={{
+    id: property.id, accountId: property.account_id, accountName: property.accounts?.name ?? "Account", street: property.address_line1, place: `${property.city}, ${property.region} ${property.postal_code}`, label: property.name, archived: !property.is_active,
+    slope: property.slope, slopeHint: slopeHint(property.slope, priceLists.data?.[0]?.modifiers), gateWidthIn: gateWidthIn(property.gate_width_in), obstacleCount: property.obstacle_count, hasStairs: property.has_stairs, hasDogs: property.has_dogs,
+    gateCode: access?.gate_code ?? null, accessNotes: access?.access_notes ?? "", crewNotes: property.crew_notes ?? "", zone: property.zone, zones: [...new Set((zoneRows.data ?? []).map((row) => row.zone).filter((zone): zone is string => Boolean(zone)))].sort(),
+    lot: sqft(property.lot_sqft == null ? null : Number(property.lot_sqft)), lotAuto: property.lot_sqft != null && property.parcel_source !== "unknown", building: sqft(property.building_sqft == null ? null : Number(property.building_sqft)), apn: property.parcel_apn, parcelSource: property.parcel_source, footprintSource: property.footprint_source,
+    turf: front == null && back == null ? "—" : `${sqft(front)} / ${sqft(back)}`, openQuotes: openQuotes.count ?? 0, service: crew && day ? `${crew} · ${day}` : day ?? agreement.data?.[0]?.frequency ?? "—", ungeocoded: location == null, pinCenter: pinHint?.location.coordinates ?? null,
+    quotes: (quotes.data ?? []).map((quote) => ({ id: quote.id, label: `#${quote.number} ${quote.title}`, status: quote.status })), jobs: (jobs.data ?? []).map((job) => ({ id: job.id, label: job.title, status: job.status })),
+    visits: visitRows.map((visit) => ({ id: visit.id, label: visit.scheduled_date ?? visit.occurrence_date, status: visit.status })), activity: (activities.data ?? []).map((item) => ({ id: item.id, summary: item.summary, when: new Date(item.occurred_at).toLocaleDateString() })),
+    nearby: ((nearby ?? []) as { id: string; formatted_address: string | null; distance_m: number }[]).slice(0, 8).map((item) => ({ id: item.id, address: item.formatted_address ?? "Nearby property", meters: Math.round(Number(item.distance_m)) })), location, parcel, footprint, tab: tab ?? null,
+  }} /></>);
 }
