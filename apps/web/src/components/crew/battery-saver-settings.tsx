@@ -19,7 +19,7 @@ export function BatterySaverSettings() {
         <span>
           <span className="block text-[17px] font-semibold">Battery saver</span>
           <span className="mt-0.5 block text-[15px] text-muted-foreground">
-            Outline map, fewer animations, dark outdoor theme. Saved on this phone.
+            Outline map and fewer animations. Keeps Sun mode when you picked it. Saved on this phone.
           </span>
         </span>
         <Switch

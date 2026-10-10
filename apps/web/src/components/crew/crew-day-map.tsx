@@ -3,16 +3,30 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import * as maplibregl from "maplibre-gl";
-import type { Map as MlMap } from "maplibre-gl";
+import type { Map as MlMap, MapLayerMouseEvent } from "maplibre-gl";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { parseDayPack, type DayStop } from "@/app/(crew)/crew/today";
 import { crewMapStyle, mapAttributionControl } from "@/components/map/basemap";
 import { readBatterySaver, subscribeBatterySaver } from "@/lib/crew/battery-saver";
-import { planOutlineFeatures, visitPinFeatures, visitPinPaint } from "@/lib/crew/map-overlays";
+import {
+  planOutlineFeatures,
+  planOutlinePaint,
+  visitPinFeatures,
+  visitPinHitPaint,
+  visitPinLabelLayout,
+  visitPinLabelPaint,
+  visitPinPaint,
+  VISIT_PIN_HIT_LAYER,
+  VISIT_PIN_LABEL_LAYER,
+  VISIT_PIN_LAYER,
+} from "@/lib/crew/map-overlays";
+import { readMapTokens, type MapTokens } from "@/lib/crew/map-tokens";
 import { browserCrewStore, loadDayPack } from "@/lib/crew/queue";
 
 export function CrewDayMap({ date }: { date: string }) {
+  const router = useRouter();
   const batterySaver = useSyncExternalStore(subscribeBatterySaver, () => readBatterySaver(localStorage), () => false);
   const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
   const [stops, setStops] = useState<DayStop[]>([]);
@@ -41,27 +55,48 @@ export function CrewDayMap({ date }: { date: string }) {
 
   useEffect(() => {
     if (!showMap || !containerRef.current) return;
+    const tokens = readMapTokens(crewThemeRoot(containerRef.current));
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: crewMapStyle(batterySaver),
+      style: crewMapStyle(batterySaver, tokens.background),
       center: [-98.5, 39.8],
       zoom: 3,
       attributionControl: mapAttributionControl,
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     mapRef.current = map;
+
+    const openStop = (event: MapLayerMouseEvent) => {
+      const id = event.features?.[0]?.properties?.id;
+      if (typeof id === "string" && id) router.push(`/crew/visits/${id}`);
+    };
+    const setPointer = () => {
+      map.getCanvas().style.cursor = "pointer";
+    };
+    const clearPointer = () => {
+      map.getCanvas().style.cursor = "";
+    };
+    map.on("click", VISIT_PIN_HIT_LAYER, openStop);
+    map.on("mouseenter", VISIT_PIN_HIT_LAYER, setPointer);
+    map.on("mouseleave", VISIT_PIN_HIT_LAYER, clearPointer);
+
     return () => {
+      map.off("click", VISIT_PIN_HIT_LAYER, openStop);
+      map.off("mouseenter", VISIT_PIN_HIT_LAYER, setPointer);
+      map.off("mouseleave", VISIT_PIN_HIT_LAYER, clearPointer);
       map.remove();
       mapRef.current = null;
     };
-  }, [showMap, styleKey, batterySaver]);
+  }, [showMap, styleKey, batterySaver, router]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !showMap) return;
     const apply = () => {
+      const tokens = readMapTokens(crewThemeRoot(containerRef.current));
       const pins = visitPinFeatures(stops);
       const outlines = planOutlineFeatures(planVisits);
+      const outlinePaint = planOutlinePaint(tokens);
 
       const outlineSource = map.getSource("plan") as maplibregl.GeoJSONSource | undefined;
       if (outlineSource) {
@@ -72,26 +107,40 @@ export function CrewDayMap({ date }: { date: string }) {
           id: "plan-fill",
           type: "fill",
           source: "plan",
-          paint: { "fill-color": "#C8891C", "fill-opacity": 0.18 },
+          paint: outlinePaint.fill,
         });
         map.addLayer({
           id: "plan-line",
           type: "line",
           source: "plan",
-          paint: { "line-color": "#C8891C", "line-width": 2 },
+          paint: outlinePaint.line,
         });
       }
 
       const pinSource = map.getSource("visits") as maplibregl.GeoJSONSource | undefined;
       if (pinSource) {
         pinSource.setData(pins);
+        setPinPaint(map, tokens);
       } else {
         map.addSource("visits", { type: "geojson", data: pins });
         map.addLayer({
-          id: "visit-pins",
+          id: VISIT_PIN_HIT_LAYER,
           type: "circle",
           source: "visits",
-          paint: visitPinPaint() as maplibregl.CircleLayerSpecification["paint"],
+          paint: visitPinHitPaint() as maplibregl.CircleLayerSpecification["paint"],
+        });
+        map.addLayer({
+          id: VISIT_PIN_LAYER,
+          type: "circle",
+          source: "visits",
+          paint: visitPinPaint(tokens) as maplibregl.CircleLayerSpecification["paint"],
+        });
+        map.addLayer({
+          id: VISIT_PIN_LABEL_LAYER,
+          type: "symbol",
+          source: "visits",
+          layout: visitPinLabelLayout() as maplibregl.SymbolLayerSpecification["layout"],
+          paint: visitPinLabelPaint(tokens) as maplibregl.SymbolLayerSpecification["paint"],
         });
       }
 
@@ -132,13 +181,45 @@ export function CrewDayMap({ date }: { date: string }) {
         <p className="mt-1 text-[15px] text-muted-foreground">
           {batterySaver ? "Battery saver · outline map, no satellite tiles." : "Today's stops."}{" "}
           <Link href="/crew/me" className="font-semibold text-primary">
-            Settings
+            Me
           </Link>
         </p>
       </header>
       <div ref={containerRef} className="min-h-[70vh] w-full flex-1" />
     </section>
   );
+}
+
+function setPinPaint(map: MlMap, tokens: MapTokens) {
+  if (map.getLayer(VISIT_PIN_LAYER)) {
+    const paint = visitPinPaint(tokens);
+    map.setPaintProperty(
+      VISIT_PIN_LAYER,
+      "circle-color",
+      paint["circle-color"] as maplibregl.DataDrivenPropertyValueSpecification<string>,
+    );
+    map.setPaintProperty(VISIT_PIN_LAYER, "circle-stroke-color", paint["circle-stroke-color"]);
+  }
+  if (map.getLayer(VISIT_PIN_LABEL_LAYER)) {
+    map.setPaintProperty(VISIT_PIN_LABEL_LAYER, "text-color", visitPinLabelPaint(tokens)["text-color"]);
+  }
+}
+
+/** Prefer the crew shell theme node so Sun / dark tokens apply to the outline map. */
+export function crewThemeRoot(from: Element | null): Element {
+  let node: Element | null = from;
+  while (node) {
+    if (
+      node.classList.contains("sun") ||
+      node.classList.contains("crew-display-light") ||
+      node.classList.contains("crew-battery-saver") ||
+      (node.classList.contains("dark") && node !== document.documentElement)
+    ) {
+      return node;
+    }
+    node = node.parentElement;
+  }
+  return document.documentElement;
 }
 
 function geometryPoints(geometry: GeoJSON.Geometry): [number, number][] {

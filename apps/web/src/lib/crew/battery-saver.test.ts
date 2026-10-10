@@ -44,9 +44,12 @@ describe("crew battery saver preference", () => {
 });
 
 describe("crewShellDisplayClass", () => {
-  it("forces the dark outdoor theme and reduced motion when battery saver is on", () => {
+  it("keeps Sun when battery saver is on and only adds the saver class", () => {
+    expect(crewShellDisplayClass("sun", true)).toBe("sun crew-battery-saver");
+  });
+
+  it("uses the dark outdoor theme and reduced motion for light/dark when battery saver is on", () => {
     expect(crewShellDisplayClass("light", true)).toBe("dark crew-battery-saver");
-    expect(crewShellDisplayClass("sun", true)).toBe("dark crew-battery-saver");
     expect(crewShellDisplayClass("dark", true)).toBe("dark crew-battery-saver");
   });
 

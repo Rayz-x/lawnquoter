@@ -19,9 +19,16 @@ export function subscribeBatterySaver(notify: () => void): () => void {
   return () => window.removeEventListener(CREW_BATTERY_SAVER_EVENT, notify);
 }
 
-/** Battery saver forces the dark outdoor theme from #24 and reduces motion. */
+/**
+ * Battery saver adds reduced motion (and the outline map elsewhere).
+ * It does not override Sun — outdoor high-contrast stays when the crew picked it.
+ * Light/dark still use the dark outdoor shell while saver is on (OLED).
+ */
 export function crewShellDisplayClass(display: CrewDisplayMode, batterySaver: boolean): string {
-  if (batterySaver) return "dark crew-battery-saver";
+  if (batterySaver) {
+    if (display === "sun") return "sun crew-battery-saver";
+    return "dark crew-battery-saver";
+  }
   if (display === "dark") return "dark";
   if (display === "sun") return "crew-display-light sun";
   return "crew-display-light";

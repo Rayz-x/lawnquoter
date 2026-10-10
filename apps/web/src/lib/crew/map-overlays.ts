@@ -1,3 +1,5 @@
+import type { MapTokens } from "@/lib/crew/map-tokens";
+
 export type VisitPinStop = {
   id: string;
   number: number;
@@ -75,21 +77,60 @@ function isGeometry(value: unknown): value is GeoJSON.Geometry {
   return geom.coordinates != null;
 }
 
-export function visitPinPaint() {
+/** Visible pin disc — sized so a 14px stop number fits. */
+export function visitPinPaint(tokens: MapTokens) {
   return {
-    "circle-radius": 8,
+    "circle-radius": 14,
     "circle-color": [
       "match",
       ["get", "status"],
       "completed",
-      "#88948E",
+      tokens.mutedForeground,
       "in_progress",
-      "#3F7A57",
+      tokens.primary,
       "paused",
-      "#3F7A57",
-      "#C8891C",
+      tokens.primary,
+      tokens.brass,
     ],
-    "circle-stroke-color": "#ffffff",
+    "circle-stroke-color": tokens.pinLabel,
     "circle-stroke-width": 2,
   };
 }
+
+/** Invisible 48px hit target over each pin. */
+export function visitPinHitPaint() {
+  return {
+    "circle-radius": 24,
+    "circle-color": tokensTransparent,
+    "circle-opacity": 0,
+  };
+}
+
+const tokensTransparent = "rgba(0,0,0,0)";
+
+export function visitPinLabelLayout() {
+  return {
+    "text-field": ["get", "number"] as unknown as string,
+    "text-size": 14,
+    "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+    "text-allow-overlap": true,
+    "text-ignore-placement": true,
+  };
+}
+
+export function visitPinLabelPaint(tokens: MapTokens) {
+  return {
+    "text-color": tokens.pinLabel,
+  };
+}
+
+export function planOutlinePaint(tokens: MapTokens) {
+  return {
+    fill: { "fill-color": tokens.brass, "fill-opacity": 0.18 },
+    line: { "line-color": tokens.brass, "line-width": 2 },
+  };
+}
+
+export const VISIT_PIN_HIT_LAYER = "visit-pins-hit";
+export const VISIT_PIN_LAYER = "visit-pins";
+export const VISIT_PIN_LABEL_LAYER = "visit-pin-numbers";

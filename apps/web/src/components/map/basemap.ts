@@ -25,6 +25,9 @@ export const mapAttributionControl = {
  * from the basemap tile API with that token. Without a key, the public
  * World_Imagery tile service is used for development.
  */
+/** Glyphs for stop-number symbol layers on crew maps. */
+export const MAP_GLYPHS = "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf";
+
 export function imageryStyle(): StyleSpecification {
   const key = process.env.NEXT_PUBLIC_ARCGIS_API_KEY;
   const tiles = key
@@ -34,6 +37,7 @@ export function imageryStyle(): StyleSpecification {
     : ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"];
   return {
     version: 8,
+    glyphs: MAP_GLYPHS,
     sources: {
       imagery: {
         type: "raster",
@@ -54,24 +58,26 @@ export function imageryStyle(): StyleSpecification {
 /**
  * Plain outline basemap for crew battery saver: no satellite tile requests.
  * Property outlines, pins, and drawn shapes layer on as GeoJSON after load.
+ * Background comes from Groundwork `--background` (dark shell or Sun white).
  */
-export function outlineStyle(): StyleSpecification {
+export function outlineStyle(backgroundColor: string): StyleSpecification {
   return {
     version: 8,
+    glyphs: MAP_GLYPHS,
     sources: {},
     layers: [
       {
         id: "background",
         type: "background",
-        paint: { "background-color": "#0f1712" },
+        paint: { "background-color": backgroundColor },
       },
     ],
   };
 }
 
 /** Crew maps pick imagery or outline from the device battery-saver toggle. */
-export function crewMapStyle(batterySaver: boolean): StyleSpecification {
-  return batterySaver ? outlineStyle() : imageryStyle();
+export function crewMapStyle(batterySaver: boolean, backgroundColor: string): StyleSpecification {
+  return batterySaver ? outlineStyle(backgroundColor) : imageryStyle();
 }
 
 export function styleRequestsImagery(style: StyleSpecification): boolean {
