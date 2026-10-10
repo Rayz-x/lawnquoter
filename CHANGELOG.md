@@ -21,12 +21,12 @@ Company setup, accounts and properties, satellite measurement, the price catalog
 
 - A visit can store time on site, photos, and upsell requests. Finishing a visit requires an after photo, and a crew can have only one visit running at a time. If the office cancels a visit the crew already finished, that completion is kept and flagged. (#16)
 - The phone downloads one crew’s day: addresses, last names, the office phone, gate notes, and the work list. It leaves out the customer’s phone, email, and price. Sending the same update twice does not apply it twice. (#18)
-- Crews can install LawnQuoter on a phone. Today’s stops stay on the device, and updates wait there until the phone can send them. The Outbox screen lists what is still waiting, and sign-out waits until those updates have gone out. (#19, #20, #21)
+- Crews can install LawnQuoter on a phone. Today’s stops stay on the device, and updates wait there until the phone can send them. The Outbox screen lists what is still waiting. Sign-out warns when updates are still waiting; they stay on the phone until that lead signs in again. (#19, #20, #21)
 - The day list shows progress, the next stop, finished stops, access notes, and a drive link. A control switches among sun (high contrast for outdoors), light, and dark. (#22, #24)
 - On a stop, the crew lead can start, pause, resume, and finish a timer. A pause does not keep counting after the page reloads. Another open stop blocks starting, and a cancelled stop cannot be started. (#25)
 - Before and after photos are taken with the phone camera. The picture is saved on the phone first, and finishing stays blocked until an after photo is on the stop or waiting to send. (#26)
 - A stop can be skipped with a reason. Weather and the other ordinary reasons skip right away. A locked gate or a loose dog asks for a photo first. Crews can also flag an upsell with a tag, an optional note, and an optional photo. (#27)
-- The phone knows whether the signed-in person is still the crew lead. A change that fails for a temporary reason is tried again, and after several tries it is handed to the office so the rest of the visit can still be saved. A photo that never actually uploaded is reported as missing. (#28)
+- The phone knows whether the signed-in person is still the crew lead. If something unexpected goes wrong while sending an update, the phone tries again. After five tries, that update is handed to the office so the rest of the visit can still be saved. A photo that never actually uploaded is reported as missing. (#28)
 - An upsell with a photo no longer has to look that photo up on the phone before it can be sent. If the office cannot match the photo, the upsell is handed to them, and finishing the stop in the same send still goes through. (#29)
 
 ### Access and reliability
