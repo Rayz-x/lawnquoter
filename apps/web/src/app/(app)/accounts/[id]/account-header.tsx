@@ -76,6 +76,7 @@ export function AccountHeader({ account, primaryName }: { account: Tables<"accou
 
   return (
     <header className="flex flex-col gap-3">
+      <h1 className="font-serif text-3xl font-semibold tracking-tight [overflow-wrap:anywhere]">{account.name}</h1>
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline">{account.type === "commercial" ? "Commercial" : "Residential"}</Badge>
         <Badge variant="secondary">{STATUS_LABEL[account.status]}</Badge>
