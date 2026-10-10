@@ -256,15 +256,13 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
         {lead && clock.status === "scheduled" && !closed && !midCancel ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={saving || Boolean(blocked)} onClick={() => void act("visit_start")}>Start job</button> : null}
         {lead && clock.status === "in_progress" && !midCancel ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_pause")}>Pause</button> : null}
         {lead && clock.status === "paused" && !midCancel ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_resume")}>Resume</button> : null}
+        {lead && midCancel && !alreadyDone ? (
+          <button type="button" className="inline-flex min-h-14 flex-1 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_stop")}>Stop</button>
+        ) : null}
         {lead && working && !alreadyDone ? (
           needAfter
             ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => photos.current?.pickAfter()}>Take an after photo to finish</button>
-            : (
-              <>
-                {midCancel ? <button type="button" className="inline-flex min-h-14 flex-1 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_stop")}>Stop</button> : null}
-                <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => void act("visit_finish")}>{midCancel ? "Finish" : "Finish job"}</button>
-              </>
-            )
+            : <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => void act("visit_finish")}>{midCancel ? "Finish" : "Finish job"}</button>
         ) : null}
       </div>
     </section>
