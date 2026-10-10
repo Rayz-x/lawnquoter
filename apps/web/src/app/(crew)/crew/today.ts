@@ -22,6 +22,7 @@ export type DayPackView = {
   crewName: string;
   officePhone: string | null;
   revision: number | null;
+  version: number;
   stops: DayStop[];
 };
 
@@ -83,11 +84,17 @@ export function parseDayPack(data: unknown): DayPackView | null {
       chips: accessChips(property),
     });
   });
+  const revision = typeof route?.revision === "number" ? route.revision : null;
+  const version =
+    typeof pack.version === "number"
+      ? pack.version
+      : revision ?? 0;
   return {
     date: pack.date,
     crewName: text(crew?.name) ?? "Crew",
     officePhone: text(office?.phone),
-    revision: typeof route?.revision === "number" ? route.revision : null,
+    revision,
+    version,
     stops,
   };
 }
@@ -137,12 +144,21 @@ export function newStopIds(previousIds: string[], nextIds: string[]): string[] {
   return nextIds.filter((id) => !seen.has(id));
 }
 
-export function routeUpdateMessage(added: number[], removed: number[], at: Date): string | null {
-  const part = (numbers: number[], verb: string) => (numbers.length === 0 ? "" : numbers.length === 1 ? `stop ${numbers[0]} ${verb}` : `${numbers.length} stops ${verb}`);
-  const parts = [part(added, "added"), part(removed, "removed")].filter(Boolean);
-  if (parts.length === 0) return null;
-  return `Route updated ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(at)}: ${parts.join(", ")}`;
+export function routeUpdateMessage(added: number[], removed: number[]): string | null {
+  if (added.length === 0 && removed.length === 0) return null;
+  return `Route changed: ${added.length} added, ${removed.length} removed`;
 }
+
+/** Reorders keep the open visit; a stop removed from the pack closes it. */
+export function shouldCloseOpenVisit(openId: string | null, previousIds: string[], nextIds: string[]): boolean {
+  if (!openId) return false;
+  const sameMembers =
+    previousIds.length === nextIds.length && previousIds.every((id) => nextIds.includes(id));
+  if (sameMembers) return false;
+  return !nextIds.includes(openId);
+}
+
+export { phoneSyncStatus } from "@/lib/scheduling/phone-sync";
 
 export function packIsFresh(savedAt: string, now: Date) {
   const age = now.getTime() - Date.parse(savedAt);

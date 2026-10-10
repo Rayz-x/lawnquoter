@@ -2,7 +2,7 @@
 
 import { TriangleAlert } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { VisitScreen } from "../visits/[id]/visit-screen";
 import { liveLeadFromPack, saveLeadForPack } from "../visits/visit";
@@ -23,6 +23,7 @@ import {
   parseDayPack,
   progressLabel,
   routeUpdateMessage,
+  shouldCloseOpenVisit,
   statusLabel,
   syncPill,
   type DayPackView,
@@ -40,6 +41,8 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
   const [newIds, setNewIds] = useState<string[]>([]);
   const [showDone, setShowDone] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const openIdRef = useRef<string | null>(null);
+  openIdRef.current = openId;
   const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
   const display = useSyncExternalStore(subscribeDisplay, readDisplay, () => "light" as const);
 
@@ -87,8 +90,10 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
         if (rpcError) throw new Error(rpcError.message);
         const next = parseDayPack(data);
         if (!next) throw new Error("empty");
-        const added = cached ? newStopIds(cached.stops.map((stop) => stop.id), next.stops.map((stop) => stop.id)) : [];
-        const removed = cached ? newStopIds(next.stops.map((stop) => stop.id), cached.stops.map((stop) => stop.id)) : [];
+        const previousIds = cached?.stops.map((stop) => stop.id) ?? [];
+        const nextIds = next.stops.map((stop) => stop.id);
+        const added = cached ? newStopIds(previousIds, nextIds) : [];
+        const removed = cached ? newStopIds(nextIds, previousIds) : [];
         const message = routeUpdateMessage(
           added.flatMap((id) => {
             const number = next.stops.find((stop) => stop.id === id)?.number;
@@ -98,13 +103,18 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
             const number = cached?.stops.find((stop) => stop.id === id)?.number;
             return number ? [number] : [];
           }),
-          new Date(),
         );
         if (!stop && message) {
           setNotice(message);
           toast(message);
         }
+        if (!stop && shouldCloseOpenVisit(openIdRef.current, previousIds, nextIds)) setOpenId(null);
         await saveDayPack(store, date, data as Json);
+        try {
+          await createClient().rpc("crew_ack_day_pack", { p_date: date });
+        } catch {
+          // Pack still works offline; office sync status updates on the next successful ack.
+        }
         if (liveLeadFromPack(data) !== null) {
           saveLeadForPack(localStorage, userId, orgId, data, null, null);
         } else {

@@ -51,6 +51,7 @@ select is(
     'create_crew',
     'create_org',
     'create_org_invite',
+    'crew_ack_day_pack',
     'crew_day_pack',
     'crew_sync',
     'generate_agreement_visits',

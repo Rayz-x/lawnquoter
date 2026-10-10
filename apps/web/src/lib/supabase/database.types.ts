@@ -230,6 +230,38 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"crew_phone_sync": {
+                  Row: {
+                    "created_at": string,"crew_id": string,"last_synced_at": string,"org_id": string,"pack_version": number,"profile_id": string,"route_date": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"crew_id": string,"last_synced_at"?: string,"org_id": string,"pack_version"?: number,"profile_id": string,"route_date": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"crew_id"?: string,"last_synced_at"?: string,"org_id"?: string,"pack_version"?: number,"profile_id"?: string,"route_date"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "crew_phone_sync_crew_id_fkey"
+      columns: ["crew_id"]
+isOneToOne: false
+      referencedRelation: "crews"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "crew_phone_sync_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "crew_phone_sync_profile_id_fkey"
+      columns: ["profile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"crew_mutation_receipts": {
                   Row: {
                     "client_id": string,"created_at": string,"kind": string,"org_id": string,"visit_id": string | null
@@ -1137,6 +1169,9 @@ isOneToOne: false
                            },
 "create_org_invite":
 { Args: { "p_email": string,"p_role": Database["public"]['Enums']["org_role"] }; Returns: Json
+                           },
+"crew_ack_day_pack":
+{ Args: { "p_date": string }; Returns: Json
                            },
 "crew_day_pack":
 { Args: { "p_date": string }; Returns: Json

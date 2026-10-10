@@ -11,8 +11,10 @@ import {
   packErrorMessage,
   packIsFresh,
   parseDayPack,
+  phoneSyncStatus,
   progressLabel,
   routeUpdateMessage,
+  shouldCloseOpenVisit,
   syncPill,
 } from "./today";
 
@@ -115,9 +117,10 @@ describe("day list rows", () => {
     expect(officeTel("217-555-0140")).toBe("tel:2175550140");
     expect(dayHeading("2026-10-09")).toContain("Oct");
     expect(newStopIds(["v1"], ["v1", "v8"])).toEqual(["v8"]);
-    const at = new Date("2026-10-09T14:31:00.000Z");
-    expect(routeUpdateMessage([8], [], at)).toMatch(/Route updated .*stop 8 added/);
-    expect(routeUpdateMessage([], [4], at)).toMatch(/stop 4 removed/);
+    expect(routeUpdateMessage([8], [])).toBe("Route changed: 1 added, 0 removed");
+    expect(routeUpdateMessage([], [4])).toBe("Route changed: 0 added, 1 removed");
+    expect(routeUpdateMessage([2, 5], [1])).toBe("Route changed: 2 added, 1 removed");
+    expect(routeUpdateMessage([], [])).toBeNull();
     expect(packErrorMessage("not allowed")).toBe("Ask the office to add you to a crew.");
     const morning = new Date("2026-10-09T13:30:00.000Z");
     expect(orgToday("America/Chicago", new Date("2026-10-09T04:30:00.000Z"))).toBe("2026-10-08");
@@ -125,5 +128,41 @@ describe("day list rows", () => {
     expect(packIsFresh("2026-10-07T12:00:00.000Z", morning)).toBe(false);
     expect(offlineDayPack({ date: "2026-10-08", savedAt: morning.toISOString() }, "2026-10-09", morning)).toBeNull();
     expect(offlineDayPack({ date: "2026-10-09", savedAt: morning.toISOString() }, "2026-10-09", morning)?.date).toBe("2026-10-09");
+  });
+
+  it("keeps an open visit when the route only reorders", () => {
+    expect(shouldCloseOpenVisit("v3", ["v1", "v2", "v3"], ["v3", "v1", "v2"])).toBe(false);
+    expect(shouldCloseOpenVisit("v3", ["v1", "v3"], ["v1"])).toBe(true);
+    expect(shouldCloseOpenVisit(null, ["v1"], ["v2"])).toBe(false);
+  });
+
+  it("describes each phone pack version and last sync for the office", () => {
+    const now = new Date("2026-10-09T15:00:00.000Z");
+    expect(phoneSyncStatus({ packVersion: null, lastSyncedAt: null, now })).toEqual({
+      versionLabel: null,
+      syncLabel: "No contact since",
+    });
+    expect(
+      phoneSyncStatus({
+        packVersion: 2,
+        lastSyncedAt: "2026-10-09T14:31:00.000Z",
+        now,
+        timeZone: "UTC",
+      }),
+    ).toEqual({
+      versionLabel: "Pack v2",
+      syncLabel: "Last synced 2:31 PM",
+    });
+    expect(
+      phoneSyncStatus({
+        packVersion: 2,
+        lastSyncedAt: "2026-10-09T13:00:00.000Z",
+        now,
+        timeZone: "UTC",
+      }),
+    ).toEqual({
+      versionLabel: "Pack v2",
+      syncLabel: "No contact since 1:00 PM",
+    });
   });
 });

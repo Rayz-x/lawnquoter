@@ -1,7 +1,7 @@
 -- Crew day pack, crew_sync, and the visit mutations. Prices, customer
 -- phone, and customer email stay out of the pack. Replays do not duplicate.
 
-select plan(92);
+select plan(99);
 
 create or replace function tests.apply_crew(
   p_kind text,
@@ -40,10 +40,19 @@ select ok(
     from (
       values
         ('public.crew_day_pack(date)'),
+        ('public.crew_ack_day_pack(date)'),
         ('public.crew_sync(jsonb)')
     ) as fns(fn)
   ),
   'crew RPCs are granted to authenticated and service_role'
+);
+select has_table('public', 'crew_phone_sync', 'crew_phone_sync exists');
+select ok(
+  has_table_privilege('authenticated', 'public.crew_phone_sync', 'SELECT')
+  and not has_table_privilege('authenticated', 'public.crew_phone_sync', 'INSERT')
+  and not has_table_privilege('authenticated', 'public.crew_phone_sync', 'UPDATE')
+  and not has_table_privilege('authenticated', 'public.crew_phone_sync', 'DELETE'),
+  'crew_phone_sync is office-readable and not directly writable'
 );
 select ok(
   not has_function_privilege('anon', 'private.crew_apply(text,uuid,uuid,timestamptz,timestamptz,jsonb)', 'execute')
@@ -310,6 +319,11 @@ select lives_ok(
 );
 
 select public.crew_day_pack(:'today'::date) as pack \gset
+select is(
+  ((:'pack')::jsonb->'route'->>'revision')::int,
+  (select revision from public.routes where id = :'route_today'::uuid),
+  'the day pack carries the route revision as version'
+);
 select is(((:'pack')::jsonb->>'is_live_lead')::boolean, true, 'the day pack marks the live lead');
 select ok(
   position('555-0199' in :'pack') = 0
@@ -829,6 +843,43 @@ select is(
   (select count(*) from public.enhancement_requests where client_id = :'client_miss_enh'::uuid),
   0::bigint,
   'the unmatched upsell is not stored'
+);
+
+select tests.clear_auth();
+select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
+select public.crew_ack_day_pack(:'today'::date) as ack1 \gset
+select is(
+  ((:'ack1')::jsonb->>'version')::int,
+  (select revision from public.routes where id = :'route_today'::uuid),
+  'ack records the current pack version'
+);
+select is(
+  (select pack_version from public.crew_phone_sync
+    where org_id = :'org'::uuid and profile_id = :'lead'::uuid and route_date = :'today'::date),
+  ((:'ack1')::jsonb->>'version')::int,
+  'crew_phone_sync stores the acked version'
+);
+select tests.clear_auth();
+select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
+select public.reorder_route_visits(
+  :'route_today'::uuid,
+  array(select id from public.visits
+    where route_id = :'route_today'::uuid and status = 'scheduled'
+    order by sort desc)
+);
+select is(
+  (select revision from public.routes where id = :'route_today'::uuid) >
+    ((:'ack1')::jsonb->>'version')::int,
+  true,
+  'reordering a published route bumps the pack version'
+);
+select tests.clear_auth();
+select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
+select public.crew_ack_day_pack(:'today'::date) as ack2 \gset
+select is(
+  ((:'ack2')::jsonb->>'version')::int,
+  (select revision from public.routes where id = :'route_today'::uuid),
+  'ack after reorder advances the phone sync version'
 );
 
 select tests.clear_auth();
