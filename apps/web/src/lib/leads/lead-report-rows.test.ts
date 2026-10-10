@@ -35,7 +35,7 @@ describe("mapLeadRequestToReportRow", () => {
       mapLeadRequestToReportRow({
         created_at: "2026-10-01T10:00:00.000Z",
         first_contacted_at: null,
-        lead_source: "Yard sign",
+        source: "Yard sign",
         status: "new",
         quote_id: "00000000-0000-4000-8000-000000000001",
         account_id: null,

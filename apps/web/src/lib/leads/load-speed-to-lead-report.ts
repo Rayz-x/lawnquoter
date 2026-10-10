@@ -46,7 +46,7 @@ export async function loadSpeedToLeadReport(
   const client = supabase as unknown as UntypedFrom;
   const { data, error } = await client
     .from("lead_requests")
-    .select("created_at, first_contacted_at, source, lead_source, status, quote_id, account_id")
+    .select("created_at, first_contacted_at, source, status, quote_id, account_id")
     .eq("org_id", orgId)
     .gte("created_at", fromIso)
     .lt("created_at", toIsoExclusive)

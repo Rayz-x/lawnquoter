@@ -4,9 +4,8 @@ import type { LeadReportRow } from "./speed-to-lead-report";
 export type LeadRequestReportRaw = {
   created_at: string;
   first_contacted_at: string | null;
-  /** Attribution source column when present. */
-  source?: string | null;
-  lead_source?: string | null;
+  /** Attribution source (L01 `lead_requests.source`). */
+  source: string | null;
   status: string | null;
   quote_id: string | null;
   account_id: string | null;
