@@ -34,7 +34,10 @@ function query(table: string) {
       return api;
     },
     maybeSingle: async () => {
-      const matched = (tables[table] ?? []).filter((row) => filters.every(([column, value]) => row[column] === value));
+      const rows = tables[table] ?? [];
+      const failure = rows.find((row) => typeof row.__error === "string")?.__error;
+      if (typeof failure === "string") return { data: null, error: { message: failure } };
+      const matched = rows.filter((row) => filters.every(([column, value]) => row[column] === value));
       if (matched.length > 1) {
         return { data: null, error: { message: "JSON object requested, multiple (or no) rows returned" } };
       }
@@ -82,37 +85,17 @@ beforeEach(() => {
   inserts.length = 0;
   tables.quote_versions = [{ id: VERSION_ID, quote_id: QUOTE_ID, org_id: "org-1", frozen: false }];
   tables.quotes = [{ id: QUOTE_ID, org_id: "org-1", property_id: "property-1" }];
-  tables.pricing_rules = [
-    {
-      id: RULE_ID,
-      org_id: "org-1",
-      active: true,
-      name: "Weekly mow",
-      service_id: "service-1",
-      price_list_id: "list-1",
-      config: mow,
-    },
-  ];
+  tables.pricing_rules = [{
+    id: RULE_ID, org_id: "org-1", active: true, name: "Weekly mow", service_id: "service-1", price_list_id: "list-1", config: mow,
+  }];
   tables.price_lists = [{ id: "list-1", org_id: "org-1", status: "active", modifiers: {} }];
-  tables.properties = [
-    {
-      id: "property-1",
-      org_id: "org-1",
-      lot_sqft: 12000,
-      slope: "steep",
-      gate_width_in: null,
-      obstacle_count: 0,
-      has_stairs: false,
-    },
-  ];
-  tables.measurements = [
-    {
-      property_id: "property-1",
-      status: "current",
-      confidence: null,
-      measurement_features: [{ category: "turf_front", area_sqft: 8000, length_ft: null }],
-    },
-  ];
+  tables.properties = [{
+    id: "property-1", org_id: "org-1", lot_sqft: 12000, slope: "steep", gate_width_in: null, obstacle_count: 0, has_stairs: false,
+  }];
+  tables.measurements = [{
+    property_id: "property-1", status: "current", confidence: null,
+    measurement_features: [{ category: "turf_front", area_sqft: 8000, length_ft: null }],
+  }];
 });
 
 describe("addPricedService", () => {
@@ -154,6 +137,24 @@ describe("addPricedService", () => {
 
     expect(result).toEqual({ ok: true });
     expect(inserts[0]?.price).toBe(80);
+  });
+
+  it.each(["quotes", "properties", "measurements"])("does not price a line when the %s read fails", async (table) => {
+    tables[table] = [{ __error: "read failed" }];
+
+    const result = await addPricedService(QUOTE_ID, VERSION_ID, forgedForm());
+
+    expect(result).toEqual({ ok: false, error: "read failed" });
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("does not price a line from an inactive price list", async () => {
+    tables.price_lists = [{ ...tables.price_lists[0], status: "archived" }];
+
+    const result = await addPricedService(QUOTE_ID, VERSION_ID, forgedForm());
+
+    expect(result).toEqual({ ok: false, error: "Price list is not active" });
+    expect(inserts).toHaveLength(0);
   });
 
   it("does not insert a line when the rule's price list is missing", async () => {

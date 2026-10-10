@@ -94,7 +94,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           error: null,
         }),
     supabase.from("pricing_rules").select("id, name, rule_type, config, service_id, price_list_id").eq("org_id", session.orgId).eq("active", true),
-    supabase.from("price_lists").select("id, modifiers").eq("org_id", session.orgId),
+    supabase.from("price_lists").select("id, status, modifiers").eq("org_id", session.orgId),
     quote.property_id
       ? supabase
           .from("measurements")
@@ -104,7 +104,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
   ]);
-  const listModifiers = new Map((lists ?? []).map((row) => [row.id, row.modifiers]));
+  const listModifiers = new Map(
+    (lists ?? []).filter((row) => row.status === "active").map((row) => [row.id, row.modifiers]),
+  );
   const loadError =
     agreementError?.message ??
     orgError?.message ??
@@ -113,9 +115,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     rulesError?.message ??
     listError?.message ??
     measurementError?.message ??
-    ((rules ?? []).some((rule) => !listModifiers.has(rule.price_list_id))
-      ? "A catalog rule is not on a price list for this company."
-      : null);
+    null;
   if (loadError) {
     return (
       <>

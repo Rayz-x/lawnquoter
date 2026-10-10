@@ -14,23 +14,13 @@ const mow = {
 
 describe("measurementQuantities", () => {
   it("sums traced areas and keeps the lot size", () => {
-    expect(
-      measurementQuantities(
-        [
-          { category: "turf_front", area_sqft: 3000 },
-          { category: "turf_front", area_sqft: 500 },
-          { category: "turf_back", area_sqft: 4500 },
-          { category: "edging_line", length_ft: 40 },
-          { category: "bed", area_sqft: 0 },
-        ],
-        9000,
-      ),
-    ).toEqual({
-      turf_front_sqft: 3500,
-      turf_back_sqft: 4500,
-      edging_lf: 40,
-      lot_sqft: 9000,
-    });
+    expect(measurementQuantities([
+      { category: "turf_front", area_sqft: 3000 },
+      { category: "turf_front", area_sqft: 500 },
+      { category: "turf_back", area_sqft: 4500 },
+      { category: "edging_line", length_ft: 40 },
+      { category: "bed", area_sqft: 0 },
+    ], 9000)).toEqual({ turf_front_sqft: 3500, turf_back_sqft: 4500, edging_lf: 40, lot_sqft: 9000 });
   });
 });
 

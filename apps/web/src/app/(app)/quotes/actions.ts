@@ -206,7 +206,7 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
   const { supabase, error: versionError } = await editableVersion(quoteId, versionId, session.orgId);
   if (versionError) return fail(versionError);
 
-  const [{ data: quote }, { data: rule, error: ruleError }] = await Promise.all([
+  const [{ data: quote, error: quoteError }, { data: rule, error: ruleError }] = await Promise.all([
     supabase.from("quotes").select("property_id").eq("id", quoteId).eq("org_id", session.orgId).maybeSingle(),
     supabase
       .from("pricing_rules")
@@ -216,23 +216,25 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
       .eq("active", true)
       .maybeSingle(),
   ]);
+  if (quoteError) return fail(quoteError.message);
   if (!quote) return fail("Quote not found");
   if (ruleError) return fail(ruleError.message);
   if (!rule) return fail("Pricing rule not found");
 
   const { data: list, error: listError } = await supabase
     .from("price_lists")
-    .select("modifiers")
+    .select("modifiers, status")
     .eq("id", rule.price_list_id)
     .eq("org_id", session.orgId)
     .maybeSingle();
   if (listError) return fail(listError.message);
   if (!list) return fail("Price list not found");
+  if (list.status !== "active") return fail("Price list is not active");
 
   let features: MeasuredFeature[] = [];
   let property: PropertyPricingInput | null = null;
   if (quote.property_id) {
-    const [{ data: propertyRow }, { data: measurement }] = await Promise.all([
+    const [{ data: propertyRow, error: propertyError }, { data: measurement, error: measurementError }] = await Promise.all([
       supabase
         .from("properties")
         .select("lot_sqft, slope, gate_width_in, obstacle_count, has_stairs")
@@ -246,6 +248,8 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
         .eq("status", "current")
         .maybeSingle(),
     ]);
+    if (propertyError) return fail(propertyError.message);
+    if (measurementError) return fail(measurementError.message);
     features = measurement?.measurement_features ?? [];
     property = {
       lotSqft: propertyRow?.lot_sqft,
