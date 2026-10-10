@@ -217,6 +217,16 @@
 .sun [data-crew-card] { border-width: 2px; box-shadow: none; }
 .sun [data-crew-meta] { font-weight: 600; }
 
+/* Crew battery saver: cut motion cost for a full day outdoors. */
+.crew-battery-saver *,
+.crew-battery-saver *::before,
+.crew-battery-saver *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
 @layer base {
   *,
   *::before,

@@ -1,8 +1,15 @@
-export default function CrewMapPage() {
-  return (
-    <section className="px-4 pt-[max(1rem,env(safe-area-inset-top,0px))]">
-      <h1 className="text-2xl font-bold">Map</h1>
-      <p className="mt-2 text-[15px] text-muted-foreground">Map needs signal.</p>
-    </section>
-  );
+import type { Metadata } from "next";
+import { CrewDayMap } from "@/components/crew/crew-day-map";
+import { requireOrg } from "@/lib/auth/session";
+import { orgToday } from "@/lib/scheduling/office-date";
+import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = { title: "Map" };
+
+export default async function CrewMapPage() {
+  const session = await requireOrg();
+  const supabase = await createClient();
+  const { data: org } = await supabase.from("orgs").select("timezone").eq("id", session.orgId).single();
+  const date = orgToday(org?.timezone ?? "UTC", new Date());
+  return <CrewDayMap date={date} />;
 }

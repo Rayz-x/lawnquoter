@@ -5,6 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { clearClocks, clearLiveLead } from "@/app/(crew)/crew/visits/visit";
+import {
+  crewShellDisplayClass,
+  readBatterySaver,
+  subscribeBatterySaver,
+  type CrewDisplayMode,
+} from "@/lib/crew/battery-saver";
 import { browserCrewStore, scopeKey } from "@/lib/crew/queue";
 import { clearCrewCaches, crewWorkerUrl } from "@/lib/crew/sw-policy";
 import { useCrewSync } from "@/lib/crew/use-crew-sync";
@@ -21,6 +27,7 @@ export function CrewShell({ children, userId, orgId }: { children: ReactNode; us
   const waiting = useOutboxCount(userId, orgId);
   useCrewSync(userId, orgId);
   const display = useCrewDisplay();
+  const batterySaver = useBatterySaver();
   useEffect(() => {
     const build = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA;
     void navigator.serviceWorker
@@ -45,7 +52,7 @@ export function CrewShell({ children, userId, orgId }: { children: ReactNode; us
   }, [userId, orgId]);
 
   const tabs = !pathname.includes("/visits/");
-  const displayClass = display === "dark" ? "dark" : display === "sun" ? "crew-display-light sun" : "crew-display-light";
+  const displayClass = crewShellDisplayClass(display, batterySaver);
   return (
     <div className={`flex min-h-svh flex-col bg-background ${displayClass}`}>
       <div className={tabs ? "flex flex-1 flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]" : "flex flex-1 flex-col"}>{children}</div>
@@ -55,7 +62,11 @@ export function CrewShell({ children, userId, orgId }: { children: ReactNode; us
 }
 
 function useCrewDisplay() {
-  return useSyncExternalStore(subscribeCrewDisplay, readCrewDisplay, () => "light" as const);
+  return useSyncExternalStore(subscribeCrewDisplay, readCrewDisplay, () => "light" as CrewDisplayMode);
+}
+
+function useBatterySaver() {
+  return useSyncExternalStore(subscribeBatterySaver, () => readBatterySaver(localStorage), () => false);
 }
 
 function subscribeCrewDisplay(notify: () => void) {
@@ -63,7 +74,7 @@ function subscribeCrewDisplay(notify: () => void) {
   return () => window.removeEventListener("crew-display", notify);
 }
 
-function readCrewDisplay() {
+function readCrewDisplay(): CrewDisplayMode {
   const saved = localStorage.getItem("crew-display");
   return saved === "dark" || saved === "sun" || saved === "light" ? saved : "light";
 }
