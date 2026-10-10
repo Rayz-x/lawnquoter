@@ -6,37 +6,47 @@
 -- Visit billing markers
 -- ---------------------------------------------------------------------------
 alter table public.visits
-  add column billing_hold boolean not null default false,
-  add column billed_invoice_id uuid references public.invoices(id) on delete set null;
+  add column if not exists billing_hold boolean not null default false;
+
+alter table public.visits
+  add column if not exists billed_invoice_id uuid references public.invoices(id) on delete set null;
 
 comment on column public.visits.billing_hold is
   'When true, create_invoices_batch skips the visit until office clears the hold (I03 review).';
 comment on column public.visits.billed_invoice_id is
   'Set when the visit has been included on a draft/issued invoice; enforces billed-once.';
 
-create index visits_billed_invoice_id_idx on public.visits (billed_invoice_id);
-create index visits_org_unbilled_idx
+create index if not exists visits_billed_invoice_id_idx on public.visits (billed_invoice_id);
+create index if not exists visits_org_unbilled_idx
   on public.visits (org_id, scheduled_date)
   where billed_invoice_id is null and billing_hold = false;
 
+drop trigger if exists visits_billed_invoice_org on public.visits;
 create trigger visits_billed_invoice_org
   before insert or update of org_id, billed_invoice_id on public.visits
   for each row execute function private.child_org_guard('invoices', 'billed_invoice_id');
 
 -- ---------------------------------------------------------------------------
 -- Invoice line snapshots: service date + property + visit
+-- property_id may already exist from I04 (210200) if that PR merges first.
 -- ---------------------------------------------------------------------------
 alter table public.invoice_lines
-  add column visit_id uuid references public.visits(id) on delete set null,
-  add column property_id uuid references public.properties(id) on delete set null,
-  add column service_date date;
+  add column if not exists visit_id uuid references public.visits(id) on delete set null;
 
-create index invoice_lines_visit_id_idx on public.invoice_lines (visit_id);
-create index invoice_lines_property_id_idx on public.invoice_lines (property_id);
+alter table public.invoice_lines
+  add column if not exists property_id uuid references public.properties(id) on delete set null;
 
+alter table public.invoice_lines
+  add column if not exists service_date date;
+
+create index if not exists invoice_lines_visit_id_idx on public.invoice_lines (visit_id);
+create index if not exists invoice_lines_property_id_idx on public.invoice_lines (property_id);
+
+drop trigger if exists invoice_lines_visit_org on public.invoice_lines;
 create trigger invoice_lines_visit_org
   before insert or update of org_id, visit_id on public.invoice_lines
   for each row execute function private.child_org_guard('visits', 'visit_id');
+drop trigger if exists invoice_lines_property_org on public.invoice_lines;
 create trigger invoice_lines_property_org
   before insert or update of org_id, property_id on public.invoice_lines
   for each row execute function private.child_org_guard('properties', 'property_id');
