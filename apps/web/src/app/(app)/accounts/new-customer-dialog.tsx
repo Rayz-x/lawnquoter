@@ -149,16 +149,29 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
       {startOpen ? null : (
         <DialogTrigger render={<Button />}>
           <Plus data-icon="inline-start" />
-          New account
+          New customer
         </DialogTrigger>
       )}
-      <DialogContent className="flex max-h-[100dvh] flex-col overflow-y-auto max-lg:top-0 max-lg:left-0 max-lg:h-[100dvh] max-lg:max-w-none max-lg:translate-x-0 max-lg:translate-y-0 max-lg:rounded-none lg:max-w-lg">
+      <DialogContent className="flex max-h-[100dvh] flex-col overflow-hidden max-lg:top-0 max-lg:left-0 max-lg:h-[100dvh] max-lg:max-w-none max-lg:translate-x-0 max-lg:translate-y-0 max-lg:rounded-none lg:max-w-lg">
         <DialogHeader>
           <DialogTitle>New customer</DialogTitle>
           <DialogDescription>A lead, ready to measure if you add an address.</DialogDescription>
         </DialogHeader>
-        <form className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); submit(); }}>
-          <ChipGroup label="Account type" value={type} options={[{ value: "residential", label: "Residential" }, { value: "commercial", label: "Commercial" }]} onValueChange={(next) => { if (next === "residential" || next === "commercial") setType(next); }} />
+        <form className="flex min-h-0 flex-1 flex-col" onSubmit={(event) => { event.preventDefault(); submit(); }}>
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+          <ChipGroup label="Account type" value={type} options={[{ value: "residential", label: "Residential" }, { value: "commercial", label: "Commercial" }]} onValueChange={(next) => {
+            if (next !== "residential" && next !== "commercial") return;
+            setType(next);
+            if (next !== "residential") return;
+            setShowBusiness(false);
+            setCompany("");
+            setBillingEmail("");
+            setTerms("0");
+            setCustomDays("");
+            setPoRequired(false);
+            setTaxExempt(false);
+            setConsolidated(false);
+          }} />
           <Field data-invalid={invalid === "name" ? true : undefined}>
             <FieldLabel htmlFor="new-name">Name</FieldLabel>
             <Input id="new-name" autoComplete="name" value={name} aria-invalid={invalid === "name" ? true : undefined} className="h-12 font-serif text-2xl" onChange={(event) => setName(event.target.value)} />
@@ -218,7 +231,8 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
               <Field><FieldLabel htmlFor="new-notes">Notes</FieldLabel><Textarea id="new-notes" value={notes} rows={3} onChange={(event) => setNotes(event.target.value)} /></Field>
             </div>
           </MoreDisclosure>
-          <div className="flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+          </div>
+          <div className="sticky bottom-0 flex shrink-0 flex-col gap-2 border-t bg-background pt-3 pb-[env(safe-area-inset-bottom)] sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">Status starts as Lead</p>
             <Button type="submit" disabled={pending} className="min-h-11">{address.trim() ? "Create & measure →" : "Create"}</Button>
           </div>
