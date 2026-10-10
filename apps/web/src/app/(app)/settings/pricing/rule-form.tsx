@@ -152,7 +152,7 @@ export function RuleForm({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete rule</AlertDialogTitle>
-            <AlertDialogDescription>This can't be undone.</AlertDialogDescription>
+            <AlertDialogDescription>{"This can't be undone."}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
