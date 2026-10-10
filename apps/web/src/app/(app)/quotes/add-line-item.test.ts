@@ -90,18 +90,17 @@ describe("addLineItem", () => {
     expect(inserts).toEqual([]);
   });
 
-  it("rejects a price of 100 with a range of 1–2", async () => {
+  it("accepts a price of 100 with a range of 1–2", async () => {
     const result = await addLineItem(
       QUOTE_ID,
       VERSION_ID,
       lineForm({ price: "100", range_low: "1", range_high: "2" }),
     );
 
-    expect(result).toEqual({
-      ok: false,
-      error: "The price has to fall inside the range.",
-    });
-    expect(inserts).toEqual([]);
+    expect(result).toEqual({ ok: true, data: { sectionId: null } });
+    expect(inserts).toEqual([
+      expect.objectContaining({ table: "quote_line_items", price: 100, range_low: 1, range_high: 2 }),
+    ]);
   });
 
   it("rejects a range whose low end is above the high end", async () => {
