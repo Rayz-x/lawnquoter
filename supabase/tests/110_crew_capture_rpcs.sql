@@ -853,14 +853,14 @@ select is(
   (select revision from public.routes where id = :'route_today'::uuid),
   'ack records the current pack version'
 );
+select tests.clear_auth();
+select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
 select is(
   (select pack_version from public.crew_phone_sync
     where org_id = :'org'::uuid and profile_id = :'lead'::uuid and route_date = :'today'::date),
   ((:'ack1')::jsonb->>'version')::int,
   'crew_phone_sync stores the acked version'
 );
-select tests.clear_auth();
-select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
 select public.reorder_route_visits(
   :'route_today'::uuid,
   array(select id from public.visits

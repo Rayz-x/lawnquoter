@@ -42,9 +42,12 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
   const [showDone, setShowDone] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const openIdRef = useRef<string | null>(null);
-  openIdRef.current = openId;
   const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
   const display = useSyncExternalStore(subscribeDisplay, readDisplay, () => "light" as const);
+
+  useEffect(() => {
+    openIdRef.current = openId;
+  }, [openId]);
 
   useEffect(() => {
     const store = browserCrewStore();
