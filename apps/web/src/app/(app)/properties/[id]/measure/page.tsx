@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FEATURE_CATEGORIES, FEATURE_SOURCES, geometrySchema, type FeatureCategory, type FeatureSource } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { requireOrg } from "@/lib/auth/session";
 import { scoreMeasurementConfidence } from "@/lib/geo/confidence";
@@ -17,26 +18,49 @@ function parseGeom(value: unknown) {
   return parsed.success ? parsed.data : null;
 }
 
+function measurementFailure(message: string) {
+  return (
+    <>
+      <PageHeader
+        title="Measure"
+        description="Trace turf, beds, and lines on Esri imagery. Prefill from the parcel, then edit."
+      />
+      <div className="page-body">
+        <Alert variant="destructive">
+          <AlertTitle>Could not load this measurement</AlertTitle>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      </div>
+    </>
+  );
+}
+
 export default async function MeasurePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await requireOrg();
   const supabase = await createClient();
 
-  const { data: property } = await supabase
+  const { data: property, error: propertyError } = await supabase
     .from("properties")
     .select("id, name, formatted_address, address_line1, parcel_source, footprint_source, imagery_date")
     .eq("id", id)
     .eq("org_id", session.orgId)
-    .single();
+    .maybeSingle();
+  if (propertyError) return measurementFailure(propertyError.message);
   if (!property) notFound();
 
-  const [{ data: measurementId }, { data: geo }] = await Promise.all([
+  const [{ data: measurementId, error: measurementError }, { data: geo, error: geoError }] = await Promise.all([
     supabase.rpc("measurement_ensure", { p_property: id }),
     supabase.rpc("property_geometry", { p_property: id }),
   ]);
+  if (measurementError) return measurementFailure(measurementError.message);
   if (!measurementId) notFound();
 
-  const { data: rawFeatures } = await supabase.rpc("measurement_features_geojson", { p_measurement: measurementId });
+  const { data: rawFeatures, error: featuresError } = await supabase.rpc("measurement_features_geojson", {
+    p_measurement: measurementId,
+  });
+  if (featuresError) return measurementFailure(featuresError.message);
+  if (geoError) return measurementFailure(geoError.message);
   const features: StudioFeature[] = [];
   if (Array.isArray(rawFeatures)) {
     for (const row of rawFeatures as Array<Record<string, unknown>>) {

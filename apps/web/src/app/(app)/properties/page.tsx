@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -22,7 +23,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
     .order("created_at", { ascending: false })
     .limit(200);
   if (q) query = query.ilike("formatted_address", `%${q}%`);
-  const { data: properties } = await query;
+  const { data: properties, error } = await query;
 
   return (
     <>
@@ -34,7 +35,12 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
             Search
           </Button>
         </form>
-        {!properties || properties.length === 0 ? (
+        {error ? (
+          <Alert variant="destructive">
+            <AlertTitle>Could not load properties</AlertTitle>
+            <AlertDescription>{error.message}</AlertDescription>
+          </Alert>
+        ) : !properties || properties.length === 0 ? (
           <Empty>
             <EmptyHeader>
               <EmptyTitle>No properties</EmptyTitle>

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requireOrg } from "@/lib/auth/session";
@@ -14,8 +16,21 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const session = await requireOrg();
   const { tab } = await searchParams;
   const supabase = await createClient();
-  const { data: org } = await supabase.from("orgs").select("*").eq("id", session.orgId).single();
-  if (!org) return null;
+  const { data: org, error } = await supabase.from("orgs").select("*").eq("id", session.orgId).maybeSingle();
+  if (error) {
+    return (
+      <>
+        <PageHeader title="Company settings" description="Profile, branding, and payments" />
+        <div className="page-body">
+          <Alert variant="destructive">
+            <AlertTitle>Could not load settings</AlertTitle>
+            <AlertDescription>{error.message}</AlertDescription>
+          </Alert>
+        </div>
+      </>
+    );
+  }
+  if (!org) notFound();
   const canEdit = session.orgRole === "owner" || session.orgRole === "admin";
   const initial = tab === "branding" || tab === "payments" ? tab : "profile";
 

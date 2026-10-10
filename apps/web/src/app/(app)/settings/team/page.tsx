@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,7 +15,7 @@ export const metadata: Metadata = { title: "Team" };
 export default async function TeamPage() {
   const session = await requireOrg();
   const supabase = await createClient();
-  const [{ data: members }, { data: membership }] = await Promise.all([
+  const [{ data: members, error: membersError }, { data: membership, error: membershipError }] = await Promise.all([
     supabase
       .from("memberships")
       .select("id, user_id, role, status, invited_email, created_at, profiles(full_name, email)")
@@ -30,14 +31,28 @@ export default async function TeamPage() {
   ]);
 
   const canManage = membership?.role === "owner" || membership?.role === "admin";
-  const { data: invites } = canManage
+  const { data: invites, error: invitesError } = canManage
     ? await supabase
         .from("org_invites")
         .select("id, email, role, status, expires_at")
         .eq("org_id", session.orgId)
         .eq("status", "pending")
         .order("created_at")
-    : { data: [] };
+    : { data: [], error: null };
+  const loadError = membersError?.message ?? membershipError?.message ?? invitesError?.message ?? null;
+  if (loadError) {
+    return (
+      <>
+        <PageHeader title="Team" description="Everyone who can sign in to your workspace" />
+        <div className="page-body">
+          <Alert variant="destructive">
+            <AlertTitle>Could not load team</AlertTitle>
+            <AlertDescription>{loadError}</AlertDescription>
+          </Alert>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
