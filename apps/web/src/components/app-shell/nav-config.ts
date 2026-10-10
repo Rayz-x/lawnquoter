@@ -1,15 +1,11 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  BarChart3,
   Building2,
   CalendarDays,
-  ClipboardList,
   FileText,
   HardHat,
-  Inbox,
   LayoutDashboard,
   MapPinned,
-  Receipt,
   Repeat,
   Settings,
   Smartphone,
@@ -37,11 +33,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Sales",
-    items: [
-      { title: "Leads & Pipeline", href: "/leads", icon: Inbox, roles: SALES_ROLES },
-      { title: "Quotes", href: "/quotes", icon: FileText, roles: SALES_ROLES },
-      { title: "Bids", href: "/bids", icon: ClipboardList, roles: SALES_ROLES },
-    ],
+    items: [{ title: "Quotes", href: "/quotes", icon: FileText, roles: SALES_ROLES }],
   },
   {
     label: "Customers",
@@ -56,12 +48,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { title: "Schedule", href: "/schedule", icon: CalendarDays, roles: OFFICE_ROLES },
       { title: "Crew App", href: "/crew/today", icon: Smartphone, roles: FIELD_ROLES },
-      { title: "Invoices", href: "/invoices", icon: Receipt, roles: ADMIN_ROLES },
     ],
-  },
-  {
-    label: "Insights",
-    items: [{ title: "Analytics", href: "/analytics", icon: BarChart3, roles: ADMIN_ROLES }],
   },
   {
     label: "Setup",
