@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { SALES_ROLES, hasRole } from "@lawnquoter/shared";
 import { requireOrg } from "@/lib/auth/session";
 import { emptyToNull, fail, type ActionResult } from "@/lib/actions/result";
 import { resolvePropertyGeo } from "@/lib/geo/resolve";
@@ -26,6 +27,12 @@ const accountSchema = z.object({
   notes: optionalText(5000),
 });
 
+async function requireAccountEditor() {
+  const session = await requireOrg();
+  if (!hasRole(session.orgRole, SALES_ROLES)) return null;
+  return session;
+}
+
 function checkbox(fd: FormData, name: string) {
   return fd.get(name) === "on" || fd.get(name) === "true";
 }
@@ -41,7 +48,8 @@ function parseAccount(fd: FormData) {
 }
 
 export async function createAccount(fd: FormData): Promise<ActionResult<{ id: string }>> {
-  const session = await requireOrg();
+  const session = await requireAccountEditor();
+  if (!session) return fail("You don't have permission to edit customers.");
   const parsed = parseAccount(fd);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
   const supabase = await createClient();
@@ -63,16 +71,19 @@ export async function createAccount(fd: FormData): Promise<ActionResult<{ id: st
 }
 
 export async function updateAccount(id: string, fd: FormData): Promise<ActionResult> {
-  const session = await requireOrg();
+  const session = await requireAccountEditor();
+  if (!session) return fail("You don't have permission to edit customers.");
   const parsed = parseAccount(fd);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("accounts")
     .update(emptyToNull(parsed.data))
     .eq("id", id)
-    .eq("org_id", session.orgId);
+    .eq("org_id", session.orgId)
+    .select("id");
   if (error) return fail(error.message);
+  if (!data?.length) return fail("Could not save. You may not have permission, or this record changed.");
   revalidatePath(`/accounts/${id}`);
   revalidatePath("/accounts");
   return { ok: true };
@@ -91,7 +102,8 @@ const contactSchema = z.object({
 });
 
 export async function addContact(accountId: string, fd: FormData): Promise<ActionResult> {
-  const session = await requireOrg();
+  const session = await requireAccountEditor();
+  if (!session) return fail("You don't have permission to edit customers.");
   const parsed = contactSchema.safeParse({
     ...Object.fromEntries(fd),
     is_primary: checkbox(fd, "is_primary"),
@@ -122,10 +134,12 @@ export async function addContact(accountId: string, fd: FormData): Promise<Actio
 }
 
 export async function deleteContact(accountId: string, contactId: string): Promise<ActionResult> {
-  const session = await requireOrg();
+  const session = await requireAccountEditor();
+  if (!session) return fail("You don't have permission to edit customers.");
   const supabase = await createClient();
-  const { error } = await supabase.from("contacts").delete().eq("id", contactId).eq("org_id", session.orgId);
+  const { data, error } = await supabase.from("contacts").delete().eq("id", contactId).eq("org_id", session.orgId).select("id");
   if (error) return fail(error.message);
+  if (!data?.length) return fail("Could not save. You may not have permission, or this record changed.");
   revalidatePath(`/accounts/${accountId}`);
   return { ok: true };
 }
@@ -208,7 +222,8 @@ async function savePropertyAccess(
  * the geometry. Geo providers are optional; the property is created either way.
  */
 export async function createProperty(accountId: string, fd: FormData): Promise<ActionResult<{ id: string; warnings: string[] }>> {
-  const session = await requireOrg();
+  const session = await requireAccountEditor();
+  if (!session) return fail("You don't have permission to edit customers.");
   const parsed = parseProperty(fd);
   if (!parsed.success) return fail(parsed.error);
   const supabase = await createClient();

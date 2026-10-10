@@ -7,13 +7,14 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { AccountForm } from "../account-form";
 import { AccountHeader } from "./account-header";
+import { AccountTabBox } from "./account-tab-box";
 import { ContactsPanel } from "./contacts-panel";
 import { IdentityCard } from "./identity-card";
-import { PropertyForm } from "./property-form";
+import { PropertyQuickAdd } from "./property-quick-add";
 
 export const metadata: Metadata = { title: "Account" };
 
@@ -36,6 +37,7 @@ export default async function AccountDetailPage({
     { data: contacts, error: contactsError },
     { data: properties, error: propertiesError },
     { data: children, error: childrenError },
+    { data: parents, error: parentsError },
     { data: activities, error: activitiesError },
     { count: openQuotes, error: quotesError },
   ] = await Promise.all([
@@ -47,6 +49,7 @@ export default async function AccountDetailPage({
       .eq("account_id", id)
       .order("created_at"),
     supabase.from("accounts").select("id, name, status").eq("parent_account_id", id).order("name"),
+    supabase.from("accounts").select("id, name").eq("org_id", session.orgId).is("parent_account_id", null).eq("type", "commercial").order("name"),
     supabase
       .from("activities")
       .select("id, kind, summary, occurred_at")
@@ -65,6 +68,7 @@ export default async function AccountDetailPage({
     contactsError?.message ??
     propertiesError?.message ??
     childrenError?.message ??
+    parentsError?.message ??
     activitiesError?.message ??
     quotesError?.message ??
     null;
@@ -85,10 +89,9 @@ export default async function AccountDetailPage({
 
   const primary = (contacts ?? []).find((contact) => contact.is_primary) ?? contacts?.[0] ?? null;
   const primaryName = [primary?.first_name, primary?.last_name].filter(Boolean).join(" ") || null;
-  const tabValue =
-    tab && ["properties", "contacts", "activity", "sites"].includes(tab) && (tab !== "sites" || account.type === "commercial")
-      ? tab
-      : "properties";
+  const showSites = account.type === "commercial" && (children?.length ?? 0) > 0;
+  const allowed = ["properties", "contacts", "activity", "details", ...(showSites ? ["sites"] : [])];
+  const tabValue = tab && allowed.includes(tab) ? tab : "properties";
 
   return (
     <>
@@ -107,16 +110,15 @@ export default async function AccountDetailPage({
           ]}
         />
         <IdentityCard account={account} />
-        <Tabs key={tabValue} defaultValue={tabValue}>
-          <TabsList>
-            <TabsTrigger value="properties">Properties ({properties?.length ?? 0})</TabsTrigger>
-            <TabsTrigger value="contacts">Contacts ({contacts?.length ?? 0})</TabsTrigger>
-            {account.type === "commercial" ? <TabsTrigger value="sites">Child accounts ({children?.length ?? 0})</TabsTrigger> : null}
-            <TabsTrigger value="activity">Activity</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="properties" className="grid gap-4 lg:grid-cols-3">
-            <div className="flex flex-col gap-3 lg:col-span-2">
+        <AccountTabBox
+          initial={tabValue}
+          tabs={[
+            {
+              value: "properties",
+              label: "Properties",
+              count: properties?.length ?? 0,
+              content: (
+            <div className="flex flex-col gap-3">
               {!properties || properties.length === 0 ? (
                 <Empty>
                   <EmptyHeader>
@@ -145,24 +147,23 @@ export default async function AccountDetailPage({
                   </Card>
                 ))
               )}
+            <PropertyQuickAdd accountId={account.id} />
             </div>
-            <Card>
-              <CardHeader>
-                <CardTitle>Add property</CardTitle>
-                <CardDescription>We geocode it and pull the parcel and building footprint automatically.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <PropertyForm accountId={account.id} />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="contacts">
-            <ContactsPanel accountId={account.id} contacts={contacts ?? []} />
-          </TabsContent>
-
-          {account.type === "commercial" ? (
-            <TabsContent value="sites">
+              ),
+            },
+            {
+              value: "contacts",
+              label: "Contacts",
+              count: contacts?.length ?? 0,
+              content: <ContactsPanel accountId={account.id} contacts={contacts ?? []} />,
+            },
+            ...(showSites
+              ? [
+                  {
+                    value: "sites",
+                    label: "Child accounts",
+                    count: children?.length ?? 0,
+                    content: (
               <Card>
                 <CardHeader>
                   <CardTitle>Child accounts</CardTitle>
@@ -178,10 +179,14 @@ export default async function AccountDetailPage({
                   {(children ?? []).length === 0 ? <p className="text-sm text-muted-foreground">None yet.</p> : null}
                 </CardContent>
               </Card>
-            </TabsContent>
-          ) : null}
-
-          <TabsContent value="activity">
+                    ),
+                  },
+                ]
+              : []),
+            {
+              value: "activity",
+              label: "Activity",
+              content: (
             <Card>
               <CardHeader>
                 <CardTitle>Timeline</CardTitle>
@@ -196,8 +201,21 @@ export default async function AccountDetailPage({
                 {(activities ?? []).length === 0 ? <p className="text-sm text-muted-foreground">No activity yet.</p> : null}
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+              ),
+            },
+            {
+              value: "details",
+              label: "Details",
+              content: (
+                <Card className="max-w-2xl">
+                  <CardContent className="pt-6">
+                    <AccountForm account={account} parents={parents ?? []} />
+                  </CardContent>
+                </Card>
+              ),
+            },
+          ]}
+        />
       </div>
     </>
   );
