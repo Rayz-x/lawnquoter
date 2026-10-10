@@ -33,10 +33,7 @@ export function PropertyQuickAdd({ accountId }: { accountId: string }) {
 
   useEffect(() => {
     const query = address.trim();
-    if (query.length < 3 || picked?.formattedAddress === address) {
-      setSuggestions([]);
-      return;
-    }
+    if (query.length < 3 || picked?.formattedAddress === address) return;
     let current = true;
     const timer = setTimeout(() => {
       void suggestPropertyAddresses(query).then((next) => {
