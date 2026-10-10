@@ -1,4 +1,4 @@
--- S01: rolling 8–10 week visit horizon (extend_visit_horizons).
+-- S01: rolling about-10-week visit horizon (extend_visit_horizons).
 -- Spec source: internal/tickets/81-S01.md
 
 select plan(14);
@@ -89,7 +89,7 @@ select is(
 select is(
   (select max(occurrence_date) from public.visits where agreement_id = :'agr'::uuid),
   :'today'::date + 70,
-  'horizon lands on org-local today plus 10 weeks'
+  'horizon lands on org-local today plus about 10 weeks'
 );
 
 select id as visit_move

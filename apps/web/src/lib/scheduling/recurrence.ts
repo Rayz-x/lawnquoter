@@ -3,7 +3,7 @@
  * public.generate_agreement_visits.
  */
 
-/** Office default matches the rolling nightly horizon (10 weeks). */
+/** Office default matches the rolling nightly horizon (about 10 weeks). */
 export const DEFAULT_VISIT_HORIZON_DAYS = 70;
 
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;

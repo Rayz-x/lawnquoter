@@ -1,6 +1,6 @@
 import { formatOfficeDay } from "@/lib/scheduling/office-date";
 
-/** Rolling visit horizon: 10 weeks (upper end of the 8–10 week band). */
+/** Rolling visit horizon: about 10 weeks. */
 export const VISIT_HORIZON_DAYS = 70;
 
 /** Copy shown on the agreement: furthest planned occurrence. */

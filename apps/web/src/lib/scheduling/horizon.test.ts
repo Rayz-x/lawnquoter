@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { VISIT_HORIZON_DAYS, nextVisitsThroughLabel } from "./horizon";
 
 describe("rolling visit horizon", () => {
-  it("targets ten weeks", () => {
+  it("targets about 10 weeks", () => {
     expect(VISIT_HORIZON_DAYS).toBe(70);
   });
 

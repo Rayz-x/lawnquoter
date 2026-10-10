@@ -1,4 +1,4 @@
--- S01: rolling 8–10 week visit horizon, extended nightly.
+-- S01: rolling about-10-week visit horizon, extended nightly.
 -- Keeps every active recurring agreement scheduled through org-local today + 70 days.
 -- Idempotent on (org_id, agreement_id, occurrence_date). Never recreates touched rows.
 
