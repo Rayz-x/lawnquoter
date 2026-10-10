@@ -11,6 +11,8 @@ export type AttentionVisit = {
   budget_minutes: number | null;
   reason: string | null;
   property_id: string | null;
+  /** True when a seasonal one-time service is past its warn date and still unscheduled. */
+  seasonal_warn?: boolean;
 };
 
 export type AttentionTray = {

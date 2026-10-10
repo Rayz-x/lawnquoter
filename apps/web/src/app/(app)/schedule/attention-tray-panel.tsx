@@ -34,6 +34,7 @@ import {
   type AttentionTray,
   type AttentionVisit,
 } from "@/lib/scheduling/attention-tray";
+import { SeasonalWarnBadge } from "@/lib/scheduling/seasonal-warn-badge";
 import { cn } from "@/lib/utils";
 
 const SKIP_REASONS = [
@@ -279,6 +280,7 @@ function TrayCard({
           <div className="text-muted-foreground">{visitIdentityLine(visit)}</div>
         </div>
         <div className="flex shrink-0 items-start gap-1">
+          <SeasonalWarnBadge warn={visit.seasonal_warn === true} />
           <Badge variant="outline" className="capitalize">
             {statusLabel(visit.status)}
           </Badge>

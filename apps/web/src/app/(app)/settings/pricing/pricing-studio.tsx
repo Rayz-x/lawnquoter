@@ -25,7 +25,17 @@ import { ModifiersForm } from "./modifiers-form";
 import { RuleForm, STARTER } from "./rule-form";
 import { ServiceForm } from "./service-form";
 
-export type StudioService = { id: string; name: string; kind: string; description: string | null; active: boolean; openQuotes: number };
+export type StudioService = {
+  id: string;
+  name: string;
+  kind: string;
+  description: string | null;
+  active: boolean;
+  openQuotes: number;
+  windowStart: string | null;
+  windowEnd: string | null;
+  warnDate: string | null;
+};
 export type StudioRule = { id: string; serviceId: string; name: string; config: unknown };
 type Material = { id: string; sku: string | null; name: string; unit: string; unit_cost: number; vendor: string | null };
 type RuleSave = { id: string; serviceId: string; name: string; config: TierMatrixRule };
@@ -188,6 +198,37 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
   });
   const activeSave = useSectionAutosave<boolean>({ initial: service.active, onRollback: setActive, action: (on) => toggleService(service.id, on) });
   const descSave = useSectionAutosave<string>({ initial: service.description ?? "", action: (description) => { const fd = new FormData(); fd.set("id", service.id); fd.set("description", description); return updateService(fd); } });
+  const [windowStart, setWindowStart] = useState(service.windowStart ?? "");
+  const [windowEnd, setWindowEnd] = useState(service.windowEnd ?? "");
+  const [warnDate, setWarnDate] = useState(service.warnDate ?? "");
+  const windowSave = useSectionAutosave<{ windowStart: string; windowEnd: string; warnDate: string }>({
+    initial: {
+      windowStart: service.windowStart ?? "",
+      windowEnd: service.windowEnd ?? "",
+      warnDate: service.warnDate ?? "",
+    },
+    onRollback: (values) => {
+      setWindowStart(values.windowStart);
+      setWindowEnd(values.windowEnd);
+      setWarnDate(values.warnDate);
+    },
+    action: async (values) => {
+      const fd = new FormData();
+      fd.set("id", service.id);
+      fd.set("window_start", values.windowStart);
+      fd.set("window_end", values.windowEnd);
+      fd.set("warn_date", values.warnDate);
+      const result = await updateService(fd);
+      if (result.ok) router.refresh();
+      return result;
+    },
+  });
+  const saveWindow = (next: { windowStart: string; windowEnd: string; warnDate: string }) => {
+    setWindowStart(next.windowStart);
+    setWindowEnd(next.windowEnd);
+    setWarnDate(next.warnDate);
+    windowSave.save(next, { immediate: true, rollback: true });
+  };
   const commit = (next: TierMatrixRule, choice = false, note = false, ids?: string[]) => {
     const parsed = pricingRuleSchema.safeParse(next);
     if (!canEdit) return;
@@ -208,16 +249,21 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
     else { const next = Number(raw.replace(/[$,]/g, "")); if (next === row[field]) return; row[field] = next; }
     commit({ ...current, rows }, false, field === "price");
   };
-  const error = formError ?? ruleSave.error ?? activeSave.error ?? descSave.error;
+  const error = formError ?? ruleSave.error ?? activeSave.error ?? descSave.error ?? windowSave.error;
 
   return (
     <>
       <SectionCard
         title={service.name}
         description={`Priced by ${qtyOf(current.quantityKey).label.toLowerCase()} · used on ${service.openQuotes} open ${service.openQuotes === 1 ? "quote" : "quotes"}`}
-        status={heroStatus([ruleSave.status, activeSave.status, descSave.status])}
+        status={heroStatus([ruleSave.status, activeSave.status, descSave.status, windowSave.status])}
         error={error}
-        onRetry={() => { if (ruleSave.status === "error") ruleSave.retry(); else if (activeSave.status === "error") activeSave.retry(); else descSave.retry(); }}
+        onRetry={() => {
+          if (ruleSave.status === "error") ruleSave.retry();
+          else if (activeSave.status === "error") activeSave.retry();
+          else if (windowSave.status === "error") windowSave.retry();
+          else descSave.retry();
+        }}
         menu={canEdit ? <SectionMenu label="Service actions" items={[
           { id: "add", label: "Add tier", onSelect: () => { if (!allowClick(clickLock.current, Date.now())) return; commit(addTier(current), true, false, [...tierIds, crypto.randomUUID()]); } },
           { id: "json", label: "Edit as JSON", onSelect: onJson },
@@ -278,6 +324,55 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
               <FieldLabel htmlFor="svc-desc">Description</FieldLabel>
               <Textarea id="svc-desc" key={service.id} rows={3} readOnly={!canEdit} defaultValue={service.description ?? ""} onBlur={(event) => { if (canEdit && event.target.value !== (service.description ?? "")) descSave.save(event.target.value); }} />
             </Field>
+            <div className="grid gap-3" data-testid="seasonal-service-window">
+              <p className="text-sm text-muted-foreground">
+                Seasonal one-time window. Unscheduled jobs turn red after the warn date.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Field>
+                  <FieldLabel htmlFor="svc-window-start">Window start</FieldLabel>
+                  <Input
+                    id="svc-window-start"
+                    type="date"
+                    readOnly={!canEdit}
+                    value={windowStart}
+                    onChange={(event) => setWindowStart(event.target.value)}
+                    onBlur={() => {
+                      if (!canEdit) return;
+                      saveWindow({ windowStart, windowEnd, warnDate });
+                    }}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="svc-warn-date">Warn date</FieldLabel>
+                  <Input
+                    id="svc-warn-date"
+                    type="date"
+                    readOnly={!canEdit}
+                    value={warnDate}
+                    onChange={(event) => setWarnDate(event.target.value)}
+                    onBlur={() => {
+                      if (!canEdit) return;
+                      saveWindow({ windowStart, windowEnd, warnDate });
+                    }}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="svc-window-end">Window end</FieldLabel>
+                  <Input
+                    id="svc-window-end"
+                    type="date"
+                    readOnly={!canEdit}
+                    value={windowEnd}
+                    onChange={(event) => setWindowEnd(event.target.value)}
+                    onBlur={() => {
+                      if (!canEdit) return;
+                      saveWindow({ windowStart, windowEnd, warnDate });
+                    }}
+                  />
+                </Field>
+              </div>
+            </div>
             {rules.length > 1 ? <NativeSelect aria-label="Price rule" value={rule.id} onChange={(event) => onPickRule(event.target.value)}>{rules.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</NativeSelect> : <p className="text-sm text-muted-foreground">Rule · {rule.name}</p>}
           </div>
         ) },

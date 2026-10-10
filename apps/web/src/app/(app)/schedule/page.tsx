@@ -54,6 +54,7 @@ function parseAttentionVisit(item: unknown): AttentionVisit | null {
     budget_minutes: asNumber(row.budget_minutes),
     reason: asString(row.reason),
     property_id: asString(row.property_id),
+    seasonal_warn: row.seasonal_warn === true,
   };
 }
 

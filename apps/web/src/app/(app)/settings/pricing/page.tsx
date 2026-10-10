@@ -44,7 +44,17 @@ export default async function PricingPage({ searchParams }: { searchParams?: Pro
       <div className="page-body">
         <PricingStudio
           priceListId={list?.id ?? null}
-          services={(services ?? []).map((item) => ({ id: item.id, name: item.name, kind: item.kind, description: item.description, active: item.active, openQuotes: openQuotes.get(item.id)?.size ?? 0 }))}
+          services={(services ?? []).map((item) => ({
+            id: item.id,
+            name: item.name,
+            kind: item.kind,
+            description: item.description,
+            active: item.active,
+            openQuotes: openQuotes.get(item.id)?.size ?? 0,
+            windowStart: item.window_start ?? null,
+            windowEnd: item.window_end ?? null,
+            warnDate: item.warn_date ?? null,
+          }))}
           rules={(rules ?? []).map((rule) => ({ id: rule.id, serviceId: rule.service_id, name: rule.name, config: rule.config }))}
           modifiers={modifiers}
           canEdit={hasRole(session.orgRole, ADMIN_ROLES)}
