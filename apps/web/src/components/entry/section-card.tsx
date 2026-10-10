@@ -45,6 +45,7 @@ export function SectionCard({
   onRetry,
   heading = "h2",
   weight = "standard",
+  tone,
   actions,
   children,
 }: {
@@ -59,6 +60,8 @@ export function SectionCard({
   onRetry?: () => void;
   heading?: "h2" | "h3";
   weight?: SectionWeight;
+  /** Amber header, used when a safety flag such as dogs is on. */
+  tone?: "warning";
   /** Explicit Save/Cancel slot. Office address and pricing JSON use it. Other cards autosave and omit it. */
   actions?: ReactNode;
   children?: ReactNode;
@@ -86,12 +89,13 @@ export function SectionCard({
       data-entry="section-card"
       data-mode={mode}
       data-weight={weight}
-      className={weight === "internal" ? "bg-muted" : weight === "critical" ? "bg-destructive/5" : undefined}
+      data-tone={tone}
+      className={tone === "warning" ? "bg-warning/10 ring-warning/40" : weight === "internal" ? "bg-muted" : weight === "critical" ? "bg-destructive/5" : undefined}
     >
       <section aria-labelledby={titleId}>
         <CardHeader>
           <CardTitle>
-            <HeadingTag id={titleId} className="text-base leading-snug font-medium">
+            <HeadingTag id={titleId} className={tone === "warning" ? "text-base leading-snug font-medium text-warning" : "text-base leading-snug font-medium"}>
               {title}
             </HeadingTag>
           </CardTitle>
