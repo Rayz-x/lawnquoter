@@ -8,6 +8,7 @@ Company setup, accounts and properties, satellite measurement, the price catalog
 
 ### Crews
 
+- A crew lead can finish a stop as Partly done with an after photo and a reason. The stop is held for billing review, and a return visit lands unassigned in Needs attention (not on a route). (#92)
 - Crew settings include a battery-saver toggle kept on that phone. With it on, the crew map uses an outline basemap with no satellite tiles and animations are reduced. Sun mode stays when the crew picked it; otherwise the dark outdoor theme is used. Office maps are unchanged. (#108)
 
 ## 2026-10-09
