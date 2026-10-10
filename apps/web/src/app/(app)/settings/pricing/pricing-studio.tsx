@@ -194,7 +194,7 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, tab
   const chips = QTY.some((item) => item.key === current.quantityKey) ? QTY : [...QTY, qtyOf(current.quantityKey)];
   const ruleSave = useSectionAutosave<RuleSave>({
     initial: { id: rule.id, serviceId: rule.serviceId, name: rule.name, config: tier },
-    onRollback: () => { setPatch(null); setPriceNote(false); },
+    onRollback: (values) => { setPatch(values.config); setPriceNote(false); },
     action: async (values) => {
       if (!priceListId) return { ok: false, error: "No price list" };
       const fd = new FormData();
@@ -209,7 +209,7 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, tab
     initial: service.description ?? "",
     action: (description) => { const fd = new FormData(); fd.set("id", service.id); fd.set("description", description); return updateService(fd); },
   });
-  const commit = (next: TierMatrixRule, immediate = false, note = false) => {
+  const commit = (next: TierMatrixRule, choice = false, note = false) => {
     const parsed = pricingRuleSchema.safeParse(next);
     if (!parsed.success || parsed.data.type !== "tier_matrix") {
       setFormError(parsed.success ? "Invalid tier" : (parsed.error.issues[0]?.message ?? "Invalid tier"));
@@ -218,7 +218,7 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, tab
     setFormError(null);
     setPatch(parsed.data);
     if (note) setPriceNote(true);
-    ruleSave.save({ id: rule.id, serviceId: rule.serviceId, name: rule.name, config: parsed.data }, { immediate });
+    ruleSave.save({ id: rule.id, serviceId: rule.serviceId, name: rule.name, config: parsed.data }, choice ? { immediate: true, rollback: true } : undefined);
   };
   const setCell = (index: number, field: keyof TierRow, raw: string) => {
     const rows = current.rows.map((row) => ({ ...row }));
@@ -237,6 +237,7 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, tab
         description={`Priced by ${qtyOf(current.quantityKey).label.toLowerCase()} · used on ${service.openQuotes} open ${service.openQuotes === 1 ? "quote" : "quotes"}`}
         status={heroStatus([ruleSave.status, activeSave.status, descSave.status])}
         error={error}
+        onRetry={() => { if (ruleSave.status === "error") ruleSave.retry(); else if (activeSave.status === "error") activeSave.retry(); else descSave.retry(); }}
         menu={<SectionMenu label="Service actions" items={[
           { id: "add", label: "Add tier", onSelect: () => commit(addTier(current), true) },
           { id: "json", label: "Edit as JSON", onSelect: onJson },
@@ -246,7 +247,7 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, tab
       >
         <div className="flex items-center gap-2">
           <Badge variant="outline">{kindLabel(service.kind)}</Badge>
-          <label className="flex min-h-11 items-center gap-2 text-sm"><Switch checked={active} onCheckedChange={(checked) => { setActive(checked); activeSave.save(checked, { immediate: true }); }} />{active ? "On" : "Off"}</label>
+          <label className="flex min-h-11 items-center gap-2 text-sm"><Switch checked={active} onCheckedChange={(checked) => { setActive(checked); activeSave.save(checked, { immediate: true, rollback: true }); }} />{active ? "On" : "Off"}</label>
         </div>
       </SectionCard>
       <TabBox label="Service" value={tab} onValueChange={onTab} tabs={[
