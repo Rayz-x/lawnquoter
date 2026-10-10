@@ -10,6 +10,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { priceCatalogLine, type MeasuredFeature, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
 import { customerCopyUpdateError } from "@/lib/quotes/customer-copy";
 import { ACCEPTED_QUOTE_DELETE_ERROR, deleteQuoteError } from "@/lib/quotes/delete-quote";
+import { autoSiteCheckReasons, mergeSiteCheckReasons, orgSiteCheckThreshold } from "@/lib/quotes/site-check";
 import { createClient } from "@/lib/supabase/server";
 
 const NOT_SAVED = "Could not save this change.";
@@ -134,6 +135,8 @@ export async function addLineItem(quoteId: string, versionId: string, fd: FormDa
     notes_customer: parsed.data.notes_customer || null,
     notes_crew: parsed.data.notes_crew || null,
     selected: parsed.data.state === "included",
+    quantity_source: "manual",
+    site_check_reasons: [],
   }).select("id");
   const missed = unchanged(data, error);
   if (missed) return missed;
@@ -380,20 +383,23 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
     if (!section || section.version_id !== versionId) return fail("Section not found");
   }
 
-  const [{ data: quote, error: quoteError }, { data: rule, error: ruleError }] = await Promise.all([
-    supabase.from("quotes").select("property_id").eq("id", quoteId).eq("org_id", session.orgId).maybeSingle(),
-    supabase
-      .from("pricing_rules")
-      .select("name, config, service_id, price_list_id")
-      .eq("id", parsed.data.rule_id)
-      .eq("org_id", session.orgId)
-      .eq("active", true)
-      .maybeSingle(),
-  ]);
+  const [{ data: quote, error: quoteError }, { data: rule, error: ruleError }, { data: org, error: orgError }] =
+    await Promise.all([
+      supabase.from("quotes").select("property_id, account_id").eq("id", quoteId).eq("org_id", session.orgId).maybeSingle(),
+      supabase
+        .from("pricing_rules")
+        .select("name, config, service_id, price_list_id")
+        .eq("id", parsed.data.rule_id)
+        .eq("org_id", session.orgId)
+        .eq("active", true)
+        .maybeSingle(),
+      supabase.from("orgs").select("settings").eq("id", session.orgId).maybeSingle(),
+    ]);
   if (quoteError) return fail(quoteError.message);
   if (!quote) return fail("Quote not found");
   if (ruleError) return fail(ruleError.message);
   if (!rule) return fail("Pricing rule not found");
+  if (orgError) return fail(orgError.message);
 
   const { data: list, error: listError } = await supabase
     .from("price_lists")
@@ -407,6 +413,7 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
 
   let features: MeasuredFeature[] = [];
   let property: PropertyPricingInput | null = null;
+  let quantitySource: "measurement" | "manual" | "unknown" = "unknown";
   if (quote.property_id) {
     const [{ data: propertyRow, error: propertyError }, { data: measurement, error: measurementError }] = await Promise.all([
       supabase
@@ -426,6 +433,7 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
     if (!propertyRow) return fail("Property not found");
     if (measurementError) return fail(measurementError.message);
     features = measurement?.measurement_features ?? [];
+    quantitySource = measurement ? "measurement" : "unknown";
     property = {
       lotSqft: propertyRow?.lot_sqft,
       slope: propertyRow?.slope,
@@ -444,6 +452,11 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
   });
   if (!priced.ok) return fail(priced.error);
 
+  const siteCheckReasons = autoSiteCheckReasons({
+    confidence: property?.confidence,
+    threshold: orgSiteCheckThreshold(org?.settings),
+  });
+
   const { data, error } = await supabase.from("quote_line_items").insert({
     org_id: session.orgId,
     version_id: versionId,
@@ -459,9 +472,135 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
     option_group: parsed.data.option_group || null,
     option_tier: parsed.data.option_tier,
     selected: parsed.data.state === "included",
+    quantity_source: quantitySource,
+    site_check_reasons: siteCheckReasons,
   }).select("id");
   const missed = unchanged(data, error);
   if (missed) return missed;
+  revalidatePath(`/quotes/${quoteId}`);
+  return { ok: true };
+}
+
+export async function flagLineNeedsSiteCheck(
+  quoteId: string,
+  lineId: string,
+  fd: FormData,
+): Promise<ActionResult> {
+  const session = await requireOrg();
+  const denied = denyUnlessSales(session.orgRole);
+  if (denied) return denied;
+  const parsed = z
+    .object({
+      enabled: z.enum(["true", "false"]),
+      note: z.string().trim().max(2000).optional().or(z.literal("")),
+    })
+    .safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
+  const { supabase, error: lineError } = await editableLine(quoteId, lineId, session.orgId);
+  if (lineError) return fail(lineError);
+
+  const { data: line, error: readError } = await supabase
+    .from("quote_line_items")
+    .select("id, site_check_reasons, price_locked")
+    .eq("id", lineId)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (readError) return fail(readError.message);
+  if (!line) return fail("Line item not found");
+  if (line.price_locked) return fail("This line is already locked at a verified price.");
+
+  const reasons = mergeSiteCheckReasons(line.site_check_reasons, parsed.data.enabled === "true" ? "manual" : null);
+  const { data, error } = await supabase
+    .from("quote_line_items")
+    .update({ site_check_reasons: reasons })
+    .eq("id", lineId)
+    .eq("org_id", session.orgId)
+    .select("id");
+  const missed = unchanged(data, error);
+  if (missed) return missed;
+
+  const { data: quote } = await supabase
+    .from("quotes")
+    .select("account_id, property_id")
+    .eq("id", quoteId)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (quote) {
+    const note = parsed.data.note?.trim();
+    await supabase.from("activities").insert({
+      org_id: session.orgId,
+      account_id: quote.account_id,
+      property_id: quote.property_id,
+      kind: parsed.data.enabled === "true" ? "line.site_check_flagged" : "line.site_check_cleared",
+      summary:
+        parsed.data.enabled === "true"
+          ? `Needs site check${note ? `: ${note}` : ""}`
+          : "Cleared Needs site check",
+      actor_id: session.userId,
+      meta: { quote_id: quoteId, line_id: lineId, note: note || null },
+    });
+  }
+
+  revalidatePath(`/quotes/${quoteId}`);
+  return { ok: true };
+}
+
+export async function waiveLineSiteCheck(quoteId: string, lineId: string, fd: FormData): Promise<ActionResult> {
+  const session = await requireOrg();
+  const denied = denyUnlessSales(session.orgRole);
+  if (denied) return denied;
+  const parsed = z
+    .object({ reason: z.string().trim().min(1, "Add a reason.").max(2000) })
+    .safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
+  const { supabase, error: lineError } = await editableLine(quoteId, lineId, session.orgId);
+  if (lineError) return fail(lineError);
+
+  const { data: line, error: readError } = await supabase
+    .from("quote_line_items")
+    .select("id, site_check_reasons, price, price_locked")
+    .eq("id", lineId)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (readError) return fail(readError.message);
+  if (!line) return fail("Line item not found");
+  if (line.price_locked) return fail("This line is already locked at a verified price.");
+  if (!(line.site_check_reasons?.length)) return fail("This line does not need a site check.");
+
+  const { data, error } = await supabase
+    .from("quote_line_items")
+    .update({
+      site_check_reasons: [],
+      range_low: null,
+      range_high: null,
+      price_locked: true,
+      verified_price: Number(line.price),
+      verified_at: new Date().toISOString(),
+    })
+    .eq("id", lineId)
+    .eq("org_id", session.orgId)
+    .select("id");
+  const missed = unchanged(data, error);
+  if (missed) return missed;
+
+  const { data: quote } = await supabase
+    .from("quotes")
+    .select("account_id, property_id")
+    .eq("id", quoteId)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (quote) {
+    await supabase.from("activities").insert({
+      org_id: session.orgId,
+      account_id: quote.account_id,
+      property_id: quote.property_id,
+      kind: "line.site_check_waived",
+      summary: `Priced as firm: ${parsed.data.reason}`,
+      actor_id: session.userId,
+      meta: { quote_id: quoteId, line_id: lineId, reason: parsed.data.reason, verified_price: Number(line.price) },
+    });
+  }
+
   revalidatePath(`/quotes/${quoteId}`);
   return { ok: true };
 }
