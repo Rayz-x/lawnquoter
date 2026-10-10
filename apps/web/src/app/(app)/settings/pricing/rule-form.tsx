@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { pricingRuleSchema } from "@lawnquoter/pricing-engine";
 import { toast } from "sonner";
 import { SectionCard } from "@/components/entry";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,7 @@ export function RuleForm({
 }) {
   const [pending, startTransition] = useTransition();
   const [issues, setIssues] = useState<string[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const formId = `rule-${rule?.id ?? "new"}`;
   return (
     <SectionCard
@@ -81,17 +83,7 @@ export function RuleForm({
             </Button>
           ) : null}
           {rule && showDelete ? (
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={pending}
-              onClick={() =>
-                startTransition(async () => {
-                  const r = await deleteRule(rule.id);
-                  if (!r.ok) toast.error(r.error);
-                })
-              }
-            >
+            <Button type="button" variant="destructive" disabled={pending} onClick={() => setConfirmDelete(true)}>
               Delete
             </Button>
           ) : null}
@@ -155,6 +147,32 @@ export function RuleForm({
         </Field>
       </FieldGroup>
     </form>
+    {rule && showDelete ? (
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete rule</AlertDialogTitle>
+            <AlertDialogDescription>This can't be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                setConfirmDelete(false);
+                startTransition(async () => {
+                  const r = await deleteRule(rule.id);
+                  if (!r.ok) toast.error(r.error);
+                });
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    ) : null}
     </SectionCard>
   );
 }
