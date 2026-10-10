@@ -2,6 +2,7 @@
 -- overdue pin for in-progress / paused stops older than that window.
 -- Device clock never widens which codes are released. Skew > 5 minutes is
 -- already flagged in private.crew_apply (300s).
+-- Timestamp after S07 phone-sync (193500). crew_day_pack keeps pack version.
 
 -- Dusty's overdue exception: an active stop past the normal ±1 day window
 -- stays readable (and keeps its gate code) for the crew that owns the route.
@@ -157,6 +158,7 @@ begin
   return jsonb_build_object(
     'date', p_date,
     'server_today', v_today,
+    'version', coalesce(v_route.revision, 0),
     'is_live_lead', private.is_live_crew_lead(v_org, v_crew),
     'crew', (
       select jsonb_build_object('id', c.id, 'name', c.name)
