@@ -238,7 +238,9 @@ export function ProposalView({
             Download PDF
           </Button>
         </div>
-        <AcceptForm token={token} status={payload.status} selectedIds={selectedIds} clause={clause} />
+        {LIVE_TOKEN.test(token) ? (
+          <AcceptForm token={token} status={payload.status} selectedIds={selectedIds} clause={clause} />
+        ) : null}
         {payload.notes_customer ? <p className="mt-4 text-sm text-muted-foreground">{payload.notes_customer}</p> : null}
         <p className="mt-6 text-xs text-muted-foreground">
           {payload.org.phone}
