@@ -15,9 +15,6 @@ describe("org settings writes", () => {
     expect(orgUpdateFailure({ message: "invalid timezone" }, null)).toBe("invalid timezone");
     expect(orgSettingsDenied("owner")).toBeNull();
     expect(orgSettingsDenied("admin")).toBeNull();
-    for (const role of ORG_ROLES) {
-      if (role === "owner" || role === "admin") continue;
-      expect(orgSettingsDenied(role)).toBe(SETTINGS_ADMIN_ONLY);
-    }
+    expect(ORG_ROLES.filter((role) => role !== "owner" && role !== "admin").every((role) => orgSettingsDenied(role) === SETTINGS_ADMIN_ONLY)).toBe(true);
   });
 });

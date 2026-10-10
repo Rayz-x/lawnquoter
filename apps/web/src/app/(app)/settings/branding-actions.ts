@@ -120,8 +120,8 @@ export async function saveBranding(formData: FormData): Promise<ActionResult> {
     if (current.logo_dark_path) removed.push(current.logo_dark_path);
   }
 
-  const { error } = await supabase.from("orgs").update(patch).eq("id", session.orgId);
-  if (error) return { ok: false, error: error.message };
+  const { data: saved, error } = await supabase.from("orgs").update(patch).eq("id", session.orgId).select("id").maybeSingle();
+  if (error || !saved) return { ok: false, error: error?.message ?? "Settings were not saved." };
   const stale = removed.filter((path) => path && !uploaded.includes(path));
   if (stale.length > 0) await admin.storage.from("org-branding").remove(stale);
 

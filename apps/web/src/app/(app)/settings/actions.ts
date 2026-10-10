@@ -25,8 +25,6 @@ const issue = (error: z.ZodError) => error.issues[0]?.message ?? "Invalid input"
 
 async function writeOrg(patch: TablesUpdate<"orgs">, settingsPatch?: Record<string, Json>): Promise<OrgCardResult> {
   const session = await requireOrg();
-  const denied = orgSettingsDenied(session.orgRole);
-  if (denied) return { ok: false, error: denied };
   const supabase = await createClient();
   let next = patch;
   if (settingsPatch) {
@@ -47,6 +45,9 @@ async function writeOrg(patch: TablesUpdate<"orgs">, settingsPatch?: Record<stri
 }
 
 export async function saveOrgCard(formData: FormData): Promise<OrgCardResult> {
+  const session = await requireOrg();
+  const denied = orgSettingsDenied(session.orgRole);
+  if (denied) return { ok: false, error: denied };
   const raw = Object.fromEntries(formData);
   const section = String(raw.section ?? "");
   if (section === "identity") {
