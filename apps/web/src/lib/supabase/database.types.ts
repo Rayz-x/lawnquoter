@@ -706,14 +706,14 @@ isOneToOne: true
                   ]
                 },"quote_line_items": {
                   Row: {
-                    "cost": number,"description": string | null,"hours": number,"id": string,"name": string,"notes_crew": string | null,"notes_customer": string | null,"option_group": string | null,"option_tier": Database["public"]['Enums']["option_tier"],"org_id": string,"photo_url": string | null,"price": number,"qty": number,"range_high": number | null,"range_low": number | null,"section_id": string | null,"selected": boolean,"service_id": string | null,"sort": number,"state": Database["public"]['Enums']["item_state"],"unit": string,"version_id": string
+                    "cost": number,"description": string | null,"hours": number,"id": string,"name": string,"notes_crew": string | null,"notes_customer": string | null,"option_group": string | null,"option_tier": Database["public"]['Enums']["option_tier"],"org_id": string,"photo_url": string | null,"price": number,"price_locked": boolean,"qty": number,"quantity_source": Database["public"]['Enums']["quantity_source"],"range_high": number | null,"range_low": number | null,"section_id": string | null,"selected": boolean,"service_id": string | null,"site_check_reasons": (string)[],"sort": number,"state": Database["public"]['Enums']["item_state"],"unit": string,"verified_at": string | null,"verified_price": number | null,"version_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "cost"?: number,"description"?: string | null,"hours"?: number,"id"?: string,"name": string,"notes_crew"?: string | null,"notes_customer"?: string | null,"option_group"?: string | null,"option_tier"?: Database["public"]['Enums']["option_tier"],"org_id": string,"photo_url"?: string | null,"price"?: number,"qty"?: number,"range_high"?: number | null,"range_low"?: number | null,"section_id"?: string | null,"selected"?: boolean,"service_id"?: string | null,"sort"?: number,"state"?: Database["public"]['Enums']["item_state"],"unit"?: string,"version_id": string
+                    "cost"?: number,"description"?: string | null,"hours"?: number,"id"?: string,"name": string,"notes_crew"?: string | null,"notes_customer"?: string | null,"option_group"?: string | null,"option_tier"?: Database["public"]['Enums']["option_tier"],"org_id": string,"photo_url"?: string | null,"price"?: number,"price_locked"?: boolean,"qty"?: number,"quantity_source"?: Database["public"]['Enums']["quantity_source"],"range_high"?: number | null,"range_low"?: number | null,"section_id"?: string | null,"selected"?: boolean,"service_id"?: string | null,"site_check_reasons"?: (string)[],"sort"?: number,"state"?: Database["public"]['Enums']["item_state"],"unit"?: string,"verified_at"?: string | null,"verified_price"?: number | null,"version_id": string
                   }
                   Update: {
-                    "cost"?: number,"description"?: string | null,"hours"?: number,"id"?: string,"name"?: string,"notes_crew"?: string | null,"notes_customer"?: string | null,"option_group"?: string | null,"option_tier"?: Database["public"]['Enums']["option_tier"],"org_id"?: string,"photo_url"?: string | null,"price"?: number,"qty"?: number,"range_high"?: number | null,"range_low"?: number | null,"section_id"?: string | null,"selected"?: boolean,"service_id"?: string | null,"sort"?: number,"state"?: Database["public"]['Enums']["item_state"],"unit"?: string,"version_id"?: string
+                    "cost"?: number,"description"?: string | null,"hours"?: number,"id"?: string,"name"?: string,"notes_crew"?: string | null,"notes_customer"?: string | null,"option_group"?: string | null,"option_tier"?: Database["public"]['Enums']["option_tier"],"org_id"?: string,"photo_url"?: string | null,"price"?: number,"price_locked"?: boolean,"qty"?: number,"quantity_source"?: Database["public"]['Enums']["quantity_source"],"range_high"?: number | null,"range_low"?: number | null,"section_id"?: string | null,"selected"?: boolean,"service_id"?: string | null,"site_check_reasons"?: (string)[],"sort"?: number,"state"?: Database["public"]['Enums']["item_state"],"unit"?: string,"verified_at"?: string | null,"verified_price"?: number | null,"version_id"?: string
                   }
                   Relationships: [
                     {
@@ -822,14 +822,14 @@ isOneToOne: false
                   ]
                 },"quotes": {
                   Row: {
-                    "account_id": string,"created_at": string,"created_by": string | null,"current_version": number,"deposit_amount": number | null,"expires_at": string | null,"id": string,"intro": string | null,"notes_customer": string | null,"notes_internal": string | null,"number": number,"org_id": string,"property_id": string | null,"public_token": string,"sent_at": string | null,"status": Database["public"]['Enums']["quote_status"],"template_id": string | null,"title": string,"updated_at": string,"viewed_at": string | null
+                    "account_id": string,"created_at": string,"created_by": string | null,"current_version": number,"deposit_amount": number | null,"expires_at": string | null,"id": string,"intro": string | null,"notes_customer": string | null,"notes_internal": string | null,"number": number,"org_id": string,"property_id": string | null,"public_token": string,"sent_at": string | null,"site_check_status": Database["public"]['Enums']["site_check_status"] | null,"status": Database["public"]['Enums']["quote_status"],"template_id": string | null,"title": string,"updated_at": string,"viewed_at": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "account_id": string,"created_at"?: string,"created_by"?: string | null,"current_version"?: number,"deposit_amount"?: number | null,"expires_at"?: string | null,"id"?: string,"intro"?: string | null,"notes_customer"?: string | null,"notes_internal"?: string | null,"number": number,"org_id": string,"property_id"?: string | null,"public_token"?: string,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["quote_status"],"template_id"?: string | null,"title"?: string,"updated_at"?: string,"viewed_at"?: string | null
+                    "account_id": string,"created_at"?: string,"created_by"?: string | null,"current_version"?: number,"deposit_amount"?: number | null,"expires_at"?: string | null,"id"?: string,"intro"?: string | null,"notes_customer"?: string | null,"notes_internal"?: string | null,"number": number,"org_id": string,"property_id"?: string | null,"public_token"?: string,"sent_at"?: string | null,"site_check_status"?: Database["public"]['Enums']["site_check_status"] | null,"status"?: Database["public"]['Enums']["quote_status"],"template_id"?: string | null,"title"?: string,"updated_at"?: string,"viewed_at"?: string | null
                   }
                   Update: {
-                    "account_id"?: string,"created_at"?: string,"created_by"?: string | null,"current_version"?: number,"deposit_amount"?: number | null,"expires_at"?: string | null,"id"?: string,"intro"?: string | null,"notes_customer"?: string | null,"notes_internal"?: string | null,"number"?: number,"org_id"?: string,"property_id"?: string | null,"public_token"?: string,"sent_at"?: string | null,"status"?: Database["public"]['Enums']["quote_status"],"template_id"?: string | null,"title"?: string,"updated_at"?: string,"viewed_at"?: string | null
+                    "account_id"?: string,"created_at"?: string,"created_by"?: string | null,"current_version"?: number,"deposit_amount"?: number | null,"expires_at"?: string | null,"id"?: string,"intro"?: string | null,"notes_customer"?: string | null,"notes_internal"?: string | null,"number"?: number,"org_id"?: string,"property_id"?: string | null,"public_token"?: string,"sent_at"?: string | null,"site_check_status"?: Database["public"]['Enums']["site_check_status"] | null,"status"?: Database["public"]['Enums']["quote_status"],"template_id"?: string | null,"title"?: string,"updated_at"?: string,"viewed_at"?: string | null
                   }
                   Relationships: [
                     {
@@ -907,6 +907,62 @@ isOneToOne: false
       columns: ["org_id"]
 isOneToOne: false
       referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"site_checks": {
+                  Row: {
+                    "actuals": Json | null,"assigned_to": string | null,"completed_at": string | null,"completed_by": string | null,"created_at": string,"decline_reason": string | null,"due_on": string | null,"id": string,"line_ids": (string)[],"measurement_id": string | null,"method": Database["public"]['Enums']["site_check_method"],"org_id": string,"origin": Database["public"]['Enums']["site_check_origin"],"outcome": string | null,"photo_paths": (string)[],"property_id": string,"quote_id": string,"reasons": (string)[],"request_note": string | null,"requested_email": string | null,"resolved_version": number | null,"status": Database["public"]['Enums']["site_check_status"],"updated_at": string,"visit_id": string | null,"waive_reason": string | null,"window_end": string | null,"window_start": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "actuals"?: Json | null,"assigned_to"?: string | null,"completed_at"?: string | null,"completed_by"?: string | null,"created_at"?: string,"decline_reason"?: string | null,"due_on"?: string | null,"id"?: string,"line_ids"?: (string)[],"measurement_id"?: string | null,"method"?: Database["public"]['Enums']["site_check_method"],"org_id": string,"origin": Database["public"]['Enums']["site_check_origin"],"outcome"?: string | null,"photo_paths"?: (string)[],"property_id": string,"quote_id": string,"reasons"?: (string)[],"request_note"?: string | null,"requested_email"?: string | null,"resolved_version"?: number | null,"status"?: Database["public"]['Enums']["site_check_status"],"updated_at"?: string,"visit_id"?: string | null,"waive_reason"?: string | null,"window_end"?: string | null,"window_start"?: string | null
+                  }
+                  Update: {
+                    "actuals"?: Json | null,"assigned_to"?: string | null,"completed_at"?: string | null,"completed_by"?: string | null,"created_at"?: string,"decline_reason"?: string | null,"due_on"?: string | null,"id"?: string,"line_ids"?: (string)[],"measurement_id"?: string | null,"method"?: Database["public"]['Enums']["site_check_method"],"org_id"?: string,"origin"?: Database["public"]['Enums']["site_check_origin"],"outcome"?: string | null,"photo_paths"?: (string)[],"property_id"?: string,"quote_id"?: string,"reasons"?: (string)[],"request_note"?: string | null,"requested_email"?: string | null,"resolved_version"?: number | null,"status"?: Database["public"]['Enums']["site_check_status"],"updated_at"?: string,"visit_id"?: string | null,"waive_reason"?: string | null,"window_end"?: string | null,"window_start"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "site_checks_assigned_to_fkey"
+      columns: ["assigned_to"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "site_checks_completed_by_fkey"
+      columns: ["completed_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "site_checks_measurement_id_fkey"
+      columns: ["measurement_id"]
+isOneToOne: false
+      referencedRelation: "measurements"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "site_checks_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "site_checks_property_id_fkey"
+      columns: ["property_id"]
+isOneToOne: false
+      referencedRelation: "properties"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "site_checks_quote_id_fkey"
+      columns: ["quote_id"]
+isOneToOne: false
+      referencedRelation: "quotes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "site_checks_visit_id_fkey"
+      columns: ["visit_id"]
+isOneToOne: false
+      referencedRelation: "visits"
       referencedColumns: ["id"]
     }
                   ]
@@ -1235,7 +1291,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "acceptance_method": "click"|"signwell"|"wet","account_status": "lead"|"active"|"inactive","account_type": "residential"|"commercial","agreement_frequency": "weekly"|"biweekly"|"monthly","agreement_kind": "one_time"|"recurring","agreement_status": "active"|"paused"|"ended","contact_role": "primary"|"billing"|"site"|"decision_maker"|"other","enhancement_status": "new"|"quoted"|"dismissed","enhancement_tag": "aeration"|"overseed"|"mulch"|"shrub_tree"|"drainage"|"other","feature_category": "turf_front"|"turf_back"|"bed"|"hardscape"|"driveway"|"sidewalk"|"edging_line"|"fence_line"|"canopy"|"roof","feature_source": "auto"|"traced"|"manual"|"imported","geo_source": "regrid"|"county"|"overture"|"osm"|"traced"|"manual"|"unknown","invite_status": "pending"|"accepted"|"revoked"|"expired","item_state": "included"|"recommended"|"optional","job_status": "unscheduled"|"scheduled"|"in_progress"|"completed"|"cancelled","measurement_status": "draft"|"current"|"archived","membership_status": "invited"|"active"|"disabled","option_tier": "none"|"good"|"better"|"best","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only","payment_kind": "deposit"|"balance"|"invoice"|"ach_verify","payment_status": "requires_action"|"processing"|"succeeded"|"failed"|"canceled"|"refunded","price_list_status": "draft"|"active"|"archived","quote_status": "draft"|"sent"|"viewed"|"accepted"|"declined"|"expired"|"changed","route_status": "draft"|"published"|"in_progress"|"done","rule_type": "tier_matrix"|"assembly"|"catalog"|"program"|"snow"|"irrigation","service_kind": "mowing"|"fert"|"cleanup"|"snow"|"irrigation"|"install"|"other","slope_class": "flat"|"gentle"|"moderate"|"steep","time_entry_kind": "job"|"pause","visit_event_kind": "started"|"paused"|"resumed"|"finished"|"reopened"|"skipped","visit_photo_kind": "before"|"after"|"issue"|"upsell","visit_skip_reason": "gate_locked"|"dog_loose"|"customer_skip"|"weather"|"equipment"|"unsafe"|"other","visit_status": "scheduled"|"in_progress"|"paused"|"completed"|"skipped"|"cant_complete"|"cancelled"
+            "acceptance_method": "click"|"signwell"|"wet","account_status": "lead"|"active"|"inactive","account_type": "residential"|"commercial","agreement_frequency": "weekly"|"biweekly"|"monthly","agreement_kind": "one_time"|"recurring","agreement_status": "active"|"paused"|"ended","contact_role": "primary"|"billing"|"site"|"decision_maker"|"other","enhancement_status": "new"|"quoted"|"dismissed","enhancement_tag": "aeration"|"overseed"|"mulch"|"shrub_tree"|"drainage"|"other","feature_category": "turf_front"|"turf_back"|"bed"|"hardscape"|"driveway"|"sidewalk"|"edging_line"|"fence_line"|"canopy"|"roof","feature_source": "auto"|"traced"|"manual"|"imported","geo_source": "regrid"|"county"|"overture"|"osm"|"traced"|"manual"|"unknown","invite_status": "pending"|"accepted"|"revoked"|"expired","item_state": "included"|"recommended"|"optional","job_status": "unscheduled"|"scheduled"|"in_progress"|"completed"|"cancelled","measurement_status": "draft"|"current"|"archived","membership_status": "invited"|"active"|"disabled","option_tier": "none"|"good"|"better"|"best","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only","payment_kind": "deposit"|"balance"|"invoice"|"ach_verify","payment_status": "requires_action"|"processing"|"succeeded"|"failed"|"canceled"|"refunded","price_list_status": "draft"|"active"|"archived","quantity_source": "measurement"|"manual"|"unknown","quote_status": "draft"|"sent"|"viewed"|"accepted"|"declined"|"expired"|"changed","route_status": "draft"|"published"|"in_progress"|"done","rule_type": "tier_matrix"|"assembly"|"catalog"|"program"|"snow"|"irrigation","service_kind": "mowing"|"fert"|"cleanup"|"snow"|"irrigation"|"install"|"other","site_check_method": "desk"|"crew_stop"|"visit","site_check_origin": "acceptance"|"customer_request","site_check_status": "requested"|"open"|"scheduled"|"done"|"waived"|"declined"|"cancelled","slope_class": "flat"|"gentle"|"moderate"|"steep","time_entry_kind": "job"|"pause","visit_event_kind": "started"|"paused"|"resumed"|"finished"|"reopened"|"skipped","visit_photo_kind": "before"|"after"|"issue"|"upsell","visit_skip_reason": "gate_locked"|"dog_loose"|"customer_skip"|"weather"|"equipment"|"unsafe"|"other","visit_status": "scheduled"|"in_progress"|"paused"|"completed"|"skipped"|"cant_complete"|"cancelled"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -1351,7 +1407,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "acceptance_method": ["click", "signwell", "wet"],"account_status": ["lead", "active", "inactive"],"account_type": ["residential", "commercial"],"agreement_frequency": ["weekly", "biweekly", "monthly"],"agreement_kind": ["one_time", "recurring"],"agreement_status": ["active", "paused", "ended"],"contact_role": ["primary", "billing", "site", "decision_maker", "other"],"enhancement_status": ["new", "quoted", "dismissed"],"enhancement_tag": ["aeration", "overseed", "mulch", "shrub_tree", "drainage", "other"],"feature_category": ["turf_front", "turf_back", "bed", "hardscape", "driveway", "sidewalk", "edging_line", "fence_line", "canopy", "roof"],"feature_source": ["auto", "traced", "manual", "imported"],"geo_source": ["regrid", "county", "overture", "osm", "traced", "manual", "unknown"],"invite_status": ["pending", "accepted", "revoked", "expired"],"item_state": ["included", "recommended", "optional"],"job_status": ["unscheduled", "scheduled", "in_progress", "completed", "cancelled"],"measurement_status": ["draft", "current", "archived"],"membership_status": ["invited", "active", "disabled"],"option_tier": ["none", "good", "better", "best"],"org_role": ["owner", "admin", "sales", "dispatcher", "crew_lead", "crew", "read_only"],"payment_kind": ["deposit", "balance", "invoice", "ach_verify"],"payment_status": ["requires_action", "processing", "succeeded", "failed", "canceled", "refunded"],"price_list_status": ["draft", "active", "archived"],"quote_status": ["draft", "sent", "viewed", "accepted", "declined", "expired", "changed"],"route_status": ["draft", "published", "in_progress", "done"],"rule_type": ["tier_matrix", "assembly", "catalog", "program", "snow", "irrigation"],"service_kind": ["mowing", "fert", "cleanup", "snow", "irrigation", "install", "other"],"slope_class": ["flat", "gentle", "moderate", "steep"],"time_entry_kind": ["job", "pause"],"visit_event_kind": ["started", "paused", "resumed", "finished", "reopened", "skipped"],"visit_photo_kind": ["before", "after", "issue", "upsell"],"visit_skip_reason": ["gate_locked", "dog_loose", "customer_skip", "weather", "equipment", "unsafe", "other"],"visit_status": ["scheduled", "in_progress", "paused", "completed", "skipped", "cant_complete", "cancelled"]
+            "acceptance_method": ["click", "signwell", "wet"],"account_status": ["lead", "active", "inactive"],"account_type": ["residential", "commercial"],"agreement_frequency": ["weekly", "biweekly", "monthly"],"agreement_kind": ["one_time", "recurring"],"agreement_status": ["active", "paused", "ended"],"contact_role": ["primary", "billing", "site", "decision_maker", "other"],"enhancement_status": ["new", "quoted", "dismissed"],"enhancement_tag": ["aeration", "overseed", "mulch", "shrub_tree", "drainage", "other"],"feature_category": ["turf_front", "turf_back", "bed", "hardscape", "driveway", "sidewalk", "edging_line", "fence_line", "canopy", "roof"],"feature_source": ["auto", "traced", "manual", "imported"],"geo_source": ["regrid", "county", "overture", "osm", "traced", "manual", "unknown"],"invite_status": ["pending", "accepted", "revoked", "expired"],"item_state": ["included", "recommended", "optional"],"job_status": ["unscheduled", "scheduled", "in_progress", "completed", "cancelled"],"measurement_status": ["draft", "current", "archived"],"membership_status": ["invited", "active", "disabled"],"option_tier": ["none", "good", "better", "best"],"org_role": ["owner", "admin", "sales", "dispatcher", "crew_lead", "crew", "read_only"],"payment_kind": ["deposit", "balance", "invoice", "ach_verify"],"payment_status": ["requires_action", "processing", "succeeded", "failed", "canceled", "refunded"],"price_list_status": ["draft", "active", "archived"],"quantity_source": ["measurement", "manual", "unknown"],"quote_status": ["draft", "sent", "viewed", "accepted", "declined", "expired", "changed"],"route_status": ["draft", "published", "in_progress", "done"],"rule_type": ["tier_matrix", "assembly", "catalog", "program", "snow", "irrigation"],"service_kind": ["mowing", "fert", "cleanup", "snow", "irrigation", "install", "other"],"site_check_method": ["desk", "crew_stop", "visit"],"site_check_origin": ["acceptance", "customer_request"],"site_check_status": ["requested", "open", "scheduled", "done", "waived", "declined", "cancelled"],"slope_class": ["flat", "gentle", "moderate", "steep"],"time_entry_kind": ["job", "pause"],"visit_event_kind": ["started", "paused", "resumed", "finished", "reopened", "skipped"],"visit_photo_kind": ["before", "after", "issue", "upsell"],"visit_skip_reason": ["gate_locked", "dog_loose", "customer_skip", "weather", "equipment", "unsafe", "other"],"visit_status": ["scheduled", "in_progress", "paused", "completed", "skipped", "cant_complete", "cancelled"]
           }
         }
 } as const
