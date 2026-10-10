@@ -8,18 +8,22 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { createService } from "./actions";
 
-export function ServiceForm() {
+export function ServiceForm({ onCreated }: { onCreated?: (id: string) => void }) {
   const [pending, startTransition] = useTransition();
   return (
     <form
       className="flex flex-col gap-3"
       onSubmit={(e) => {
         e.preventDefault();
-        const fd = new FormData(e.currentTarget);
+        const form = e.currentTarget;
+        const fd = new FormData(form);
         startTransition(async () => {
           const r = await createService(fd);
-          if (r.ok) toast.success("Service added");
-          else toast.error(r.error);
+          if (r.ok) {
+            toast.success("Service added");
+            form.reset();
+            onCreated?.(r.data.id);
+          } else toast.error(r.error);
         });
       }}
     >
@@ -43,7 +47,7 @@ export function ServiceForm() {
       </FieldGroup>
       <Button type="submit" disabled={pending}>
         {pending ? <Spinner data-icon="inline-start" /> : null}
-        Add service
+        Create service
       </Button>
     </form>
   );

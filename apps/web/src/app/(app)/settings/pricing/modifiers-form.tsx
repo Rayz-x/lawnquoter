@@ -1,11 +1,11 @@
 "use client";
 
-import { useTransition } from "react";
-import { toast } from "sonner";
-import type { Modifiers } from "@lawnquoter/pricing-engine";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { modifiersSchema, modifiersWithDefaults, type Modifiers } from "@lawnquoter/pricing-engine";
+import { SectionCard } from "@/components/entry";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { saveModifiers } from "./actions";
@@ -18,39 +18,92 @@ function modifiersForEditor(modifiers: Modifiers): string {
   return JSON.stringify(live, null, 2);
 }
 
+function jsonIssues(text: string): string[] {
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch (error) {
+    const pos = Number(/position (\d+)/.exec(String(error))?.[1] ?? 0);
+    return [`Line ${text.slice(0, pos).split("\n").length}: Modifiers must be valid JSON`];
+  }
+  if (!json || typeof json !== "object" || Array.isArray(json)) return ["Line 1: Modifiers must be a JSON object"];
+  const parsed = modifiersSchema.safeParse(modifiersWithDefaults(json));
+  if (parsed.success) return [];
+  return parsed.error.issues.map((issue) => {
+    const key = [...issue.path].reverse().find((part) => typeof part === "string");
+    let line = 1;
+    if (typeof key === "string") {
+      text.split("\n").some((source, index) => {
+        if (!source.includes(`"${key}"`)) return false;
+        line = index + 1;
+        return true;
+      });
+    }
+    return `Line ${line}: ${issue.message}`;
+  });
+}
+
 export function ModifiersForm({ priceListId, modifiers }: { priceListId: string; modifiers: Modifiers }) {
+  const router = useRouter();
+  const saved = modifiersForEditor(modifiers);
+  const [text, setText] = useState(saved);
+  const [seen, setSeen] = useState(saved);
+  const [issues, setIssues] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
+  if (saved !== seen) {
+    setSeen(saved);
+    setText(saved);
+    setIssues([]);
+  }
+
   return (
-    <Card className="max-w-2xl">
-      <CardHeader>
-        <CardTitle>Property modifiers</CardTitle>
-        <CardDescription>Slope, gate width, first-cut, obstacles, and service minimums.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form
-          className="flex flex-col gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const fd = new FormData(e.currentTarget);
-            startTransition(async () => {
-              const r = await saveModifiers(fd);
-              if (r.ok) toast.success("Modifiers saved");
-              else toast.error(r.error);
-            });
-          }}
-        >
-          <input type="hidden" name="price_list_id" value={priceListId} />
-          <Field>
-            <FieldLabel htmlFor="modifiers">Modifiers JSON</FieldLabel>
-            <Textarea id="modifiers" name="modifiers" rows={18} className="font-mono text-xs" defaultValue={modifiersForEditor(modifiers)} />
-            <FieldDescription>Applied to every priced line after the rule runs.</FieldDescription>
-          </Field>
-          <Button type="submit" disabled={pending}>
+    <SectionCard
+      title="Property modifiers"
+      description="Slope, gate width, first-cut, obstacles, and service minimums."
+      actions={
+        <>
+          <Button
+            type="button"
+            disabled={pending}
+            onClick={() => {
+              const found = jsonIssues(text);
+              setIssues(found);
+              if (found.length) return;
+              const fd = new FormData();
+              fd.set("price_list_id", priceListId);
+              fd.set("modifiers", text);
+              startTransition(async () => {
+                const result = await saveModifiers(fd);
+                if (result.ok) {
+                  setIssues([]);
+                  router.refresh();
+                } else setIssues([result.error]);
+              });
+            }}
+          >
             {pending ? <Spinner data-icon="inline-start" /> : null}
-            Save modifiers
+            Save
           </Button>
-        </form>
-      </CardContent>
-    </Card>
+          <Button type="button" variant="outline" disabled={pending || text === saved} onClick={() => { setText(saved); setIssues([]); }}>
+            Cancel
+          </Button>
+        </>
+      }
+    >
+      <Field data-invalid={issues.length > 0 || undefined}>
+        <FieldLabel htmlFor="modifiers">Modifiers JSON</FieldLabel>
+        <Textarea id="modifiers" rows={18} className="font-mono text-xs" value={text} aria-invalid={issues.length > 0 || undefined} onChange={(event) => setText(event.target.value)} />
+        <FieldDescription>Applied after each rule. Nothing is stored until you save.</FieldDescription>
+        {issues.length ? (
+          <FieldError>
+            <ul>
+              {issues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          </FieldError>
+        ) : null}
+      </Field>
+    </SectionCard>
   );
 }

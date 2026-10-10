@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const SKIPPABLE_MODIFIER_KEYS = ["slope", "narrowGate", "firstCut", "perObstacle", "stairs"] as const;
+
 export const QUANTITY_KEYS = [
   "turf_sqft",
   "turf_front_sqft",
@@ -51,7 +53,7 @@ export type PricedLine = {
 export const tierRowSchema = z.object({
   upTo: z.number().positive().nullable(),
   price: z.number().nonnegative(),
-  hours: z.number().nonnegative(),
+  hours: z.number().nonnegative().max(24),
   cost: z.number().nonnegative(),
 });
 export type TierRow = z.infer<typeof tierRowSchema>;
@@ -59,18 +61,37 @@ export type TierRow = z.infer<typeof tierRowSchema>;
 export const tierTailSchema = z.object({
   every: z.number().positive(),
   over: z.number().nonnegative(),
-  addPrice: z.number(),
-  addHours: z.number().nonnegative(),
+  addPrice: z.number().nonnegative(),
+  addHours: z.number().nonnegative().max(24),
   addCost: z.number().nonnegative(),
 });
 export type TierTail = z.infer<typeof tierTailSchema>;
 
-export const tierMatrixRuleSchema = z.object({
-  type: z.literal("tier_matrix"),
-  quantityKey: z.string(),
-  rows: z.array(tierRowSchema).min(1),
-  tail: tierTailSchema.optional(),
-});
+export const tierMatrixRuleSchema = z
+  .object({
+    type: z.literal("tier_matrix"),
+    quantityKey: z.string(),
+    rows: z.array(tierRowSchema).min(1),
+    tail: tierTailSchema.optional(),
+    skipModifiers: z.array(z.string()).optional(),
+  })
+  .superRefine((rule, ctx) => {
+    let prev = 0;
+    for (const [i, row] of rule.rows.entries()) {
+      if (row.upTo == null && i !== rule.rows.length - 1) {
+        ctx.addIssue({ code: "custom", path: ["rows", i, "upTo"], message: "Only the last tier can be open-ended." });
+      }
+      if (row.upTo != null && row.upTo <= prev) {
+        ctx.addIssue({ code: "custom", path: ["rows", i, "upTo"], message: "Each tier must be larger than the one before." });
+      }
+      if (row.upTo != null) prev = row.upTo;
+    }
+    (rule.skipModifiers ?? []).forEach((key, i) => {
+      if (!(SKIPPABLE_MODIFIER_KEYS as readonly string[]).includes(key)) {
+        ctx.addIssue({ code: "custom", path: ["skipModifiers", i], message: "A service cannot skip the company minimum or an unknown modifier." });
+      }
+    });
+  });
 export type TierMatrixRule = z.infer<typeof tierMatrixRuleSchema>;
 
 export const assemblyItemSchema = z.discriminatedUnion("kind", [

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { modifiersSchema, modifiersWithDefaults, parseMaterialsCsv, pricingRuleSchema } from "@lawnquoter/pricing-engine";
+import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { z } from "zod";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
@@ -9,13 +10,20 @@ import { slugify } from "@/lib/slug";
 import { createClient } from "@/lib/supabase/server";
 
 const SERVICE_KINDS = ["mowing", "fert", "cleanup", "snow", "irrigation", "install", "other"] as const;
+const DENIED = "Only an owner or admin can change pricing.";
+const NO_ROWS = "Nothing was saved. You may not have permission to change pricing.";
 
 function path() {
   revalidatePath("/settings/pricing");
 }
 
+function denyPricing() {
+  return fail(DENIED);
+}
+
 export async function createService(fd: FormData): Promise<ActionResult<{ id: string }>> {
   const session = await requireOrg();
+  if (!hasRole(session.orgRole, ADMIN_ROLES)) return denyPricing();
   const parsed = z
     .object({
       name: z.string().trim().min(1).max(160),
@@ -58,8 +66,43 @@ export async function createService(fd: FormData): Promise<ActionResult<{ id: st
   return { ok: true, data: { id: data.id } };
 }
 
+export async function updateService(fd: FormData): Promise<ActionResult> {
+  const session = await requireOrg();
+  if (!hasRole(session.orgRole, ADMIN_ROLES)) return denyPricing();
+  const parsed = z
+    .object({
+      id: z.string().uuid(),
+      description: z.string().trim().max(2000),
+    })
+    .safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("services")
+    .update({ description: parsed.data.description || null })
+    .eq("id", parsed.data.id)
+    .eq("org_id", session.orgId)
+    .select("id");
+  if (error) return fail(error.message);
+  if (!data?.length) return fail(NO_ROWS);
+  path();
+  return { ok: true };
+}
+
+export async function toggleService(id: string, active: boolean): Promise<ActionResult> {
+  const session = await requireOrg();
+  if (!hasRole(session.orgRole, ADMIN_ROLES)) return denyPricing();
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("services").update({ active }).eq("id", id).eq("org_id", session.orgId).select("id");
+  if (error) return fail(error.message);
+  if (!data?.length) return fail(NO_ROWS);
+  path();
+  return { ok: true };
+}
+
 export async function saveRule(fd: FormData): Promise<ActionResult<{ id: string }>> {
   const session = await requireOrg();
+  if (!hasRole(session.orgRole, ADMIN_ROLES)) return denyPricing();
   const raw = Object.fromEntries(fd);
   let config: unknown;
   try {
@@ -89,8 +132,9 @@ export async function saveRule(fd: FormData): Promise<ActionResult<{ id: string 
     config: rule.data,
   };
   if (parsed.data.id) {
-    const { error } = await supabase.from("pricing_rules").update(row).eq("id", parsed.data.id).eq("org_id", session.orgId);
+    const { data, error } = await supabase.from("pricing_rules").update(row).eq("id", parsed.data.id).eq("org_id", session.orgId).select("id");
     if (error) return fail(error.message);
+    if (!data?.length) return fail(NO_ROWS);
     path();
     return { ok: true, data: { id: parsed.data.id } };
   }
@@ -102,15 +146,18 @@ export async function saveRule(fd: FormData): Promise<ActionResult<{ id: string 
 
 export async function deleteRule(id: string): Promise<ActionResult> {
   const session = await requireOrg();
+  if (!hasRole(session.orgRole, ADMIN_ROLES)) return denyPricing();
   const supabase = await createClient();
-  const { error } = await supabase.from("pricing_rules").delete().eq("id", id).eq("org_id", session.orgId);
+  const { data, error } = await supabase.from("pricing_rules").delete().eq("id", id).eq("org_id", session.orgId).select("id");
   if (error) return fail(error.message);
+  if (!data?.length) return fail(NO_ROWS);
   path();
   return { ok: true };
 }
 
 export async function saveModifiers(fd: FormData): Promise<ActionResult> {
   const session = await requireOrg();
+  if (!hasRole(session.orgRole, ADMIN_ROLES)) return denyPricing();
   let raw: unknown;
   try {
     raw = JSON.parse(String(fd.get("modifiers") ?? "{}"));
@@ -121,14 +168,21 @@ export async function saveModifiers(fd: FormData): Promise<ActionResult> {
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid modifiers");
   const listId = String(fd.get("price_list_id") ?? "");
   const supabase = await createClient();
-  const { error } = await supabase.from("price_lists").update({ modifiers: parsed.data }).eq("id", listId).eq("org_id", session.orgId);
+  const { data, error } = await supabase
+    .from("price_lists")
+    .update({ modifiers: parsed.data })
+    .eq("id", listId)
+    .eq("org_id", session.orgId)
+    .select("id");
   if (error) return fail(error.message);
+  if (!data?.length) return fail(NO_ROWS);
   path();
   return { ok: true };
 }
 
 export async function importMaterialsCsv(fd: FormData): Promise<ActionResult<{ count: number }>> {
   const session = await requireOrg();
+  if (!hasRole(session.orgRole, ADMIN_ROLES)) return denyPricing();
   const csv = String(fd.get("csv") ?? "");
   const rows = parseMaterialsCsv(csv);
   if (rows.length === 0) return fail("No material rows found. Need name and unit_cost columns.");
@@ -149,6 +203,7 @@ export async function importMaterialsCsv(fd: FormData): Promise<ActionResult<{ c
 
 export async function addMaterial(fd: FormData): Promise<ActionResult> {
   const session = await requireOrg();
+  if (!hasRole(session.orgRole, ADMIN_ROLES)) return denyPricing();
   const parsed = z
     .object({
       name: z.string().trim().min(1).max(160),

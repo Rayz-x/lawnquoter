@@ -6,7 +6,7 @@ import { FactStrip } from "@/components/entry";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { AccountHeader } from "./account-header";
@@ -122,17 +122,21 @@ export default async function AccountDetailPage({
               value: "properties",
               label: "Properties",
               count: properties?.length ?? 0,
-              content: (
-            <div className="flex flex-col gap-3">
-              {!properties || properties.length === 0 ? (
-                <Empty>
-                  <EmptyHeader>
-                    <EmptyTitle>No properties</EmptyTitle>
-                    <EmptyDescription>Add the service address to measure and quote it.</EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
+              content: !properties?.length ? (
+                <div className="mx-auto flex w-full max-w-[480px] flex-col">
+                  <Empty className="border-0">
+                    <EmptyHeader>
+                      <EmptyTitle>No properties</EmptyTitle>
+                      <EmptyDescription>Add the service address to measure and quote it.</EmptyDescription>
+                    </EmptyHeader>
+                    <EmptyContent className="w-full items-stretch text-left">
+                      <PropertyQuickAdd accountId={account.id} />
+                    </EmptyContent>
+                  </Empty>
+                </div>
               ) : (
-                properties.map((p) => (
+            <div className="flex flex-col gap-3">
+              {properties.map((p) => (
                   <Card key={p.id}>
                     <CardHeader>
                       <CardTitle>
@@ -150,8 +154,7 @@ export default async function AccountDetailPage({
                       <Badge variant="outline">Parcel: {p.parcel_source}</Badge>
                     </CardContent>
                   </Card>
-                ))
-              )}
+              ))}
             <PropertyQuickAdd accountId={account.id} />
             </div>
               ),
