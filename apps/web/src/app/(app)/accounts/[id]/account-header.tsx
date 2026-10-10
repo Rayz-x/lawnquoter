@@ -8,6 +8,7 @@ import { SectionMenu, type SectionMenuItem } from "@/components/entry";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Tables } from "@/lib/supabase/types";
+import { accountStatusMenuItems } from "../account-status-menu";
 import { archiveAccount, setAccountStatus } from "../identity-action";
 
 const STATUS_LABEL = { lead: "Lead", active: "Active", inactive: "Archived" } as const;
@@ -55,24 +56,24 @@ export function AccountHeader({ account, primaryName }: { account: Tables<"accou
     });
   };
 
-  const items: SectionMenuItem[] = [{ id: "export", label: "Export", onSelect: () => exportAccount(account) }];
-
-  if (account.status !== "lead") items.push({ id: "lead", label: "Mark as Lead", onSelect: () => changeStatus("lead") });
-  if (account.status !== "active") items.push({ id: "active", label: "Mark as Active", onSelect: () => changeStatus("active") });
-  if (account.status !== "inactive") {
-    items.push({
-      id: "archive",
-      label: "Archive",
-      destructive: true,
-      confirm: "This account stays on file as archived.",
-      onSelect: () => {
-        void archiveAccount(account.id).then((result) => {
-          if (result.ok) router.refresh();
-          else toast.error(result.error);
-        });
-      },
-    });
-  } else items.push({ id: "unarchive", label: "Un-archive", onSelect: () => changeStatus("active") });
+  const items: SectionMenuItem[] = accountStatusMenuItems(account.status).map((item) => {
+    if (item.id === "export") return { ...item, onSelect: () => exportAccount(account) };
+    if (item.id === "archive") {
+      return {
+        ...item,
+        onSelect: () => {
+          void archiveAccount(account.id).then((result) => {
+            if (result.ok) router.refresh();
+            else toast.error(result.error);
+          });
+        },
+      };
+    }
+    if (item.id === "activate" || item.id === "unarchive") {
+      return { ...item, onSelect: () => changeStatus("active") };
+    }
+    return { ...item, onSelect: () => changeStatus("lead") };
+  });
 
   return (
     <header className="flex flex-col gap-3">
