@@ -1,6 +1,7 @@
 export { ChipGroup, type ChipOption } from "./chip-group";
 export { FactStrip, type FactStripItem } from "./fact-strip";
 export { InternalNote } from "./internal-note";
+export { MoneyBlurInput } from "./money-blur-input";
 export { MoreDisclosure } from "./more-disclosure";
 export { SectionCard, type SectionFact, type SectionWeight } from "./section-card";
 export { Stepper } from "./stepper";

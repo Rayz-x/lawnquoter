@@ -1,110 +1,127 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { SectionCard, useSectionAutosave } from "@/components/entry";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { updateQuoteMeta } from "../actions";
 
 type QuoteCopy = { id: string; title: string; intro: string | null; notes_customer: string | null; notes_internal: string | null };
 
-function SaveStatus({ saved, error }: { saved: boolean; error: string | null }) {
-  if (error) return <p className="text-sm text-destructive">{error}</p>;
-  if (saved) return <p className="text-xs text-success" role="status">Saved</p>;
-  return null;
-}
-
-function useCardSave(quoteId: string) {
-  const [pending, startTransition] = useTransition();
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  function save(fd: FormData) {
-    setSaved(false);
-    setError(null);
-    startTransition(async () => {
-      const result = await updateQuoteMeta(quoteId, fd);
-      if (result.ok) setSaved(true);
-      else setError(result.error);
-    });
-  }
-  return { pending, saved, error, save };
-}
+type ProposalDraft = { title: string; intro: string; notes_customer: string };
+type NotesDraft = { notes_internal: string };
 
 export function ProposalCard({ quote, editable }: { quote: QuoteCopy; editable: boolean }) {
-  const { pending, saved, error, save } = useCardSave(quote.id);
+  const router = useRouter();
+  const initial = useMemo<ProposalDraft>(
+    () => ({
+      title: quote.title,
+      intro: quote.intro ?? "",
+      notes_customer: quote.notes_customer ?? "",
+    }),
+    [quote.title, quote.intro, quote.notes_customer],
+  );
+  const [draft, setDraft] = useState(initial);
+  const { status, error, save, retry } = useSectionAutosave<ProposalDraft>({
+    initial,
+    action: async (values) => {
+      if (!editable) return { ok: true as const };
+      const fd = new FormData();
+      fd.set("title", values.title);
+      fd.set("intro", values.intro);
+      fd.set("notes_customer", values.notes_customer);
+      const result = await updateQuoteMeta(quote.id, fd);
+      if (result.ok) router.refresh();
+      return result;
+    },
+  });
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Proposal text</CardTitle>
-        {editable ? null : <CardDescription>Title, intro, and customer notes are locked. Revise the proposal to change them.</CardDescription>}
-      </CardHeader>
-      <CardContent>
-        <form
-          className="flex flex-col gap-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const fd = new FormData(event.currentTarget);
-            fd.delete("notes_internal");
-            save(fd);
+    <SectionCard title="Proposal text" heading="h3" status={editable ? status : "idle"} error={error} onRetry={retry}>
+      {!editable ? <p className="text-sm text-muted-foreground">Title, intro, and customer notes are locked. Revise the proposal to change them.</p> : null}
+      <Field>
+        <FieldLabel htmlFor="q_title">Title</FieldLabel>
+        <Input
+          id="q_title"
+          value={draft.title}
+          required={editable}
+          disabled={!editable}
+          onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+          onBlur={(event) => {
+            const title = event.target.value;
+            setDraft((current) => ({ ...current, title }));
+            if (editable) save({ title, intro: draft.intro, notes_customer: draft.notes_customer });
           }}
-        >
-          <Field>
-            <FieldLabel htmlFor="q_title">Title</FieldLabel>
-            <Input id="q_title" name="title" defaultValue={quote.title} required={editable} disabled={!editable || pending} />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="q_intro">Customer intro</FieldLabel>
-            <Textarea id="q_intro" name="intro" rows={3} defaultValue={quote.intro ?? ""} disabled={!editable || pending} />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="q_notes">Customer notes</FieldLabel>
-            <Textarea id="q_notes" name="notes_customer" rows={2} defaultValue={quote.notes_customer ?? ""} disabled={!editable || pending} />
-          </Field>
-          <SaveStatus saved={saved} error={error} />
-          {editable ? (
-            <Button type="submit" variant="outline" disabled={pending}>
-              {pending ? <Spinner data-icon="inline-start" /> : null}
-              Save copy
-            </Button>
-          ) : null}
-        </form>
-      </CardContent>
-    </Card>
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="q_intro">Customer intro</FieldLabel>
+        <Textarea
+          id="q_intro"
+          rows={3}
+          value={draft.intro}
+          disabled={!editable}
+          onChange={(event) => setDraft({ ...draft, intro: event.target.value })}
+          onBlur={(event) => {
+            const intro = event.target.value;
+            setDraft((current) => ({ ...current, intro }));
+            if (editable) save({ title: draft.title, intro, notes_customer: draft.notes_customer });
+          }}
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="q_notes">Customer notes</FieldLabel>
+        <Textarea
+          id="q_notes"
+          rows={2}
+          value={draft.notes_customer}
+          disabled={!editable}
+          onChange={(event) => setDraft({ ...draft, notes_customer: event.target.value })}
+          onBlur={(event) => {
+            const notes_customer = event.target.value;
+            setDraft((current) => ({ ...current, notes_customer }));
+            if (editable) save({ title: draft.title, intro: draft.intro, notes_customer });
+          }}
+        />
+      </Field>
+    </SectionCard>
   );
 }
 
 export function InternalCard({ quote }: { quote: QuoteCopy }) {
-  const { pending, saved, error, save } = useCardSave(quote.id);
+  const router = useRouter();
+  const initial = useMemo<NotesDraft>(() => ({ notes_internal: quote.notes_internal ?? "" }), [quote.notes_internal]);
+  const [notes, setNotes] = useState(initial.notes_internal);
+  const { status, error, save, retry } = useSectionAutosave<NotesDraft>({
+    initial,
+    action: async (values) => {
+      const fd = new FormData();
+      fd.set("notes_internal", values.notes_internal);
+      const result = await updateQuoteMeta(quote.id, fd);
+      if (result.ok) router.refresh();
+      return result;
+    },
+  });
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Internal notes</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form
-          className="flex flex-col gap-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const fd = new FormData();
-            fd.set("notes_internal", String(new FormData(event.currentTarget).get("notes_internal") ?? ""));
-            save(fd);
+    <SectionCard title="Internal notes" heading="h3" status={status} error={error} onRetry={retry}>
+      <Field>
+        <FieldLabel htmlFor="q_internal">Internal notes</FieldLabel>
+        <Textarea
+          id="q_internal"
+          rows={2}
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+          onBlur={(event) => {
+            const notes_internal = event.target.value;
+            setNotes(notes_internal);
+            save({ notes_internal });
           }}
-        >
-          <Field>
-            <FieldLabel htmlFor="q_internal">Internal notes</FieldLabel>
-            <Textarea id="q_internal" name="notes_internal" rows={2} defaultValue={quote.notes_internal ?? ""} disabled={pending} />
-          </Field>
-          <SaveStatus saved={saved} error={error} />
-          <Button type="submit" variant="outline" disabled={pending}>
-            {pending ? <Spinner data-icon="inline-start" /> : null}
-            Save internal notes
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        />
+      </Field>
+    </SectionCard>
   );
 }
 

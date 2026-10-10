@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { GripVertical } from "lucide-react";
 import type { PricedLine } from "@lawnquoter/pricing-engine";
 import { toast } from "sonner";
+import { MoneyBlurInput } from "@/components/entry";
 import { SectionMenu } from "@/components/entry/section-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,6 +52,7 @@ export function QuoteLines({
   basis: string;
   editable: boolean;
 }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -160,7 +163,34 @@ export function QuoteLines({
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{line.name}</span>
+                  {editable ? (
+                    <Input
+                      aria-label={`Name for ${line.name}`}
+                      defaultValue={line.name}
+                      className="h-9 max-w-xs font-medium md:h-8"
+                      disabled={pending}
+                      onBlur={(event) => {
+                        const name = event.target.value.trim();
+                        if (!name || name === line.name) {
+                          event.target.value = line.name;
+                          return;
+                        }
+                        startTransition(async () => {
+                          const fd = new FormData();
+                          fd.set("name", name);
+                          const result = await updateLineItem(quoteId, line.id, fd);
+                          if (!result.ok) {
+                            toast.error(result.error);
+                            event.target.value = line.name;
+                            return;
+                          }
+                          router.refresh();
+                        });
+                      }}
+                    />
+                  ) : (
+                    <span className="font-medium">{line.name}</span>
+                  )}
                   {line.option_group ? (
                     <Badge variant="outline" className="font-normal">
                       {line.option_group}
@@ -182,6 +212,20 @@ export function QuoteLines({
                     <div>{formatMoney(line.range_low!)} – {formatMoney(line.range_high!)}</div>
                     <div className="text-xs text-muted-foreground">est. {formatMoney(line.price)}</div>
                   </>
+                ) : editable ? (
+                  <MoneyBlurInput
+                    ariaLabel={`Price for ${line.name}`}
+                    value={line.price}
+                    disabled={pending}
+                    className="ml-auto h-9 w-28 text-right font-heading tabular-nums md:h-8"
+                    onCommit={async (price) => {
+                      const fd = new FormData();
+                      fd.set("price", String(price));
+                      const result = await updateLineItem(quoteId, line.id, fd);
+                      if (result.ok) router.refresh();
+                      return result;
+                    }}
+                  />
                 ) : (
                   formatMoney(line.price)
                 )}

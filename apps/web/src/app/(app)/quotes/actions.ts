@@ -227,19 +227,85 @@ export async function updateLineItem(quoteId: string, id: string, fd: FormData):
   const session = await requireOrg();
   const denied = denyUnlessSales(session.orgRole);
   if (denied) return denied;
-  const parsed = z.object({ state: z.enum(["included", "recommended", "optional"]) }).safeParse(Object.fromEntries(fd));
+  const parsed = z
+    .object({
+      state: z.enum(["included", "recommended", "optional"]).optional(),
+      name: z.string().trim().min(1).max(200).optional(),
+      price: z.coerce.number().nonnegative().optional(),
+    })
+    .safeParse(Object.fromEntries(fd));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
+  if (parsed.data.state === undefined && parsed.data.name === undefined && parsed.data.price === undefined) {
+    return fail("Nothing to save.");
+  }
   const { supabase, error: lineError } = await editableLine(quoteId, id, session.orgId);
   if (lineError) return fail(lineError);
+  const patch: { state?: "included" | "recommended" | "optional"; selected?: boolean; name?: string; price?: number } = {};
+  if (parsed.data.state !== undefined) {
+    patch.state = parsed.data.state;
+    patch.selected = parsed.data.state === "included";
+  }
+  if (parsed.data.name !== undefined) patch.name = parsed.data.name;
+  if (parsed.data.price !== undefined) patch.price = parsed.data.price;
   const { data, error } = await supabase
     .from("quote_line_items")
-    .update({ state: parsed.data.state, selected: parsed.data.state === "included" })
+    .update(patch)
     .eq("id", id)
     .eq("org_id", session.orgId)
     .select("id");
   const missed = unchanged(data, error);
   if (missed) return missed;
   revalidatePath(`/quotes/${quoteId}`);
+  return { ok: true };
+}
+
+export async function updateQuoteTerms(id: string, fd: FormData): Promise<ActionResult> {
+  const session = await requireOrg();
+  const denied = denyUnlessSales(session.orgRole);
+  if (denied) return denied;
+  const raw = Object.fromEntries(fd);
+  const parsed = z
+    .object({
+      deposit_amount: z.preprocess(
+        (value) => (value === "" || value === undefined ? undefined : value),
+        z.coerce.number().nonnegative().optional(),
+      ),
+      expires_at: z.preprocess(
+        (value) => (value === "" ? null : value),
+        z.union([z.string().date(), z.null()]).optional(),
+      ),
+    })
+    .safeParse(raw);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
+  if (parsed.data.deposit_amount === undefined && parsed.data.expires_at === undefined) {
+    return fail("Nothing to save.");
+  }
+  const supabase = await createClient();
+  const { data: quote } = await supabase
+    .from("quotes")
+    .select("id, status, current_version")
+    .eq("id", id)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (!quote) return fail("Quote not found");
+  const { data: version } = await supabase
+    .from("quote_versions")
+    .select("frozen")
+    .eq("quote_id", id)
+    .eq("org_id", session.orgId)
+    .eq("version", quote.current_version)
+    .maybeSingle();
+  if (!version) return fail("Quote not found");
+  if (version.frozen || (quote.status !== "draft" && quote.status !== "changed")) {
+    return fail("This proposal is frozen. Revise it before editing.");
+  }
+  const patch: { deposit_amount?: number | null; expires_at?: string | null } = {};
+  if (parsed.data.deposit_amount !== undefined) patch.deposit_amount = parsed.data.deposit_amount;
+  if (parsed.data.expires_at !== undefined) patch.expires_at = parsed.data.expires_at;
+  const { data, error } = await supabase.from("quotes").update(patch).eq("id", id).eq("org_id", session.orgId).select("id");
+  const missed = unchanged(data, error);
+  if (missed) return missed;
+  revalidatePath(`/quotes/${id}`);
   return { ok: true };
 }
 
