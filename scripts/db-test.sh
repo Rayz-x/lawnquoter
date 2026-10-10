@@ -11,6 +11,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MIGRATIONS_DIR="$ROOT/supabase/migrations"
 TESTS_DIR="$ROOT/supabase/tests"
 
+bash "$ROOT/scripts/check-migration-versions.sh"
+
 PG_BIN="${PG_BIN:-}"
 if [[ -z "$PG_BIN" ]]; then
   for candidate in /opt/homebrew/opt/postgresql@17/bin /usr/local/opt/postgresql@17/bin /usr/lib/postgresql/17/bin; do
