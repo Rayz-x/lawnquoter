@@ -55,7 +55,7 @@ function heroStatus(parts: SectionAutosaveStatus[]): SectionAutosaveStatus {
   if (parts.includes("error")) return "error";
   if (parts.includes("saving")) return "saving";
   if (parts.includes("saved")) return "saved";
-  return "saved";
+  return "idle";
 }
 
 export function PricingHeaderActions({ priceListId, modifiers, materials }: { priceListId: string | null; modifiers: Modifiers; materials: Material[] }) {
@@ -188,13 +188,14 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, tab
   const [active, setActive] = useState(service.active);
   const [priceNote, setPriceNote] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [rev, setRev] = useState(0);
   if (rule.config !== seenConfig) { setSeenConfig(rule.config); setPatch(null); setFormError(null); }
   const current = patch ?? tier;
   const unit = qtyOf(current.quantityKey).unit;
   const chips = QTY.some((item) => item.key === current.quantityKey) ? QTY : [...QTY, qtyOf(current.quantityKey)];
   const ruleSave = useSectionAutosave<RuleSave>({
     initial: { id: rule.id, serviceId: rule.serviceId, name: rule.name, config: tier },
-    onRollback: (values) => { setPatch(values.config); setPriceNote(false); },
+    onRollback: (values) => { setPatch(values.config); setPriceNote(false); setRev((n) => n + 1); },
     action: async (values) => {
       if (!priceListId) return { ok: false, error: "No price list" };
       const fd = new FormData();
@@ -213,12 +214,13 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, tab
     const parsed = pricingRuleSchema.safeParse(next);
     if (!parsed.success || parsed.data.type !== "tier_matrix") {
       setFormError(parsed.success ? "Invalid tier" : (parsed.error.issues[0]?.message ?? "Invalid tier"));
+      setRev((n) => n + 1);
       return;
     }
     setFormError(null);
     setPatch(parsed.data);
     if (note) setPriceNote(true);
-    ruleSave.save({ id: rule.id, serviceId: rule.serviceId, name: rule.name, config: parsed.data }, choice ? { immediate: true, rollback: true } : undefined);
+    ruleSave.save({ id: rule.id, serviceId: rule.serviceId, name: rule.name, config: parsed.data }, { immediate: choice, rollback: true });
   };
   const setCell = (index: number, field: keyof TierRow, raw: string) => {
     const rows = current.rows.map((row) => ({ ...row }));
@@ -265,16 +267,16 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, tab
             {current.rows.map((row, index) => {
               const prev = index === 0 ? 0 : current.rows[index - 1]?.upTo;
               return (
-                <div key={`${rule.id}-${index}`} className="grid grid-cols-2 gap-2 border-t py-2 md:grid-cols-[minmax(8rem,1.4fr)_7rem_5.5rem_6.5rem_2rem] md:items-center">
+                <div key={`${rule.id}-${index}-${rev}`} className="grid grid-cols-2 gap-2 border-t py-2 md:grid-cols-[minmax(8rem,1.4fr)_7rem_5.5rem_6.5rem_2rem] md:items-center">
                   <div className="col-span-2 text-sm tabular-nums md:col-span-1">{prev == null ? "And up" : `${(index === 0 ? 0 : Math.floor(prev) + 1).toLocaleString()} – `}<Input aria-label={`Up to tier ${index + 1}`} inputMode="numeric" className="inline-flex h-8 w-24 tabular-nums max-md:h-11" defaultValue={row.upTo ?? ""} placeholder="no cap" onBlur={(event) => setCell(index, "upTo", event.target.value)} /></div>
                   <label className="block"><span className="mb-1 block text-xs text-muted-foreground md:hidden">Price</span><Input aria-label="Price" data-weight="critical" inputMode="decimal" className="h-8 tabular-nums max-md:h-11" defaultValue={row.price} onBlur={(event) => setCell(index, "price", event.target.value)} /></label>
                   <label className="block"><span className="mb-1 block text-xs text-muted-foreground md:hidden">Hours</span><Input aria-label="Hours" data-weight="internal" inputMode="decimal" className="h-8 border-dashed bg-muted tabular-nums max-md:h-11" defaultValue={row.hours} onBlur={(event) => setCell(index, "hours", event.target.value)} /></label>
                   <label className="block"><span className="mb-1 block text-xs text-muted-foreground md:hidden">Cost</span><Input aria-label="Cost" data-weight="internal" inputMode="decimal" className="h-8 border-dashed bg-muted tabular-nums max-md:h-11" defaultValue={row.cost} onBlur={(event) => setCell(index, "cost", event.target.value)} /></label>
-                  <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove tier" disabled={current.rows.length === 1} onClick={() => commit({ ...current, rows: current.rows.filter((_, rowIndex) => rowIndex !== index) }, true)}>×</Button>
+                  <Button type="button" variant="ghost" size="icon-sm" className="max-md:size-11" aria-label="Remove tier" disabled={current.rows.length === 1} onClick={() => commit({ ...current, rows: current.rows.filter((_, rowIndex) => rowIndex !== index) }, true)}>×</Button>
                 </div>
               );
             })}
-            <div className="flex flex-wrap items-center gap-2 border-t pt-3 text-sm">
+            <div key={`${rule.id}-tail-${rev}`} className="flex flex-wrap items-center gap-2 border-t pt-3 text-sm">
               {current.tail ? <>
                 <span><b>Over {current.tail.over.toLocaleString()}:</b> every</span>
                 <Input aria-label="Tail step" inputMode="numeric" className="h-8 w-20 tabular-nums max-md:h-11" defaultValue={current.tail.every} onBlur={(event) => commit({ ...current, tail: { ...current.tail!, every: Number(event.target.value) } })} />
@@ -294,7 +296,6 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, tab
               <Switch checked={!(current.skipModifiers ?? []).includes(key)} onCheckedChange={(checked) => { const skip = new Set(current.skipModifiers ?? []); if (checked) skip.delete(key); else skip.add(key); commit({ ...current, skipModifiers: [...skip] }, true); }} />
             </label>
           )) },
-        { value: "checklist", label: "Crew checklist", content: <p className="text-sm text-muted-foreground">Crew checklists are not stored on a service, so this stays empty.</p> },
         { value: "details", label: "Details", content: (
           <div className="grid gap-4">
             <Field>
