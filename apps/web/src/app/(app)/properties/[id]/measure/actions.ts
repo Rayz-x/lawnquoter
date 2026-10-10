@@ -60,12 +60,13 @@ export async function saveMeasurement(
     hasManualFallback: parsed.data.some((f) => f.source === "manual"),
   });
 
-  await supabase
+  const { error: archiveError } = await supabase
     .from("measurements")
     .update({ status: "archived" })
     .eq("property_id", propertyId)
     .eq("status", "current")
     .neq("id", measurementId);
+  if (archiveError) return fail(archiveError.message);
 
   const { error: updateError } = await supabase
     .from("measurements")

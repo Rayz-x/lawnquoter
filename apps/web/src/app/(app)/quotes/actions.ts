@@ -85,6 +85,14 @@ export async function addLineItem(quoteId: string, versionId: string, fd: FormDa
   if (denied) return denied;
   const parsed = itemSchema.safeParse(Object.fromEntries(fd));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
+  const rangeLow = parsed.data.range_low === "" || parsed.data.range_low == null ? null : Number(parsed.data.range_low);
+  const rangeHigh = parsed.data.range_high === "" || parsed.data.range_high == null ? null : Number(parsed.data.range_high);
+  if (rangeLow != null && rangeHigh != null) {
+    if (rangeLow > rangeHigh) return fail("The low end of the range cannot be above the high end.");
+    if (parsed.data.price < rangeLow || parsed.data.price > rangeHigh) {
+      return fail("The price has to fall inside the range.");
+    }
+  }
   const { supabase, error: versionError } = await editableVersion(quoteId, versionId, session.orgId);
   if (versionError) return fail(versionError);
   let sectionId = parsed.data.section_id || null;
@@ -115,8 +123,8 @@ export async function addLineItem(quoteId: string, versionId: string, fd: FormDa
     price: parsed.data.price,
     hours: parsed.data.hours,
     cost: parsed.data.cost,
-    range_low: parsed.data.range_low === "" || parsed.data.range_low == null ? null : Number(parsed.data.range_low),
-    range_high: parsed.data.range_high === "" || parsed.data.range_high == null ? null : Number(parsed.data.range_high),
+    range_low: rangeLow,
+    range_high: rangeHigh,
     photo_url: parsed.data.photo_url || null,
     notes_customer: parsed.data.notes_customer || null,
     notes_crew: parsed.data.notes_crew || null,
