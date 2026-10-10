@@ -1,30 +1,47 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
-import { useRef, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { Tables } from "@/lib/supabase/types";
 import { addContact, deleteContact } from "../actions";
 
 export function ContactsPanel({ accountId, contacts }: { accountId: string; contacts: Tables<"contacts">[] }) {
-  const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [role, setRole] = useState("site");
+  const [flags, setFlags] = useState<string[]>([]);
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+    const [first, ...rest] = name.trim().split(/\s+/);
+    const fd = new FormData();
+    fd.set("first_name", first ?? "");
+    fd.set("last_name", rest.join(" "));
+    fd.set("email", email);
+    fd.set("phone", phone);
+    fd.set("role", role);
+    if (flags.includes("primary")) fd.set("is_primary", "true");
+    if (flags.includes("billing")) fd.set("is_billing", "true");
+    if (flags.includes("sms")) fd.set("sms_opt_in", "true");
     startTransition(async () => {
       const r = await addContact(accountId, fd);
       if (r.ok) {
         toast.success("Contact added");
-        formRef.current?.reset();
+        setName("");
+        setEmail("");
+        setPhone("");
+        setFlags([]);
       } else toast.error(r.error);
     });
   };
@@ -70,49 +87,35 @@ export function ContactsPanel({ accountId, contacts }: { accountId: string; cont
           <CardDescription>Site contact, billing contact, or decision maker.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form ref={formRef} onSubmit={onSubmit} className="flex flex-col gap-4">
-            <FieldGroup>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field>
-                  <FieldLabel htmlFor="first_name">First name</FieldLabel>
-                  <Input id="first_name" name="first_name" />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="last_name">Last name</FieldLabel>
-                  <Input id="last_name" name="last_name" />
-                </Field>
-              </div>
+          <form onSubmit={onSubmit} className="flex flex-col gap-3">
+            <Field>
+              <FieldLabel htmlFor="contact-name">Name</FieldLabel>
+              <Input id="contact-name" value={name} autoComplete="name" className="max-md:h-12" onChange={(event) => setName(event.target.value)} />
+            </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="c_email">Email</FieldLabel>
-                <Input id="c_email" name="email" type="email" />
+                <FieldLabel htmlFor="contact-phone">Mobile</FieldLabel>
+                <Input id="contact-phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} className="max-md:h-12" onChange={(event) => setPhone(event.target.value)} />
               </Field>
               <Field>
-                <FieldLabel htmlFor="c_phone">Mobile</FieldLabel>
-                <Input id="c_phone" name="phone" />
+                <FieldLabel htmlFor="contact-email">Email</FieldLabel>
+                <Input id="contact-email" type="email" inputMode="email" autoComplete="email" value={email} className="max-md:h-12" onChange={(event) => setEmail(event.target.value)} />
               </Field>
-              <Field>
-                <FieldLabel htmlFor="role">Role</FieldLabel>
-                <select id="role" name="role" defaultValue="primary" className="native-control">
-                  <option value="primary">Primary</option>
-                  <option value="billing">Billing</option>
-                  <option value="site">Site contact</option>
-                  <option value="decision_maker">Decision maker</option>
-                  <option value="other">Other</option>
-                </select>
-              </Field>
-              <div className="flex flex-col gap-2 text-sm">
-                <label className="flex items-center gap-2">
-                  <Checkbox name="is_primary" /> Primary contact
-                </label>
-                <label className="flex items-center gap-2">
-                  <Checkbox name="is_billing" /> Receives invoices
-                </label>
-                <label className="flex items-center gap-2">
-                  <Checkbox name="sms_opt_in" /> Consented to SMS
-                </label>
-              </div>
-            </FieldGroup>
-            <Button type="submit" disabled={pending}>
+            </div>
+            <Field>
+              <FieldLabel htmlFor="contact-role">Role</FieldLabel>
+              <NativeSelect id="contact-role" value={role} className="max-md:h-12" onChange={(event) => setRole(event.target.value)}>
+                <option value="site">Site contact</option>
+                <option value="decision_maker">Decision maker</option>
+                <option value="other">Other</option>
+              </NativeSelect>
+            </Field>
+            <ToggleGroup aria-label="Contact flags" spacing={0} multiple variant="outline" value={flags} onValueChange={setFlags}>
+              <ToggleGroupItem value="primary" aria-label="Primary" className="max-md:h-11">Primary</ToggleGroupItem>
+              <ToggleGroupItem value="billing" aria-label="Billing" className="max-md:h-11">Billing</ToggleGroupItem>
+              <ToggleGroupItem value="sms" aria-label="SMS" className="max-md:h-11">SMS</ToggleGroupItem>
+            </ToggleGroup>
+            <Button type="submit" disabled={pending} className="min-h-11 lg:min-h-9">
               {pending ? <Spinner data-icon="inline-start" /> : null}
               Add contact
             </Button>

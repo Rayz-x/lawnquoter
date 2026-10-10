@@ -69,18 +69,33 @@ function finiteCoordinate(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-export async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
-  const key = apiKey();
-  const singleLine = address.trim();
-  if (!key || !singleLine) return null;
+function toResult(candidate: AddressCandidate | undefined): GeocodeResult | null {
+  if (!candidate) return null;
+  const lng = finiteCoordinate(candidate.location?.x);
+  const lat = finiteCoordinate(candidate.location?.y);
+  const formattedAddress = attribute(candidate.attributes, "LongLabel") || text(candidate.address);
+  if (lng === null || lat === null || !formattedAddress) return null;
+  const matchId = attribute(candidate.attributes, "MatchID");
+  return {
+    formattedAddress,
+    placeId: matchId || null,
+    location: { type: "Point", coordinates: [lng, lat] },
+    addressLine1: attribute(candidate.attributes, "StAddr") || attribute(candidate.attributes, "ShortLabel"),
+    city: attribute(candidate.attributes, "City"),
+    region: attribute(candidate.attributes, "RegionAbbr") || attribute(candidate.attributes, "Region"),
+    postalCode: attribute(candidate.attributes, "Postal"),
+    country: countryCode(attribute(candidate.attributes, "Country")),
+  };
+}
 
+async function requestCandidates(params: Record<string, string>): Promise<AddressCandidate[]> {
+  const key = apiKey();
+  if (!key) return [];
   const url = new URL(FIND_ADDRESS_CANDIDATES);
   url.searchParams.set("f", "json");
-  url.searchParams.set("SingleLine", singleLine);
-  url.searchParams.set("forStorage", "true");
-  url.searchParams.set("maxLocations", "1");
   url.searchParams.set("outSR", "4326");
   url.searchParams.set("outFields", OUT_FIELDS);
+  for (const [name, value] of Object.entries(params)) url.searchParams.set(name, value);
 
   let res: Response;
   try {
@@ -94,36 +109,43 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult | n
       redirect: "error",
     });
   } catch {
-    return null;
+    return [];
   }
-
-  if (!res.ok) return null;
+  if (!res.ok) return [];
 
   let json: FindAddressCandidatesResponse;
   try {
     json = (await res.json()) as FindAddressCandidatesResponse;
   } catch {
-    return null;
+    return [];
   }
-  if (!json || typeof json !== "object" || json.error) return null;
+  if (!json || typeof json !== "object" || json.error) return [];
+  return json.candidates ?? [];
+}
 
-  const first = json.candidates?.[0];
-  if (!first) return null;
+export async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
+  const singleLine = address.trim();
+  if (!singleLine) return null;
+  const candidates = await requestCandidates({
+    SingleLine: singleLine,
+    forStorage: "true",
+    maxLocations: "1",
+  });
+  return toResult(candidates[0]);
+}
 
-  const lng = finiteCoordinate(first.location?.x);
-  const lat = finiteCoordinate(first.location?.y);
-  const formattedAddress = attribute(first.attributes, "LongLabel") || text(first.address);
-  if (lng === null || lat === null || !formattedAddress) return null;
-
-  const matchId = attribute(first.attributes, "MatchID");
-  return {
-    formattedAddress,
-    placeId: matchId || null,
-    location: { type: "Point", coordinates: [lng, lat] },
-    addressLine1: attribute(first.attributes, "StAddr") || attribute(first.attributes, "ShortLabel"),
-    city: attribute(first.attributes, "City"),
-    region: attribute(first.attributes, "RegionAbbr") || attribute(first.attributes, "Region"),
-    postalCode: attribute(first.attributes, "Postal"),
-    country: countryCode(attribute(first.attributes, "Country")),
-  };
+/** Suggestions are not stored. An empty list means there is no key or no match. */
+export async function suggestAddresses(address: string): Promise<GeocodeResult[]> {
+  const singleLine = address.trim();
+  if (singleLine.length < 3) return [];
+  const candidates = await requestCandidates({
+    SingleLine: singleLine,
+    forStorage: "false",
+    maxLocations: "5",
+    countryCode: "USA",
+  });
+  return candidates.flatMap((candidate) => {
+    const result = toResult(candidate);
+    return result ? [result] : [];
+  });
 }
