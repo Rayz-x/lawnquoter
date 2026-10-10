@@ -23,6 +23,7 @@ const LABELS: Record<string, string> = {
   visit_photo_record: "Photo",
   visit_flag_photo_lost: "Photo lost",
   enhancement_create: "Upsell",
+  visit_correct_times: "Time correction",
 };
 
 export function OutboxPanel({ userId, orgId }: { userId: string; orgId: string }) {

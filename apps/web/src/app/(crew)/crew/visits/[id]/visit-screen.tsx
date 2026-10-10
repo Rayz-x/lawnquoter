@@ -16,6 +16,7 @@ import {
 } from "../visit";
 import { VisitActions } from "./visit-actions";
 import { VisitPhotos, type VisitPhotosHandle } from "./visit-photos";
+import { VisitTimeCorrect } from "./visit-time-correct";
 
 const ACTIONS = new Set(["visit_start", "visit_pause", "visit_resume", "visit_finish", "visit_set_crew_size"]);
 
@@ -241,6 +242,15 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
         </div>
       ) : null}
       {lead && (clock.status === "in_progress" || clock.status === "paused") ? <VisitPhotos visitId={visitId} userId={userId} orgId={orgId} onAfter={setAfterReady} pickRef={photos} /> : null}
+      {lead && clock.status === "completed" ? (
+        <VisitTimeCorrect
+          visitId={visitId}
+          userId={userId}
+          orgId={orgId}
+          startedAt={clock.startedAt ?? detail.startedAt}
+          completedAt={clock.segments.at(-1)?.endedAt ?? detail.completedAt}
+        />
+      ) : null}
       {lead && canAct ? <VisitActions visitId={visitId} userId={userId} orgId={orgId} onLeave={() => { if (onBack) onBack(); else router.push("/crew/today"); }} /> : null}
       {blocked ? <p className="mt-4 text-[17px] font-semibold">Finish {blocked} first?</p> : null}
       {!lead ? <p className="mt-4 text-[17px]">The crew lead starts and finishes stops.</p> : null}
