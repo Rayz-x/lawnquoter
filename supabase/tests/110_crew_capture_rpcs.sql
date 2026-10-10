@@ -883,6 +883,8 @@ select is(
 );
 
 -- Two-crew member: ack stores the crew passed from the pack, not membership order.
+select tests.clear_auth();
+select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
 insert into public.crew_members (org_id, crew_id, profile_id)
 values (:'org'::uuid, :'crew_south'::uuid, :'hand'::uuid);
 select tests.clear_auth();
