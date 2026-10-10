@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -31,7 +32,7 @@ export default async function AccountsPage({
   if (q) query = query.ilike("name", `%${q}%`);
   if (type === "residential" || type === "commercial") query = query.eq("type", type);
   if (status === "lead" || status === "active" || status === "inactive") query = query.eq("status", status);
-  const { data: accounts } = await query;
+  const { data: accounts, error } = await query;
 
   return (
     <>
@@ -64,7 +65,12 @@ export default async function AccountsPage({
           </Button>
         </form>
 
-        {!accounts || accounts.length === 0 ? (
+        {error ? (
+          <Alert variant="destructive">
+            <AlertTitle>Could not load accounts</AlertTitle>
+            <AlertDescription>{error.message}</AlertDescription>
+          </Alert>
+        ) : !accounts || accounts.length === 0 ? (
           <Empty>
             <EmptyHeader>
               <EmptyTitle>No accounts yet</EmptyTitle>

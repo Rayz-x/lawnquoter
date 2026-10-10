@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,9 +21,16 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
   const session = await requireOrg();
   const supabase = await createClient();
 
-  const [{ data: account }, { data: contacts }, { data: properties }, { data: children }, { data: parents }, { data: activities }] =
+  const [
+    { data: account, error: accountError },
+    { data: contacts, error: contactsError },
+    { data: properties, error: propertiesError },
+    { data: children, error: childrenError },
+    { data: parents, error: parentsError },
+    { data: activities, error: activitiesError },
+  ] =
     await Promise.all([
-      supabase.from("accounts").select("*").eq("id", id).eq("org_id", session.orgId).single(),
+      supabase.from("accounts").select("*").eq("id", id).eq("org_id", session.orgId).maybeSingle(),
       supabase.from("contacts").select("*").eq("account_id", id).order("is_primary", { ascending: false }).order("created_at"),
       supabase
         .from("properties")
@@ -38,6 +46,27 @@ export default async function AccountDetailPage({ params }: { params: Promise<{ 
         .order("occurred_at", { ascending: false })
         .limit(50),
     ]);
+  const loadError =
+    accountError?.message ??
+    contactsError?.message ??
+    propertiesError?.message ??
+    childrenError?.message ??
+    parentsError?.message ??
+    activitiesError?.message ??
+    null;
+  if (loadError) {
+    return (
+      <>
+        <PageHeader title="Account" />
+        <div className="page-body">
+          <Alert variant="destructive">
+            <AlertTitle>Could not load this account</AlertTitle>
+            <AlertDescription>{loadError}</AlertDescription>
+          </Alert>
+        </div>
+      </>
+    );
+  }
   if (!account) notFound();
 
   return (

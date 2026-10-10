@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -11,12 +12,26 @@ export default async function NewQuotePage({ searchParams }: { searchParams: Pro
   const session = await requireOrg();
   const { account } = await searchParams;
   const supabase = await createClient();
-  const { data: accounts } = await supabase.from("accounts").select("id, name").eq("org_id", session.orgId).order("name");
-  const { data: properties } = await supabase
+  const { data: accounts, error: accountsError } = await supabase.from("accounts").select("id, name").eq("org_id", session.orgId).order("name");
+  const { data: properties, error: propertiesError } = await supabase
     .from("properties")
     .select("id, formatted_address, account_id")
     .eq("org_id", session.orgId)
     .order("formatted_address");
+  const error = accountsError?.message ?? propertiesError?.message ?? null;
+  if (error) {
+    return (
+      <>
+        <PageHeader title="New quote" description="Pick the account and optional property" />
+        <div className="page-body">
+          <Alert variant="destructive">
+            <AlertTitle>Could not load accounts</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

@@ -5,6 +5,7 @@ import { priceLine, defaultModifiers, type Modifiers, type PricingRule } from "@
 import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { QUOTE_CONVERT_ROLES } from "@/lib/auth/office-roles";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,17 +28,30 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const session = await requireOrg();
   const supabase = await createClient();
-  const { data: quote } = await supabase
+  const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .select(
       "id, number, title, status, created_at, current_version, intro, notes_customer, notes_internal, public_token, property_id, accounts(name), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs)",
     )
     .eq("id", id)
     .eq("org_id", session.orgId)
-    .single();
+    .maybeSingle();
+  if (quoteError) {
+    return (
+      <>
+        <PageHeader title="Quote" />
+        <div className="page-body">
+          <Alert variant="destructive">
+            <AlertTitle>Could not load this quote</AlertTitle>
+            <AlertDescription>{quoteError.message}</AlertDescription>
+          </Alert>
+        </div>
+      </>
+    );
+  }
   if (!quote) notFound();
 
-  const { data: convertedAgreement } = await supabase
+  const { data: convertedAgreement, error: agreementError } = await supabase
     .from("agreements")
     .select("id")
     .eq("org_id", session.orgId)
@@ -45,12 +59,17 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     .maybeSingle();
   const canConvert =
     quote.status === "accepted" && !convertedAgreement && hasRole(session.orgRole, QUOTE_CONVERT_ROLES);
-  const { data: org } = canConvert
+  const { data: org, error: orgError } = canConvert
     ? await supabase.from("orgs").select("timezone").eq("id", session.orgId).maybeSingle()
-    : { data: null };
+    : { data: null, error: null };
 
-  const { data: versionId } = await supabase.rpc("quote_current_version", { p_quote: id });
-  const [{ data: items }, { data: rules }, { data: list }, { data: measurement }] = await Promise.all([
+  const { data: versionId, error: versionError } = await supabase.rpc("quote_current_version", { p_quote: id });
+  const [
+    { data: items, error: itemsError },
+    { data: rules, error: rulesError },
+    { data: list, error: listError },
+    { data: measurement, error: measurementError },
+  ] = await Promise.all([
     versionId
       ? supabase
           .from("quote_line_items")
@@ -71,6 +90,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             range_low: number | null;
             range_high: number | null;
           }[],
+          error: null,
         }),
     supabase.from("pricing_rules").select("id, name, rule_type, config, service_id").eq("org_id", session.orgId).eq("active", true),
     supabase.from("price_lists").select("modifiers").eq("org_id", session.orgId).eq("status", "active").maybeSingle(),
@@ -81,8 +101,30 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           .eq("property_id", quote.property_id)
           .eq("status", "current")
           .maybeSingle()
-      : Promise.resolve({ data: null }),
+      : Promise.resolve({ data: null, error: null }),
   ]);
+  const loadError =
+    agreementError?.message ??
+    orgError?.message ??
+    versionError?.message ??
+    itemsError?.message ??
+    rulesError?.message ??
+    listError?.message ??
+    measurementError?.message ??
+    null;
+  if (loadError) {
+    return (
+      <>
+        <PageHeader title="Quote" />
+        <div className="page-body">
+          <Alert variant="destructive">
+            <AlertTitle>Could not load this quote</AlertTitle>
+            <AlertDescription>{loadError}</AlertDescription>
+          </Alert>
+        </div>
+      </>
+    );
+  }
 
   const lines = items ?? [];
 

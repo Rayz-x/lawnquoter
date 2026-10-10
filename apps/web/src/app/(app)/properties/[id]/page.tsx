@@ -5,6 +5,7 @@ import { Ruler } from "lucide-react";
 import { geometrySchema } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { PropertyMap } from "@/components/map/property-map";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,12 +26,26 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const { id } = await params;
   const session = await requireOrg();
   const supabase = await createClient();
-  const [{ data: property }, { data: access }, { data: geo }, { data: nearby }] = await Promise.all([
-    supabase.from("properties").select("*, accounts(id, name, type)").eq("id", id).eq("org_id", session.orgId).single(),
+  const [{ data: property, error: propertyError }, { data: access, error: accessError }, { data: geo, error: geoError }, { data: nearby, error: nearbyError }] = await Promise.all([
+    supabase.from("properties").select("*, accounts(id, name, type)").eq("id", id).eq("org_id", session.orgId).maybeSingle(),
     supabase.from("property_access").select("gate_code, access_notes").eq("property_id", id).eq("org_id", session.orgId).maybeSingle(),
     supabase.rpc("property_geometry", { p_property: id }),
     supabase.rpc("properties_near", { p_property: id, p_radius_m: 800 }),
   ]);
+  const loadError = propertyError?.message ?? accessError?.message ?? geoError?.message ?? nearbyError?.message ?? null;
+  if (loadError) {
+    return (
+      <>
+        <PageHeader title="Property" />
+        <div className="page-body">
+          <Alert variant="destructive">
+            <AlertTitle>Could not load this property</AlertTitle>
+            <AlertDescription>{loadError}</AlertDescription>
+          </Alert>
+        </div>
+      </>
+    );
+  }
   if (!property) notFound();
 
   const g = (geo ?? {}) as Record<string, unknown>;

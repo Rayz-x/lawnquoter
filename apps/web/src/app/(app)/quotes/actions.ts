@@ -23,10 +23,10 @@ export async function createQuote(accountId: string, propertyId?: string | null)
   return { ok: true, data: { id: data } };
 }
 
-export async function createQuoteAndGo(accountId: string, propertyId?: string | null): Promise<void> {
+export async function createQuoteAndGo(accountId: string, propertyId?: string | null): Promise<ActionResult<{ id: string }>> {
   const r = await createQuote(accountId, propertyId);
-  if (r.ok) redirect(`/quotes/${r.data.id}`);
-  redirect(`/accounts/${accountId}`);
+  if (!r.ok) return r;
+  redirect(`/quotes/${r.data.id}`);
 }
 
 const itemSchema = z.object({

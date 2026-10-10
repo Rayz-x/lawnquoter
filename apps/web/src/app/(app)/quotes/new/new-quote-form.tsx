@@ -32,7 +32,10 @@ export function NewQuoteForm({
           toast.error("Pick an account");
           return;
         }
-        startTransition(() => createQuoteAndGo(acct, prop || null));
+        startTransition(async () => {
+          const result = await createQuoteAndGo(acct, prop || null);
+          if (!result.ok) toast.error(result.error);
+        });
       }}
     >
       <FieldGroup>

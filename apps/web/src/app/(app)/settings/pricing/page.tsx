@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { defaultModifiers, type Modifiers, type PricingRule } from "@lawnquoter/pricing-engine";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,15 +18,29 @@ export const metadata: Metadata = { title: "Services & Pricing" };
 export default async function PricingPage() {
   const session = await requireOrg();
   const supabase = await createClient();
-  const [{ data: services }, { data: lists }, { data: materials }] = await Promise.all([
+  const [{ data: services, error: servicesError }, { data: lists, error: listsError }, { data: materials, error: materialsError }] = await Promise.all([
     supabase.from("services").select("*").eq("org_id", session.orgId).order("sort").order("name"),
     supabase.from("price_lists").select("*").eq("org_id", session.orgId).order("version", { ascending: false }),
     supabase.from("materials").select("*").eq("org_id", session.orgId).order("name").limit(200),
   ]);
   const list = (lists ?? []).find((l) => l.status === "active") ?? (lists ?? [])[0];
-  const { data: rules } = list
+  const { data: rules, error: rulesError } = list
     ? await supabase.from("pricing_rules").select("*").eq("price_list_id", list.id).order("sort")
-    : { data: [] };
+    : { data: [], error: null };
+  const loadError = servicesError?.message ?? listsError?.message ?? materialsError?.message ?? rulesError?.message ?? null;
+  if (loadError) {
+    return (
+      <>
+        <PageHeader title="Services & Pricing" description="One price list for the company. Every rule returns price, hours, and cost." />
+        <div className="page-body">
+          <Alert variant="destructive">
+            <AlertTitle>Could not load pricing</AlertTitle>
+            <AlertDescription>{loadError}</AlertDescription>
+          </Alert>
+        </div>
+      </>
+    );
+  }
 
   const modifiers = (list?.modifiers as Modifiers | null) ?? defaultModifiers();
 

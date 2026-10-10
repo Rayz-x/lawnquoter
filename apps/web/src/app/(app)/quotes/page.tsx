@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -13,7 +14,7 @@ export const metadata: Metadata = { title: "Quotes" };
 export default async function QuotesPage() {
   const session = await requireOrg();
   const supabase = await createClient();
-  const { data: quotes } = await supabase
+  const { data: quotes, error } = await supabase
     .from("quotes")
     .select("id, number, title, status, created_at, accounts(name)")
     .eq("org_id", session.orgId)
@@ -30,7 +31,12 @@ export default async function QuotesPage() {
         }
       />
       <div className="page-body">
-        {!quotes || quotes.length === 0 ? (
+        {error ? (
+          <Alert variant="destructive">
+            <AlertTitle>Could not load quotes</AlertTitle>
+            <AlertDescription>{error.message}</AlertDescription>
+          </Alert>
+        ) : !quotes || quotes.length === 0 ? (
           <Empty>
             <EmptyHeader>
               <EmptyTitle>No quotes yet</EmptyTitle>
