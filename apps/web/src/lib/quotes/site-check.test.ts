@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SITE_CHECK_THRESHOLD,
+  SITE_CHECK_AFTER_ACCEPTANCE,
   autoSiteCheckReasons,
   hasSiteCheck,
   mergeSiteCheckReasons,
+  siteCheckCustomerSees,
   siteCheckReasonLabel,
   siteCheckReasonsSummary,
 } from "./site-check";
@@ -63,5 +65,64 @@ describe("site check copy", () => {
   it("detects a flagged line", () => {
     expect(hasSiteCheck(["low_confidence"])).toBe(true);
     expect(hasSiteCheck([])).toBe(false);
+  });
+
+  it("uses the shared after-acceptance due copy", () => {
+    expect(SITE_CHECK_AFTER_ACCEPTANCE).toBe(
+      "We'll confirm on site within 5 days of acceptance",
+    );
+  });
+});
+
+describe("siteCheckCustomerSees", () => {
+  const lines = [
+    {
+      id: "a",
+      price: 100,
+      range_low: 90,
+      range_high: 120,
+      site_check_reasons: ["low_confidence"],
+    },
+    {
+      id: "b",
+      price: 200,
+      range_low: 180,
+      range_high: 230,
+      site_check_reasons: ["manual"],
+    },
+    {
+      id: "c",
+      price: 50,
+      range_low: 40,
+      range_high: 60,
+      site_check_reasons: ["low_confidence"],
+    },
+    {
+      id: "firm",
+      price: 80,
+      range_low: null,
+      range_high: null,
+      site_check_reasons: [] as string[],
+    },
+  ];
+
+  it("sums range highs across selected flagged lines for the NTE", () => {
+    expect(siteCheckCustomerSees(lines, ["a", "b", "firm"])).toEqual({
+      low: 270,
+      high: 350,
+      notToExceed: 350,
+    });
+  });
+
+  it("ignores unselected flagged lines and firm lines", () => {
+    expect(siteCheckCustomerSees(lines, ["a", "c"])).toEqual({
+      low: 130,
+      high: 180,
+      notToExceed: 180,
+    });
+  });
+
+  it("returns null when no selected line is flagged", () => {
+    expect(siteCheckCustomerSees(lines, ["firm"])).toBeNull();
   });
 });

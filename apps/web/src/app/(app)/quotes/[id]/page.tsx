@@ -244,6 +244,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             quoteId={quote.id}
             editable={editable}
             confidence={confidence}
+            selectedIds={picked}
             lines={lines.map((line) => ({
               id: line.id,
               name: line.name,

@@ -81,3 +81,30 @@ export function orgSiteCheckThreshold(settings: unknown): number {
   const value = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
   return Number.isFinite(value) && value > 0 && value < 1 ? value : DEFAULT_SITE_CHECK_THRESHOLD;
 }
+
+/** Matches site_check_ensure_on_acceptance due_on = today + 5. */
+export const SITE_CHECK_AFTER_ACCEPTANCE =
+  "We'll confirm on site within 5 days of acceptance";
+
+type SiteCheckRangeLine = {
+  id: string;
+  price: number;
+  range_low: number | null;
+  range_high: number | null;
+  site_check_reasons: readonly string[];
+};
+
+/** Range + NTE the customer sees for selected flagged lines (sums, not max). */
+export function siteCheckCustomerSees(
+  lines: readonly SiteCheckRangeLine[],
+  selectedIds: readonly string[],
+): { low: number; high: number; notToExceed: number } | null {
+  const selected = new Set(selectedIds);
+  const flagged = lines.filter(
+    (line) => selected.has(line.id) && hasSiteCheck(line.site_check_reasons),
+  );
+  if (flagged.length === 0) return null;
+  const low = flagged.reduce((sum, line) => sum + (line.range_low ?? line.price), 0);
+  const high = flagged.reduce((sum, line) => sum + (line.range_high ?? line.price), 0);
+  return { low, high, notToExceed: high };
+}

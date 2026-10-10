@@ -5,7 +5,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
-import { siteCheckReasonsSummary } from "@/lib/quotes/site-check";
+import {
+  SITE_CHECK_AFTER_ACCEPTANCE,
+  siteCheckCustomerSees,
+  siteCheckReasonsSummary,
+} from "@/lib/quotes/site-check";
 import { waiveLineSiteCheck } from "../actions";
 
 export type SiteCheckLine = {
@@ -20,11 +24,13 @@ export type SiteCheckLine = {
 export function SiteCheckPanel({
   quoteId,
   lines,
+  selectedIds,
   confidence,
   editable,
 }: {
   quoteId: string;
   lines: SiteCheckLine[];
+  selectedIds: string[];
   confidence: number | null;
   editable: boolean;
 }) {
@@ -35,9 +41,7 @@ export function SiteCheckPanel({
   if (flagged.length === 0) return null;
 
   const reasons = [...new Set(flagged.flatMap((line) => line.site_check_reasons))];
-  const lows = flagged.map((line) => line.range_low ?? line.price);
-  const highs = flagged.map((line) => line.range_high ?? line.price);
-  const nte = Math.max(...highs);
+  const customerSees = siteCheckCustomerSees(lines, selectedIds);
 
   return (
     <section
@@ -53,17 +57,19 @@ export function SiteCheckPanel({
             {confidence != null ? ` · confidence ${confidence.toFixed(2)}` : ""}
           </dd>
         </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">Customer sees</dt>
-          <dd>
-            {formatMoney(Math.min(...lows))} – {formatMoney(Math.max(...highs))}
-            {" · "}
-            can accept now with a not-to-exceed of {formatMoney(nte)}
-          </dd>
-        </div>
+        {customerSees ? (
+          <div>
+            <dt className="text-xs text-muted-foreground">Customer sees</dt>
+            <dd>
+              {formatMoney(customerSees.low)} – {formatMoney(customerSees.high)}
+              {" · "}
+              can accept now with a not-to-exceed of {formatMoney(customerSees.notToExceed)}
+            </dd>
+          </div>
+        ) : null}
         <div>
           <dt className="text-xs text-muted-foreground">After acceptance</dt>
-          <dd>A site check is created, due before the first visit.</dd>
+          <dd>{SITE_CHECK_AFTER_ACCEPTANCE}</dd>
         </div>
       </dl>
       {editable ? (
