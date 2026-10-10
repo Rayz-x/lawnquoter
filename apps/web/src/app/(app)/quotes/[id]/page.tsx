@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { mergeModifiers, priceLine, type PricingRule } from "@lawnquoter/pricing-engine";
+import { mergeModifiers } from "@lawnquoter/pricing-engine";
 import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { QUOTE_CONVERT_ROLES } from "@/lib/auth/office-roles";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireOrg } from "@/lib/auth/session";
 import { formatMoney, formatMoneyRange } from "@/lib/money";
+import { priceCatalogLine, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
 import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
 import { orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/server";
@@ -67,7 +68,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const [
     { data: items, error: itemsError },
     { data: rules, error: rulesError },
-    { data: list, error: listError },
+    { data: lists, error: listError },
     { data: measurement, error: measurementError },
   ] = await Promise.all([
     versionId
@@ -92,8 +93,8 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           }[],
           error: null,
         }),
-    supabase.from("pricing_rules").select("id, name, rule_type, config, service_id").eq("org_id", session.orgId).eq("active", true),
-    supabase.from("price_lists").select("modifiers").eq("org_id", session.orgId).eq("status", "active").maybeSingle(),
+    supabase.from("pricing_rules").select("id, name, rule_type, config, service_id, price_list_id").eq("org_id", session.orgId).eq("active", true),
+    supabase.from("price_lists").select("id, modifiers").eq("org_id", session.orgId),
     quote.property_id
       ? supabase
           .from("measurements")
@@ -103,6 +104,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
   ]);
+  const listModifiers = new Map((lists ?? []).map((row) => [row.id, row.modifiers]));
   const loadError =
     agreementError?.message ??
     orgError?.message ??
@@ -111,7 +113,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     rulesError?.message ??
     listError?.message ??
     measurementError?.message ??
-    null;
+    ((rules ?? []).some((rule) => !listModifiers.has(rule.price_list_id))
+      ? "A catalog rule is not on a price list for this company."
+      : null);
   if (loadError) {
     return (
       <>
@@ -128,30 +132,15 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
 
   const lines = items ?? [];
 
-  const modifiers = mergeModifiers(list?.modifiers);
-  const quantities: Record<string, number> = {};
-  const addQty = (key: string, amount: number) => {
-    if (!Number.isFinite(amount) || amount === 0) return;
-    quantities[key] = (quantities[key] ?? 0) + amount;
+  const features = measurement?.measurement_features ?? [];
+  const propertyPricing: PropertyPricingInput = {
+    lotSqft: quote.properties?.lot_sqft,
+    slope: quote.properties?.slope,
+    gateWidthIn: quote.properties?.gate_width_in,
+    obstacleCount: quote.properties?.obstacle_count,
+    hasStairs: quote.properties?.has_stairs,
+    confidence: measurement?.confidence != null ? Number(measurement.confidence) : undefined,
   };
-  const quantityKey: Record<string, { key: string; field: "area_sqft" | "length_ft" }> = {
-    turf_front: { key: "turf_front_sqft", field: "area_sqft" },
-    turf_back: { key: "turf_back_sqft", field: "area_sqft" },
-    bed: { key: "bed_sqft", field: "area_sqft" },
-    hardscape: { key: "hardscape_sqft", field: "area_sqft" },
-    driveway: { key: "driveway_sqft", field: "area_sqft" },
-    sidewalk: { key: "sidewalk_sqft", field: "area_sqft" },
-    edging_line: { key: "edging_lf", field: "length_ft" },
-    fence_line: { key: "fence_lf", field: "length_ft" },
-    canopy: { key: "canopy_sqft", field: "area_sqft" },
-    roof: { key: "roof_sqft", field: "area_sqft" },
-  };
-  for (const feature of measurement?.measurement_features ?? []) {
-    const mapped = quantityKey[feature.category];
-    if (!mapped) continue;
-    addQty(mapped.key, Number(feature[mapped.field] ?? 0));
-  }
-  if (quote.properties?.lot_sqft) quantities.lot_sqft = Number(quote.properties.lot_sqft);
 
   const picked = defaultSelectedIds(lines);
   const total = sumSelected(lines, picked, "price");
@@ -261,20 +250,16 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             <PriceFromCatalog
               quoteId={quote.id}
               versionId={versionId}
-              rules={(rules ?? []).map((r) => {
-                const priced = priceLine({
-                  rule: r.config as PricingRule,
-                  quantities,
-                  context: {
-                    slope: quote.properties?.slope ?? undefined,
-                    gateWidthIn: quote.properties?.gate_width_in,
-                    obstacleCount: quote.properties?.obstacle_count,
-                    hasStairs: quote.properties?.has_stairs,
-                    confidence: measurement?.confidence != null ? Number(measurement.confidence) : undefined,
-                  },
-                  modifiers,
+              rules={(rules ?? []).flatMap((r) => {
+                const stored = listModifiers.get(r.price_list_id);
+                if (stored === undefined) return [];
+                const priced = priceCatalogLine({
+                  config: r.config,
+                  modifiers: mergeModifiers(stored),
+                  features,
+                  property: propertyPricing,
                 });
-                return { id: r.id, name: r.name, priced };
+                return priced.ok ? [{ id: r.id, name: r.name, priced: priced.priced }] : [];
               })}
             />
           ) : null}
