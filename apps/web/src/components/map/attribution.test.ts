@@ -14,5 +14,6 @@ describe("Esri geocode attribution", () => {
       expect(source).toContain("mapAttributionControl");
       expect(source).not.toContain("compact: true");
     }
+    expect(readFileSync(new URL("./property-map.tsx", import.meta.url), "utf8")).toContain('matchMedia("(max-width: 1023px)")');
   });
 });
