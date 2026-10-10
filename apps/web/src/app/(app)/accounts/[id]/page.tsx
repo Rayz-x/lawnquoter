@@ -11,6 +11,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { AccountForm } from "../account-form";
 import { AccountHeader } from "./account-header";
+import { AccountRail } from "./account-rail";
 import { AccountTabBox } from "./account-tab-box";
 import { ContactsPanel } from "./contacts-panel";
 import { IdentityCard } from "./identity-card";
@@ -86,6 +87,9 @@ export default async function AccountDetailPage({
     );
   }
   if (!account) notFound();
+  const { data: owner } = account.created_by
+    ? await supabase.from("profiles").select("full_name").eq("id", account.created_by).maybeSingle()
+    : { data: null };
 
   const primary = (contacts ?? []).find((contact) => contact.is_primary) ?? contacts?.[0] ?? null;
   const primaryName = [primary?.first_name, primary?.last_name].filter(Boolean).join(" ") || null;
@@ -109,6 +113,8 @@ export default async function AccountDetailPage({
             },
           ]}
         />
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
+        <div className="flex min-w-0 flex-col gap-4">
         <IdentityCard account={account} />
         <AccountTabBox
           initial={tabValue}
@@ -216,6 +222,9 @@ export default async function AccountDetailPage({
             },
           ]}
         />
+        </div>
+        <AccountRail account={account} parents={parents ?? []} ownerName={owner?.full_name ?? "Unassigned"} />
+        </div>
       </div>
     </>
   );
