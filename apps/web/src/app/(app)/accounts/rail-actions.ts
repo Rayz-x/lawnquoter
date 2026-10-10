@@ -1,0 +1,130 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { SALES_ROLES, hasRole } from "@lawnquoter/shared";
+import { fail, type ActionResult } from "@/lib/actions/result";
+import { requireOrg } from "@/lib/auth/session";
+import { createClient } from "@/lib/supabase/server";
+
+async function editor() {
+  const session = await requireOrg();
+  if (!hasRole(session.orgRole, SALES_ROLES)) return null;
+  return session;
+}
+
+function unchanged(error: { message: string; code?: string } | null, rows: { id: string }[] | null): ActionResult | null {
+  if (error?.code === "23503") return fail("Choose an existing account as the parent.");
+  if (error) return fail(error.message);
+  if (!rows?.length) return fail("Could not save. You may not have permission, or this record changed.");
+  return null;
+}
+
+export type BillingDraft = {
+  company_name: string;
+  billing_email: string;
+  net_terms_days: number;
+  po_required: boolean;
+  tax_exempt: boolean;
+  consolidated_invoicing: boolean;
+  parent_account_id: string;
+};
+
+export type SalesDraft = { lead_source: string; tags: string };
+export type NotesDraft = { notes: string };
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function parentOf(orgId: string, id: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("accounts").select("parent_account_id").eq("id", id).eq("org_id", orgId).maybeSingle();
+  return data?.parent_account_id ?? null;
+}
+
+async function parentIsCycle(orgId: string, accountId: string, parentId: string) {
+  let current: string | null = parentId;
+  const seen = new Set<string>();
+  while (current) {
+    if (current === accountId || seen.has(current)) return true;
+    seen.add(current);
+    current = await parentOf(orgId, current);
+  }
+  return false;
+}
+
+export async function updateAccountBilling(id: string, values: BillingDraft): Promise<ActionResult> {
+  const session = await editor();
+  if (!session) return fail("You don't have permission to edit customers.");
+  const company = values.company_name.trim();
+  const billingEmail = values.billing_email.trim();
+  const parentId = values.parent_account_id.trim();
+  if (company.length > 200) return fail("Company name is too long.");
+  if (billingEmail && !EMAIL.test(billingEmail)) return fail("Enter a valid billing email.");
+  if (!Number.isInteger(values.net_terms_days) || values.net_terms_days < 0 || values.net_terms_days > 120) {
+    return fail("Net days must be from 0 to 120.");
+  }
+  if (parentId === id) return fail("An account can't be its own parent.");
+  if (parentId && (await parentIsCycle(session.orgId, id, parentId))) {
+    return fail("A parent can't be this account or one of its sites.");
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("accounts")
+    .update({
+      company_name: company || null,
+      billing_email: billingEmail || null,
+      net_terms_days: values.net_terms_days,
+      po_required: values.po_required,
+      tax_exempt: values.tax_exempt,
+      consolidated_invoicing: values.consolidated_invoicing,
+      parent_account_id: parentId || null,
+    })
+    .eq("id", id)
+    .eq("org_id", session.orgId)
+    .select("id");
+  const blocked = unchanged(error, data);
+  if (blocked) return blocked;
+  revalidatePath(`/accounts/${id}`);
+  return { ok: true };
+}
+
+export async function updateAccountSales(id: string, values: SalesDraft): Promise<ActionResult> {
+  const session = await editor();
+  if (!session) return fail("You don't have permission to edit customers.");
+  const leadSource = values.lead_source.trim();
+  if (leadSource.length > 100) return fail("Lead source is too long.");
+  const tags = values.tags
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .slice(0, 20);
+  if (tags.some((tag) => tag.length > 40)) return fail("Each tag must be 40 characters or less.");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("accounts")
+    .update({ lead_source: leadSource || null, tags })
+    .eq("id", id)
+    .eq("org_id", session.orgId)
+    .select("id");
+  const blocked = unchanged(error, data);
+  if (blocked) return blocked;
+  revalidatePath(`/accounts/${id}`);
+  return { ok: true };
+}
+
+export async function updateAccountNotes(id: string, values: NotesDraft): Promise<ActionResult> {
+  const session = await editor();
+  if (!session) return fail("You don't have permission to edit customers.");
+  const notes = values.notes.trim();
+  if (notes.length > 5000) return fail("Notes are too long.");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("accounts")
+    .update({ notes: notes || null })
+    .eq("id", id)
+    .eq("org_id", session.orgId)
+    .select("id");
+  const blocked = unchanged(error, data);
+  if (blocked) return blocked;
+  revalidatePath(`/accounts/${id}`);
+  return { ok: true };
+}

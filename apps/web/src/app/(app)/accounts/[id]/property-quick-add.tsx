@@ -11,7 +11,7 @@ import type { GeocodeResult } from "@/lib/geo/types";
 import { suggestPropertyAddresses } from "../address-suggest";
 import { createProperty } from "../actions";
 
-function parseStreetAddress(raw: string) {
+export function parseStreetAddress(raw: string) {
   const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
   const regionZip = parts[2]?.match(/^([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)$/);
   if (!parts[0] || !parts[1] || !regionZip?.[1] || !regionZip[2]) return null;
