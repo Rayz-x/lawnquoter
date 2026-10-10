@@ -17,7 +17,7 @@ export function ConvertToJobForm({ quoteId, defaultStartDate }: { quoteId: strin
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [kind, setKind] = useState<"one_time" | "recurring">("one_time");
-  const [frequency, setFrequency] = useState<"weekly" | "biweekly" | "monthly" | "">("weekly");
+  const [frequency, setFrequency] = useState<"weekly" | "biweekly" | "monthly">("weekly");
   const [preferredDow, setPreferredDow] = useState("1");
   const [startDate, setStartDate] = useState(defaultStartDate);
 
@@ -32,16 +32,12 @@ export function ConvertToJobForm({ quoteId, defaultStartDate }: { quoteId: strin
           className="flex flex-col gap-4"
           onSubmit={(event) => {
             event.preventDefault();
-            if (kind === "recurring" && (frequency === "" || preferredDow === "")) {
-              toast.error("Recurring agreements need a frequency and a preferred day");
-              return;
-            }
             startTransition(async () => {
               const result = await convertAcceptedQuote(quoteId, {
                 kind,
                 startDate,
-                frequency: kind === "recurring" && frequency !== "" ? frequency : undefined,
-                preferredDow: kind === "recurring" && preferredDow !== "" ? Number(preferredDow) : undefined,
+                frequency: kind === "recurring" ? frequency : undefined,
+                preferredDow: kind === "recurring" ? Number(preferredDow) : undefined,
               });
               if (result.ok) {
                 toast.success("Quote converted to a job");

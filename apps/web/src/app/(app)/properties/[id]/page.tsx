@@ -8,7 +8,6 @@ import { PropertyMap } from "@/components/map/property-map";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { PropertyForm } from "../../accounts/[id]/property-form";
@@ -100,18 +99,11 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         </div>
 
         <div className="lg:col-span-3">
-          <Tabs defaultValue="details">
-            <TabsList>
-              <TabsTrigger value="details">Details</TabsTrigger>
-            </TabsList>
-            <TabsContent value="details">
-              <Card className="max-w-2xl">
-                <CardContent className="pt-6">
-                  <PropertyForm accountId={property.account_id} property={property} access={access} />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+          <Card className="max-w-2xl">
+            <CardContent className="pt-6">
+              <PropertyForm accountId={property.account_id} property={property} access={access} />
+            </CardContent>
+          </Card>
         </div>
       </div>
     </>

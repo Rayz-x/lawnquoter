@@ -1,5 +1,4 @@
 import type { FeatureCategory, FeatureSource, Geometry } from "@lawnquoter/shared";
-import { isLineCategory } from "@lawnquoter/shared";
 import area from "@turf/area";
 import length from "@turf/length";
 import { feature } from "@turf/helpers";
@@ -42,8 +41,4 @@ export function summarize(features: StudioFeature[]) {
 
 export function newFeature(partial: Omit<StudioFeature, "clientId">): StudioFeature {
   return { clientId: crypto.randomUUID(), ...partial };
-}
-
-export function isLine(f: StudioFeature) {
-  return isLineCategory(f.category);
 }

@@ -10,10 +10,3 @@ export function readQty(q: QuantityMap, key: string): number {
   if (key === "turf_sqft") return turfSqft(q);
   return q[key] ?? 0;
 }
-
-const SQFT_PER_ACRE = 43560;
-
-export function acresFromLot(lotSqft: number | null | undefined): number {
-  if (!lotSqft) return 0;
-  return lotSqft / SQFT_PER_ACRE;
-}

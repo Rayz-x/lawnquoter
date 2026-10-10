@@ -5,10 +5,7 @@ import { pointInRing } from "./geometry";
 import type { FootprintResult } from "./types";
 
 /**
- * Building footprint lookup. Live source is OpenStreetMap via Overpass (free,
- * ODbL). Overture Maps (which conflates OSM + Microsoft + Google Open
- * Buildings) is the bulk import path documented in docs/research; when an
- * Overture extract has been loaded into the database this provider is skipped.
+ * Building footprint lookup. Live source is OpenStreetMap via Overpass (free, ODbL).
  */
 export async function lookupFootprint(lng: number, lat: number, radiusM = 40): Promise<FootprintResult | null> {
   const endpoint = process.env.OVERPASS_URL ?? "https://overpass-api.de/api/interpreter";

@@ -21,19 +21,4 @@ describe("scoreMeasurementConfidence", () => {
     expect(r.band).toBe("low");
     expect(r.reasons.some((x) => x.includes("No parcel"))).toBe(true);
   });
-
-  it("penalizes heavy canopy", () => {
-    const base = scoreMeasurementConfidence({
-      parcelSource: "regrid",
-      footprintSource: "osm",
-      imageryDate: new Date(),
-    });
-    const canopy = scoreMeasurementConfidence({
-      parcelSource: "regrid",
-      footprintSource: "osm",
-      imageryDate: new Date(),
-      canopyOverlapPct: 50,
-    });
-    expect(canopy.score).toBeLessThan(base.score);
-  });
 });

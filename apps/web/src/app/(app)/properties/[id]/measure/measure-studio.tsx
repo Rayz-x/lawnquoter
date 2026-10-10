@@ -72,10 +72,6 @@ export function MeasureStudio({
       return;
     }
     const cat = isLineCategory(category) && geometry.type !== "LineString" ? "turf_front" : category;
-    if (isLineCategory(cat) && geometry.type !== "LineString") {
-      toast.error("Switch to a line category (edging or fence) before drawing a line");
-      return;
-    }
     const draft = newFeature({ category: cat, source: "traced", geometry, area_sqft: null, length_ft: null });
     const size = liveSize(draft);
     setFeatures((prev) => [...prev, { ...draft, ...size }]);

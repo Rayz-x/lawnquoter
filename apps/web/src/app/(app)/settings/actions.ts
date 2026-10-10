@@ -4,12 +4,11 @@ import { revalidatePath } from "next/cache";
 import { createClient as createBareClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { orgRoleSchema } from "@lawnquoter/shared";
+import { emptyToNull, type ActionResult } from "@/lib/actions/result";
 import { isHttpUrl } from "@/lib/brand/urls";
 import { requireOrg } from "@/lib/auth/session";
 import { supabasePublishableKey, supabaseUrl } from "@/lib/supabase/env";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
-
-export type ActionResult = { ok: true } | { ok: false; error: string };
 
 const orgSettingsSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -29,10 +28,6 @@ const orgSettingsSchema = z.object({
   postal_code: z.string().trim().max(20).optional().or(z.literal("")),
   timezone: z.string().trim().min(1).max(64),
 });
-
-function emptyToNull<T extends Record<string, unknown>>(obj: T): T {
-  return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, v === "" ? null : v])) as T;
-}
 
 export async function updateOrgSettings(formData: FormData): Promise<ActionResult> {
   const session = await requireOrg();

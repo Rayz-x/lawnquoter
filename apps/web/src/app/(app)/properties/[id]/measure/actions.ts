@@ -1,13 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
-  FEATURE_CATEGORIES,
-  FEATURE_SOURCES,
-  geometrySchema,
-  type FeatureCategory,
-  type FeatureSource,
-} from "@lawnquoter/shared";
+import { FEATURE_CATEGORIES, FEATURE_SOURCES, geometrySchema } from "@lawnquoter/shared";
 import { z } from "zod";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
@@ -24,15 +18,7 @@ const featurePayload = z.object({
   notes: z.string().max(2000).nullable().optional(),
 });
 
-export type SaveFeature = z.infer<typeof featurePayload>;
-
-export async function ensureMeasurement(propertyId: string): Promise<ActionResult<{ id: string }>> {
-  await requireOrg();
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("measurement_ensure", { p_property: propertyId });
-  if (error || !data) return fail(error?.message ?? "Could not open measurement");
-  return { ok: true, data: { id: data } };
-}
+type SaveFeature = z.infer<typeof featurePayload>;
 
 export async function saveMeasurement(
   propertyId: string,
@@ -107,5 +93,3 @@ export async function saveMeasurement(
   revalidatePath("/properties");
   return { ok: true, data: { confidence: confidence.score } };
 }
-
-export type { FeatureCategory, FeatureSource };

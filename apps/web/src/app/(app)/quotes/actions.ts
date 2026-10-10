@@ -10,7 +10,7 @@ import { customerCopyUpdateError } from "@/lib/quotes/customer-copy";
 import { ACCEPTED_QUOTE_DELETE_ERROR, deleteQuoteError } from "@/lib/quotes/delete-quote";
 import { createClient } from "@/lib/supabase/server";
 
-export async function createQuote(accountId: string, propertyId?: string | null): Promise<ActionResult<{ id: string }>> {
+async function createQuote(accountId: string, propertyId?: string | null): Promise<ActionResult<{ id: string }>> {
   await requireOrg();
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("quote_create", {
@@ -86,24 +86,6 @@ export async function addLineItem(quoteId: string, versionId: string, fd: FormDa
     notes_crew: parsed.data.notes_crew || null,
     selected: parsed.data.state === "included",
   }).select("id");
-  if (error) return fail(error.message);
-  revalidatePath(`/quotes/${quoteId}`);
-  return { ok: true };
-}
-
-export async function deleteLineItem(quoteId: string, id: string): Promise<ActionResult> {
-  const session = await requireOrg();
-  const supabase = await createClient();
-  const { data: item } = await supabase
-    .from("quote_line_items")
-    .select("id, version_id, quote_versions(quote_id, frozen)")
-    .eq("id", id)
-    .eq("org_id", session.orgId)
-    .maybeSingle();
-  const version = item?.quote_versions;
-  if (!item || !version || version.quote_id !== quoteId) return fail("Line item not found");
-  if (version.frozen) return fail("This proposal is frozen. Revise it before editing.");
-  const { error } = await supabase.from("quote_line_items").delete().eq("id", id).eq("org_id", session.orgId).select("id");
   if (error) return fail(error.message);
   revalidatePath(`/quotes/${quoteId}`);
   return { ok: true };

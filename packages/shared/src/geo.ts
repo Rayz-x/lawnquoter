@@ -37,9 +37,3 @@ export type Geometry = z.infer<typeof geometrySchema>;
 
 export const SQFT_PER_SQM = 10.7639104167;
 export const FT_PER_M = 3.28083989501;
-export const SQFT_PER_ACRE = 43560;
-
-export const sqmToSqft = (sqm: number) => sqm * SQFT_PER_SQM;
-export const sqftToSqm = (sqft: number) => sqft / SQFT_PER_SQM;
-export const mToFt = (m: number) => m * FT_PER_M;
-export const sqftToAcres = (sqft: number) => sqft / SQFT_PER_ACRE;

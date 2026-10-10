@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireOrg } from "@/lib/auth/session";
 import { emptyToNull, fail, type ActionResult } from "@/lib/actions/result";
@@ -258,17 +257,15 @@ export async function updateProperty(id: string, fd: FormData): Promise<ActionRe
   if (accessError) return fail(accessError);
 
   const addressChanged =
-    !before ||
     before.address_line1 !== parsed.data.address_line1 ||
     before.city !== parsed.data.city ||
     before.region !== parsed.data.region ||
     before.postal_code !== parsed.data.postal_code;
-  const warnings =
-    addressChanged || fd.get("regeocode") === "true"
-      ? await resolveAndStoreGeometry(id, parsed.data, { clearOnMiss: addressChanged })
-      : [];
+  const warnings = addressChanged
+    ? await resolveAndStoreGeometry(id, parsed.data, { clearOnMiss: addressChanged })
+    : [];
   revalidatePath(`/properties/${id}`);
-  if (before) revalidatePath(`/accounts/${before.account_id}`);
+  revalidatePath(`/accounts/${before.account_id}`);
   return { ok: true, data: { warnings } };
 }
 
@@ -319,12 +316,4 @@ async function resolveAndStoreGeometry(
     }
   }
   return geo.warnings;
-}
-
-export async function deleteAccountAndRedirect(id: string): Promise<void> {
-  const session = await requireOrg();
-  const supabase = await createClient();
-  await supabase.from("accounts").delete().eq("id", id).eq("org_id", session.orgId);
-  revalidatePath("/accounts");
-  redirect("/accounts");
 }
