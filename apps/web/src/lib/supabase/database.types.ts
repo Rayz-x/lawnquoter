@@ -1324,6 +1324,9 @@ isOneToOne: false
 "office_attention_tray":
 { Args: { "p_as_of"?: string }; Returns: Json
                            },
+"office_rain_day_push":
+{ Args: { "p_crew_id"?: string,"p_service_date": string,"p_visit_ids"?: string[] }; Returns: Json
+                           },
 "office_reschedule_visit":
 { Args: { "p_crew_id": string,"p_service_date": string,"p_visit_id": string }; Returns: string
                            },

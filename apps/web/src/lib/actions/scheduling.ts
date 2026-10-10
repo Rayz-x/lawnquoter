@@ -242,6 +242,55 @@ export async function publishRoute(routeId: string): Promise<ActionResult<{ publ
   return { ok: true, data: { publishedAt: data } };
 }
 
+const rainDayResultSchema = z.object({
+  service_date: dateSchema,
+  target_date: dateSchema,
+  pushed: z.array(idSchema),
+  skipped: z.array(idSchema),
+  untouched: z.array(idSchema),
+});
+
+export async function rainDayPush(input: {
+  date: string;
+  crewId?: string;
+  visitIds?: string[];
+}): Promise<
+  ActionResult<{
+    targetDate: string;
+    pushed: number;
+    skipped: number;
+    untouched: number;
+  }>
+> {
+  await requireOrg();
+  const parsed = z
+    .object({
+      date: dateSchema,
+      crewId: idSchema.optional(),
+      visitIds: z.array(idSchema).optional(),
+    })
+    .safeParse(input);
+  if (!parsed.success) return fail("Invalid rain day push");
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("office_rain_day_push", {
+    p_service_date: parsed.data.date,
+    ...(parsed.data.crewId ? { p_crew_id: parsed.data.crewId } : {}),
+    ...(parsed.data.visitIds ? { p_visit_ids: parsed.data.visitIds } : {}),
+  });
+  if (error || data == null) return fail(error?.message ?? "Could not push rain day");
+  const body = rainDayResultSchema.safeParse(data);
+  if (!body.success) return fail("Could not push rain day");
+  return {
+    ok: true,
+    data: {
+      targetDate: body.data.target_date,
+      pushed: body.data.pushed.length,
+      skipped: body.data.skipped.length,
+      untouched: body.data.untouched.length,
+    },
+  };
+}
+
 export async function createCrew(name: string): Promise<ActionResult<{ crewId: string }>> {
   await requireOrg();
   const parsed = z.string().trim().min(1).max(80).safeParse(name);
