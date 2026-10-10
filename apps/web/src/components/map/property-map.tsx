@@ -16,10 +16,13 @@ export type PropertyMapProps = {
   footprint: Geometry | null;
   className?: string;
   interactive?: boolean;
+  fallbackCenter?: [number, number] | null;
+  hideNavigation?: boolean;
+  onPick?: (coordinates: [number, number]) => void;
 };
 
 /** Read-only property map: imagery + parcel outline + building footprint + pin. */
-export function PropertyMap({ location, parcel, footprint, className, interactive = true }: PropertyMapProps) {
+export function PropertyMap({ location, parcel, footprint, className, interactive = true, fallbackCenter = null, hideNavigation = false, onPick }: PropertyMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
 
@@ -28,12 +31,13 @@ export function PropertyMap({ location, parcel, footprint, className, interactiv
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: imageryStyle(),
-      center: location?.type === "Point" ? location.coordinates : [-98.5, 39.8],
-      zoom: location ? 18 : 3,
+      center: location?.type === "Point" ? location.coordinates : (fallbackCenter ?? [-98.5, 39.8]),
+      zoom: location ? 18 : fallbackCenter ? 13 : 3,
       interactive,
       attributionControl: mapAttributionControl,
     });
-    if (interactive) map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    if (interactive && !hideNavigation) map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    if (onPick) map.on("click", (event) => onPick(event.lngLat.toArray() as [number, number]));
     mapRef.current = map;
     return () => {
       map.remove();

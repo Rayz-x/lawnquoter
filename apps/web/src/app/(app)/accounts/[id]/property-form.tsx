@@ -24,6 +24,45 @@ export function PropertyForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
+  const onCreate = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const address = String(new FormData(event.currentTarget).get("address") ?? "");
+    const match = address.trim().match(/^(.+?),\s*([^,]+),\s*([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+    if (!match) {
+      toast.error("Enter the address as Street, City, ST ZIP.");
+      return;
+    }
+    const fd = new FormData();
+    fd.set("address_line1", match[1].trim());
+    fd.set("city", match[2].trim());
+    fd.set("region", match[3].toUpperCase());
+    fd.set("postal_code", match[4]);
+    startTransition(async () => {
+      const result = await createProperty(accountId, fd);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      result.data.warnings.forEach((warning) => toast.warning(warning));
+      router.push(`/properties/${result.data.id}/measure`);
+    });
+  };
+
+  if (!property) {
+    return (
+      <form onSubmit={onCreate} className="flex flex-col gap-4">
+        <Field>
+          <FieldLabel htmlFor="property-address">Street address</FieldLabel>
+          <Input id="property-address" name="address" required autoComplete="street-address" placeholder="123 Main St, Springfield, IL 62704" />
+        </Field>
+        <Button type="submit" disabled={pending}>
+          {pending ? <Spinner data-icon="inline-start" /> : null}
+          Add property & measure
+        </Button>
+      </form>
+    );
+  }
+
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
