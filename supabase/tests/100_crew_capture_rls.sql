@@ -1,7 +1,7 @@
 -- Crew capture tables, the visit-photos bucket, completion rules, and the
 -- live crew-lead check. Quote price denial stays in the privilege-gaps tests.
 
-select plan(151);
+select plan(159);
 
 select has_table('public', 'time_entries', 'time_entries exists');
 select has_table('public', 'visit_photos', 'visit_photos exists');
@@ -362,21 +362,50 @@ select throws_ok(
   null,
   'a job still cannot be completed'
 );
-select throws_ok(
+select lives_ok(
   format(
     $$ insert into public.visits (org_id, job_id, property_id, occurrence_date, status)
-       values (%L, %L, %L, %L, 'completed') $$,
+       values (%L, %L, %L, %L, 'completed')
+       returning id $$,
     :'org', :'job_a', :'prop', :'tomorrow'
   ),
-  '22023',
-  null,
-  'a visit cannot be inserted already completed'
+  'a visit can be inserted completed with photo_pending'
 );
-select throws_ok(
-  format($$ update public.visits set status = 'completed' where id = %L $$, :'visit_a'),
-  '22023',
-  null,
-  'a visit cannot be completed before an after photo exists'
+select is(
+  (
+    select photo_pending
+    from public.visits
+    where job_id = :'job_a'::uuid
+      and occurrence_date = :'tomorrow'::date
+      and status = 'completed'::public.visit_status
+    limit 1
+  ),
+  true,
+  'inserted completed visit is photo_pending'
+);
+-- Keep later tests on visit_a only; remove the inserted row.
+select lives_ok(
+  format(
+    $$ delete from public.visits
+       where job_id = %L
+         and occurrence_date = %L
+         and status = 'completed' $$,
+    :'job_a', :'tomorrow'
+  ),
+  'cleanup inserted photo-pending visit'
+);
+select lives_ok(
+  format($$ update public.visits set status = 'completed', completed_at = now() where id = %L $$, :'visit_a'),
+  'a visit can complete before an after photo exists (photo pending)'
+);
+select is(
+  (select photo_pending from public.visits where id = :'visit_a'::uuid),
+  true,
+  'completing without an after photo sets photo_pending'
+);
+select lives_ok(
+  format($$ update public.visits set status = 'in_progress', completed_at = null, photo_pending = false where id = %L $$, :'visit_a'),
+  'reset visit_a after photo-pending check'
 );
 select throws_ok(
   format(
@@ -408,11 +437,18 @@ select lives_ok(
   ),
   'a before photo can be stored'
 );
-select throws_ok(
-  format($$ update public.visits set status = 'completed' where id = %L $$, :'visit_a'),
-  '22023',
-  null,
-  'a before photo does not satisfy completion'
+select lives_ok(
+  format($$ update public.visits set status = 'completed', completed_at = now() where id = %L $$, :'visit_a'),
+  'a before photo alone still leaves photo_pending'
+);
+select is(
+  (select photo_pending from public.visits where id = :'visit_a'::uuid),
+  true,
+  'a before photo does not clear photo_pending'
+);
+select lives_ok(
+  format($$ update public.visits set status = 'in_progress', completed_at = null, photo_pending = false where id = %L $$, :'visit_a'),
+  'reset visit_a before storing the after photo'
 );
 
 select lives_ok(
@@ -564,11 +600,14 @@ select lives_ok(
   ),
   'an issue photo can be stored on a cancelled stop'
 );
-select throws_ok(
-  format($$ update public.visits set status = 'completed' where id = %L $$, :'visit_c'),
-  '22023',
-  null,
-  'an issue photo does not satisfy completion'
+select lives_ok(
+  format($$ update public.visits set status = 'completed', completed_at = now() where id = %L $$, :'visit_c'),
+  'an issue photo alone completes as photo_pending after cancel'
+);
+select is(
+  (select photo_pending from public.visits where id = :'visit_c'::uuid),
+  true,
+  'an issue photo does not clear photo_pending'
 );
 select lives_ok(
   format(
@@ -1062,11 +1101,14 @@ select lives_ok(
   ),
   'service_role can remove an uploaded photo file'
 );
-select throws_ok(
-  format($$ update public.visits set status = 'completed' where id = %L $$, :'visit_e'),
-  '22023',
-  null,
-  'completing a visit requires the after-photo file'
+select lives_ok(
+  format($$ update public.visits set status = 'completed', completed_at = now() where id = %L $$, :'visit_e'),
+  'completing without the after-photo file sets photo_pending'
+);
+select is(
+  (select photo_pending from public.visits where id = :'visit_e'::uuid),
+  true,
+  'visit E is photo_pending without the file'
 );
 select lives_ok(
   format(
@@ -1076,8 +1118,22 @@ select lives_ok(
   'service_role can put the after-photo file back'
 );
 select lives_ok(
-  format($$ update public.visits set status = 'completed' where id = %L $$, :'visit_e'),
-  'service_role can complete a visit that has its after photo'
+  format(
+    $$ update public.visits v
+       set photo_pending = false
+       where v.id = %L
+         and exists (
+           select 1
+           from public.visit_photos p
+           join storage.objects o
+             on o.bucket_id = 'visit-photos'
+            and o.name = p.storage_path
+           where p.visit_id = v.id
+             and p.kind = 'after'
+         ) $$,
+    :'visit_e'
+  ),
+  'restoring the after-photo file clears photo_pending'
 );
 select tests.clear_auth();
 select is(

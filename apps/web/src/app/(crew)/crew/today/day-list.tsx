@@ -258,7 +258,10 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
 
 function StopCard({ stop, fresh, next = false, onOpen }: { stop: DayStop; fresh: boolean; next?: boolean; onOpen: (id: string) => void }) {
   const closed = stop.status === "skipped" || stop.status === "cant_complete" || stop.status === "cancelled";
-  const label = statusLabel(stop.status);
+  const label = statusLabel(stop.status, {
+    photoPending: stop.photoPending,
+    photoLost: stop.photoLost,
+  });
   const border = next ? "border-2 border-primary" : closed ? "border border-destructive" : "border";
   return (
     <article data-crew-card className={`rounded-xl bg-card ${border}`}>

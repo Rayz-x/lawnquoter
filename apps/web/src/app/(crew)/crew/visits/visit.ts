@@ -8,6 +8,7 @@ export type VisitDetail = {
   budgetMinutes: number | null; startedAt: string | null; crewSize: number | null; crewNote: string | null;
   gateCode: string | null; gateWidthIn: number | null; accessNotes: string | null; officeNotes: string | null;
   hasDogs: boolean; hasStairs: boolean; steep: boolean; lat: number | null; lng: number | null; tasks: VisitTask[];
+  photoPending: boolean; photoLost: boolean;
 };
 export type ClockAction = { clientId: string; kind: "visit_start" | "visit_pause" | "visit_resume" | "visit_finish" | "visit_set_crew_size"; at: string; crewSize?: number };
 type Box = { getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void };
@@ -45,6 +46,8 @@ export function visitFromPack(data: unknown, visitId: string): VisitDetail | nul
     hasDogs: property.has_dogs === true, hasStairs: property.has_stairs === true, steep: property.slope === "steep",
     lat: typeof property.lat === "number" ? property.lat : null,
     lng: typeof property.lng === "number" ? property.lng : null,
+    photoPending: visit.photo_pending === true,
+    photoLost: visit.photo_lost === true,
     tasks: tasks.flatMap((value) => {
       const task = record(value);
       const label = text(task?.label);
@@ -133,7 +136,18 @@ export function activeAddress(visits: VisitDetail[], visitId: string): string | 
   return visits.find((visit) => visit.id !== visitId && (visit.status === "in_progress" || visit.status === "paused"))?.address ?? null;
 }
 
-export function patchVisitPack(data: unknown, visitId: string, patch: { status?: string; started_at?: string; crew_size?: number; skip_reason?: string }): unknown {
+export function patchVisitPack(
+  data: unknown,
+  visitId: string,
+  patch: {
+    status?: string;
+    started_at?: string;
+    crew_size?: number;
+    skip_reason?: string;
+    photo_pending?: boolean;
+    photo_lost?: boolean;
+  },
+): unknown {
   const pack = record(data);
   if (!pack || !Array.isArray(pack.visits)) return data;
   return { ...pack, visits: pack.visits.map((value) => (record(value)?.id === visitId ? { ...record(value), ...patch } : value)) };

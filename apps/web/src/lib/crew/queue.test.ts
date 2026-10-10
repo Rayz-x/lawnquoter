@@ -115,11 +115,41 @@ describe("crew outbox", () => {
     expect(retried.sent).toBe(0);
     expect((await store.listOutbox())[0]?.needs_office).toBe(false);
     const bare = createMemoryCrewStore();
-    await enqueueMutation(bare, { kind: "visit_photo_record", visit_id: "v", client_id: "gone", payload: { photo_kind: "after" }, ...who }, now);
+    await enqueueMutation(bare, { kind: "visit_photo_record", visit_id: "v", client_id: "gone", payload: { photo_kind: "before" }, ...who }, now);
     await flushOutbox(bare, async () => {
       throw new Error("should not send");
     }, scope);
     expect((await bare.listOutbox())[0]?.needs_office).toBe(true);
+  });
+
+  it("flags a lost after photo and still finishes so the queue can resume", async () => {
+    const store = createMemoryCrewStore();
+    await enqueueMutation(
+      store,
+      { kind: "visit_photo_record", visit_id: "v", client_id: "gone-after", payload: { photo_kind: "after" }, ...who },
+      now,
+    );
+    await enqueueMutation(
+      store,
+      { kind: "visit_finish", visit_id: "v", client_id: "fin", ...who },
+      new Date(now.getTime() + 1),
+    );
+    const seen: string[] = [];
+    const result = await flushOutbox(
+      store,
+      async (items) => {
+        seen.push(...items.map((item) => `${item.kind}:${item.client_id === "fin" ? "fin" : "flag"}`));
+        return items.map((item) => ({ client_id: item.client_id, status: "applied" as const, message: null }));
+      },
+      scope,
+      now,
+    );
+    expect(seen).toEqual(["visit_finish:fin", "visit_flag_photo_lost:flag"]);
+    expect(result).toEqual({ sent: 2, pending: 1 });
+    const left = await store.listOutbox();
+    expect(left).toMatchObject([
+      { client_id: "gone-after", needs_office: true, last_error: "The photo file is missing." },
+    ]);
   });
 
   it("retries an unexpected sync error and parks a known one", async () => {
