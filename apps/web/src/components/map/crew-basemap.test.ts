@@ -52,7 +52,7 @@ describe("crew battery-saver basemap", () => {
   it("still exposes a map style that can host property outlines and visit pins", () => {
     const style = outlineStyle("oklch(0.179 0.011 163.4)");
     expect(style.version).toBe(8);
-    expect(style.glyphs).toContain("font/{fontstack}/{range}.pbf");
+    expect(style.glyphs).toContain("fonts.openmaptiles.org/{fontstack}/{range}.pbf");
     expect(style.layers.some((layer) => layer.type === "background")).toBe(true);
 
     const pins = visitPinFeatures([

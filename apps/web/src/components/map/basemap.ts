@@ -26,7 +26,7 @@ export const mapAttributionControl = {
  * World_Imagery tile service is used for development.
  */
 /** Glyphs for stop-number symbol layers on crew maps. */
-export const MAP_GLYPHS = "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf";
+export const MAP_GLYPHS = "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf";
 
 export function imageryStyle(): StyleSpecification {
   const key = process.env.NEXT_PUBLIC_ARCGIS_API_KEY;

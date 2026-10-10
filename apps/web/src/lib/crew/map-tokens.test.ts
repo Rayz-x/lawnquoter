@@ -17,8 +17,10 @@ describe("mapTokensFromStyle", () => {
       },
     };
 
-    expect(mapTokensFromStyle(style, "white")).toEqual({
-      brass: "oklch(0.677 0.136 74.4)",
+    const toRgb = (color: string) => (color.startsWith("oklch") ? "rgb(200, 137, 28)" : color);
+
+    expect(mapTokensFromStyle(style, "white", toRgb)).toEqual({
+      brass: "rgb(200, 137, 28)",
       primary: "#123d25",
       mutedForeground: "#2c3832",
       background: "#ffffff",

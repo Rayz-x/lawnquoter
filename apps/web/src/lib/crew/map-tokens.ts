@@ -1,6 +1,7 @@
 /**
  * Map paint colours from Groundwork CSS variables on a themed element
- * (crew shell with light / dark / sun). MapLibre needs resolved values.
+ * (crew shell with light / dark / sun). MapLibre needs resolved sRGB values
+ * (it rejects `oklch(...)` from globals.css).
  */
 export type MapTokens = {
   brass: string;
@@ -29,21 +30,35 @@ function readVar(style: CssVarReader, name: string): string {
   return value;
 }
 
+/** Convert any CSS colour (including oklch) to an `rgba()` MapLibre accepts. */
+export function cssColorToRgb(color: string): string {
+  if (typeof document === "undefined") return color;
+  const canvas = document.createElement("canvas");
+  canvas.width = 1;
+  canvas.height = 1;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return color;
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 1, 1);
+  const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+  return `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+}
+
 /** Pure mapper for tests and for `readMapTokens`. */
-export function mapTokensFromStyle(style: CssVarReader, pinLabel: string): MapTokens {
+export function mapTokensFromStyle(style: CssVarReader, pinLabel: string, toRgb: (c: string) => string = (c) => c): MapTokens {
   return {
-    brass: readVar(style, TOKEN_VARS.brass),
-    primary: readVar(style, TOKEN_VARS.primary),
-    mutedForeground: readVar(style, TOKEN_VARS.mutedForeground),
-    background: readVar(style, TOKEN_VARS.background),
-    foreground: readVar(style, TOKEN_VARS.foreground),
-    pinLabel,
+    brass: toRgb(readVar(style, TOKEN_VARS.brass)),
+    primary: toRgb(readVar(style, TOKEN_VARS.primary)),
+    mutedForeground: toRgb(readVar(style, TOKEN_VARS.mutedForeground)),
+    background: toRgb(readVar(style, TOKEN_VARS.background)),
+    foreground: toRgb(readVar(style, TOKEN_VARS.foreground)),
+    pinLabel: toRgb(pinLabel),
   };
 }
 
 /** Resolve Groundwork tokens from a crew-themed element (or documentElement). */
 export function readMapTokens(from: Element): MapTokens {
-  return mapTokensFromStyle(getComputedStyle(from), readLightPinLabel());
+  return mapTokensFromStyle(getComputedStyle(from), readLightPinLabel(), cssColorToRgb);
 }
 
 /** Pin numbers stay white on brass / forest / muted pins in every crew theme. */
