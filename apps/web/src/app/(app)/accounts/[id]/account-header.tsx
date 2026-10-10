@@ -72,18 +72,12 @@ export function AccountHeader({ account, primaryName }: { account: Tables<"accou
         });
       },
     });
-  } else {
-    items.push({
-      id: "unarchive",
-      label: "Un-archive",
-      onSelect: () => changeStatus("active"),
-    });
-  }
+  } else items.push({ id: "unarchive", label: "Un-archive", onSelect: () => changeStatus("active") });
 
   return (
     <header className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">{TYPE_LABEL[account.type]}</Badge>
+        <Badge variant="outline">{account.type === "commercial" ? "Commercial" : "Residential"}</Badge>
         <Badge variant="secondary">{STATUS_LABEL[account.status]}</Badge>
       </div>
       {contactName || account.phone || account.email ? (
