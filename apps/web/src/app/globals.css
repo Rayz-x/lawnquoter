@@ -76,7 +76,6 @@
 :root {
   color-scheme: light dark;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --app-header-height: 3.5rem;
   --radius: 0.625rem;
   --background: oklch(1.000 0 none); /* #FFFFFF */
@@ -291,11 +290,6 @@
   [data-heading="sturdy"] :is(h1, h2, h3),
   [data-heading="sturdy"] .font-heading {
     font-family: var(--font-heading-sturdy), ui-serif, Georgia, serif;
-  }
-
-  .num,
-  [data-numeric] {
-    font-variant-numeric: tabular-nums;
   }
 
   img,
