@@ -13,7 +13,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "db:test": "bash scripts/db-test.sh",
-    "db:reset": "bash scripts/db-reset.sh"
+    "db:types": "bash scripts/db-types.sh"
   },
   "devDependencies": {
     "typescript": "^5.9.0"
