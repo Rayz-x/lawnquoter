@@ -38,7 +38,10 @@ export function imageryStyle(): StyleSpecification {
         type: "raster",
         tiles,
         tileSize: 256,
-        maxzoom: 20,
+        // World Imagery often ends around z19, and missing coverage comes back
+        // as a "Map data not yet available" image. Stop there so MapLibre
+        // scales the last real tile. The map's own max zoom stays higher.
+        maxzoom: 19,
         attribution:
           "Imagery &copy; Esri, Maxar, Earthstar Geographics, and the GIS User Community",
       },
