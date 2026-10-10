@@ -12,7 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireOrg } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/money";
 import { catalogPickerRules, measurementQuantities, priceCatalogLine, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
-import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
+import { defaultSelectedIds } from "@/lib/quotes/selection";
+import { quoteSectionTotals } from "@/lib/quotes/section-totals";
 import {
   SITE_CHECK_REQUESTED_BADGE,
   hasSiteCheck,
@@ -181,9 +182,16 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
 
   const picked = defaultSelectedIds(lines);
   const pickedSet = new Set(picked);
-  const total = sumSelected(lines, picked, "price");
-  const hours = sumSelected(lines, picked, "hours");
-  const cost = sumSelected(lines, picked, "cost");
+  const sectionBreakdown = quoteSectionTotals(
+    lines,
+    (sections ?? []).map((section) => ({ id: section.id, title: section.title })),
+    picked,
+  );
+  const total = sectionBreakdown.total.price;
+  const hours = sectionBreakdown.total.hours;
+  const cost = sectionBreakdown.total.cost;
+  const knownSectionIds = new Set(sectionBreakdown.sections.map((section) => section.id));
+  const hasAddOns = lines.some((line) => !line.section_id || !knownSectionIds.has(line.section_id));
   const selectedFlagged = lines.filter(
     (line) => pickedSet.has(line.id) && hasSiteCheck(line.site_check_reasons),
   );
@@ -261,6 +269,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             versionId={versionId}
             basis={basis}
             editable={editable}
+            selectedIds={picked}
+            sectionTotals={sectionBreakdown.sections}
+            addOnTotal={sectionBreakdown.addOns.price}
             sections={(sections ?? []).map((section) => ({ id: section.id, title: section.title }))}
             lines={lines.map((line) => ({
               id: line.id,
@@ -268,6 +279,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               description: line.description,
               state: line.state,
               section_id: line.section_id,
+              option_group: line.option_group,
               option_tier: line.option_tier,
               price: Number(line.price),
               range_low: line.range_low,
@@ -309,8 +321,24 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             <CardHeader>
               <CardTitle>Totals</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm tabular-nums">
-              <div className="flex justify-between">
+            <CardContent className="space-y-2 text-sm tabular-nums">
+              {sectionBreakdown.sections.length > 0 ? (
+                <>
+                  {sectionBreakdown.sections.map((section) => (
+                    <div key={section.id} className="flex justify-between text-muted-foreground">
+                      <span>{section.title}</span>
+                      <span className="font-heading tabular-nums">{formatMoney(section.price, { cents: true })}</span>
+                    </div>
+                  ))}
+                  {hasAddOns ? (
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Add-ons</span>
+                      <span className="font-heading tabular-nums">{formatMoney(sectionBreakdown.addOns.price, { cents: true })}</span>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+              <div className={`flex justify-between${sectionBreakdown.sections.length > 0 ? " border-t pt-2" : ""}`}>
                 <span>{hasRangeTotal ? "Estimate" : "Price"}</span>
                 <span className="font-heading text-xl font-semibold tabular-nums">
                   {hasRangeTotal

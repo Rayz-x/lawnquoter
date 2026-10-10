@@ -1,7 +1,14 @@
 import type { PublicOrg } from "@/lib/brand/public-org";
 
+export type PublicQuoteSection = {
+  id: string;
+  title: string;
+  sort?: number;
+};
+
 export type PublicQuoteItem = {
   id: string;
+  section_id?: string | null;
   name: string;
   description: string | null;
   state: "included" | "recommended" | "optional";
@@ -53,6 +60,7 @@ export type PublicQuote = {
   site_check_can_request?: boolean | null;
   site_check_account_cap_reached?: boolean | null;
   org: PublicOrg;
+  sections?: PublicQuoteSection[];
   items: PublicQuoteItem[];
   acceptance: PublicAcceptance | null;
 };
