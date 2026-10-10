@@ -1,4 +1,5 @@
 import { completionLabel } from "@/lib/crew/photo-pending";
+import { gateWidthLabel, isNarrowGate } from "@/lib/property/gate";
 
 const CLOSED = new Set(["completed", "skipped", "cant_complete", "cancelled"]);
 
@@ -48,7 +49,8 @@ function accessChips(property: Record<string, unknown>): AccessChip[] {
   if (text(property.gate_code)) chips.push({ label: "Gate code", warning: false });
   if (property.has_dogs === true) chips.push({ label: "Dog", warning: true });
   if (typeof property.gate_width_in === "number") {
-    chips.push({ label: `${property.gate_width_in}″ gate`, warning: property.gate_width_in < 48 });
+    const label = gateWidthLabel(property.gate_width_in);
+    if (label) chips.push({ label, warning: isNarrowGate(property.gate_width_in) });
   }
   if (property.slope === "steep") chips.push({ label: "Steep", warning: true });
   if (property.has_stairs === true) chips.push({ label: "Stairs", warning: true });

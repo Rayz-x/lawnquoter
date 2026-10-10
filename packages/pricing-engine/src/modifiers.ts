@@ -1,3 +1,4 @@
+import { isNarrowGate } from "./gate-width";
 import { line } from "./money";
 import type { Modifiers, PricedLine, PropertyContext } from "./types";
 
@@ -32,7 +33,7 @@ export function applyModifiers(base: PricedLine, ctx: PropertyContext, modifiers
   }
 
   const gateWidthIn = ctx.gateWidthIn;
-  if (modifiers.narrowGate && gateWidthIn != null && gateWidthIn > 0 && gateWidthIn < (modifiers.narrowGateInches ?? 48)) {
+  if (modifiers.narrowGate && isNarrowGate(gateWidthIn, modifiers.narrowGateInches ?? 48)) {
     add(`Narrow gate (${gateWidthIn} in)`, modifiers.narrowGate.extraPrice, modifiers.narrowGate.extraHours);
   }
 

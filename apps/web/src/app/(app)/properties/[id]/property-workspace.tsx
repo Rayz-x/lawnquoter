@@ -12,6 +12,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  GATE_CHIP_UNDER_IN,
+  GATE_CHIP_WIDE_IN,
+  GATE_WIDTH_CHIPS,
+  GATE_WIDTH_NO_GATE,
+  gateWidthChip,
+  gateWidthFromChip,
+  gateWidthLabel,
+  isNarrowGate,
+  type GateWidthChip,
+} from "@/lib/property/gate";
 import { regeocodeProperty } from "../../accounts/actions";
 import { createQuoteAndGo } from "../../quotes/actions";
 import { archiveProperty, placePropertyPin, updatePropertyAccess, updatePropertyAddress, updatePropertyConditions, updatePropertyMeta } from "./actions";
@@ -27,7 +38,6 @@ export type PropertyScreenData = {
 
 const TABS = ["quotes", "visits", "activity"] as const;
 const SLOPE_CHIPS = [{ value: "flat", label: "Flat" }, { value: "gentle", label: "Gentle" }, { value: "moderate", label: "Moderate" }, { value: "steep", label: "Steep" }] as const;
-const GATE_CHIPS = [{ value: "under", label: "Under 48 in" }, { value: "wide", label: "48 in+" }] as const;
 const titled = (value: string | null) => (value ? value[0]!.toUpperCase() + value.slice(1) : "Unknown");
 
 export function PropertyWorkspace({ data }: { data: PropertyScreenData }) {
@@ -35,10 +45,12 @@ export function PropertyWorkspace({ data }: { data: PropertyScreenData }) {
   const [pending, startTransition] = useTransition();
   const [tab, setTab] = useState(() => resolveEntryTab(data.tab, TABS, "quotes"));
   const [renaming, setRenaming] = useState(false); const [label, setLabel] = useState(data.label ?? "");
-  const [exactOpen, setExactOpen] = useState(data.gateWidthIn != null && data.gateWidthIn !== 36 && data.gateWidthIn !== 48);
+  const [exactOpen, setExactOpen] = useState(
+    data.gateWidthIn != null && data.gateWidthIn !== GATE_WIDTH_NO_GATE && data.gateWidthIn !== GATE_CHIP_UNDER_IN && data.gateWidthIn !== GATE_CHIP_WIDE_IN,
+  );
   const [addressOpen, setAddressOpen] = useState(false); const [pinning, setPinning] = useState(false); const [address, setAddress] = useState(`${data.street}, ${data.place}`);
   const gateWidthRef = useRef<HTMLInputElement>(null);
-  const [gateInches, setGateInches] = useState(() => (data.gateWidthIn == null ? "" : String(data.gateWidthIn)));
+  const [gateInches, setGateInches] = useState(() => (data.gateWidthIn == null || data.gateWidthIn === GATE_WIDTH_NO_GATE ? "" : String(data.gateWidthIn)));
   const [revealGate, setRevealGate] = useState(false);
   const [cond, setCond] = useState<Conditions>({ slope: data.slope, gate_width_in: data.gateWidthIn, obstacle_count: data.obstacleCount, has_stairs: data.hasStairs });
   const [access, setAccess] = useState<Access>({ has_dogs: data.hasDogs, gate_code: data.gateCode, access_notes: data.accessNotes || null, crew_notes: data.crewNotes || null });
@@ -47,9 +59,9 @@ export function PropertyWorkspace({ data }: { data: PropertyScreenData }) {
   const conditions = useSectionAutosave({ action: (values: Conditions) => updatePropertyConditions(data.id, values), initial: savedCond, onRollback: setCond });
   const accessSave = useSectionAutosave({ action: (values: Access) => updatePropertyAccess(data.id, values), initial: savedAccess, onRollback: setAccess });
   const zoneSave = useSectionAutosave({ action: (value: string) => updatePropertyMeta(data.id, { zone: value || null }), initial: savedZone, onRollback: setZone });
-  const knownWidth = cond.gate_width_in != null && cond.gate_width_in > 0 ? cond.gate_width_in : null;
-  const narrow = knownWidth != null && knownWidth < 48;
-  const gateChip = knownWidth == null ? "" : knownWidth < 48 ? "under" : "wide";
+  const narrow = isNarrowGate(cond.gate_width_in);
+  const selectedGateChip = gateWidthChip(cond.gate_width_in);
+  const gateFact = gateWidthLabel(cond.gate_width_in);
   const saveCond = (patch: Partial<Conditions>) => { setCond((current) => ({ ...current, ...patch })); conditions.save(patch, { immediate: true, rollback: true }); };
   const saveAccess = (patch: Partial<Access>, choice = false) => { setAccess((current) => ({ ...current, ...patch })); accessSave.save(patch, choice ? { immediate: true, rollback: true } : undefined); };
   const newQuote = () => startTransition(async () => { const result = await createQuoteAndGo(data.accountId, data.id); if (!result.ok) toast.error(result.error); });
@@ -57,13 +69,27 @@ export function PropertyWorkspace({ data }: { data: PropertyScreenData }) {
   const placePin = (coordinates: [number, number]) => startTransition(async () => { const result = await placePropertyPin(data.id, coordinates); if (!result.ok) { toast.error(result.error); return; } setPinning(false); router.refresh(); });
   const startPin = () => { if (data.pinCenter) return setPinning(true); setAddressOpen(true); toast("Edit the address before dropping a pin."); };
   const openGateWidth = () => { setExactOpen(true); setTimeout(() => gateWidthRef.current?.focus(), 0); };
-  const commitGateInches = () => { const raw = gateInches.trim(); const width = raw === "" || Number(raw) <= 0 ? null : /^\d+$/.test(raw) && Number(raw) >= 12 && Number(raw) <= 240 ? Number(raw) : Number.NaN; if (Number.isNaN(width)) return setGateInches(knownWidth == null ? "" : String(knownWidth)); setGateInches(width == null ? "" : String(width)); setCond((current) => ({ ...current, gate_width_in: width })); conditions.save({ gate_width_in: width }, { immediate: true, rollback: true }); };
+  const commitGateInches = () => {
+    const raw = gateInches.trim();
+    const width = raw === "" ? null : /^\d+$/.test(raw) && Number(raw) >= 12 && Number(raw) <= 240 ? Number(raw) : Number.NaN;
+    if (Number.isNaN(width)) {
+      return setGateInches(cond.gate_width_in == null || cond.gate_width_in === GATE_WIDTH_NO_GATE ? "" : String(cond.gate_width_in));
+    }
+    setGateInches(width == null ? "" : String(width));
+    setCond((current) => ({ ...current, gate_width_in: width }));
+    conditions.save({ gate_width_in: width }, { immediate: true, rollback: true });
+  };
   const commitGate = (value: string) => saveAccess({ gate_code: value.trim() || null });
   const onGateChip = (next: string) => {
-    if (!next) { setGateInches(""); return saveCond({ gate_width_in: null }); }
-    if (next === "under") { if (knownWidth != null && knownWidth < 48) return; setGateInches("36"); return saveCond({ gate_width_in: 36 }); }
-    if (knownWidth != null && knownWidth >= 48) return;
-    setGateInches("48"); saveCond({ gate_width_in: 48 });
+    if (!next) {
+      setGateInches("");
+      return saveCond({ gate_width_in: null });
+    }
+    const chip = next as GateWidthChip;
+    if (chip === selectedGateChip && (chip === "under" || chip === "wide")) return;
+    const width = gateWidthFromChip(chip);
+    setGateInches(width == null || width === GATE_WIDTH_NO_GATE ? "" : String(width));
+    saveCond({ gate_width_in: width });
   };
 
   return (
@@ -94,7 +120,7 @@ export function PropertyWorkspace({ data }: { data: PropertyScreenData }) {
         ) : <Button type="button" variant="outline" className="self-start" onClick={() => setAddressOpen(true)}>Fix address</Button>) : null}
       </header>
 
-      <FactStrip facts={[{ label: "Turf", value: data.turf }, { label: "Lot", value: data.lot, hint: data.lotAuto ? "From parcel" : undefined }, { label: "Gate", value: knownWidth == null ? <button type="button" className="underline-offset-4 hover:underline" onClick={openGateWidth}>Add gate width</button> : <span className={narrow ? "text-warning" : undefined}>{`${knownWidth} in`}</span>, detail: knownWidth == null ? undefined : narrow ? `${knownWidth} in · push mower only` : "Fits a rider" }, { label: "Slope", value: titled(cond.slope), detail: data.slopeHint }, { label: "Open quotes", value: data.openQuotes }, { label: "Service", value: data.service }]} />
+      <FactStrip facts={[{ label: "Turf", value: data.turf }, { label: "Lot", value: data.lot, hint: data.lotAuto ? "From parcel" : undefined }, { label: "Gate", value: gateFact == null ? <button type="button" className="underline-offset-4 hover:underline" onClick={openGateWidth}>Add gate width</button> : <span className={narrow ? "text-warning" : undefined}>{gateFact}</span>, detail: gateFact == null ? undefined : narrow ? `${cond.gate_width_in} in · push mower only` : cond.gate_width_in === GATE_WIDTH_NO_GATE ? "Open access" : "Fits a rider" }, { label: "Slope", value: titled(cond.slope), detail: data.slopeHint }, { label: "Open quotes", value: data.openQuotes }, { label: "Service", value: data.service }]} />
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22.5rem]">
         <div className="flex min-w-0 flex-col gap-4">
@@ -107,9 +133,9 @@ export function PropertyWorkspace({ data }: { data: PropertyScreenData }) {
           </SectionCard>
           <SectionCard title="Mowing conditions" description={`These change the price. ${data.slopeHint}`} status={conditions.status} error={conditions.error} onRetry={conditions.retry}>
             <ChipGroup label="Slope" options={SLOPE_CHIPS} value={cond.slope ?? ""} onValueChange={(value) => saveCond({ slope: value ? value as Exclude<Slope, null> : null })} />
-            <ChipGroup label="Narrowest gate" options={GATE_CHIPS} value={gateChip} onValueChange={onGateChip} />
+            <ChipGroup label="Narrowest gate" options={GATE_WIDTH_CHIPS} value={selectedGateChip} onValueChange={onGateChip} />
             <button type="button" className="self-start text-sm underline-offset-4 hover:underline" onClick={() => setExactOpen((open) => !open)}>{exactOpen ? "Hide exact inches" : "Exact inches"}</button>
-            {exactOpen ? <Input ref={gateWidthRef} className="max-w-32" inputMode="numeric" aria-label="Gate width in inches" value={gateInches} onChange={(event) => { const raw = event.target.value; if (raw === "" || /^\d+$/.test(raw)) setGateInches(raw); }} onBlur={commitGateInches} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitGateInches(); } }} /> : null}
+            {exactOpen ? <Input ref={gateWidthRef} className="max-w-32" inputMode="numeric" aria-label="Gate width in inches" placeholder="12–240" value={gateInches} onChange={(event) => { const raw = event.target.value; if (raw === "" || /^\d+$/.test(raw)) setGateInches(raw); }} onBlur={commitGateInches} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitGateInches(); } }} /> : null}
             <Stepper label="Obstacles" min={0} max={50} value={cond.obstacle_count} onValueChange={(count) => saveCond({ obstacle_count: count })} />
             <ToggleRow label="Stairs to the turf" checked={cond.has_stairs} onCheckedChange={(checked) => saveCond({ has_stairs: checked })} />
           </SectionCard>

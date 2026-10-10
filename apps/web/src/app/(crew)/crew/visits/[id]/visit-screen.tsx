@@ -1,5 +1,6 @@
 "use client";
 
+import { gateWidthLabel, isNarrowGate } from "@/lib/property/gate";
 import { TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -215,7 +216,11 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
           {detail.gateCode && clock.status !== "scheduled" ? <button type="button" className="min-h-12 text-[17px] font-semibold" onClick={() => setShowGate((open) => !open)}>{showGate ? "Hide gate code" : "Show gate code"}</button> : null}
           {detail.gateCode && showGate && clock.status !== "scheduled" ? <p className="text-[34px] font-bold tracking-[0.18em] tabular-nums">{detail.gateCode}</p> : null}
           <ul className="mt-2 flex flex-wrap gap-2 text-[15px] font-semibold">
-            {detail.gateWidthIn != null ? <li className={detail.gateWidthIn < 48 ? "text-warning" : ""}>{detail.gateWidthIn}″ gate</li> : null}
+            {detail.gateWidthIn != null ? (
+              <li className={isNarrowGate(detail.gateWidthIn) ? "text-warning" : ""}>
+                {gateWidthLabel(detail.gateWidthIn)}
+              </li>
+            ) : null}
             {detail.hasDogs ? <li className="inline-flex items-center gap-1 text-warning"><TriangleAlert aria-hidden className="size-4" />Dog</li> : null}
             {detail.steep ? <li className="text-warning">Steep</li> : null}
             {detail.hasStairs ? <li className="text-warning">Stairs</li> : null}

@@ -34,7 +34,7 @@ describe("mergeModifiers", () => {
     expect(priced.price).toBe(45);
   });
 
-  it("does not charge a narrow gate when the width is 0 or less", () => {
+  it("does not charge a narrow gate for no gate or non-positive widths", () => {
     const merged = mergeModifiers({});
     for (const gateWidthIn of [0, -4]) {
       const priced = priceLine({ rule: small, quantities: {}, modifiers: merged, context: { gateWidthIn } });
