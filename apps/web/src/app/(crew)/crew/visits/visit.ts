@@ -9,8 +9,9 @@ export type VisitDetail = {
   gateCode: string | null; gateWidthIn: number | null; accessNotes: string | null; officeNotes: string | null;
   hasDogs: boolean; hasStairs: boolean; steep: boolean; lat: number | null; lng: number | null; tasks: VisitTask[];
   photoPending: boolean; photoLost: boolean;
+  completedAfterCancel: boolean; forgotToFinish: boolean; completedByCrew: string | null;
 };
-export type ClockAction = { clientId: string; kind: "visit_start" | "visit_pause" | "visit_resume" | "visit_finish" | "visit_set_crew_size"; at: string; crewSize?: number };
+export type ClockAction = { clientId: string; kind: "visit_start" | "visit_pause" | "visit_resume" | "visit_finish" | "visit_stop" | "visit_set_crew_size"; at: string; crewSize?: number };
 type Box = { getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void };
 const CLOCK_KEY = "crew-clocks";
 
@@ -48,12 +49,37 @@ export function visitFromPack(data: unknown, visitId: string): VisitDetail | nul
     lng: typeof property.lng === "number" ? property.lng : null,
     photoPending: visit.photo_pending === true,
     photoLost: visit.photo_lost === true,
+    completedAfterCancel: visit.completed_after_cancel === true,
+    forgotToFinish: visit.forgot_to_finish === true,
+    completedByCrew: text(visit.completed_by_crew),
     tasks: tasks.flatMap((value) => {
       const task = record(value);
       const label = text(task?.label);
       return task && label ? [{ label, quantity: text(task.quantity_text), note: text(task.notes_crew) }] : [];
     }),
   };
+}
+
+/** Office cancelled after the crew had already started — Finish or Stop. */
+export function isMidVisitCancel(detail: VisitDetail): boolean {
+  return detail.status === "cancelled" && detail.startedAt !== null;
+}
+
+export function midVisitCancelMessage(): string {
+  return "Office cancelled this stop. Finish or stop?";
+}
+
+export function alreadyDoneMessage(crewName: string | null): string {
+  return crewName ? `Already done by ${crewName}` : "Already done by another crew";
+}
+
+/** Local clock still open, but the pack says another crew finished it. */
+export function isAlreadyDoneByOtherCrew(detail: VisitDetail, clock: VisitClock | null, packCrewName: string | null): boolean {
+  if (detail.status !== "completed" || !detail.completedByCrew) return false;
+  if (packCrewName && detail.completedByCrew === packCrewName) {
+    return Boolean(clock && (clock.status === "in_progress" || clock.status === "paused"));
+  }
+  return true;
 }
 
 export function visitsInPack(data: unknown): VisitDetail[] {
@@ -93,8 +119,11 @@ export function applyClock(clock: VisitClock, action: ClockAction): VisitClock {
   if (action.kind === "visit_resume" && clock.status === "paused") {
     return { ...clock, applied, status: "in_progress", segments: [...closeOpen(clock.segments, action.at), { kind: "job", startedAt: action.at, endedAt: null }] };
   }
-  if (action.kind === "visit_finish" && (clock.status === "in_progress" || clock.status === "paused")) {
+  if (action.kind === "visit_finish" && (clock.status === "in_progress" || clock.status === "paused" || clock.status === "cancelled")) {
     return { ...clock, applied, status: "completed", segments: closeOpen(clock.segments, action.at) };
+  }
+  if (action.kind === "visit_stop" && (clock.status === "in_progress" || clock.status === "paused" || clock.status === "cancelled")) {
+    return { ...clock, applied, status: "cancelled", segments: closeOpen(clock.segments, action.at) };
   }
   return { ...clock, applied };
 }
@@ -103,8 +132,18 @@ const TERMINAL = new Set(["completed", "skipped", "cant_complete", "cancelled"])
 
 export function projectVisit(detail: VisitDetail, stored: VisitClock | null, entries: Segment[] | null, pending: ClockAction[]): VisitClock {
   const seeded = seedClock(detail);
-  const closed = TERMINAL.has(detail.status);
-  const base: VisitClock = !closed && entries && entries.length > 0 ? { ...seeded, segments: entries, applied: [] } : closed ? seeded : (stored ?? seeded);
+  const midCancel = isMidVisitCancel(detail);
+  const closed = TERMINAL.has(detail.status) && !midCancel;
+  let base: VisitClock;
+  if (!closed && entries && entries.length > 0) {
+    base = { ...seeded, segments: entries, applied: [] };
+  } else if (midCancel && stored && (stored.status === "in_progress" || stored.status === "paused" || stored.status === "cancelled")) {
+    base = { ...stored, status: "cancelled", startedAt: stored.startedAt ?? detail.startedAt };
+  } else if (closed) {
+    base = seeded;
+  } else {
+    base = stored ?? seeded;
+  }
   return pending.reduce((clock, action) => applyClock(clock, action), base);
 }
 
@@ -185,6 +224,10 @@ export function isLiveCrewLead(input: { userId: string; crewId: string | null; d
 export function crewIdFromPack(data: unknown): string | null {
   const id = record(record(data)?.crew)?.id;
   return typeof id === "string" && id ? id : null;
+}
+
+export function crewNameFromPack(data: unknown): string | null {
+  return text(record(record(data)?.crew)?.name);
 }
 
 export function leadFromReads(userId: string, crewId: string | null, crews: unknown, membership: unknown): boolean {
