@@ -18,7 +18,6 @@ async function requireAccountEditor() {
 function noRowUpdated(): ActionResult {
   return fail("Could not save. You may not have permission, or this record changed.");
 }
-
 export async function updateAccountIdentity(id: string, values: IdentityDraft): Promise<ActionResult> {
   const gate = await requireAccountEditor();
   if (!gate.ok) return gate;

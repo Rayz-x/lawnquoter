@@ -11,7 +11,6 @@ import type { Tables } from "@/lib/supabase/types";
 import { archiveAccount, setAccountStatus } from "../identity-action";
 
 const STATUS_LABEL = { lead: "Lead", active: "Active", inactive: "Archived" } as const;
-
 function exportAccount(account: Tables<"accounts">) {
   const blob = new Blob([JSON.stringify(account, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
