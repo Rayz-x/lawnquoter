@@ -31,8 +31,9 @@ export function applyModifiers(base: PricedLine, ctx: PropertyContext, modifiers
     add(`Slope (${ctx.slope})`, price * s.pricePct, hours * s.hoursPct, cost * s.hoursPct);
   }
 
-  if (modifiers.narrowGate && ctx.gateWidthIn != null && ctx.gateWidthIn < (modifiers.narrowGateInches ?? 48)) {
-    add(`Narrow gate (${ctx.gateWidthIn} in)`, modifiers.narrowGate.extraPrice, modifiers.narrowGate.extraHours);
+  const gateWidthIn = ctx.gateWidthIn;
+  if (modifiers.narrowGate && gateWidthIn != null && gateWidthIn > 0 && gateWidthIn < (modifiers.narrowGateInches ?? 48)) {
+    add(`Narrow gate (${gateWidthIn} in)`, modifiers.narrowGate.extraPrice, modifiers.narrowGate.extraHours);
   }
 
   if (ctx.firstCut && modifiers.firstCut) {
