@@ -1,6 +1,6 @@
 -- S09: lead for today and lead-at-time validation on crew_sync.
 
-select plan(17);
+select plan(19);
 
 create or replace function tests.apply_crew(
   p_kind text,
@@ -45,6 +45,7 @@ select tests.add_member(:'org'::uuid, :'hand'::uuid, 'crew');
 update public.orgs set timezone = 'America/Chicago' where id = :'org'::uuid;
 
 select (timezone('America/Chicago', now()))::date as today \gset
+select (:'today'::date - 1) as yesterday \gset
 
 insert into public.accounts (org_id, name)
 values (:'org'::uuid, 'S09 Account') returning id as acct \gset
@@ -70,6 +71,23 @@ insert into public.visits (
   :'org'::uuid, :'job'::uuid, :'prop'::uuid, :'route'::uuid,
   :'today'::date, :'today'::date, 'scheduled', 40, 1
 ) returning id as visit \gset
+
+select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
+select lives_ok(
+  format(
+    $$ select public.set_lead_for_today(%L::uuid, %L::date, %L::uuid) $$,
+    :'crew', :'yesterday', :'sub'
+  ),
+  'office can set lead for yesterday'
+);
+select tests.authenticate_as(:'sub'::uuid, :'org'::uuid, 'crew_lead');
+select is(
+  private.was_crew_lead_at(
+    :'org'::uuid, :'crew'::uuid, :'today'::date, pg_catalog.now()
+  ),
+  false,
+  'a lead session on another date does not count'
+);
 
 select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
 select lives_ok(

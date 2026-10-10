@@ -51,7 +51,7 @@ grant select on table public.crew_lead_sessions to authenticated, service_role;
 create or replace function private.was_crew_lead_at(
   target_org uuid,
   target_crew uuid,
-  route_date date,
+  p_route_date date,
   at_time timestamptz
 ) returns boolean
 language sql
@@ -61,7 +61,7 @@ set search_path = ''
 as $$
   select target_org is not null
      and target_crew is not null
-     and route_date is not null
+     and p_route_date is not null
      and target_org = private.current_org_id()
      and (
        exists (
@@ -72,7 +72,7 @@ as $$
           and m.user_id = s.lead_id
          where s.org_id = target_org
            and s.crew_id = target_crew
-           and s.route_date = route_date
+           and s.route_date = p_route_date
            and s.lead_id = (select auth.uid())
            and s.started_at <= coalesce(at_time, pg_catalog.now())
            and (s.ended_at is null or s.ended_at > coalesce(at_time, pg_catalog.now()))
@@ -85,7 +85,7 @@ as $$
            from public.crew_lead_sessions s
            where s.org_id = target_org
              and s.crew_id = target_crew
-             and s.route_date = route_date
+             and s.route_date = p_route_date
              and s.started_at <= coalesce(at_time, pg_catalog.now())
              and (s.ended_at is null or s.ended_at > coalesce(at_time, pg_catalog.now()))
          )
