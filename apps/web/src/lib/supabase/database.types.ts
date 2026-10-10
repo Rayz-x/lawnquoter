@@ -1171,6 +1171,9 @@ isOneToOne: false
 "my_crews":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
+"office_attention_tray":
+{ Args: { "p_as_of"?: string }; Returns: Json
+                           },
 "pgp_armor_headers":
 { Args: { "": string }; Returns: Record<string, unknown>[]
                            },

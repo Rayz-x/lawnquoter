@@ -54,6 +54,7 @@ select is(
     'crew_sync',
     'generate_agreement_visits',
     'my_crews',
+    'office_attention_tray',
     'publish_route',
     'quote_accept',
     'quote_decline',

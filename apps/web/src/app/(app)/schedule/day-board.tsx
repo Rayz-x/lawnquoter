@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { assignVisit, cancelVisit, publishRoute, reorderVisits, skipVisit } from "@/lib/actions/scheduling";
+import type { AttentionTray } from "@/lib/scheduling/attention-tray";
+import { AttentionTrayPanel } from "./attention-tray-panel";
 
 export type BoardVisit = {
   id: string;
@@ -62,18 +64,12 @@ function moveIds(ids: string[], index: number, delta: number): string[] {
 export function DayBoard({
   date,
   canWrite,
-  unscheduled,
-  unassigned,
-  unscheduledHasMore = false,
-  unassignedHasMore = false,
+  tray,
   columns,
 }: {
   date: string;
   canWrite: boolean;
-  unscheduled: BoardVisit[];
-  unassigned: BoardVisit[];
-  unscheduledHasMore?: boolean;
-  unassignedHasMore?: boolean;
+  tray: AttentionTray;
   columns: BoardColumn[];
 }) {
   const router = useRouter();
@@ -94,119 +90,7 @@ export function DayBoard({
 
   return (
     <div className="grid gap-4 xl:grid-cols-[20rem_1fr]">
-      <div className="flex flex-col gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Unscheduled
-              {unscheduledHasMore ? <Badge variant="outline">More</Badge> : null}
-            </CardTitle>
-            <CardDescription>
-              {unscheduled.length === 0
-                ? "No one-time visits are waiting for a day."
-                : unscheduledHasMore
-                  ? `${unscheduled.length} without a day. More visits are waiting beyond the first 300.`
-                  : `${unscheduled.length} without a day. Assigning places them on this day.`}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {unscheduled.length === 0 ? (
-              <Empty>
-                <EmptyHeader>
-                  <EmptyTitle>None unscheduled</EmptyTitle>
-                  <EmptyDescription>A one-time conversion stays here until it is assigned to a crew and a day.</EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              unscheduled.map((visit) => (
-                <VisitCard key={visit.id} visit={visit}>
-                  {canWrite ? (
-                    <>
-                      {visit.status === "scheduled" ? (
-                        crews.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">Create a crew before assigning this visit.</p>
-                        ) : (
-                          <AssignControls
-                            visit={visit}
-                            date={date}
-                            crews={crews}
-                            pending={pending}
-                            onAssign={(crewId) =>
-                              run(() => assignVisit({ visitId: visit.id, crewId, date }), "Visit assigned")
-                            }
-                          />
-                        )
-                      ) : null}
-                      <StopControls
-                        visit={visit}
-                        pending={pending}
-                        onSkip={(reason) => run(() => skipVisit(visit.id, reason), "Visit skipped")}
-                        onCancel={(reason) => run(() => cancelVisit(visit.id, reason), "Visit cancelled")}
-                      />
-                    </>
-                  ) : null}
-                </VisitCard>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Unassigned
-              {unassignedHasMore ? <Badge variant="outline">More</Badge> : null}
-            </CardTitle>
-            <CardDescription>
-              {unassigned.length === 0
-                ? "No dated visits are waiting, including overdue ones."
-                : unassignedHasMore
-                  ? `${unassigned.length} waiting. More visits are waiting beyond the first 300.`
-                  : `${unassigned.length} waiting, including other days and overdue visits. Assigning places them on this day.`}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {unassigned.length === 0 ? (
-              <Empty>
-                <EmptyHeader>
-                  <EmptyTitle>None waiting</EmptyTitle>
-                  <EmptyDescription>Dated visits without a crew show up here. Overdue work stays until it is finished or cancelled.</EmptyDescription>
-                </EmptyHeader>
-              </Empty>
-            ) : (
-              unassigned.map((visit) => (
-                <VisitCard key={visit.id} visit={visit}>
-                  {canWrite ? (
-                    <>
-                      {visit.status === "scheduled" ? (
-                        crews.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">Create a crew before assigning this visit.</p>
-                        ) : (
-                          <AssignControls
-                            visit={visit}
-                            date={date}
-                            crews={crews}
-                            pending={pending}
-                            onAssign={(crewId) =>
-                              run(() => assignVisit({ visitId: visit.id, crewId, date }), "Visit assigned")
-                            }
-                          />
-                        )
-                      ) : null}
-                      <StopControls
-                        visit={visit}
-                        pending={pending}
-                        onSkip={(reason) => run(() => skipVisit(visit.id, reason), "Visit skipped")}
-                        onCancel={(reason) => run(() => cancelVisit(visit.id, reason), "Visit cancelled")}
-                      />
-                    </>
-                  ) : null}
-                </VisitCard>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <AttentionTrayPanel date={date} canWrite={canWrite} tray={tray} crews={crews} />
 
       <div className="grid gap-4 md:grid-cols-2">
         {columns.length === 0 ? (
@@ -236,7 +120,7 @@ export function DayBoard({
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
                 {column.visits.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Assign a visit from the unassigned list.</p>
+                  <p className="text-sm text-muted-foreground">Assign a visit from Needs attention.</p>
                 ) : (
                   <ol className="flex flex-col gap-3">
                     {column.visits.map((visit, index) => (

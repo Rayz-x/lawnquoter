@@ -9,6 +9,11 @@ import { OFFICE_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
 import { addDays } from "@/lib/scheduling/recurrence";
 import { formatOfficeDay, isIsoDate, orgToday } from "@/lib/scheduling/office-date";
+import {
+  emptyAttentionTray,
+  type AttentionTray,
+  type AttentionVisit,
+} from "@/lib/scheduling/attention-tray";
 import { createClient } from "@/lib/supabase/server";
 import { DayBoard, type BoardColumn, type BoardVisit } from "./day-board";
 
@@ -17,6 +22,39 @@ export const metadata: Metadata = { title: "Schedule" };
 function one<T>(value: T | T[] | null | undefined): T | null {
   if (value == null) return null;
   return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+function parseAttentionTray(value: unknown, asOf: string): AttentionTray {
+  if (!value || typeof value !== "object") return emptyAttentionTray(asOf);
+  const body = value as Partial<AttentionTray>;
+  const list = (items: unknown): AttentionVisit[] =>
+    Array.isArray(items)
+      ? items.filter(
+          (item): item is AttentionVisit =>
+            !!item &&
+            typeof item === "object" &&
+            typeof (item as AttentionVisit).id === "string" &&
+            typeof (item as AttentionVisit).title === "string" &&
+            typeof (item as AttentionVisit).status === "string",
+        )
+      : [];
+  const unassigned = list(body.unassigned);
+  const overdue = list(body.overdue);
+  const needs_reschedule = list(body.needs_reschedule);
+  const flags = list(body.flags);
+  return {
+    as_of: typeof body.as_of === "string" ? body.as_of : asOf,
+    counts: {
+      unassigned: unassigned.length,
+      overdue: overdue.length,
+      needs_reschedule: needs_reschedule.length,
+      flags: flags.length,
+    },
+    unassigned,
+    overdue,
+    needs_reschedule,
+    flags,
+  };
 }
 
 function windowLabel(start: string | null, end: string | null): string | null {
@@ -67,37 +105,15 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const canWrite = hasRole(session.orgRole, DISPATCH_ROLES);
   const visitSelect =
     "id, route_id, scheduled_date, sort, status, budget_minutes, window_start, window_end, jobs(title), properties(formatted_address, address_line1, city, accounts(name))";
-  const [{ data: crews, error: crewsError }, { data: routes, error: routesError }, { data: visits, error: visitsError }, { data: openVisits, error: openError }, { data: unscheduledVisits, error: unscheduledError }] =
+  const [{ data: crews, error: crewsError }, { data: routes, error: routesError }, { data: visits, error: visitsError }, { data: trayData, error: trayError }] =
     await Promise.all([
       supabase.from("crews").select("id, name, active").eq("org_id", session.orgId).order("name"),
       supabase.from("routes").select("id, crew_id, status").eq("org_id", session.orgId).eq("date", date),
       supabase.from("visits").select(visitSelect).eq("org_id", session.orgId).eq("scheduled_date", date).order("sort"),
-      supabase
-        .from("visits")
-        .select(visitSelect)
-        .eq("org_id", session.orgId)
-        .eq("status", "scheduled")
-        .not("scheduled_date", "is", null)
-        .or(`route_id.is.null,scheduled_date.lt.${today}`)
-        .order("scheduled_date")
-        .order("sort")
-        .limit(301),
-      supabase
-        .from("visits")
-        .select(visitSelect)
-        .eq("org_id", session.orgId)
-        .is("scheduled_date", null)
-        .not("status", "in", "(completed,cancelled,skipped)")
-        .order("sort")
-        .limit(301),
+      supabase.rpc("office_attention_tray", { p_as_of: today }),
     ]);
-  const error = crewsError?.message ?? routesError?.message ?? visitsError?.message ?? openError?.message ?? unscheduledError?.message ?? null;
-  const openBacklog = openVisits ?? [];
-  const unscheduledBacklog = unscheduledVisits ?? [];
-  const unassignedHasMore = openBacklog.length > 300;
-  const unscheduledHasMore = unscheduledBacklog.length > 300;
-  const openShown = openBacklog.slice(0, 300);
-  const unscheduledShown = unscheduledBacklog.slice(0, 300);
+  const error = crewsError?.message ?? routesError?.message ?? visitsError?.message ?? trayError?.message ?? null;
+  const tray = parseAttentionTray(trayData, today);
   const routeByCrew = new Map((routes ?? []).map((route) => [route.crew_id, route]));
   const routeIds = new Set((routes ?? []).map((route) => route.id));
   const visibleCrews = (crews ?? []).filter((crew) => crew.active || routeByCrew.has(crew.id));
@@ -122,32 +138,13 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   };
 
   const visitsByRoute = new Map<string, BoardVisit[]>();
-  const onThisDay = new Set<string>();
   for (const visit of visits ?? []) {
     if (!visit.route_id || !routeIds.has(visit.route_id)) continue;
-    onThisDay.add(visit.id);
     const card = toVisit(visit);
     const list = visitsByRoute.get(visit.route_id) ?? [];
     list.push(card);
     visitsByRoute.set(visit.route_id, list);
   }
-
-  const unassignedById = new Map<string, BoardVisit>();
-  for (const visit of visits ?? []) {
-    if (onThisDay.has(visit.id) || visit.status !== "scheduled") continue;
-    unassignedById.set(visit.id, toVisit(visit));
-  }
-  for (const visit of openShown) {
-    if (onThisDay.has(visit.id) || visit.status !== "scheduled") continue;
-    unassignedById.set(visit.id, toVisit(visit));
-  }
-  const unassigned = [...unassignedById.values()].sort(
-    (a, b) => (a.scheduledDate ?? "").localeCompare(b.scheduledDate ?? "") || a.title.localeCompare(b.title),
-  );
-  const unscheduled = unscheduledShown
-    .filter((visit) => !onThisDay.has(visit.id))
-    .map(toVisit)
-    .sort((a, b) => a.title.localeCompare(b.title));
 
   const columns: BoardColumn[] = visibleCrews.map((crew) => {
     const route = routeByCrew.get(crew.id);
@@ -200,15 +197,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : (
-          <DayBoard
-            date={date}
-            canWrite={canWrite}
-            unscheduled={unscheduled}
-            unassigned={unassigned}
-            unscheduledHasMore={unscheduledHasMore}
-            unassignedHasMore={unassignedHasMore}
-            columns={columns}
-          />
+          <DayBoard date={date} canWrite={canWrite} tray={tray} columns={columns} />
         )}
       </div>
     </>
