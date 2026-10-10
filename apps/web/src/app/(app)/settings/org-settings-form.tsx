@@ -200,7 +200,7 @@ function RegionCard({ org, canEdit, editing, onEdit, onDone }: Edit & { org: Tab
   );
 }
 const NAV = [{ label: "Identity", tab: "identity" }, { label: "Company", tab: "company" }, { label: "Branding", tab: "branding" }, { label: "Payments", tab: "payments" }, { label: "Team", href: "/settings/team" }, { label: "Crews", href: "/settings/crews" }, { label: "Services & Pricing", href: "/settings/pricing" }] as const;
-export function OrgSettingsForm({ org, canEdit, tab, stripeOn, branding }: { org: Tables<"orgs">; canEdit: boolean; tab?: string; stripeOn: boolean; branding: ReactNode }) {
+export function OrgSettingsForm({ org, canEdit, tab, branding, payments }: { org: Tables<"orgs">; canEdit: boolean; tab?: string; branding: ReactNode; payments: ReactNode }) {
   const [current, setCurrent] = useState(() => resolveEntryTab(tab, TABS, "company"));
   const [open, setOpen] = useState<CardId | null>(null);
   const edit = (id: CardId): Edit => ({ canEdit, editing: open === id, onEdit: () => setOpen(id), onDone: () => setOpen(null) });
@@ -223,8 +223,8 @@ export function OrgSettingsForm({ org, canEdit, tab, stripeOn, branding }: { org
         ) : null}
         {current === "branding" ? branding : null}
         {current === "payments" ? (
-          <SectionCard title="Payments" heading="h2" description="Stripe Connect Express for deposits, card on file, and ACH. SignWell is optional for formal commercial contracts.">
-            <p className="text-sm text-muted-foreground">Configure <code className="text-xs">STRIPE_SECRET_KEY</code> and <code className="text-xs">SIGNWELL_API_KEY</code> on the server. Click-to-accept on public proposals is live without either. {stripeOn ? "Stripe secret is configured." : "Stripe is not configured yet — acceptances still record an ESIGN audit trail."}</p>
+          <SectionCard title="Payments" heading="h2" description="Take deposits and card payments. Money goes straight to your Stripe account.">
+            {payments}
           </SectionCard>
         ) : null}
       </div>
