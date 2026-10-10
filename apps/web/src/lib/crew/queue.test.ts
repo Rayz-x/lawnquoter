@@ -61,7 +61,7 @@ describe("crew outbox", () => {
       ] satisfies SyncResult[];
     }, scope);
     expect(seen).toEqual(["a", "b", "c"]);
-    expect(result).toEqual({ sent: 1, pending: 2 });
+    expect(result).toEqual({ sent: 1, pending: 2, revoked: false });
     const left = (await store.listOutbox()).map((row) => [row.client_id, row.attempts, row.last_error, row.needs_office]);
     expect(left).toEqual([
       ["b", 1, "not the lead", true],
@@ -85,7 +85,7 @@ describe("crew outbox", () => {
     expect((await store.listOutbox())[0]?.last_error).toBe("offline");
     expect((await store.listOutbox())[0]?.needs_office).toBe(false);
     const replayed = await flushOutbox(store, async () => [{ client_id: "a", status: "replayed", message: null }], scope);
-    expect(replayed).toEqual({ sent: 1, pending: 0 });
+    expect(replayed).toEqual({ sent: 1, pending: 0, revoked: false });
     expect(await store.listOutbox()).toEqual([]);
   });
 
@@ -159,7 +159,7 @@ describe("crew outbox", () => {
     expect(first).toMatchObject({ sent: 0, pending: 1 });
     expect((await store.listOutbox())[0]?.needs_office).toBe(false);
     const second = await flushOutbox(store, async () => [{ client_id: "a", status: "applied", message: null }], scope);
-    expect(second).toEqual({ sent: 1, pending: 0 });
+    expect(second).toEqual({ sent: 1, pending: 0, revoked: false });
   });
 
   it("hands a repeated generic error to the office so later work can send", async () => {
@@ -179,7 +179,7 @@ describe("crew outbox", () => {
       return items.map((item) => ({ client_id: item.client_id, status: "applied" as const, message: null }));
     }, scope);
     expect(seen).toEqual(["finish"]);
-    expect(sent).toEqual({ sent: 1, pending: 1 });
+    expect(sent).toEqual({ sent: 1, pending: 1, revoked: false });
   });
 
   it("hands an unmatched upsell to the office and still finishes", async () => {
@@ -193,7 +193,7 @@ describe("crew outbox", () => {
           : { client_id: item.client_id, status: "applied" as const, message: null },
       );
     }, scope, now, async () => undefined);
-    expect(sent).toEqual({ sent: 1, pending: 1 });
+    expect(sent).toEqual({ sent: 1, pending: 1, revoked: false });
     expect(await store.listOutbox()).toMatchObject([
       { client_id: "enh", needs_office: true, last_error: "enhancement photo must belong to this visit" },
     ]);
@@ -208,7 +208,7 @@ describe("crew outbox", () => {
 });
 
 describe("day packs", () => {
-  it("keeps two recent packs and drops anything older than 48 hours", async () => {
+  it("expires day packs after 48 hours (S11 pack expiry)", async () => {
     const store = createMemoryCrewStore();
     await saveDayPack(store, "2026-10-07", { stops: 1 }, new Date("2026-10-07T12:00:00.000Z"));
     await saveDayPack(store, "2026-10-08", { stops: 2 }, new Date("2026-10-08T12:00:00.000Z"));
@@ -289,7 +289,7 @@ describe("day packs", () => {
           : { client_id: item.client_id, status: "applied" as const, message: null },
       );
     }, scope, now, async () => undefined);
-    expect(sent).toEqual({ sent: 1, pending: 1 });
+    expect(sent).toEqual({ sent: 1, pending: 1, revoked: false });
     expect(await store.listOutbox()).toMatchObject([
       { client_id: "enh-1", needs_office: true, last_error: "enhancement photo must belong to this visit" },
     ]);

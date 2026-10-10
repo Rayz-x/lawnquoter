@@ -1,3 +1,5 @@
+import type { RevokedUnsyncedVisit } from "./phone-revoke";
+
 const STALE_MS = 30 * 60 * 1000;
 
 export type PhoneSyncStatus = {
@@ -8,23 +10,31 @@ export type PhoneSyncStatus = {
   attention: boolean;
 };
 
-/** One board row per crew member; sync fields stay null until they ack a pack. */
-export function boardPhonesForCrew(input: {
-  members: { profileId: string; name: string }[];
-  syncByProfile: Map<string, { packVersion: number; lastSyncedAt: string }>;
-}): {
+export type BoardPhone = {
   profileId: string;
   name: string;
   packVersion: number | null;
   lastSyncedAt: string | null;
-}[] {
+  revokedAt: string | null;
+  unsynced: RevokedUnsyncedVisit[];
+};
+
+/** One board row per crew member; sync fields stay null until they ack a pack. */
+export function boardPhonesForCrew(input: {
+  members: { profileId: string; name: string }[];
+  syncByProfile: Map<string, { packVersion: number; lastSyncedAt: string }>;
+  revokeByProfile?: Map<string, { revokedAt: string; unsynced: RevokedUnsyncedVisit[] }>;
+}): BoardPhone[] {
   return input.members.map((member) => {
     const sync = input.syncByProfile.get(member.profileId);
+    const revoke = input.revokeByProfile?.get(member.profileId);
     return {
       profileId: member.profileId,
       name: member.name,
       packVersion: sync?.packVersion ?? null,
       lastSyncedAt: sync?.lastSyncedAt ?? null,
+      revokedAt: revoke?.revokedAt ?? null,
+      unsynced: revoke?.unsynced ?? [],
     };
   });
 }

@@ -14,6 +14,7 @@ import {
   type AttentionTray,
   type AttentionVisit,
 } from "@/lib/scheduling/attention-tray";
+import { parseRevokePhoneResult, type RevokedUnsyncedVisit } from "@/lib/scheduling/phone-revoke";
 import { boardPhonesForCrew } from "@/lib/scheduling/phone-sync";
 import { createClient } from "@/lib/supabase/server";
 import { DayBoard, type BoardColumn, type BoardVisit, type PhoneSync } from "./day-board";
@@ -152,6 +153,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     { data: trayData, error: trayError },
     { data: memberRows, error: memberError },
     { data: phoneRows, error: phoneError },
+    { data: revokeRows, error: revokeError },
   ] = await Promise.all([
       supabase.from("crews").select("id, name, active").eq("org_id", session.orgId).order("name"),
       supabase.from("routes").select("id, crew_id, status, revision").eq("org_id", session.orgId).eq("date", date),
@@ -166,6 +168,11 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         .select("crew_id, profile_id, pack_version, last_synced_at, profiles(full_name, email)")
         .eq("org_id", session.orgId)
         .eq("route_date", date),
+      supabase
+        .from("crew_phone_revocations")
+        .select("profile_id, revoked_at, unsynced_visits")
+        .eq("org_id", session.orgId)
+        .is("cleared_at", null),
     ]);
   const error =
     crewsError?.message ??
@@ -174,6 +181,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     trayError?.message ??
     memberError?.message ??
     phoneError?.message ??
+    revokeError?.message ??
     null;
   const tray = parseAttentionTray(trayData, today);
   const routeByCrew = new Map((routes ?? []).map((route) => [route.crew_id, route]));
@@ -234,11 +242,26 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     syncByCrew.set(row.crew_id, byProfile);
   }
 
+  const revokeByProfile = new Map<string, { revokedAt: string; unsynced: RevokedUnsyncedVisit[] }>();
+  for (const row of revokeRows ?? []) {
+    const parsed = parseRevokePhoneResult({
+      profile_id: row.profile_id,
+      revoked_at: row.revoked_at,
+      unsynced_visits: row.unsynced_visits,
+    });
+    if (!parsed) continue;
+    revokeByProfile.set(parsed.profileId, {
+      revokedAt: parsed.revokedAt,
+      unsynced: parsed.unsynced,
+    });
+  }
+
   const columns: BoardColumn[] = visibleCrews.map((crew) => {
     const route = routeByCrew.get(crew.id);
     const phones: PhoneSync[] = boardPhonesForCrew({
       members: membersByCrew.get(crew.id) ?? [],
       syncByProfile: syncByCrew.get(crew.id) ?? new Map(),
+      revokeByProfile,
     });
     return {
       crewId: crew.id,

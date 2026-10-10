@@ -15,12 +15,46 @@ describe("boardPhonesForCrew", () => {
         syncByProfile,
       }),
     ).toEqual([
-      { profileId: "p1", name: "Ana", packVersion: null, lastSyncedAt: null },
+      { profileId: "p1", name: "Ana", packVersion: null, lastSyncedAt: null, revokedAt: null, unsynced: [] },
       {
         profileId: "p2",
         name: "Bo",
         packVersion: 2,
         lastSyncedAt: "2026-10-09T14:31:00.000Z",
+        revokedAt: null,
+        unsynced: [],
+      },
+    ]);
+  });
+
+  it("attaches revoke snapshots so the office can chase unsynced starts", () => {
+    expect(
+      boardPhonesForCrew({
+        members: [{ profileId: "p1", name: "Ana" }],
+        syncByProfile: new Map(),
+        revokeByProfile: new Map([
+          [
+            "p1",
+            {
+              revokedAt: "2026-10-09T15:00:00.000Z",
+              unsynced: [
+                {
+                  id: "v1",
+                  title: "Mow",
+                  address: "1503 Larkspur",
+                  status: "in_progress",
+                  scheduledDate: "2026-10-09",
+                },
+              ],
+            },
+          ],
+        ]),
+      }),
+    ).toMatchObject([
+      {
+        profileId: "p1",
+        revokedAt: "2026-10-09T15:00:00.000Z",
+        unsynced: [{ id: "v1", title: "Mow" }],
       },
     ]);
   });
