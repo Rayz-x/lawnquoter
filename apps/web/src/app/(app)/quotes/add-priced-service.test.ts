@@ -84,7 +84,8 @@ function forgedForm() {
 beforeEach(() => {
   inserts.length = 0;
   tables.quote_versions = [{ id: VERSION_ID, quote_id: QUOTE_ID, org_id: "org-1", frozen: false }];
-  tables.quotes = [{ id: QUOTE_ID, org_id: "org-1", property_id: "property-1" }];
+  tables.quotes = [{ id: QUOTE_ID, org_id: "org-1", property_id: "property-1", account_id: "account-1" }];
+  tables.orgs = [{ id: "org-1", settings: {} }];
   tables.pricing_rules = [{
     id: RULE_ID, org_id: "org-1", active: true, name: "Weekly mow", service_id: "service-1", price_list_id: "list-1", config: mow,
   }];
@@ -112,7 +113,42 @@ describe("addPricedService", () => {
       cost: 33.6,
       range_low: null,
       range_high: null,
+      quantity_source: "measurement",
+      site_check_reasons: [],
     });
+  });
+
+  it("auto-flags low confidence with a site check reason and range", async () => {
+    tables.measurements = [{
+      ...tables.measurements[0],
+      confidence: 0.48,
+    }];
+
+    const result = await addPricedService(QUOTE_ID, VERSION_ID, forgedForm());
+
+    expect(result).toEqual({ ok: true });
+    expect(inserts[0]).toMatchObject({
+      site_check_reasons: ["low_confidence"],
+      quantity_source: "measurement",
+    });
+    expect(inserts[0]?.range_low).not.toBeNull();
+    expect(inserts[0]?.range_high).not.toBeNull();
+  });
+
+  it("keeps a medium-confidence range without auto-flagging a site check", async () => {
+    tables.measurements = [{
+      ...tables.measurements[0],
+      confidence: 0.6,
+    }];
+
+    const result = await addPricedService(QUOTE_ID, VERSION_ID, forgedForm());
+
+    expect(result).toEqual({ ok: true });
+    expect(inserts[0]).toMatchObject({
+      site_check_reasons: [],
+    });
+    expect(inserts[0]?.range_low).not.toBeNull();
+    expect(inserts[0]?.range_high).not.toBeNull();
   });
 
   it("prices a flat lot lower than a steep lot for the same forged price", async () => {

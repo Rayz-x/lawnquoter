@@ -3,11 +3,14 @@
 import { useState, useTransition } from "react";
 import { GripVertical } from "lucide-react";
 import type { PricedLine } from "@lawnquoter/pricing-engine";
+import { toast } from "sonner";
+import { SectionMenu } from "@/components/entry/section-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
-import { addPricedService, deleteLineItem, reorderLineItems, updateLineItem } from "../actions";
+import { hasSiteCheck, siteCheckReasonsSummary } from "@/lib/quotes/site-check";
+import { addPricedService, deleteLineItem, flagLineNeedsSiteCheck, reorderLineItems, updateLineItem } from "../actions";
 import { NewSectionForm, QuickAddForm } from "./quote-line-forms";
 
 type Line = {
@@ -18,6 +21,9 @@ type Line = {
   section_id: string | null;
   option_tier: string;
   price: number;
+  range_low: number | null;
+  range_high: number | null;
+  site_check_reasons: string[];
 };
 
 export function QuoteLines({
@@ -74,6 +80,24 @@ export function QuoteLines({
     });
   }
 
+  function toggleSiteCheck(line: Line) {
+    const enabled = !line.site_check_reasons.includes("manual");
+    const note = enabled ? window.prompt("Optional note for Needs site check", "") : "";
+    if (enabled && note === null) return;
+    const fd = new FormData();
+    fd.set("enabled", enabled ? "true" : "false");
+    if (note) fd.set("note", note);
+    startTransition(async () => {
+      const result = await flagLineNeedsSiteCheck(quoteId, line.id, fd);
+      if (!result.ok) {
+        toast.error(result.error);
+        setError(result.error);
+        return;
+      }
+      toast.success(enabled ? "Marked Needs site check" : "Cleared Needs site check");
+    });
+  }
+
   return (
     <section className="flex flex-col gap-3" aria-label="Quote lines">
       <div className="flex flex-wrap items-center gap-2">
@@ -101,31 +125,73 @@ export function QuoteLines({
           </button>
         ))}
       </div>
-      {current?.rows.map((line, index) => (
-        <div key={line.id} className="border-b py-2 text-sm last:border-0 md:flex md:items-center md:gap-2" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); reorder(line.id, event.dataTransfer.getData("text/plain")); }}>
-          <div className="flex items-center gap-2 md:contents">
-            <span aria-hidden="true" draggable={editable} className="shrink-0 cursor-grab text-muted-foreground" onDragStart={(event) => event.dataTransfer.setData("text/plain", line.id)}>
-              <GripVertical className="size-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="font-medium">{line.name}</div>
-              {line.description ? <div className="text-xs text-muted-foreground">{line.description}</div> : null}
+      {current?.rows.map((line, index) => {
+        const flagged = hasSiteCheck(line.site_check_reasons);
+        const ranged = line.range_low != null && line.range_high != null;
+        return (
+          <div
+            key={line.id}
+            className={
+              flagged
+                ? "rounded-md bg-warning/[0.06] px-2 py-2 text-sm md:flex md:items-center md:gap-2"
+                : "border-b py-2 text-sm last:border-0 md:flex md:items-center md:gap-2"
+            }
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => { event.preventDefault(); reorder(line.id, event.dataTransfer.getData("text/plain")); }}
+          >
+            <div className="flex items-center gap-2 md:contents">
+              <span aria-hidden="true" draggable={editable} className="shrink-0 cursor-grab text-muted-foreground" onDragStart={(event) => event.dataTransfer.setData("text/plain", line.id)}>
+                <GripVertical className="size-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{line.name}</span>
+                  {flagged ? (
+                    <Badge variant="outline" className="border-transparent bg-warning/15 text-warning">
+                      Site check
+                    </Badge>
+                  ) : null}
+                </div>
+                {line.description ? <div className="text-xs text-muted-foreground">{line.description}</div> : null}
+                {flagged ? <div className="text-xs text-warning">{siteCheckReasonsSummary(line.site_check_reasons)}</div> : null}
+              </div>
+              <div className="text-right font-heading tabular-nums">
+                {ranged ? (
+                  <>
+                    <div>{formatMoney(line.range_low!)} – {formatMoney(line.range_high!)}</div>
+                    <div className="text-xs text-muted-foreground">est. {formatMoney(line.price)}</div>
+                  </>
+                ) : (
+                  formatMoney(line.price)
+                )}
+              </div>
             </div>
-            <div className="font-heading tabular-nums">{formatMoney(line.price)}</div>
+            <div className="mt-2 flex items-center gap-2 md:mt-0">
+              {line.option_tier !== "none" ? <Badge variant="secondary" className="capitalize">{line.option_tier}</Badge> : null}
+              <select aria-label={`State for ${line.name}`} className="h-11 min-h-11 rounded-lg border bg-transparent px-2 text-sm capitalize md:h-8 md:min-h-0" value={line.state} disabled={!editable || pending} onChange={(event) => startTransition(async () => { const fd = new FormData(); fd.set("state", event.target.value); const result = await updateLineItem(quoteId, line.id, fd); if (!result.ok) setError(result.error); })}>
+                <option value="included">Included</option>
+                <option value="recommended">Recommended</option>
+                <option value="optional">Optional</option>
+              </select>
+              {index > 0 ? <Button type="button" variant="ghost" disabled={!editable || pending} onClick={() => reorder(current.rows[index - 1]!.id, line.id)}>Move up</Button> : null}
+              {index < current.rows.length - 1 ? <Button type="button" variant="ghost" disabled={!editable || pending} onClick={() => reorder(current.rows[index + 1]!.id, line.id)}>Move down</Button> : null}
+              {editable ? (
+                <SectionMenu
+                  label={`Actions for ${line.name}`}
+                  items={[
+                    {
+                      id: "site-check",
+                      label: line.site_check_reasons.includes("manual") ? "Clear Needs site check" : "Needs site check",
+                      onSelect: () => toggleSiteCheck(line),
+                    },
+                  ]}
+                />
+              ) : null}
+              <Button type="button" variant="ghost" disabled={!editable || pending} onClick={() => startTransition(async () => { const result = await deleteLineItem(quoteId, line.id); if (!result.ok) setError(result.error); })}>Remove</Button>
+            </div>
           </div>
-          <div className="mt-2 flex items-center gap-2 md:mt-0">
-            {line.option_tier !== "none" ? <Badge variant="secondary" className="capitalize">{line.option_tier}</Badge> : null}
-            <select aria-label={`State for ${line.name}`} className="h-11 min-h-11 rounded-lg border bg-transparent px-2 text-sm capitalize md:h-8 md:min-h-0" value={line.state} disabled={!editable || pending} onChange={(event) => startTransition(async () => { const fd = new FormData(); fd.set("state", event.target.value); const result = await updateLineItem(quoteId, line.id, fd); if (!result.ok) setError(result.error); })}>
-              <option value="included">Included</option>
-              <option value="recommended">Recommended</option>
-              <option value="optional">Optional</option>
-            </select>
-            {index > 0 ? <Button type="button" variant="ghost" disabled={!editable || pending} onClick={() => reorder(current.rows[index - 1]!.id, line.id)}>Move up</Button> : null}
-            {index < current.rows.length - 1 ? <Button type="button" variant="ghost" disabled={!editable || pending} onClick={() => reorder(current.rows[index + 1]!.id, line.id)}>Move down</Button> : null}
-            <Button type="button" variant="ghost" disabled={!editable || pending} onClick={() => startTransition(async () => { const result = await deleteLineItem(quoteId, line.id); if (!result.ok) setError(result.error); })}>Remove</Button>
-          </div>
-        </div>
-      ))}
+        );
+      })}
       {current && current.rows.length === 0 ? <p className="text-sm text-muted-foreground">Nothing in this section.</p> : null}
       {editable && versionId ? <QuickAddForm quoteId={quoteId} versionId={versionId} sectionId={value === "lines" ? null : value} /> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

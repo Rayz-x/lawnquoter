@@ -6,12 +6,14 @@ import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { QUOTE_CONVERT_ROLES } from "@/lib/auth/office-roles";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireOrg } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/money";
 import { catalogPickerRules, measurementQuantities, priceCatalogLine, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
 import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
+import { hasSiteCheck, siteCheckReasonsSummary } from "@/lib/quotes/site-check";
 import { orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/server";
 import { ConvertToJobForm } from "./convert-to-job-button";
@@ -19,6 +21,7 @@ import { DeleteQuoteButton } from "./delete-quote-button";
 import { QuoteLines } from "./quote-lines";
 import { QuoteMetaForm } from "./quote-meta-form";
 import { SendQuoteButton } from "./send-quote-button";
+import { SiteCheckPanel } from "./site-check-panel";
 import { ReviseQuoteButton } from "./revise-quote-button";
 
 export const metadata: Metadata = { title: "Quote" };
@@ -73,7 +76,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     versionId
       ? supabase
           .from("quote_line_items")
-          .select("id, name, description, state, section_id, option_group, option_tier, selected, price, hours, cost, sort")
+          .select(
+            "id, name, description, state, section_id, option_group, option_tier, selected, price, hours, cost, sort, range_low, range_high, site_check_reasons",
+          )
           .eq("version_id", versionId)
           .order("sort")
       : Promise.resolve({
@@ -90,6 +95,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             hours: number;
             cost: number;
             sort: number;
+            range_low: number | null;
+            range_high: number | null;
+            site_check_reasons: string[];
           }[],
           error: null,
         }),
@@ -134,22 +142,40 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     );
   }
 
-  const lines = items ?? [];
+  const lines = (items ?? []).map((line) => ({
+    ...line,
+    range_low: line.range_low != null ? Number(line.range_low) : null,
+    range_high: line.range_high != null ? Number(line.range_high) : null,
+    site_check_reasons: line.site_check_reasons ?? [],
+  }));
 
   const features = measurement?.measurement_features ?? [];
+  const confidence = measurement?.confidence != null ? Number(measurement.confidence) : null;
   const propertyPricing: PropertyPricingInput = {
     lotSqft: quote.properties?.lot_sqft,
     slope: quote.properties?.slope,
     gateWidthIn: quote.properties?.gate_width_in,
     obstacleCount: quote.properties?.obstacle_count,
     hasStairs: quote.properties?.has_stairs,
-    confidence: measurement?.confidence != null ? Number(measurement.confidence) : undefined,
+    confidence: confidence ?? undefined,
   };
 
   const picked = defaultSelectedIds(lines);
+  const pickedSet = new Set(picked);
   const total = sumSelected(lines, picked, "price");
   const hours = sumSelected(lines, picked, "hours");
   const cost = sumSelected(lines, picked, "cost");
+  const selectedFlagged = lines.filter(
+    (line) => pickedSet.has(line.id) && hasSiteCheck(line.site_check_reasons),
+  );
+  const siteCheckCount = selectedFlagged.length;
+  const estimateLow = lines
+    .filter((line) => pickedSet.has(line.id))
+    .reduce((sum, line) => sum + (line.range_low ?? Number(line.price)), 0);
+  const estimateHigh = lines
+    .filter((line) => pickedSet.has(line.id))
+    .reduce((sum, line) => sum + (line.range_high ?? Number(line.price)), 0);
+  const hasRangeTotal = estimateLow !== estimateHigh;
   const quantities = measurementQuantities(features, propertyPricing.lotSqft);
   const turf = (quantities.turf_front_sqft ?? 0) + (quantities.turf_back_sqft ?? 0);
   const basis = turf > 0 ? `Priced from ${Math.round(turf).toLocaleString("en-US")} sq ft` : "Priced from this property";
@@ -181,6 +207,14 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
       />
       <div className="page-pad grid gap-4 pb-20 md:pb-0 lg:grid-cols-3">
         <div className="flex flex-col gap-3 lg:col-span-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="capitalize">{quote.status}</Badge>
+            {siteCheckCount > 0 ? (
+              <Badge variant="outline" className="border-transparent bg-warning/15 text-warning">
+                Needs site check · {siteCheckCount} line{siteCheckCount === 1 ? "" : "s"}
+              </Badge>
+            ) : null}
+          </div>
           <QuoteLines
             quoteId={quote.id}
             versionId={versionId}
@@ -195,6 +229,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               section_id: line.section_id,
               option_tier: line.option_tier,
               price: Number(line.price),
+              range_low: line.range_low,
+              range_high: line.range_high,
+              site_check_reasons: line.site_check_reasons,
             }))}
             rules={catalogPickerRules(rules ?? [], lists ?? []).flatMap((rule) => {
               const stored = listModifiers.get(rule.price_list_id);
@@ -202,6 +239,19 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               const priced = priceCatalogLine({ config: rule.config, modifiers: mergeModifiers(stored), features, property: propertyPricing });
               return priced.ok ? [{ id: rule.id, name: rule.name, priced: priced.priced }] : [];
             })}
+          />
+          <SiteCheckPanel
+            quoteId={quote.id}
+            editable={editable}
+            confidence={confidence}
+            lines={lines.map((line) => ({
+              id: line.id,
+              name: line.name,
+              price: Number(line.price),
+              range_low: line.range_low,
+              range_high: line.range_high,
+              site_check_reasons: line.site_check_reasons,
+            }))}
           />
           {!editable ? (
             <p className="text-sm text-muted-foreground">
@@ -219,11 +269,19 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             </CardHeader>
             <CardContent className="text-sm tabular-nums">
               <div className="flex justify-between">
-                <span>Price</span>
+                <span>{hasRangeTotal ? "Estimate" : "Price"}</span>
                 <span className="font-heading text-xl font-semibold tabular-nums">
-                  {formatMoney(total, { cents: true })}
+                  {hasRangeTotal
+                    ? `${formatMoney(estimateLow, { cents: true })} – ${formatMoney(estimateHigh, { cents: true })}`
+                    : formatMoney(total, { cents: true })}
                 </span>
               </div>
+              {hasRangeTotal ? (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Not to exceed</span>
+                  <span className="font-heading tabular-nums">{formatMoney(estimateHigh, { cents: true })}</span>
+                </div>
+              ) : null}
               <div className="flex justify-between text-muted-foreground">
                 <span>Hours</span>
                 <span>{hours.toFixed(2)}</span>
@@ -238,6 +296,21 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               </div>
             </CardContent>
           </Card>
+          {siteCheckCount > 0 ? (
+            <Card className="border-warning/30 bg-warning/5">
+              <CardHeader>
+                <CardTitle className="text-warning">Site check</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                <p>Created on acceptance</p>
+                <p className="text-muted-foreground">
+                  {siteCheckCount} line{siteCheckCount === 1 ? "" : "s"} · {siteCheckReasonsSummary(
+                    selectedFlagged.flatMap((line) => line.site_check_reasons),
+                  )}
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
           <QuoteMetaForm quote={quote} editable={editable} />
         </div>
       </div>
