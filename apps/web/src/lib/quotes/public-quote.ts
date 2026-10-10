@@ -10,6 +10,9 @@ export type PublicQuoteItem = {
   price: number;
   range_low: number | null;
   range_high: number | null;
+  site_check_reasons?: string[] | null;
+  verified_price?: number | null;
+  verified_at?: string | null;
   photo_url: string | null;
   selected: boolean;
 };
@@ -34,6 +37,7 @@ export type PublicQuote = {
   notes_customer: string | null;
   expires_at: string | null;
   status: string;
+  site_check_status?: string | null;
   org: PublicOrg;
   items: PublicQuoteItem[];
   acceptance: PublicAcceptance | null;

@@ -4,8 +4,16 @@ import { deriveBrandTheme, pdfBrand } from "@/lib/brand/derive-brand-theme";
 import { formatOrgAddress, headingFontOf, type PublicOrg } from "@/lib/brand/public-org";
 import { formatMoney, formatMoneyRange } from "@/lib/money";
 import { ESIGN_DISCLOSURES, formatNotToExceedAmount, notToExceedClause } from "@/lib/quotes/legal-copy";
-import { acceptanceTotals } from "@/lib/quotes/not-to-exceed";
+import { acceptanceTotals, lineHasRange } from "@/lib/quotes/not-to-exceed";
 import { selectionFromIds, type SelectableItem } from "@/lib/quotes/selection";
+import {
+  SITE_CHECK_AFTER_ACCEPTANCE,
+  SITE_CHECK_LINE_PILL,
+  SITE_CHECK_PDF_WHY_TITLE,
+  hasSiteCheck,
+  siteCheckCustomerBody,
+  youPayNoMoreThan,
+} from "@/lib/quotes/site-check";
 import { pdfColors, pdfFonts, pdfHeadingFamily, pdfMarkPath } from "./pdf-theme";
 
 const styles = StyleSheet.create({
@@ -52,7 +60,29 @@ const styles = StyleSheet.create({
   otherHeading: { color: pdfColors.muted, fontSize: 8.5, lineHeight: 1.4, marginTop: 16, marginBottom: 4 },
   total: { marginTop: 16, marginBottom: 4, fontSize: 16, fontWeight: 700, lineHeight: 1.4 },
   estimate: { color: pdfColors.muted, fontSize: 9, lineHeight: 1.4, marginBottom: 4 },
+  nteLine: { color: "#A3530A", fontSize: 9, lineHeight: 1.4, marginBottom: 4 },
+  whyBox: {
+    marginTop: 8,
+    marginBottom: 8,
+    padding: 8,
+    borderRadius: 4,
+    backgroundColor: "#FBF3E6",
+  },
+  whyTitle: { color: "#A3530A", fontSize: 10, fontWeight: 700, lineHeight: 1.35, marginBottom: 3 },
+  whyBody: { color: pdfColors.ink, fontSize: 9, lineHeight: 1.4 },
   clause: { fontSize: 10, lineHeight: 1.4, marginTop: 6, marginBottom: 8 },
+  sitePill: {
+    fontSize: 8,
+    lineHeight: 1.3,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+    alignSelf: "flex-start",
+    marginTop: 3,
+    backgroundColor: "#FBF3E6",
+    color: "#A3530A",
+  },
+  estUnder: { color: pdfColors.muted, fontSize: 8, lineHeight: 1.3, marginTop: 2 },
   seal: { fontSize: 8.5, lineHeight: 1.4, marginTop: 8, color: pdfColors.ink },
   notes: { fontSize: 10, lineHeight: 1.4, marginBottom: 8 },
   accept: { padding: 12, borderRadius: 6, marginTop: 8 },
@@ -88,6 +118,7 @@ type PdfItem = SelectableItem & {
   state: string;
   range_low?: number | null;
   range_high?: number | null;
+  site_check_reasons?: string[] | null;
 };
 
 function lineAmount(item: PdfItem) {
@@ -105,17 +136,23 @@ function fitLogo(width: number | null, height: number | null) {
 }
 
 function Line({ item, heading, brand }: { item: PdfItem; heading: string; brand: ReturnType<typeof pdfBrand> }) {
+  const ranged = lineHasRange(item);
+  const flagged = hasSiteCheck(item.site_check_reasons);
   return (
     <View style={styles.row}>
       <View style={styles.itemCopy}>
         <Text>{item.name}</Text>
         {item.description ? <Text style={styles.description}>{item.description}</Text> : null}
+        {flagged ? <Text style={styles.sitePill}>{SITE_CHECK_LINE_PILL}</Text> : null}
         {item.state === "recommended" ? (
           <Text style={[styles.pill, { backgroundColor: brand.soft, color: brand.text }]}>Recommended</Text>
         ) : null}
         {item.state === "included" ? <Text style={styles.description}>Included</Text> : null}
       </View>
-      <Text style={[styles.price, { fontFamily: heading }]}>{lineAmount(item)}</Text>
+      <View>
+        <Text style={[styles.price, { fontFamily: heading }]}>{lineAmount(item)}</Text>
+        {ranged ? <Text style={styles.estUnder}>est. {formatMoney(Number(item.price ?? 0))}</Text> : null}
+      </View>
     </View>
   );
 }
@@ -160,7 +197,19 @@ export function ProposalPdf({
   const hasRanges = acceptance?.hasRanges ?? live.hasRanges;
   const notToExceed = acceptance?.notToExceed ?? live.notToExceed;
   const estimate = acceptance?.acceptedTotal ?? live.acceptedTotal;
-  const clause = hasRanges ? (acceptance?.clause ?? notToExceedClause(formatNotToExceedAmount(notToExceed))) : null;
+  const nteLabel = formatNotToExceedAmount(notToExceed);
+  const clause = hasRanges ? (acceptance?.clause ?? notToExceedClause(nteLabel)) : null;
+  const selectedFlagged = selected.filter((item) => hasSiteCheck(item.site_check_reasons));
+  const selectedReasons = selectedFlagged.flatMap((item) => item.site_check_reasons ?? []);
+  const showSiteCheckWhy = selectedFlagged.length > 0;
+  const estimateLow = selected.reduce(
+    (sum, item) => sum + (lineHasRange(item) ? Number(item.range_low) : Number(item.price ?? 0)),
+    0,
+  );
+  const estimateHigh = selected.reduce(
+    (sum, item) => sum + (lineHasRange(item) ? Number(item.range_high) : Number(item.price ?? 0)),
+    0,
+  );
   const theme = deriveBrandTheme(payload.org.brand_color);
   const brand = pdfBrand(theme);
   const heading = pdfHeadingFamily(headingFontOf(payload.org.heading_font));
@@ -168,7 +217,7 @@ export function ProposalPdf({
   const contact = [payload.org.phone, payload.org.email].filter(Boolean).join(" · ");
   const logoBox = fitLogo(payload.org.logo_width, payload.org.logo_height);
   const totalLabel = hasRanges
-    ? `Not to exceed ${formatMoney(notToExceed, { cents: true })}`
+    ? `Estimated total ${formatMoneyRange(estimateLow, estimateHigh)}`
     : `Total ${formatMoney(estimate, { cents: true })}`;
 
   return (
@@ -221,7 +270,14 @@ export function ProposalPdf({
           </>
         ) : null}
         <Text style={[styles.total, { color: brand.text, fontFamily: heading }]}>{totalLabel}</Text>
-        {hasRanges ? <Text style={styles.estimate}>Estimate {formatMoney(estimate, { cents: true })}</Text> : null}
+        {hasRanges ? <Text style={styles.nteLine}>{youPayNoMoreThan(nteLabel)}</Text> : null}
+        {showSiteCheckWhy ? (
+          <View style={styles.whyBox}>
+            <Text style={styles.whyTitle}>{SITE_CHECK_PDF_WHY_TITLE}</Text>
+            <Text style={styles.whyBody}>{siteCheckCustomerBody(selectedReasons)}</Text>
+            <Text style={[styles.whyBody, { marginTop: 4 }]}>{SITE_CHECK_AFTER_ACCEPTANCE}</Text>
+          </View>
+        ) : null}
         {clause ? <Text style={styles.clause}>{clause}</Text> : null}
         {acceptance ? (
           <View style={styles.seal}>

@@ -108,3 +108,57 @@ export function siteCheckCustomerSees(
   const high = flagged.reduce((sum, line) => sum + (line.range_high ?? line.price), 0);
   return { low, high, notToExceed: high };
 }
+
+/** Customer-facing phrases for the public proposal explanation. */
+const CUSTOMER_PHRASES: Record<SiteCheckReasonCode, string> = {
+  low_confidence: "our aerial measurement",
+  no_measurement: "the area we couldn't measure from the photo",
+  no_parcel: "the property boundary",
+  no_footprint: "the building footprint",
+  canopy: "how much of the beds sit under trees",
+  old_imagery: "details the aerial photo may have missed",
+  unknown_input: "bed depth, slope, or gate width",
+  manual: "a few site details",
+  customer_request: "the measurements you asked us to confirm",
+};
+
+function joinEnglish(parts: string[]): string {
+  if (parts.length <= 1) return parts[0] ?? "";
+  if (parts.length === 2) return `${parts[0]} and ${parts[1]}`;
+  return `${parts.slice(0, -1).join(", ")}, and ${parts[parts.length - 1]}`;
+}
+
+export const SITE_CHECK_EXPLANATION_TITLE = "One price is confirmed on site";
+
+/** Plain-language body built from reason codes (public page + PDF). */
+export function siteCheckCustomerBody(reasons: readonly string[] | null | undefined): string {
+  const phrases: string[] = [];
+  for (const code of reasons ?? []) {
+    if (!isSiteCheckReasonCode(code)) continue;
+    const phrase = CUSTOMER_PHRASES[code];
+    if (!phrases.includes(phrase)) phrases.push(phrase);
+  }
+  if (phrases.length === 0) {
+    return SITE_CHECK_AFTER_ACCEPTANCE;
+  }
+  return `We'll check ${joinEnglish(phrases)} before we start.`;
+}
+
+export function siteCheckWhatHappensNext(notToExceedLabel: string): string[] {
+  return [
+    `Accept now. Your price can't go over ${notToExceedLabel}.`,
+    SITE_CHECK_AFTER_ACCEPTANCE,
+    "We send the final price. If it's lower, you pay less.",
+  ];
+}
+
+export function youPayNoMoreThan(notToExceedLabel: string): string {
+  return `You pay no more than ${notToExceedLabel}`;
+}
+
+export function acceptUpToLabel(notToExceedLabel: string): string {
+  return `Accept · up to ${notToExceedLabel}`;
+}
+
+export const SITE_CHECK_LINE_PILL = "Price confirmed on site";
+export const SITE_CHECK_PDF_WHY_TITLE = "Why one price is a range";

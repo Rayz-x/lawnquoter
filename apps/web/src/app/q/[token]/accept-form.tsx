@@ -16,11 +16,13 @@ export function AcceptForm({
   status,
   selectedIds,
   clause,
+  acceptLabel = "Accept",
 }: {
   token: string;
   status: string;
   selectedIds: string[];
   clause: string | null;
+  acceptLabel?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -62,7 +64,11 @@ export function AcceptForm({
         <input key={id} type="hidden" name="selected" value={id} />
       ))}
       <h2 className="font-medium">Accept this proposal</h2>
-      {clause ? <p className="text-sm">{clause}</p> : null}
+      {clause ? (
+        <p className="text-sm" data-testid="accept-nte-clause">
+          {clause}
+        </p>
+      ) : null}
       <section className="flex flex-col gap-3 text-sm" aria-labelledby="esign-heading">
         <h3 id="esign-heading" className="font-medium">
           Electronic records
@@ -94,7 +100,7 @@ export function AcceptForm({
       <div className="flex gap-2">
         <Button type="submit" size="lg" disabled={pending}>
           {pending ? <Spinner data-icon="inline-start" /> : null}
-          Accept
+          {acceptLabel}
         </Button>
         <Button
           type="button"

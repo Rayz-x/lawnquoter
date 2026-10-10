@@ -2,12 +2,18 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SITE_CHECK_THRESHOLD,
   SITE_CHECK_AFTER_ACCEPTANCE,
+  SITE_CHECK_EXPLANATION_TITLE,
+  SITE_CHECK_LINE_PILL,
+  acceptUpToLabel,
   autoSiteCheckReasons,
   hasSiteCheck,
   mergeSiteCheckReasons,
+  siteCheckCustomerBody,
   siteCheckCustomerSees,
   siteCheckReasonLabel,
   siteCheckReasonsSummary,
+  siteCheckWhatHappensNext,
+  youPayNoMoreThan,
 } from "./site-check";
 
 describe("autoSiteCheckReasons", () => {
@@ -124,5 +130,32 @@ describe("siteCheckCustomerSees", () => {
 
   it("returns null when no selected line is flagged", () => {
     expect(siteCheckCustomerSees(lines, ["firm"])).toBeNull();
+  });
+});
+
+describe("customer site-check copy", () => {
+  it("builds a plain-language body from reason codes", () => {
+    expect(siteCheckCustomerBody(["low_confidence", "canopy"])).toBe(
+      "We'll check our aerial measurement and how much of the beds sit under trees before we start.",
+    );
+  });
+
+  it("falls back to the shared 5-day copy when no reasons are stored", () => {
+    expect(siteCheckCustomerBody([])).toBe(SITE_CHECK_AFTER_ACCEPTANCE);
+  });
+
+  it("lists the three next steps with the shared 5-day copy", () => {
+    const steps = siteCheckWhatHappensNext("$2,095.00");
+    expect(steps).toHaveLength(3);
+    expect(steps[0]).toBe("Accept now. Your price can't go over $2,095.00.");
+    expect(steps[1]).toBe(SITE_CHECK_AFTER_ACCEPTANCE);
+    expect(steps[2]).toMatch(/final price/i);
+  });
+
+  it("labels the accept action and the total cap line", () => {
+    expect(acceptUpToLabel("$2,095.00")).toBe("Accept · up to $2,095.00");
+    expect(youPayNoMoreThan("$2,095.00")).toBe("You pay no more than $2,095.00");
+    expect(SITE_CHECK_LINE_PILL).toBe("Price confirmed on site");
+    expect(SITE_CHECK_EXPLANATION_TITLE).toBe("One price is confirmed on site");
   });
 });
