@@ -98,8 +98,12 @@ export default async function AccountDetailPage({
         <FactStrip
           facts={[
             { label: "Open quotes", value: openQuotes ?? 0 },
-            { label: "Terms", value: termsLabel(account.net_terms_days) },
-            { label: "Customer since", value: customerSince(account.created_at), detail: account.lead_source },
+            { label: "Terms", value: account.net_terms_days === 0 ? "Due" : `Net ${account.net_terms_days}` },
+            {
+              label: "Customer since",
+              value: new Date(account.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" }),
+              detail: account.lead_source,
+            },
           ]}
         />
         <IdentityCard account={account} />
