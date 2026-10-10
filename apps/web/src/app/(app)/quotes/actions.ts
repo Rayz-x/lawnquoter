@@ -272,15 +272,13 @@ export async function updateQuoteMeta(id: string, fd: FormData): Promise<ActionR
   const copyEditable = (quote.status === "draft" || quote.status === "changed") && !version.frozen;
   const locked = customerCopyUpdateError(copyEditable, quote, parsed.data);
   if (locked) return fail(locked);
-  const patch = copyEditable
-    ? {
-        title: parsed.data.title,
-        intro: parsed.data.intro || null,
-        notes_customer: parsed.data.notes_customer || null,
-        notes_internal: parsed.data.notes_internal || null,
-      }
-    : { notes_internal: parsed.data.notes_internal || null };
-  if (copyEditable && !patch.title) return fail("Title is required");
+  const patch: { title?: string; intro?: string | null; notes_customer?: string | null; notes_internal?: string | null } = {};
+  if (copyEditable && parsed.data.title !== undefined) patch.title = parsed.data.title;
+  if (copyEditable && parsed.data.intro !== undefined) patch.intro = parsed.data.intro || null;
+  if (copyEditable && parsed.data.notes_customer !== undefined) patch.notes_customer = parsed.data.notes_customer || null;
+  if (parsed.data.notes_internal !== undefined) patch.notes_internal = parsed.data.notes_internal || null;
+  if (copyEditable && parsed.data.title !== undefined && !patch.title) return fail("Title is required");
+  if (Object.keys(patch).length === 0) return fail("Nothing to save.");
   const { data, error } = await supabase.from("quotes").update(patch).eq("id", id).eq("org_id", session.orgId).select("id");
   const missed = unchanged(data, error);
   if (missed) return missed;

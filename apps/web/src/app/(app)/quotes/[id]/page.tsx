@@ -179,7 +179,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           </>
         }
       />
-      <div className="page-pad grid gap-4 lg:grid-cols-3">
+      <div className="page-pad grid gap-4 pb-20 md:pb-0 lg:grid-cols-3">
         <div className="flex flex-col gap-3 lg:col-span-2">
           <QuoteLines
             quoteId={quote.id}
@@ -240,6 +240,12 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           </Card>
           <QuoteMetaForm quote={quote} editable={editable} />
         </div>
+      </div>
+      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t bg-background px-4 py-2 md:hidden">
+        <span className="font-heading text-lg font-semibold tabular-nums">{formatMoney(total, { cents: true })}</span>
+        <span className="flex h-11 min-h-11 flex-1 [&_button]:h-11 [&_button]:w-full">
+          <SendQuoteButton quoteId={quote.id} status={quote.status} />
+        </span>
       </div>
     </>
   );
