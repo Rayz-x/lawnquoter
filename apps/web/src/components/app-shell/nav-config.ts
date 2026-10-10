@@ -6,6 +6,7 @@ import {
   HardHat,
   LayoutDashboard,
   MapPinned,
+  Receipt,
   Repeat,
   Settings,
   Smartphone,
@@ -33,7 +34,10 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Sales",
-    items: [{ title: "Quotes", href: "/quotes", icon: FileText, roles: SALES_ROLES }],
+    items: [
+      { title: "Quotes", href: "/quotes", icon: FileText, roles: SALES_ROLES },
+      { title: "Invoices", href: "/invoices", icon: Receipt, roles: OFFICE_ROLES },
+    ],
   },
   {
     label: "Customers",

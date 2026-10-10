@@ -49,6 +49,7 @@ select is(
     'claim_lead_for_today',
     'convert_accepted_quote',
     'create_crew',
+    'create_invoices_batch',
     'create_org',
     'create_org_invite',
     'crew_ack_day_pack',
