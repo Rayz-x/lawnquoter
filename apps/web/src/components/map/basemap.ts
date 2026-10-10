@@ -21,9 +21,9 @@ export const mapAttributionControl = {
  * Esri World Imagery is the measurement canvas: Esri's terms permit tracing
  * features from it to create vector data. Google/Mapbox satellite do not.
  *
- * With an ArcGIS Location Platform key we load the official imagery basemap
- * style (sessions pricing, hybrid labels). Without a key we fall back to the
- * public World_Imagery tile service for development.
+ * With an ArcGIS Location Platform key, World Imagery tiles are requested
+ * from the basemap tile API with that token. Without a key, the public
+ * World_Imagery tile service is used for development.
  */
 export function imageryStyle(): StyleSpecification {
   const key = process.env.NEXT_PUBLIC_ARCGIS_API_KEY;

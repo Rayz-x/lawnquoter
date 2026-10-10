@@ -22,9 +22,6 @@ export function CrewShell({ children, userId, orgId }: { children: ReactNode; us
   useCrewSync(userId, orgId);
   const display = useCrewDisplay();
   useEffect(() => {
-    document.documentElement.classList.remove("sun");
-  }, []);
-  useEffect(() => {
     const build = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA;
     void navigator.serviceWorker
       ?.register(crewWorkerUrl(build), { scope: "/crew/" })

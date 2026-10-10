@@ -2,8 +2,7 @@ import type { NextConfig } from "next";
 import { securityHeaderGroups } from "./src/lib/http/security-headers";
 
 const nextConfig: NextConfig = {
-  // Every authenticated page reads the session cookie, so static prerendering
-  // is not useful here; keep routes dynamic and skip cache-components mode.
+  // Statically typed links stay off, so hrefs remain plain strings.
   typedRoutes: false,
   // The quote PDF reads these from disk at request time. path.join(process.cwd(), …)
   // is invisible to the file tracer, so a serverless function would ship without them.
