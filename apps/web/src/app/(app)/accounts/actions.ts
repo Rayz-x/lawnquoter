@@ -64,9 +64,9 @@ export async function createAccount(fd: FormData): Promise<ActionResult<{ id: st
   if (!session) return fail("You don't have permission to edit customers.");
   const parsed = parseAccount(fd);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
-  const lead = leadFields(parsed.data.lead_source, parsed.data.lead_source_other);
+  const { lead_source, lead_source_other, ...rest } = parsed.data;
+  const lead = leadFields(lead_source, lead_source_other);
   if (!lead.ok) return fail(lead.error);
-  const { lead_source: _ls, lead_source_other: _lso, ...rest } = parsed.data;
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("accounts")
@@ -96,9 +96,9 @@ export async function updateAccount(id: string, fd: FormData): Promise<ActionRes
   if (!session) return fail("You don't have permission to edit customers.");
   const parsed = parseAccount(fd);
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
-  const lead = leadFields(parsed.data.lead_source, parsed.data.lead_source_other);
+  const { lead_source, lead_source_other, ...rest } = parsed.data;
+  const lead = leadFields(lead_source, lead_source_other);
   if (!lead.ok) return fail(lead.error);
-  const { lead_source: _ls, lead_source_other: _lso, ...rest } = parsed.data;
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("accounts")
