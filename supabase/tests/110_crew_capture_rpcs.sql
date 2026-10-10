@@ -615,6 +615,13 @@ select is(
   'finish without after photo sets photo_pending'
 );
 -- Reopen so the classic photo-then-finish path still exercises reopen_until.
+-- Finish sets reopen_until to 18:00 org-local; CI after that hour needs a bump
+-- (same pattern as the reopen-before-deadline block below).
+select tests.clear_auth();
+update public.visits
+set reopen_until = now() + interval '1 hour'
+where id = :'visit_a'::uuid;
+select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
 select is(
   tests.apply_crew('visit_reopen', :'visit_a'::uuid, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa10'::uuid, null, null, '{}'::jsonb),
   'applied',
