@@ -5,19 +5,17 @@ import { priceLine, defaultModifiers, type Modifiers, type PricingRule } from "@
 import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { QUOTE_CONVERT_ROLES } from "@/lib/auth/office-roles";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireOrg } from "@/lib/auth/session";
-import { formatMoney, formatMoneyRange } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
 import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
 import { orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/server";
-import { AddItemForm } from "./add-item-form";
 import { ConvertToJobForm } from "./convert-to-job-button";
 import { DeleteQuoteButton } from "./delete-quote-button";
-import { PriceFromCatalog } from "./price-from-catalog";
-import { QuoteMetaForm } from "./quote-meta-form";
+import { QuoteLines } from "./price-from-catalog";
+import { InternalCard, ProposalCard } from "./quote-meta-form";
 import { SendQuoteButton } from "./send-quote-button";
 import { ReviseQuoteButton } from "./revise-quote-button";
 
@@ -117,6 +115,8 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const cost = sumSelected(lines, picked, "cost");
   const editable = quote.status === "draft" || quote.status === "changed";
   const canRevise = quote.status === "sent" || quote.status === "viewed" || quote.status === "declined" || quote.status === "expired";
+  const turf = (quantities.turf_front_sqft ?? 0) + (quantities.turf_back_sqft ?? 0);
+  const basis = turf > 0 ? `Priced from ${Math.round(turf).toLocaleString("en-US")} sq ft` : "Priced from this property";
 
   return (
     <>
@@ -143,42 +143,37 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
       />
       <div className="page-pad grid gap-4 lg:grid-cols-3">
         <div className="flex flex-col gap-3 lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                Line items
-                <span className="text-sm font-normal text-muted-foreground">
-                  v{quote.current_version} · <Badge variant="outline">{quote.status}</Badge>
-                </span>
-              </CardTitle>
-              <CardDescription>Included / recommended / optional. Group Good / Better / Best with the same option group name.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              {lines.map((i) => (
-                <div key={i.id} className="flex items-start justify-between gap-3 rounded-md border p-3 text-sm">
-                  <div>
-                    <div className="font-medium">{i.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {i.state}
-                      {i.option_group ? ` · ${i.option_group} / ${i.option_tier}` : ""}
-                      {picked.includes(i.id) ? "" : " · not in default total"}
-                      {i.range_low != null && i.range_high != null
-                        ? ` · range ${formatMoneyRange(Number(i.range_low), Number(i.range_high))}`
-                        : ""}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-heading tabular-nums">{formatMoney(Number(i.price))}</div>
-                    <div className="text-xs text-muted-foreground tabular-nums">
-                      {`${Number(i.hours).toFixed(2)}h · ${formatMoney(Number(i.cost))} cost`}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {lines.length === 0 ? <p className="text-sm text-muted-foreground">Add a line or price from the catalog.</p> : null}
-            </CardContent>
-          </Card>
-          {editable && versionId ? <AddItemForm quoteId={quote.id} versionId={versionId} /> : null}
+          <QuoteLines
+            quoteId={quote.id}
+            versionId={versionId}
+            basis={basis}
+            editable={editable}
+            lines={lines.map((line) => ({
+              id: line.id,
+              name: line.name,
+              state: line.state,
+              option_group: line.option_group,
+              option_tier: line.option_tier,
+              price: Number(line.price),
+              inTotal: picked.includes(line.id),
+            }))}
+            rules={(rules ?? []).map((r) => {
+              const priced = priceLine({
+                rule: r.config as PricingRule,
+                quantities,
+                context: {
+                  slope: quote.properties?.slope ?? undefined,
+                  gateWidthIn: quote.properties?.gate_width_in,
+                  obstacleCount: quote.properties?.obstacle_count,
+                  hasStairs: quote.properties?.has_stairs,
+                  confidence: measurement?.confidence != null ? Number(measurement.confidence) : undefined,
+                },
+                modifiers,
+              });
+              return { id: r.id, name: r.name, priced };
+            })}
+          />
+          <ProposalCard quote={quote} editable={editable} />
           {!editable ? (
             <p className="text-sm text-muted-foreground">
               {quote.status === "accepted"
@@ -214,28 +209,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               </div>
             </CardContent>
           </Card>
-          <QuoteMetaForm quote={quote} editable={editable} />
-          {editable && versionId ? (
-            <PriceFromCatalog
-              quoteId={quote.id}
-              versionId={versionId}
-              rules={(rules ?? []).map((r) => {
-                const priced = priceLine({
-                  rule: r.config as PricingRule,
-                  quantities,
-                  context: {
-                    slope: quote.properties?.slope ?? undefined,
-                    gateWidthIn: quote.properties?.gate_width_in,
-                    obstacleCount: quote.properties?.obstacle_count,
-                    hasStairs: quote.properties?.has_stairs,
-                    confidence: measurement?.confidence != null ? Number(measurement.confidence) : undefined,
-                  },
-                  modifiers,
-                });
-                return { id: r.id, name: r.name, priced };
-              })}
-            />
-          ) : null}
+          <InternalCard quote={quote} editable={editable} />
         </div>
       </div>
     </>
