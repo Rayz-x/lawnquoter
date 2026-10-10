@@ -68,6 +68,7 @@ select is(
     'create_org_invite',
     'crew_ack_day_pack',
     'crew_day_pack',
+    'crew_pin_is_set',
     'crew_sync',
     'generate_agreement_visits',
     'issue_invoice',
@@ -88,6 +89,7 @@ select is(
     'set_active_org',
     'set_agreement_season_price',
     'set_crew_lead',
+    'set_crew_pin',
     'set_lead_for_today',
     'site_check_approve',
     'site_check_cancel_request',
@@ -95,7 +97,8 @@ select is(
     'site_check_request',
     'skip_visit',
     'true_up_installment_agreement',
-    'update_agreement_schedule'
+    'update_agreement_schedule',
+    'verify_crew_pin'
   ]::text[],
   'anon or authenticated can execute only the intended public security definers'
 );

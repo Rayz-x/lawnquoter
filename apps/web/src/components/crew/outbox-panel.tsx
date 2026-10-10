@@ -5,6 +5,7 @@ import { isLowStorage, lowStorageWarning, type StorageEstimate } from "@/lib/cre
 import {
   browserCrewStore,
   flushOutbox,
+  foreignOutboxWaitingMessage,
   notifyCrewQueue,
   type OutboxRow,
 } from "@/lib/crew/queue";
@@ -37,7 +38,7 @@ export function OutboxPanel({ userId, orgId }: { userId: string; orgId: string }
         .then((next) =>
           setRows(
             next
-              .filter((row) => row.user_id === userId && row.org_id === orgId)
+              .filter((row) => row.org_id === orgId)
               .sort((a, b) => a.created_at.localeCompare(b.created_at)),
           ),
         );
@@ -69,10 +70,13 @@ export function OutboxPanel({ userId, orgId }: { userId: string; orgId: string }
   }
 
   const low = isLowStorage(estimate);
+  const mine = rows.filter((row) => row.user_id === userId);
+  const foreign = foreignOutboxWaitingMessage(rows, userId, orgId);
 
   return (
     <section className="flex flex-col gap-4 px-4 pt-[max(1rem,env(safe-area-inset-top,0px))]">
       <h1 className="text-2xl font-bold">Outbox</h1>
+      {foreign ? <p className="rounded-xl bg-warning/15 px-3 py-2 text-[15px] font-semibold text-warning">{foreign}</p> : null}
       <p className="text-[15px] text-muted-foreground">
         {rows.length === 0 ? "All sent." : "Keep working. Everything is saved on this phone."}
       </p>
@@ -81,13 +85,19 @@ export function OutboxPanel({ userId, orgId }: { userId: string; orgId: string }
         {rows.map((row) => (
           <li key={row.client_id} className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
             <p className="text-[17px] font-semibold">{LABELS[row.kind] ?? row.kind}</p>
-            <p className="mt-1 text-[15px] text-muted-foreground">{row.needs_office ? "Needs the office" : (row.last_error ?? "Waiting")}</p>
+            <p className="mt-1 text-[15px] text-muted-foreground">
+              {row.user_id === userId
+                ? row.needs_office
+                  ? "Needs the office"
+                  : (row.last_error ?? "Waiting")
+                : `From ${row.author_name || "another lead"} · sends when they sign in`}
+            </p>
           </li>
         ))}
       </ul>
       <button
         type="button"
-        disabled={sending || rows.length === 0}
+        disabled={sending || mine.length === 0}
         onClick={() => void send()}
         className="inline-flex min-h-14 w-full items-center justify-center rounded-xl border bg-background text-[17px] font-semibold disabled:opacity-50"
       >
