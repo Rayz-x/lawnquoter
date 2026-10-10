@@ -3,7 +3,7 @@
 -- through site_checks_crew, which omits requested_email / request_note.
 -- Cross-org denied.
 
-select plan(35);
+select plan(37);
 
 select has_table('public', 'site_checks', 'site_checks exists');
 select has_type('public', 'site_check_status', 'site_check_status enum exists');
@@ -70,6 +70,7 @@ set settings = settings || jsonb_build_object(
 )
 where id = :'org1'::uuid;
 
+select tests.authenticate_as(:'owner1'::uuid, :'org1'::uuid, 'owner');
 select is(
   private.site_check_auto_approve(:'org1'::uuid),
   true,
@@ -81,11 +82,26 @@ select is(
   'threshold reads the org setting when set'
 );
 
+-- Other-org member cannot read org1 settings through the helpers.
+select tests.authenticate_as(:'owner2'::uuid, :'org2'::uuid, 'owner');
+select is(
+  private.site_check_auto_approve(:'org1'::uuid),
+  false,
+  'auto-approve returns false for a non-member org'
+);
+select is(
+  private.site_check_threshold(:'org1'::uuid),
+  0.55,
+  'threshold returns the default for a non-member org'
+);
+
+select tests.clear_auth();
 -- Reset auto-approve to the product default for the rest of the file.
 update public.orgs
 set settings = (settings - 'site_check_auto_approve') || jsonb_build_object('site_check_threshold', 0.55)
 where id = :'org1'::uuid;
 
+select tests.authenticate_as(:'owner1'::uuid, :'org1'::uuid, 'owner');
 select is(
   private.site_check_auto_approve(:'org1'::uuid),
   false,

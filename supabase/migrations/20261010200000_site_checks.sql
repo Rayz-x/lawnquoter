@@ -180,9 +180,52 @@ create trigger site_checks_before_write
   for each row execute function private.site_checks_before_write();
 
 -- ---------------------------------------------------------------------------
+-- Same-org allowlist: keep every parent table main already covers (billing
+-- ledger), then add site_checks for this feature.
+-- ---------------------------------------------------------------------------
+create or replace function private.assert_same_org(p_table text, p_id text, p_org uuid)
+returns void
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  ok boolean;
+begin
+  if p_id is null or p_id = '' then
+    return;
+  end if;
+  if p_table not in (
+    'accounts', 'properties', 'measurements', 'quotes', 'quote_versions',
+    'quote_sections', 'quote_line_items', 'services', 'price_lists',
+    'agreements', 'jobs', 'crews', 'routes', 'visits',
+    'visit_tasks', 'invoices', 'payments',
+    'site_checks'
+  ) then
+    raise exception 'unsupported parent table %', p_table using errcode = '0A000';
+  end if;
+
+  execute format(
+    'select exists (select 1 from public.%I where id = $1::uuid and org_id = $2)',
+    p_table
+  ) into ok using p_id, p_org;
+
+  if not coalesce(ok, false) then
+    raise exception '% must belong to the same org', p_table using errcode = '23503';
+  end if;
+end;
+$$;
+
+revoke all on function private.assert_same_org(text, text, uuid) from public;
+grant execute on function private.assert_same_org(text, text, uuid)
+  to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
 -- Org settings helpers (jsonb keys; absent = defaults below)
 --   settings.site_check_auto_approve  boolean  default false
 --   settings.site_check_threshold     numeric  default 0.55
+-- Membership required so callers cannot probe another org's settings.
 -- ---------------------------------------------------------------------------
 create or replace function private.site_check_auto_approve(p_org uuid)
 returns boolean
@@ -191,16 +234,19 @@ stable
 security definer
 set search_path = ''
 as $$
-  select coalesce(
-    (
-      select (o.settings ->> 'site_check_auto_approve')::boolean
-      from public.orgs o
-      where o.id = p_org
-        and o.settings ? 'site_check_auto_approve'
-        and jsonb_typeof(o.settings -> 'site_check_auto_approve') = 'boolean'
-    ),
-    false
-  );
+  select case
+    when not private.is_org_member(p_org) then false
+    else coalesce(
+      (
+        select (o.settings ->> 'site_check_auto_approve')::boolean
+        from public.orgs o
+        where o.id = p_org
+          and o.settings ? 'site_check_auto_approve'
+          and jsonb_typeof(o.settings -> 'site_check_auto_approve') = 'boolean'
+      ),
+      false
+    )
+  end;
 $$;
 
 create or replace function private.site_check_threshold(p_org uuid)
@@ -210,16 +256,19 @@ stable
 security definer
 set search_path = ''
 as $$
-  select coalesce(
-    (
-      select (o.settings ->> 'site_check_threshold')::numeric
-      from public.orgs o
-      where o.id = p_org
-        and o.settings ? 'site_check_threshold'
-        and (o.settings ->> 'site_check_threshold') ~ '^[0-9]+(\.[0-9]+)?$'
-    ),
-    0.55
-  );
+  select case
+    when not private.is_org_member(p_org) then 0.55
+    else coalesce(
+      (
+        select (o.settings ->> 'site_check_threshold')::numeric
+        from public.orgs o
+        where o.id = p_org
+          and o.settings ? 'site_check_threshold'
+          and (o.settings ->> 'site_check_threshold') ~ '^[0-9]+(\.[0-9]+)?$'
+      ),
+      0.55
+    )
+  end;
 $$;
 
 revoke all on function private.site_check_auto_approve(uuid) from public, anon;
