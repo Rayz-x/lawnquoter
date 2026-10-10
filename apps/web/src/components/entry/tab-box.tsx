@@ -35,10 +35,23 @@ export function TabBox({
       <Tabs value={value} onValueChange={(next) => { if (typeof next === "string") onValueChange(next); }}>
         <CardHeader>
           <div className="flex w-full min-w-0 items-center gap-2">
-            <TabsList variant="line" aria-label={label} className="min-w-0">
+            <TabsList
+              variant="line"
+              aria-label={label}
+              className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain max-lg:h-11 max-lg:rounded-full max-lg:bg-muted max-lg:p-1"
+            >
               {tabs.map((tab) => (
-                <TabsTrigger key={tab.value} value={tab.value}>
-                  {tab.count === undefined ? tab.label : `${tab.label} (${tab.count})`}
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="max-lg:h-9 max-lg:rounded-full max-lg:px-3 max-lg:after:opacity-0 max-lg:data-active:bg-background"
+                >
+                  {tab.label}
+                  {tab.count === undefined ? null : (
+                    <span data-count="" className="rounded-full bg-muted px-1.5 text-xs text-muted-foreground">
+                      {tab.count}
+                    </span>
+                  )}
                 </TabsTrigger>
               ))}
             </TabsList>

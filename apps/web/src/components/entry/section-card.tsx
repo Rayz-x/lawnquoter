@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldError } from "@/components/ui/field";
@@ -12,6 +11,14 @@ const STATUS_LABEL: Record<Exclude<SectionAutosaveStatus, "idle">, string> = {
   saved: "Saved ✓",
   error: "Error",
 };
+
+const STATUS_CLASS: Record<Exclude<SectionAutosaveStatus, "idle">, string> = {
+  saving: "text-xs text-muted-foreground",
+  saved: "text-xs text-success",
+  error: "text-xs text-destructive",
+};
+
+export type SectionWeight = "critical" | "standard" | "internal";
 
 export type SectionFact = {
   label: string;
@@ -37,6 +44,7 @@ export function SectionCard({
   onEdit,
   onRetry,
   heading = "h2",
+  weight = "standard",
   actions,
   children,
 }: {
@@ -50,6 +58,7 @@ export function SectionCard({
   onEdit?: () => void;
   onRetry?: () => void;
   heading?: "h2" | "h3";
+  weight?: SectionWeight;
   /** Explicit Save/Cancel slot. Office address and pricing JSON use it. Other cards autosave and omit it. */
   actions?: ReactNode;
   children?: ReactNode;
@@ -73,7 +82,12 @@ export function SectionCard({
   }, [mode]);
 
   return (
-    <Card data-entry="section-card" data-mode={mode}>
+    <Card
+      data-entry="section-card"
+      data-mode={mode}
+      data-weight={weight}
+      className={weight === "internal" ? "bg-muted" : weight === "critical" ? "bg-destructive/5" : undefined}
+    >
       <section aria-labelledby={titleId}>
         <CardHeader>
           <CardTitle>
@@ -85,9 +99,7 @@ export function SectionCard({
           <CardAction>
             <div className="flex items-center gap-2">
               <div role="status" aria-live="polite" aria-busy={status === "saving"} data-status={status}>
-                {status === "idle" ? null : (
-                  <Badge variant={status === "error" ? "destructive" : "secondary"}>{STATUS_LABEL[status]}</Badge>
-                )}
+                {status === "idle" ? null : <span className={STATUS_CLASS[status]}>{STATUS_LABEL[status]}</span>}
               </div>
               {menu}
             </div>

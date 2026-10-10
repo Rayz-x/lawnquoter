@@ -1,5 +1,10 @@
+export { ChipGroup, type ChipOption } from "./chip-group";
+export { FactStrip, type FactStripItem } from "./fact-strip";
+export { InternalNote } from "./internal-note";
 export { MoreDisclosure } from "./more-disclosure";
-export { SectionCard, type SectionFact } from "./section-card";
+export { SectionCard, type SectionFact, type SectionWeight } from "./section-card";
+export { Stepper } from "./stepper";
+export { ToggleRow } from "./toggle-row";
 export { SectionMenu, splitSectionMenuItems, type SectionMenuItem } from "./section-menu";
 export { TabBox, resolveEntryTab, type EntryTab } from "./tab-box";
 export { useSectionAutosave } from "./use-section-autosave";
