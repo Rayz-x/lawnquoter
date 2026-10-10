@@ -40,6 +40,7 @@ describe("entry primitives", () => {
     expect(card).toContain("aria-labelledby");
     expect(card).toContain("Mowing conditions");
     expect(card).toContain('role="status"');
+    expect(card).toContain('aria-busy="false"');
     expect(card).toContain("Saved ✓");
     expect(card).toContain("Invalid slope");
     expect(card).toContain("Retry");

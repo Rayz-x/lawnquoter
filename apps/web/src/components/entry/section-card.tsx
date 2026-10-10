@@ -84,7 +84,7 @@ export function SectionCard({
           {description ? <CardDescription>{description}</CardDescription> : null}
           <CardAction>
             <div className="flex items-center gap-2">
-              <div role="status" aria-live="polite" data-status={status}>
+              <div role="status" aria-live="polite" aria-busy={status === "saving"} data-status={status}>
                 {status === "idle" ? null : (
                   <Badge variant={status === "error" ? "destructive" : "secondary"}>{STATUS_LABEL[status]}</Badge>
                 )}
