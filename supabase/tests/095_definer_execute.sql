@@ -55,6 +55,7 @@ select is(
     'generate_agreement_visits',
     'my_crews',
     'office_attention_tray',
+    'office_reschedule_visit',
     'publish_route',
     'quote_accept',
     'quote_decline',

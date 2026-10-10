@@ -1,6 +1,6 @@
 -- S06 Needs attention tray: bucket queries, overdue stays put, sales → unassigned.
 
-select plan(16);
+select plan(24);
 
 select ok(
   not has_function_privilege('anon', 'public.office_attention_tray(date)', 'execute'),
@@ -77,8 +77,50 @@ select ok(exists (
 select ok(exists (
   select 1 from jsonb_array_elements(public.office_attention_tray(:'today'::date) -> 'flags') i
   where i ->> 'id' = :'visit_flag'), 'flags bucket lists the enhancement visit');
+select is((
+  select i ->> 'account_name'
+  from jsonb_array_elements(public.office_attention_tray(:'today'::date) -> 'unassigned') i
+  where i ->> 'id' = :'visit_unassigned'
+), 'Tray Account', 'tray items include account_name');
+select is((
+  select i ->> 'address_line1'
+  from jsonb_array_elements(public.office_attention_tray(:'today'::date) -> 'unassigned') i
+  where i ->> 'id' = :'visit_unassigned'
+), '10 Tray St', 'tray items include address_line1');
+select is((
+  select i ->> 'city'
+  from jsonb_array_elements(public.office_attention_tray(:'today'::date) -> 'unassigned') i
+  where i ->> 'id' = :'visit_unassigned'
+), 'Springfield', 'tray items include city');
+select is((
+  select (i ->> 'budget_minutes')::int
+  from jsonb_array_elements(public.office_attention_tray(:'today'::date) -> 'unassigned') i
+  where i ->> 'id' = :'visit_unassigned'
+), 30, 'tray items include budget_minutes');
+select is((
+  select i ->> 'reason'
+  from jsonb_array_elements(public.office_attention_tray(:'today'::date) -> 'flags') i
+  where i ->> 'id' = :'visit_flag'
+), 'Upsell: mulch', 'flags items include the enhancement reason');
 
 select tests.clear_auth();
+insert into public.crews (org_id, name) values (:'org'::uuid, 'Tray Crew')
+returning id as crew_tray \gset
+select tests.authenticate_as(:'dispatcher'::uuid, :'org'::uuid, 'dispatcher');
+select public.office_reschedule_visit(:'visit_reschedule'::uuid, :'crew_tray'::uuid, :'today'::date)
+  as route_reschedule \gset
+select is((select status from public.visits where id = :'visit_reschedule'::uuid), 'scheduled',
+  'office_reschedule_visit reopens a skipped visit');
+select is((select scheduled_date from public.visits where id = :'visit_reschedule'::uuid), :'today'::date,
+  'office_reschedule_visit sets the service day');
+select is((public.office_attention_tray(:'today'::date) -> 'counts' ->> 'needs_reschedule')::int, 0,
+  'rescheduled visit leaves the needs_reschedule bucket');
+select tests.clear_auth();
+-- Restore a skipped visit so later tray reads stay stable.
+update public.visits
+set status = 'skipped', skip_reason = 'weather', route_id = null
+where id = :'visit_reschedule'::uuid;
+
 insert into public.agreements (
   org_id, account_id, property_id, kind, frequency, preferred_dow, start_date, status
 ) values (

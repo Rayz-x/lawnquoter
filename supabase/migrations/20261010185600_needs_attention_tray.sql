@@ -36,11 +36,35 @@ begin
   with base as (
     select
       v.id,
+      v.property_id,
       v.scheduled_date,
       v.status::text as status,
       v.route_id,
+      v.budget_minutes,
       v.completed_after_cancel,
       coalesce(j.title, 'Visit') as title,
+      a.name as account_name,
+      p.address_line1,
+      p.city,
+      case
+        when v.completed_after_cancel then 'Completed after cancel'
+        when exists (
+          select 1
+          from public.enhancement_requests e
+          where e.visit_id = v.id
+            and e.org_id = v.org_id
+            and e.status = 'new'::public.enhancement_status
+        ) then (
+          select 'Upsell: ' || e.tag::text
+          from public.enhancement_requests e
+          where e.visit_id = v.id
+            and e.org_id = v.org_id
+            and e.status = 'new'::public.enhancement_status
+          order by e.received_at asc, e.created_at asc
+          limit 1
+        )
+        else null
+      end as reason,
       case
         when v.completed_after_cancel
           or exists (
@@ -72,6 +96,8 @@ begin
       end as bucket
     from public.visits v
     left join public.jobs j on j.id = v.job_id
+    left join public.properties p on p.id = v.property_id
+    left join public.accounts a on a.id = p.account_id
     where v.org_id = v_org
       and v.status <> 'cancelled'::public.visit_status
   ),
@@ -80,9 +106,15 @@ begin
       bucket,
       jsonb_build_object(
         'id', id,
+        'property_id', property_id,
         'scheduled_date', scheduled_date,
         'status', status,
-        'title', title
+        'title', title,
+        'account_name', account_name,
+        'address_line1', address_line1,
+        'city', city,
+        'budget_minutes', budget_minutes,
+        'reason', reason
       ) as item
     from base
     where bucket is not null
@@ -117,3 +149,56 @@ $$;
 
 revoke all on function public.office_attention_tray(date) from public, anon;
 grant execute on function public.office_attention_tray(date) to authenticated, service_role;
+
+-- Reopen a skipped / can't-complete visit onto a crew day (Needs reschedule).
+create or replace function public.office_reschedule_visit(
+  p_visit_id uuid,
+  p_crew_id uuid,
+  p_service_date date
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_visit public.visits;
+begin
+  if p_service_date is null then
+    raise exception 'service date is required' using errcode = '22023';
+  end if;
+
+  select * into v_visit
+  from public.visits
+  where id = p_visit_id
+  for update;
+
+  if not found or v_visit.org_id is distinct from private.current_org_id() then
+    raise exception 'visit not found' using errcode = 'P0002';
+  end if;
+  if not private.can_dispatch(v_visit.org_id) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  if v_visit.status not in (
+    'skipped'::public.visit_status,
+    'cant_complete'::public.visit_status
+  ) then
+    raise exception 'only a skipped or unfinished visit can be rescheduled' using errcode = '22023';
+  end if;
+
+  update public.visits
+  set status = 'scheduled'::public.visit_status,
+      skip_reason = null,
+      route_id = null,
+      scheduled_date = p_service_date,
+      started_at = null,
+      completed_at = null,
+      reopen_until = null
+  where id = v_visit.id;
+
+  return public.assign_visit(p_visit_id, p_crew_id, p_service_date, 0);
+end;
+$$;
+
+revoke all on function public.office_reschedule_visit(uuid, uuid, date) from public, anon;
+grant execute on function public.office_reschedule_visit(uuid, uuid, date) to authenticated, service_role;

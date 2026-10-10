@@ -5,6 +5,12 @@ export type AttentionVisit = {
   scheduled_date: string | null;
   status: string;
   title: string;
+  account_name: string | null;
+  address_line1: string | null;
+  city: string | null;
+  budget_minutes: number | null;
+  reason: string | null;
+  property_id: string | null;
 };
 
 export type AttentionTray = {
@@ -23,13 +29,20 @@ export const ATTENTION_BUCKETS: { key: AttentionBucket; label: string }[] = [
   { key: "flags", label: "Return visits and flags" },
 ];
 
+/** Per-bucket rows shown before "Show all N". */
+export const TRAY_BUCKET_LIMIT = 50;
+
 export function trayCounts(tray: AttentionTray): Record<AttentionBucket, number> {
   return {
-    unassigned: tray.unassigned.length,
-    overdue: tray.overdue.length,
-    needs_reschedule: tray.needs_reschedule.length,
-    flags: tray.flags.length,
+    unassigned: tray.counts?.unassigned ?? tray.unassigned.length,
+    overdue: tray.counts?.overdue ?? tray.overdue.length,
+    needs_reschedule: tray.counts?.needs_reschedule ?? tray.needs_reschedule.length,
+    flags: tray.counts?.flags ?? tray.flags.length,
   };
+}
+
+export function trayTotal(counts: Record<AttentionBucket, number>): number {
+  return counts.unassigned + counts.overdue + counts.needs_reschedule + counts.flags;
 }
 
 export function emptyAttentionTray(asOf: string): AttentionTray {
@@ -41,4 +54,39 @@ export function emptyAttentionTray(asOf: string): AttentionTray {
     needs_reschedule: [],
     flags: [],
   };
+}
+
+/** Card second line: "Okafor · 1503 Larkspur Ln". */
+export function visitIdentityLine(visit: Pick<AttentionVisit, "account_name" | "address_line1">): string {
+  const name = visit.account_name?.trim() || "Account";
+  const street = visit.address_line1?.trim();
+  return street ? `${name} · ${street}` : name;
+}
+
+export function warningCountBuckets(): AttentionBucket[] {
+  return ["overdue", "flags"];
+}
+
+export function countBadgeClass(bucket: AttentionBucket, count: number): string {
+  if (count > 0 && warningCountBuckets().includes(bucket)) {
+    return "border-transparent bg-warning/15 text-warning";
+  }
+  return "";
+}
+
+export function visibleBucketVisits<T>(visits: T[], expanded: boolean, limit = TRAY_BUCKET_LIMIT): T[] {
+  if (expanded || visits.length <= limit) return visits;
+  return visits.slice(0, limit);
+}
+
+export function canSkipOrCancel(status: string): boolean {
+  return status === "scheduled" || status === "in_progress" || status === "paused";
+}
+
+export function canAssign(status: string): boolean {
+  return status === "scheduled";
+}
+
+export function canReschedule(status: string): boolean {
+  return status === "skipped" || status === "cant_complete";
 }

@@ -24,31 +24,61 @@ function one<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
+function asString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) {
+    return Number(value);
+  }
+  return null;
+}
+
+function parseAttentionVisit(item: unknown): AttentionVisit | null {
+  if (!item || typeof item !== "object") return null;
+  const row = item as Record<string, unknown>;
+  if (typeof row.id !== "string" || typeof row.title !== "string" || typeof row.status !== "string") {
+    return null;
+  }
+  return {
+    id: row.id,
+    title: row.title,
+    status: row.status,
+    scheduled_date: asString(row.scheduled_date),
+    account_name: asString(row.account_name),
+    address_line1: asString(row.address_line1),
+    city: asString(row.city),
+    budget_minutes: asNumber(row.budget_minutes),
+    reason: asString(row.reason),
+    property_id: asString(row.property_id),
+  };
+}
+
 function parseAttentionTray(value: unknown, asOf: string): AttentionTray {
   if (!value || typeof value !== "object") return emptyAttentionTray(asOf);
-  const body = value as Partial<AttentionTray>;
+  const body = value as Partial<AttentionTray> & { counts?: Partial<Record<string, unknown>> };
   const list = (items: unknown): AttentionVisit[] =>
-    Array.isArray(items)
-      ? items.filter(
-          (item): item is AttentionVisit =>
-            !!item &&
-            typeof item === "object" &&
-            typeof (item as AttentionVisit).id === "string" &&
-            typeof (item as AttentionVisit).title === "string" &&
-            typeof (item as AttentionVisit).status === "string",
-        )
-      : [];
+    Array.isArray(items) ? items.flatMap((item) => {
+      const visit = parseAttentionVisit(item);
+      return visit ? [visit] : [];
+    }) : [];
   const unassigned = list(body.unassigned);
   const overdue = list(body.overdue);
   const needs_reschedule = list(body.needs_reschedule);
   const flags = list(body.flags);
+  const count = (key: keyof AttentionTray["counts"], fallback: number) => {
+    const raw = body.counts?.[key];
+    return typeof raw === "number" && Number.isFinite(raw) ? raw : fallback;
+  };
   return {
     as_of: typeof body.as_of === "string" ? body.as_of : asOf,
     counts: {
-      unassigned: unassigned.length,
-      overdue: overdue.length,
-      needs_reschedule: needs_reschedule.length,
-      flags: flags.length,
+      unassigned: count("unassigned", unassigned.length),
+      overdue: count("overdue", overdue.length),
+      needs_reschedule: count("needs_reschedule", needs_reschedule.length),
+      flags: count("flags", flags.length),
     },
     unassigned,
     overdue,

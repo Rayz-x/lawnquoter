@@ -1174,6 +1174,9 @@ isOneToOne: false
 "office_attention_tray":
 { Args: { "p_as_of"?: string }; Returns: Json
                            },
+"office_reschedule_visit":
+{ Args: { "p_crew_id": string,"p_service_date": string,"p_visit_id": string }; Returns: string
+                           },
 "pgp_armor_headers":
 { Args: { "": string }; Returns: Record<string, unknown>[]
                            },
