@@ -6,19 +6,17 @@ import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { QUOTE_CONVERT_ROLES } from "@/lib/auth/office-roles";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireOrg } from "@/lib/auth/session";
-import { formatMoney, formatMoneyRange } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
 import { catalogPickerRules, measurementQuantities, priceCatalogLine, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
 import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
 import { orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/server";
-import { AddItemForm } from "./add-item-form";
 import { ConvertToJobForm } from "./convert-to-job-button";
 import { DeleteQuoteButton } from "./delete-quote-button";
-import { PriceFromCatalog } from "./price-from-catalog";
+import { QuoteLines } from "./price-from-catalog";
 import { QuoteMetaForm } from "./quote-meta-form";
 import { SendQuoteButton } from "./send-quote-button";
 import { ReviseQuoteButton } from "./revise-quote-button";
@@ -70,26 +68,28 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     { data: rules, error: rulesError },
     { data: lists, error: listError },
     { data: measurement, error: measurementError },
+    { data: sections, error: sectionsError },
   ] = await Promise.all([
     versionId
       ? supabase
           .from("quote_line_items")
-          .select("id, name, state, option_group, option_tier, selected, price, hours, cost, range_low, range_high")
+          .select("id, name, description, state, section_id, option_group, option_tier, selected, price, hours, cost, sort")
           .eq("version_id", versionId)
           .order("sort")
       : Promise.resolve({
           data: [] as {
             id: string;
             name: string;
+            description: string | null;
             state: string;
+            section_id: string | null;
             option_group: string | null;
             option_tier: string;
             selected: boolean;
             price: number;
             hours: number;
             cost: number;
-            range_low: number | null;
-            range_high: number | null;
+            sort: number;
           }[],
           error: null,
         }),
@@ -103,6 +103,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           .eq("status", "current")
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    versionId
+      ? supabase.from("quote_sections").select("id, title, sort").eq("version_id", versionId).order("sort")
+      : Promise.resolve({ data: [] as { id: string; title: string; sort: number }[], error: null }),
   ]);
   const listModifiers = new Map(
     (lists ?? []).filter((row) => row.status === "active").map((row) => [row.id, row.modifiers]),
@@ -115,6 +118,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     rulesError?.message ??
     listError?.message ??
     measurementError?.message ??
+    sectionsError?.message ??
     null;
   if (loadError) {
     return (
@@ -177,42 +181,28 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
       />
       <div className="page-pad grid gap-4 lg:grid-cols-3">
         <div className="flex flex-col gap-3 lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                Line items
-                <span className="text-sm font-normal text-muted-foreground">
-                  v{quote.current_version} · <Badge variant="outline">{quote.status}</Badge>
-                </span>
-              </CardTitle>
-              <CardDescription>Included / recommended / optional. Group Good / Better / Best with the same option group name.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              {lines.map((i) => (
-                <div key={i.id} className="flex items-start justify-between gap-3 rounded-md border p-3 text-sm">
-                  <div>
-                    <div className="font-medium">{i.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {i.state}
-                      {i.option_group ? ` · ${i.option_group} / ${i.option_tier}` : ""}
-                      {picked.includes(i.id) ? "" : " · not in default total"}
-                      {i.range_low != null && i.range_high != null
-                        ? ` · range ${formatMoneyRange(Number(i.range_low), Number(i.range_high))}`
-                        : ""}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-heading tabular-nums">{formatMoney(Number(i.price))}</div>
-                    <div className="text-xs text-muted-foreground tabular-nums">
-                      {`${Number(i.hours).toFixed(2)}h · ${formatMoney(Number(i.cost))} cost`}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {lines.length === 0 ? <p className="text-sm text-muted-foreground">Add a line or price from the catalog.</p> : null}
-            </CardContent>
-          </Card>
-          {editable && versionId ? <AddItemForm quoteId={quote.id} versionId={versionId} /> : null}
+          <QuoteLines
+            quoteId={quote.id}
+            versionId={versionId}
+            basis={basis}
+            editable={editable}
+            sections={(sections ?? []).map((section) => ({ id: section.id, title: section.title }))}
+            lines={lines.map((line) => ({
+              id: line.id,
+              name: line.name,
+              description: line.description,
+              state: line.state,
+              section_id: line.section_id,
+              option_tier: line.option_tier,
+              price: Number(line.price),
+            }))}
+            rules={catalogPickerRules(rules ?? [], lists ?? []).flatMap((rule) => {
+              const stored = listModifiers.get(rule.price_list_id);
+              if (stored === undefined) return [];
+              const priced = priceCatalogLine({ config: rule.config, modifiers: mergeModifiers(stored), features, property: propertyPricing });
+              return priced.ok ? [{ id: rule.id, name: rule.name, priced: priced.priced }] : [];
+            })}
+          />
           {!editable ? (
             <p className="text-sm text-muted-foreground">
               {quote.status === "accepted"
@@ -249,24 +239,6 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             </CardContent>
           </Card>
           <QuoteMetaForm quote={quote} editable={editable} />
-          {editable && versionId ? (
-            <PriceFromCatalog
-              quoteId={quote.id}
-              versionId={versionId}
-              basis={basis}
-              rules={catalogPickerRules(rules ?? [], lists ?? []).flatMap((r) => {
-                const stored = listModifiers.get(r.price_list_id);
-                if (stored === undefined) return [];
-                const priced = priceCatalogLine({
-                  config: r.config,
-                  modifiers: mergeModifiers(stored),
-                  features,
-                  property: propertyPricing,
-                });
-                return priced.ok ? [{ id: r.id, name: r.name, priced: priced.priced }] : [];
-              })}
-            />
-          ) : null}
         </div>
       </div>
     </>
