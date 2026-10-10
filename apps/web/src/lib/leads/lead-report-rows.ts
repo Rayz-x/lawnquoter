@@ -28,7 +28,7 @@ export function mapLeadRequestToReportRow(row: LeadRequestReportRaw): LeadReport
   if (!row.created_at) return null;
   const status = (row.status ?? "").toLowerCase();
   if (status === "spam") return null;
-  const source = row.source ?? row.lead_source ?? null;
+  const source = row.source;
   const converted =
     status === "won" ||
     status === "quoted" ||
