@@ -219,6 +219,30 @@ export async function cancelVisit(visitId: string, reason: string): Promise<Acti
   return { ok: true };
 }
 
+export async function approveSameDayExtra(
+  enhancementId: string,
+): Promise<ActionResult<{ enhancementId: string; approvedUntil: string }>> {
+  await requireOrg();
+  const parsed = idSchema.safeParse(enhancementId);
+  if (!parsed.success) return fail("Invalid upsell");
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("office_approve_same_day_extra", {
+    p_enhancement_id: parsed.data,
+  });
+  if (error || data == null) return fail(error?.message ?? "Could not approve same-day extra");
+  const body = z
+    .object({
+      id: idSchema,
+      same_day_approved_until: z.string().min(1),
+    })
+    .safeParse(data);
+  if (!body.success) return fail("Could not approve same-day extra");
+  return {
+    ok: true,
+    data: { enhancementId: body.data.id, approvedUntil: body.data.same_day_approved_until },
+  };
+}
+
 export async function reorderVisits(routeId: string, visitIds: string[]): Promise<ActionResult> {
   await requireOrg();
   const parsed = z.object({ routeId: idSchema, visitIds: z.array(idSchema).min(1) }).safeParse({ routeId, visitIds });

@@ -354,14 +354,14 @@ isOneToOne: false
                   ]
                 },"enhancement_requests": {
                   Row: {
-                    "client_id": string,"created_at": string,"id": string,"note": string | null,"org_id": string,"photo_ids": (string)[],"property_id": string,"quote_id": string | null,"received_at": string,"status": Database["public"]['Enums']["enhancement_status"],"tag": Database["public"]['Enums']["enhancement_tag"],"updated_at": string,"visit_id": string
+                    "client_id": string,"created_at": string,"id": string,"note": string | null,"org_id": string,"photo_ids": (string)[],"property_id": string,"quote_id": string | null,"received_at": string,"same_day_approved_at": string | null,"same_day_approved_by": string | null,"same_day_approved_until": string | null,"status": Database["public"]['Enums']["enhancement_status"],"tag": Database["public"]['Enums']["enhancement_tag"],"updated_at": string,"visit_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "client_id": string,"created_at"?: string,"id"?: string,"note"?: string | null,"org_id": string,"photo_ids"?: (string)[],"property_id": string,"quote_id"?: string | null,"received_at"?: string,"status"?: Database["public"]['Enums']["enhancement_status"],"tag": Database["public"]['Enums']["enhancement_tag"],"updated_at"?: string,"visit_id": string
+                    "client_id": string,"created_at"?: string,"id"?: string,"note"?: string | null,"org_id": string,"photo_ids"?: (string)[],"property_id": string,"quote_id"?: string | null,"received_at"?: string,"same_day_approved_at"?: string | null,"same_day_approved_by"?: string | null,"same_day_approved_until"?: string | null,"status"?: Database["public"]['Enums']["enhancement_status"],"tag": Database["public"]['Enums']["enhancement_tag"],"updated_at"?: string,"visit_id": string
                   }
                   Update: {
-                    "client_id"?: string,"created_at"?: string,"id"?: string,"note"?: string | null,"org_id"?: string,"photo_ids"?: (string)[],"property_id"?: string,"quote_id"?: string | null,"received_at"?: string,"status"?: Database["public"]['Enums']["enhancement_status"],"tag"?: Database["public"]['Enums']["enhancement_tag"],"updated_at"?: string,"visit_id"?: string
+                    "client_id"?: string,"created_at"?: string,"id"?: string,"note"?: string | null,"org_id"?: string,"photo_ids"?: (string)[],"property_id"?: string,"quote_id"?: string | null,"received_at"?: string,"same_day_approved_at"?: string | null,"same_day_approved_by"?: string | null,"same_day_approved_until"?: string | null,"status"?: Database["public"]['Enums']["enhancement_status"],"tag"?: Database["public"]['Enums']["enhancement_tag"],"updated_at"?: string,"visit_id"?: string
                   }
                   Relationships: [
                     {
@@ -381,6 +381,12 @@ isOneToOne: false
       columns: ["quote_id"]
 isOneToOne: false
       referencedRelation: "quotes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "enhancement_requests_same_day_approved_by_fkey"
+      columns: ["same_day_approved_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "enhancement_requests_visit_id_fkey"
@@ -1400,6 +1406,9 @@ isOneToOne: false
 "my_crews":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
+"office_approve_same_day_extra":
+{ Args: { "p_enhancement_id": string }; Returns: Json
+                           },
 "office_attention_tray":
 { Args: { "p_as_of"?: string }; Returns: Json
                            },
@@ -1408,6 +1417,9 @@ isOneToOne: false
                            },
 "office_reschedule_visit":
 { Args: { "p_crew_id": string,"p_service_date": string,"p_visit_id": string }; Returns: string
+                           },
+"enhancement_same_day_is_active":
+{ Args: { "p_enhancement_id": string }; Returns: boolean
                            },
 "org_payments_ready":
 { Args: Record<PropertyKey, never>; Returns: boolean

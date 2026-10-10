@@ -54,6 +54,8 @@ function parseAttentionVisit(item: unknown): AttentionVisit | null {
     budget_minutes: asNumber(row.budget_minutes),
     reason: asString(row.reason),
     property_id: asString(row.property_id),
+    enhancement_id: asString(row.enhancement_id),
+    same_day_approved_until: asString(row.same_day_approved_until),
   };
 }
 

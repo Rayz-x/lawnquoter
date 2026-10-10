@@ -102,6 +102,9 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
           ) : (
             <>
               <h2 className="mt-2 font-serif text-2xl font-bold">Upsell</h2>
+              <p className="mt-2 text-[15px] text-muted-foreground">
+                Tag, note, and photo only. No prices. Same-day work needs office approval.
+              </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {ENHANCEMENT_TAGS.map(([id, label]) => (
                   <button key={id} type="button" className={`inline-flex min-h-12 items-center rounded-xl border px-3 text-[17px] font-semibold ${tag === id ? "border-2 border-primary" : ""}`} onClick={() => setTag(id)}>{label}</button>
@@ -109,7 +112,7 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
               </div>
               <textarea value={note} maxLength={2000} onChange={(event) => setNote(event.target.value)} placeholder="Note for the office" className="mt-4 min-h-24 w-full rounded-xl border p-3 text-[17px]" />
               <button type="button" className="mt-3 flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" onClick={() => upsell.current?.click()}>{upsellFile ? "Photo ready" : "Add photo"}</button>
-              <button type="button" className="mt-3 flex min-h-14 w-full items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={!tag || busy} onClick={() => void saveUpsell()}>Save upsell</button>
+              <button type="button" className="mt-3 flex min-h-14 w-full items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={!tag || busy} onClick={() => void saveUpsell()}>Save request</button>
             </>
           )}
           {error ? <p className="mt-3 text-[15px] font-semibold text-destructive">{error}</p> : null}
