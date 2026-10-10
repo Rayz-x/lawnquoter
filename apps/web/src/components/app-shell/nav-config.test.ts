@@ -20,7 +20,7 @@ describe("Crew App nav", () => {
     }
   });
 
-  it("keeps Agreements, Schedule, and Crews as office items", () => {
+  it("keeps Agreements, Schedule, Lead sources, and Crews as office items", () => {
     expect(item("owner", "Agreements")?.href).toBe("/agreements");
     expect(item("sales", "Agreements")?.href).toBe("/agreements");
     expect(item("read_only", "Agreements")?.href).toBe("/agreements");
@@ -33,6 +33,13 @@ describe("Crew App nav", () => {
     expect(item("dispatcher", "Schedule")?.href).toBe("/schedule");
     expect(item("crew", "Schedule")).toBeUndefined();
     expect(item("crew_lead", "Schedule")).toBeUndefined();
+
+    expect(item("owner", "Lead sources")?.href).toBe("/leads/report");
+    expect(item("sales", "Lead sources")?.href).toBe("/leads/report");
+    expect(item("read_only", "Lead sources")?.href).toBe("/leads/report");
+    expect(item("dispatcher", "Lead sources")?.href).toBe("/leads/report");
+    expect(item("crew", "Lead sources")).toBeUndefined();
+    expect(item("crew_lead", "Lead sources")).toBeUndefined();
 
     expect(item("dispatcher", "Crews")?.href).toBe("/settings/crews");
     expect(item("owner", "Crews")?.href).toBe("/settings/crews");
