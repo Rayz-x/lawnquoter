@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { mergeModifiers } from "@lawnquoter/pricing-engine";
-import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
+import { ADMIN_ROLES, SALES_ROLES, hasRole, type OrgRole } from "@lawnquoter/shared";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
 import { priceCatalogLine, type MeasuredFeature, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
@@ -12,8 +12,23 @@ import { customerCopyUpdateError } from "@/lib/quotes/customer-copy";
 import { ACCEPTED_QUOTE_DELETE_ERROR, deleteQuoteError } from "@/lib/quotes/delete-quote";
 import { createClient } from "@/lib/supabase/server";
 
+const NOT_SAVED = "Could not save this change.";
+
+function denyUnlessSales(role: OrgRole) {
+  if (!hasRole(role, SALES_ROLES)) return fail("You do not have access to edit quotes.");
+  return null;
+}
+
+function unchanged(data: { id: string }[] | null, error: { message: string } | null) {
+  if (error) return fail(error.message);
+  if (!data?.length) return fail(NOT_SAVED);
+  return null;
+}
+
 async function createQuote(accountId: string, propertyId?: string | null): Promise<ActionResult<{ id: string }>> {
-  await requireOrg();
+  const session = await requireOrg();
+  const denied = denyUnlessSales(session.orgRole);
+  if (denied) return denied;
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("quote_create", {
     p_account: accountId,
@@ -64,11 +79,13 @@ async function editableVersion(quoteId: string, versionId: string, orgId: string
 
 export async function addLineItem(quoteId: string, versionId: string, fd: FormData): Promise<ActionResult> {
   const session = await requireOrg();
+  const denied = denyUnlessSales(session.orgRole);
+  if (denied) return denied;
   const parsed = itemSchema.safeParse(Object.fromEntries(fd));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
   const { supabase, error: versionError } = await editableVersion(quoteId, versionId, session.orgId);
   if (versionError) return fail(versionError);
-  const { error } = await supabase.from("quote_line_items").insert({
+  const { data, error } = await supabase.from("quote_line_items").insert({
     org_id: session.orgId,
     version_id: versionId,
     name: parsed.data.name,
@@ -88,13 +105,81 @@ export async function addLineItem(quoteId: string, versionId: string, fd: FormDa
     notes_crew: parsed.data.notes_crew || null,
     selected: parsed.data.state === "included",
   }).select("id");
-  if (error) return fail(error.message);
+  const missed = unchanged(data, error);
+  if (missed) return missed;
   revalidatePath(`/quotes/${quoteId}`);
   return { ok: true };
 }
 
+function lineVersion(row: { quote_versions: { quote_id: string; frozen: boolean } | { quote_id: string; frozen: boolean }[] | null }) {
+  const version = row.quote_versions;
+  return Array.isArray(version) ? (version[0] ?? null) : version;
+}
+
+export async function reorderLineItems(quoteId: string, sourceId: string, targetId: string): Promise<ActionResult> {
+  if (sourceId === targetId) return { ok: true };
+  const session = await requireOrg();
+  const denied = denyUnlessSales(session.orgRole);
+  if (denied) return denied;
+  const supabase = await createClient();
+  const { data: rows, error: readError } = await supabase
+    .from("quote_line_items")
+    .select("id, sort, version_id, quote_versions(quote_id, frozen)")
+    .in("id", [sourceId, targetId])
+    .eq("org_id", session.orgId);
+  if (readError) return fail(readError.message);
+  const source = rows?.find((row) => row.id === sourceId);
+  const target = rows?.find((row) => row.id === targetId);
+  const sourceVersion = source ? lineVersion(source) : null;
+  const targetVersion = target ? lineVersion(target) : null;
+  if (!source || !target || !sourceVersion || !targetVersion) return fail("Line item not found");
+  if (sourceVersion.quote_id !== quoteId || targetVersion.quote_id !== quoteId) return fail("Line item not found");
+  if (sourceVersion.frozen || targetVersion.frozen) return fail("This proposal is frozen. Revise it before editing.");
+  const write = (id: string, sort: number) =>
+    supabase.from("quote_line_items").update({ sort }).eq("id", id).eq("org_id", session.orgId).select("id");
+  if (source.sort === target.sort) {
+    const { data: siblings, error: listError } = await supabase
+      .from("quote_line_items")
+      .select("id, sort")
+      .eq("version_id", source.version_id)
+      .eq("org_id", session.orgId)
+      .order("sort")
+      .order("id");
+    if (listError) return fail(listError.message);
+    const ordered = [...(siblings ?? [])];
+    const from = ordered.findIndex((row) => row.id === source.id);
+    const to = ordered.findIndex((row) => row.id === target.id);
+    if (from < 0 || to < 0) return fail("Line item not found");
+    const next = ordered.slice();
+    const [moved] = next.splice(from, 1);
+    if (moved) next.splice(to, 0, moved);
+    for (const [index, row] of next.entries()) {
+      if (row.sort === index) continue;
+      const { data, error } = await write(row.id, index);
+      const missed = unchanged(data, error);
+      if (missed) return missed;
+    }
+    revalidatePath(`/quotes/${quoteId}`);
+    return { ok: true };
+  }
+  const { data: firstData, error: firstError } = await write(source.id, target.sort);
+  const firstMissed = unchanged(firstData, firstError);
+  if (firstMissed) return firstMissed;
+  const { data: secondData, error: secondError } = await write(target.id, source.sort);
+  const secondMissed = unchanged(secondData, secondError);
+  if (!secondMissed) {
+    revalidatePath(`/quotes/${quoteId}`);
+    return { ok: true };
+  }
+  const { error: undoError } = await write(source.id, source.sort);
+  if (undoError) return fail("Could not reorder these lines, and the first move could not be undone.");
+  return secondMissed;
+}
+
 export async function updateQuoteMeta(id: string, fd: FormData): Promise<ActionResult> {
   const session = await requireOrg();
+  const denied = denyUnlessSales(session.orgRole);
+  if (denied) return denied;
   const parsed = z
     .object({
       title: z.string().trim().min(1).max(200).optional(),
@@ -132,14 +217,17 @@ export async function updateQuoteMeta(id: string, fd: FormData): Promise<ActionR
       }
     : { notes_internal: parsed.data.notes_internal || null };
   if (copyEditable && !patch.title) return fail("Title is required");
-  const { error } = await supabase.from("quotes").update(patch).eq("id", id).eq("org_id", session.orgId).select("id");
-  if (error) return fail(error.message);
+  const { data, error } = await supabase.from("quotes").update(patch).eq("id", id).eq("org_id", session.orgId).select("id");
+  const missed = unchanged(data, error);
+  if (missed) return missed;
   revalidatePath(`/quotes/${id}`);
   return { ok: true };
 }
 
 export async function sendQuote(id: string): Promise<ActionResult<{ url: string }>> {
   const session = await requireOrg();
+  const denied = denyUnlessSales(session.orgRole);
+  if (denied) return denied;
   const supabase = await createClient();
   const { data: quote } = await supabase
     .from("quotes")
@@ -171,20 +259,23 @@ export async function deleteQuote(id: string): Promise<ActionResult> {
   if (!quote) return fail("Quote not found");
   const blocked = deleteQuoteError(quote.status);
   if (blocked) return fail(blocked);
-  const { error } = await supabase.from("quotes").delete().eq("id", id).eq("org_id", session.orgId).select("id");
+  const { data, error } = await supabase.from("quotes").delete().eq("id", id).eq("org_id", session.orgId).select("id");
   if (error) {
     if (error.message.toLowerCase().includes("accepted quotes cannot be deleted")) {
       return fail(ACCEPTED_QUOTE_DELETE_ERROR);
     }
     return fail(error.message);
   }
+  if (!data?.length) return fail(NOT_SAVED);
   revalidatePath("/quotes");
   revalidatePath(`/quotes/${id}`);
   return { ok: true };
 }
 
 export async function reviseQuote(id: string): Promise<ActionResult<{ versionId: string }>> {
-  await requireOrg();
+  const session = await requireOrg();
+  const denied = denyUnlessSales(session.orgRole);
+  if (denied) return denied;
   const supabase = await createClient();
   const { data: versionId, error } = await supabase.rpc("quote_revise", { p_quote: id });
   if (error || !versionId) return fail(error?.message ?? "Could not revise");
@@ -194,6 +285,8 @@ export async function reviseQuote(id: string): Promise<ActionResult<{ versionId:
 
 export async function addPricedService(quoteId: string, versionId: string, fd: FormData): Promise<ActionResult> {
   const session = await requireOrg();
+  const denied = denyUnlessSales(session.orgRole);
+  if (denied) return denied;
   const parsed = z
     .object({
       rule_id: z.string().uuid(),
@@ -270,7 +363,7 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
   });
   if (!priced.ok) return fail(priced.error);
 
-  const { error } = await supabase.from("quote_line_items").insert({
+  const { data, error } = await supabase.from("quote_line_items").insert({
     org_id: session.orgId,
     version_id: versionId,
     service_id: rule.service_id,
@@ -285,7 +378,8 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
     option_tier: parsed.data.option_tier,
     selected: parsed.data.state === "included",
   }).select("id");
-  if (error) return fail(error.message);
+  const missed = unchanged(data, error);
+  if (missed) return missed;
   revalidatePath(`/quotes/${quoteId}`);
   return { ok: true };
 }
