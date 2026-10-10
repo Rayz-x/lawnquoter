@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireOrg } from "@/lib/auth/session";
+import { NewCustomerDialog } from "./new-customer-dialog";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Accounts" };
@@ -40,10 +40,7 @@ export default async function AccountsPage({
         title="Accounts"
         description="Customers and prospects, residential and commercial"
         actions={
-          <Button render={<Link href="/accounts/new" />}>
-            <Plus data-icon="inline-start" />
-            New account
-          </Button>
+          <NewCustomerDialog />
         }
       />
       <div className="page-body">

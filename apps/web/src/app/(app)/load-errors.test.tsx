@@ -163,10 +163,9 @@ describe("list and form pages", () => {
     expect(html).not.toContain("No accounts yet");
   });
 
-  it("shows a parent-account query error instead of an empty parent list", async () => {
-    failTable("accounts", "parents read failed");
+  it("opens the new customer dialog instead of a parent list", async () => {
     const html = await markup(NewAccountPage());
-    expect(html).toContain("parents read failed");
+    expect(html).toContain("data-page=\"new-customer\"");
     expect(html).not.toContain("Parent account");
   });
 

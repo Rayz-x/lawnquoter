@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { AccountForm } from "../account-form";
 import { AccountHeader } from "./account-header";
 import { AccountRail } from "./account-rail";
 import { AccountTabBox } from "./account-tab-box";
@@ -94,7 +93,7 @@ export default async function AccountDetailPage({
   const primary = (contacts ?? []).find((contact) => contact.is_primary) ?? contacts?.[0] ?? null;
   const primaryName = [primary?.first_name, primary?.last_name].filter(Boolean).join(" ") || null;
   const showSites = account.type === "commercial" && (children?.length ?? 0) > 0;
-  const allowed = ["properties", "contacts", "activity", "details", ...(showSites ? ["sites"] : [])];
+  const allowed = ["properties", "contacts", "activity", ...(showSites ? ["sites"] : [])];
   const tabValue = tab && allowed.includes(tab) ? tab : "properties";
 
   return (
@@ -207,17 +206,6 @@ export default async function AccountDetailPage({
                 {(activities ?? []).length === 0 ? <p className="text-sm text-muted-foreground">No activity yet.</p> : null}
               </CardContent>
             </Card>
-              ),
-            },
-            {
-              value: "details",
-              label: "Details",
-              content: (
-                <Card className="max-w-2xl">
-                  <CardContent className="pt-6">
-                    <AccountForm account={account} parents={parents ?? []} />
-                  </CardContent>
-                </Card>
               ),
             },
           ]}
