@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChipGroup, SectionCard, useSectionAutosave } from "@/components/entry";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { Tables } from "@/lib/supabase/types";
 import { identityError, normalizeIdentity, type IdentityDraft } from "../account-format";
@@ -44,7 +44,8 @@ export function IdentityCard({ account }: { account: Tables<"accounts"> }) {
     },
   });
 
-  const publish = (next: IdentityDraft, field: "name" | "phone" | "email") => {
+  const blurField = (next: IdentityDraft, field: "name" | "phone" | "email", related: EventTarget | null) => {
+    if (related instanceof Node && fieldsRef.current?.contains(related)) return;
     const message = identityError(next);
     setInvalidField(message ? field : null);
     setFieldError(message);
@@ -55,11 +56,6 @@ export function IdentityCard({ account }: { account: Tables<"accounts"> }) {
     const normalized = normalizeIdentity(next);
     setDraft(normalized);
     save(normalized);
-  };
-
-  const blurField = (next: IdentityDraft, field: "name" | "phone" | "email", related: EventTarget | null) => {
-    if (related instanceof Node && fieldsRef.current?.contains(related)) return;
-    publish(next, field);
     setEditing(false);
   };
 
@@ -68,8 +64,8 @@ export function IdentityCard({ account }: { account: Tables<"accounts"> }) {
       title="Identity"
       heading="h3"
       status={status}
-      error={fieldError ?? error}
-      onRetry={fieldError ? undefined : retry}
+      error={fieldError ? null : error}
+      onRetry={retry}
       mode={editing ? "edit" : "view"}
       onEdit={() => setEditing(true)}
       facts={[
@@ -105,6 +101,7 @@ export function IdentityCard({ account }: { account: Tables<"accounts"> }) {
             onChange={(event) => setDraft({ ...draft, name: event.target.value })}
             onBlur={(event) => blurField({ ...draft, name: event.target.value }, "name", event.relatedTarget)}
           />
+          {invalidField === "name" && fieldError ? <FieldError>{fieldError}</FieldError> : null}
         </Field>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field data-invalid={invalidField === "phone" ? true : undefined}>
@@ -120,6 +117,7 @@ export function IdentityCard({ account }: { account: Tables<"accounts"> }) {
               onChange={(event) => setDraft({ ...draft, phone: event.target.value })}
               onBlur={(event) => blurField({ ...draft, phone: event.target.value }, "phone", event.relatedTarget)}
             />
+            {invalidField === "phone" && fieldError ? <FieldError>{fieldError}</FieldError> : null}
           </Field>
           <Field data-invalid={invalidField === "email" ? true : undefined}>
             <FieldLabel htmlFor="account-email">Email</FieldLabel>
@@ -134,6 +132,7 @@ export function IdentityCard({ account }: { account: Tables<"accounts"> }) {
               onChange={(event) => setDraft({ ...draft, email: event.target.value })}
               onBlur={(event) => blurField({ ...draft, email: event.target.value }, "email", event.relatedTarget)}
             />
+            {invalidField === "email" && fieldError ? <FieldError>{fieldError}</FieldError> : null}
           </Field>
         </div>
       </div>

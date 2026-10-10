@@ -93,7 +93,7 @@ export default async function AccountDetailPage({
   return (
     <>
       <PageHeader title={account.name} />
-      <div className="page-body">
+      <div className="page-body pb-24 lg:pb-0">
         <AccountHeader account={account} primaryName={primaryName} />
         <FactStrip
           facts={[
