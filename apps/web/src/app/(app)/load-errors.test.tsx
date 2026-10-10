@@ -172,7 +172,7 @@ describe("list and form pages", () => {
 
   it("shows an account query error instead of a 404", async () => {
     failTable("accounts", "account read failed");
-    const html = await markup(AccountDetailPage({ params: Promise.resolve({ id: "account-1" }) }));
+    const html = await markup(AccountDetailPage({ params: Promise.resolve({ id: "account-1" }), searchParams: Promise.resolve({}) }));
     expect(html).toContain("account read failed");
   });
 
