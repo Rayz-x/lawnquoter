@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { defaultModifiers, type Modifiers } from "@lawnquoter/pricing-engine";
 import { PageHeader } from "@/components/app-shell/page-header";
-import { resolveEntryTab } from "@/components/entry";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { PricingHeaderActions, PricingStudio } from "./pricing-studio";
@@ -9,7 +8,11 @@ import { PricingHeaderActions, PricingStudio } from "./pricing-studio";
 export const metadata: Metadata = { title: "Services & Pricing" };
 
 const OPEN = new Set(["draft", "sent", "viewed", "changed"]);
-const TABS = ["tiers", "modifiers", "details"];
+const TABS = ["tiers", "modifiers", "details"] as const;
+
+function pricingTab(tab: string | null | undefined) {
+  return TABS.includes(tab as (typeof TABS)[number]) ? (tab as (typeof TABS)[number]) : "tiers";
+}
 
 function one<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
@@ -57,7 +60,7 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
           rules={(rules ?? []).map((rule) => ({ id: rule.id, serviceId: rule.service_id, name: rule.name, config: rule.config }))}
           modifiers={modifiers}
           initialServiceId={params.service ?? null}
-          initialTab={resolveEntryTab(params.tab, TABS, "tiers")}
+          initialTab={pricingTab(params.tab)}
         />
       </div>
     </>
