@@ -11,6 +11,52 @@
 alter table public.crew_members
   drop constraint if exists crew_members_org_id_profile_id_key;
 
+-- set_crew_lead used ON CONFLICT (org_id, profile_id) and rejected a second
+-- crew. Point conflict at (crew_id, profile_id) so a lead can join another crew.
+create or replace function public.set_crew_lead(p_crew_id uuid, p_profile_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_org uuid;
+begin
+  select c.org_id into v_org
+  from public.crews c
+  where c.id = p_crew_id
+  for update;
+
+  if v_org is null or v_org is distinct from private.current_org_id() then
+    raise exception 'crew not found' using errcode = 'P0002';
+  end if;
+  if not private.can_dispatch(v_org) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  if not exists (
+    select 1
+    from public.memberships m
+    where m.org_id = v_org
+      and m.user_id = p_profile_id
+      and m.status = 'active'
+      and m.role = 'crew_lead'
+  ) then
+    raise exception 'lead must be an active crew lead' using errcode = '23514';
+  end if;
+
+  insert into public.crew_members (org_id, crew_id, profile_id)
+  values (v_org, p_crew_id, p_profile_id)
+  on conflict (crew_id, profile_id) do nothing;
+
+  update public.crews
+  set default_lead_id = p_profile_id
+  where id = p_crew_id;
+end;
+$$;
+
+revoke all on function public.set_crew_lead(uuid, uuid) from public, anon;
+grant execute on function public.set_crew_lead(uuid, uuid) to authenticated, service_role;
+
 create table public.crew_phone_sync (
   org_id uuid not null references public.orgs (id) on delete cascade,
   crew_id uuid not null references public.crews (id) on delete cascade,
