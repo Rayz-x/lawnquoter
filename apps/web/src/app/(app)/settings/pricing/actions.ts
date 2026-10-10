@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { defaultModifiers, modifiersSchema, parseMaterialsCsv, pricingRuleSchema } from "@lawnquoter/pricing-engine";
+import { modifiersSchema, modifiersWithDefaults, parseMaterialsCsv, pricingRuleSchema } from "@lawnquoter/pricing-engine";
 import { z } from "zod";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
@@ -117,7 +117,7 @@ export async function saveModifiers(fd: FormData): Promise<ActionResult> {
   } catch {
     return fail("Modifiers must be valid JSON");
   }
-  const parsed = modifiersSchema.safeParse({ ...defaultModifiers(), ...(raw as object) });
+  const parsed = modifiersSchema.safeParse(modifiersWithDefaults(raw));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid modifiers");
   const listId = String(fd.get("price_list_id") ?? "");
   const supabase = await createClient();

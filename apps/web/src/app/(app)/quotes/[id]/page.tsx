@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { priceLine, defaultModifiers, type Modifiers, type PricingRule } from "@lawnquoter/pricing-engine";
+import { mergeModifiers, priceLine, type PricingRule } from "@lawnquoter/pricing-engine";
 import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { QUOTE_CONVERT_ROLES } from "@/lib/auth/office-roles";
@@ -128,7 +128,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
 
   const lines = items ?? [];
 
-  const modifiers = (list?.modifiers as Modifiers | null) ?? defaultModifiers();
+  const modifiers = mergeModifiers(list?.modifiers);
   const quantities: Record<string, number> = {};
   const addQty = (key: string, amount: number) => {
     if (!Number.isFinite(amount) || amount === 0) return;

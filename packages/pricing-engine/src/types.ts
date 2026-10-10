@@ -158,16 +158,8 @@ export const modifiersSchema = z.object({
     .optional(),
   narrowGateInches: z.number().positive().default(48),
   narrowGate: z.object({ extraHours: z.number().nonnegative(), extraPrice: z.number().nonnegative().default(0) }).optional(),
-  bagging: z.object({ pricePct: z.number(), hoursPct: z.number() }).optional(),
   firstCut: z.object({ multiplier: z.number().positive() }).optional(),
   perObstacle: z.object({ extraHours: z.number().nonnegative(), extraPrice: z.number().nonnegative() }).optional(),
-  travel: z
-    .object({
-      hourlyRate: z.number().nonnegative(),
-      freeMinutes: z.number().nonnegative().default(0),
-    })
-    .optional(),
-  routeDensityDiscount: z.object({ minNearby: z.number().nonnegative(), pricePct: z.number() }).optional(),
   minimum: z.object({ price: z.number().nonnegative(), hours: z.number().nonnegative().optional() }).optional(),
   stairs: z.object({ extraHours: z.number().nonnegative(), extraPrice: z.number().nonnegative().default(0) }).optional(),
 });
@@ -187,3 +179,18 @@ export const defaultModifiers = (): Modifiers => ({
   minimum: { price: 45, hours: 0.4 },
   stairs: { extraHours: 0.1, extraPrice: 5 },
 });
+
+function modifierRecord(stored: unknown): Record<string, unknown> {
+  if (stored === null || typeof stored !== "object" || Array.isArray(stored)) return {};
+  return stored as Record<string, unknown>;
+}
+
+/** Same merge as saving a price list: stored keys win, and `{}` still receives the defaults. */
+export function modifiersWithDefaults(stored: unknown): unknown {
+  return { ...defaultModifiers(), ...modifierRecord(stored) };
+}
+
+export function mergeModifiers(stored: unknown): Modifiers {
+  const parsed = modifiersSchema.safeParse(modifiersWithDefaults(stored));
+  return parsed.success ? parsed.data : defaultModifiers();
+}
