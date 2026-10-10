@@ -50,3 +50,33 @@ export function imageryStyle(): StyleSpecification {
     layers: [{ id: "imagery", type: "raster", source: "imagery" }],
   };
 }
+
+/**
+ * Plain outline basemap for crew battery saver: no satellite tile requests.
+ * Property outlines, pins, and drawn shapes layer on as GeoJSON after load.
+ */
+export function outlineStyle(): StyleSpecification {
+  return {
+    version: 8,
+    sources: {},
+    layers: [
+      {
+        id: "background",
+        type: "background",
+        paint: { "background-color": "#0f1712" },
+      },
+    ],
+  };
+}
+
+/** Crew maps pick imagery or outline from the device battery-saver toggle. */
+export function crewMapStyle(batterySaver: boolean): StyleSpecification {
+  return batterySaver ? outlineStyle() : imageryStyle();
+}
+
+export function styleRequestsImagery(style: StyleSpecification): boolean {
+  return Object.values(style.sources).some((source) => {
+    if (source.type !== "raster" || !("tiles" in source) || !source.tiles) return false;
+    return source.tiles.some((url) => url.includes("World_Imagery"));
+  });
+}

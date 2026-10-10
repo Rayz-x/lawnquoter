@@ -17,7 +17,7 @@ An accepted quote becomes scheduled work. The office keeps agreements, names cre
 
 Property addresses are geocoded with Esri and stored on the property. Maps that draw that pin credit Esri.
 
-Leads, bids, invoices, and analytics appear in the office navigation and do not have screens yet. The dashboard figures are placeholders. The Payments tab does not charge cards; click-to-accept records the signature without it. The crew Map tab does not show a map.
+Leads, bids, invoices, and analytics appear in the office navigation and do not have screens yet. The dashboard figures are placeholders. The Payments tab does not charge cards; click-to-accept records the signature without it. The crew Map tab shows today's stop pins when online, or an outline map with battery saver.
 
 ## Stack
 

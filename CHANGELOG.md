@@ -4,6 +4,12 @@ What changed in LawnQuoter for office staff, crews, and customers. Each date is 
 
 Company setup, accounts and properties, satellite measurement, the price catalog, the quote builder, public proposals, and click-to-accept landed on main before pull requests were numbered. They are not listed here.
 
+## 2026-10-10
+
+### Crews
+
+- Crew settings include a battery-saver toggle kept on that phone. With it on, the crew map uses an outline basemap with no satellite tiles, animations are reduced, and the dark outdoor theme is used. Office maps are unchanged. (#108)
+
 ## 2026-10-09
 
 ### Quotes, branding, and maps
