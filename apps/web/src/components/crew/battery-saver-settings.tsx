@@ -34,34 +34,27 @@ export function BatterySaverSettings() {
 }
 
 function useBatteryHint(enabled: boolean) {
-  const [hint, setHint] = useState<string | null>(null);
+  const [lowBattery, setLowBattery] = useState(false);
   useEffect(() => {
-    if (enabled) {
-      setHint(null);
-      return;
-    }
+    if (enabled) return;
     const nav = navigator as Navigator & {
       getBattery?: () => Promise<{ level: number; charging: boolean }>;
     };
-    if (typeof nav.getBattery !== "function") {
-      setHint(null);
-      return;
-    }
+    if (typeof nav.getBattery !== "function") return;
     let stop = false;
     void nav
       .getBattery()
       .then((battery) => {
         if (stop) return;
-        if (suggestBatterySaver({ supported: true, level: battery.level, charging: battery.charging })) {
-          setHint("Battery is low. Turning this on can stretch the rest of the day.");
-        }
+        setLowBattery(suggestBatterySaver({ supported: true, level: battery.level, charging: battery.charging }));
       })
       .catch(() => {
-        if (!stop) setHint(null);
+        if (!stop) setLowBattery(false);
       });
     return () => {
       stop = true;
     };
   }, [enabled]);
-  return hint;
+  if (enabled || !lowBattery) return null;
+  return "Battery is low. Turning this on can stretch the rest of the day.";
 }
