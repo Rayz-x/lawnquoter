@@ -138,7 +138,9 @@ describe("entry primitives", () => {
     expect(note).toContain("bg-muted");
     expect(note).toContain("Gate sticks");
     expect(note).toContain("Internal note");
-    expect(note).toContain("min-w-0 flex-1");
+    expect(note).toContain("w-full");
+    expect(note).toContain("[&_textarea]:field-sizing-fixed");
+    expect(note).toContain("[&_textarea]:w-full");
   });
 
   it("debounces text, saves chips immediately, and rolls a failed save back", async () => {
