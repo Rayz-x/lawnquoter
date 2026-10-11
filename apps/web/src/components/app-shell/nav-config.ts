@@ -48,6 +48,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { title: "Accounts", href: "/accounts", icon: Building2 },
       { title: "Properties", href: "/properties", icon: MapPinned },
       { title: "Agreements", href: "/agreements", icon: Repeat, roles: OFFICE_ROLES },
+      { title: "Payments", href: "/payments", icon: Wallet, roles: OFFICE_ROLES },
     ],
   },
   {
