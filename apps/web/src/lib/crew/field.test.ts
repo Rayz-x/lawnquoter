@@ -1,15 +1,37 @@
 import { describe, expect, it } from "vitest";
-import { enhancementPayload, queueEnhancement, skipNeedsPhoto } from "./field";
+import {
+  enhancementPayload,
+  queueEnhancement,
+  skipNeedsNote,
+  skipNeedsPhoto,
+  skipPayload,
+  skipPhotoKind,
+} from "./field";
 import { createMemoryCrewStore } from "./queue";
 
 const who = { userId: "user-1", orgId: "org-1" };
 
 describe("skip and enhancement", () => {
-  it("requires an issue photo only for a locked gate or a loose dog", () => {
+  it("requires an after photo for a locked gate or a loose dog", () => {
     expect(skipNeedsPhoto("gate_locked")).toBe(true);
     expect(skipNeedsPhoto("dog_loose")).toBe(true);
+    expect(skipPhotoKind("gate_locked")).toBe("after");
+    expect(skipPhotoKind("dog_loose")).toBe("after");
     expect(skipNeedsPhoto("weather")).toBe(false);
-    expect(skipNeedsPhoto("customer_skip")).toBe(false);
+    expect(skipNeedsPhoto("unsafe")).toBe(false);
+    expect(skipPhotoKind("weather")).toBeNull();
+  });
+
+  it("requires a note for an unsafe skip and builds the sync payload", () => {
+    expect(skipNeedsNote("unsafe")).toBe(true);
+    expect(skipNeedsNote("weather")).toBe(false);
+    expect(skipPayload("unsafe", "  ")).toBeNull();
+    expect(skipPayload("unsafe", "bee nest by the meter")).toEqual({
+      reason: "unsafe",
+      note: "bee nest by the meter",
+    });
+    expect(skipPayload("weather", "")).toEqual({ reason: "weather" });
+    expect(skipPayload("nope", "x")).toBeNull();
   });
 
   it("queues an upsell behind its photo in the outbox", async () => {

@@ -20,9 +20,26 @@ export const ENHANCEMENT_TAGS = [
 ] as const;
 
 const TAGS = new Set<string>(ENHANCEMENT_TAGS.map(([tag]) => tag));
+const REASONS = new Set<string>(SKIP_REASONS.map(([reason]) => reason));
 
 export function skipNeedsPhoto(reason: string) {
   return reason === "gate_locked" || reason === "dog_loose";
+}
+
+/** Gate/dog proof uses the after-photo rule (kind + uploaded file). */
+export function skipPhotoKind(reason: string): "after" | null {
+  return skipNeedsPhoto(reason) ? "after" : null;
+}
+
+export function skipNeedsNote(reason: string) {
+  return reason === "unsafe";
+}
+
+export function skipPayload(reason: string, note: string): CrewPayload | null {
+  if (!REASONS.has(reason)) return null;
+  const trimmed = note.trim().slice(0, 2000);
+  if (skipNeedsNote(reason) && !trimmed) return null;
+  return { reason, ...(trimmed ? { note: trimmed } : {}) };
 }
 
 export function enhancementPayload(tag: string, note: string, photoId: string | null = null): CrewPayload | null {

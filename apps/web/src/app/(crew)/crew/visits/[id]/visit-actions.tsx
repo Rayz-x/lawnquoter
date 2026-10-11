@@ -2,7 +2,15 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { ENHANCEMENT_TAGS, SKIP_REASONS, queueEnhancement, skipNeedsPhoto } from "@/lib/crew/field";
+import {
+  ENHANCEMENT_TAGS,
+  SKIP_REASONS,
+  queueEnhancement,
+  skipNeedsNote,
+  skipNeedsPhoto,
+  skipPayload,
+  skipPhotoKind,
+} from "@/lib/crew/field";
 import { downscalePhoto } from "@/lib/crew/photo";
 import { browserCrewStore, enqueueMutation, enqueuePhoto, flushOutbox, saveDayPack } from "@/lib/crew/queue";
 import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
@@ -15,6 +23,7 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
   const [sheet, setSheet] = useState<"problem" | "upsell" | null>(null);
   const [reason, setReason] = useState<string | null>(null);
   const [issueFile, setIssueFile] = useState<File | null>(null);
+  const [skipNote, setSkipNote] = useState("");
   const [tag, setTag] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [upsellFile, setUpsellFile] = useState<File | null>(null);
@@ -23,16 +32,26 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
 
   async function confirmSkip() {
     if (!reason || busy) return;
+    const payload = skipPayload(reason, skipNote);
+    if (!payload) return;
     if (skipNeedsPhoto(reason) && !issueFile) return;
     setBusy(true);
     setError(null);
     try {
       const store = browserCrewStore();
+      const photoKind = skipPhotoKind(reason);
       if (issueFile) {
         const jpeg = await downscalePhoto(issueFile);
-        await enqueuePhoto(store, { visit_id: visitId, user_id: userId, org_id: orgId, bytes: jpeg, photo_kind: "issue", taken_at: new Date().toISOString() });
+        await enqueuePhoto(store, {
+          visit_id: visitId,
+          user_id: userId,
+          org_id: orgId,
+          bytes: jpeg,
+          photo_kind: photoKind ?? "issue",
+          taken_at: new Date().toISOString(),
+        });
       }
-      await enqueueMutation(store, { kind: "visit_skip", visit_id: visitId, user_id: userId, org_id: orgId, payload: { reason } });
+      await enqueueMutation(store, { kind: "visit_skip", visit_id: visitId, user_id: userId, org_id: orgId, payload });
       const packs = await store.listPacks();
       const row = packs.find((pack) => visitFromPack(pack.pack, visitId));
       if (row) await saveDayPack(store, row.date, patchVisitPack(row.pack, visitId, { status: "skipped", skip_reason: reason }) as Json);
@@ -75,6 +94,14 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
   }
 
   const needPhoto = reason ? skipNeedsPhoto(reason) : false;
+  const needNote = reason ? skipNeedsNote(reason) : false;
+  const optionalPhoto = reason === "unsafe";
+  const canSkip =
+    !!reason &&
+    (!needPhoto || !!issueFile) &&
+    (!needNote || !!skipNote.trim()) &&
+    !busy;
+
   return (
     <>
       <div className="mt-4 flex gap-2">
@@ -89,14 +116,48 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
               <h2 className="mt-2 font-serif text-2xl font-bold">Problem</h2>
               <div className="mt-4 flex flex-col gap-2">
                 {SKIP_REASONS.map(([id, label]) => (
-                  <button key={id} type="button" className={`min-h-14 rounded-xl border px-3 text-left text-[17px] font-semibold ${reason === id ? "border-2 border-primary" : ""}`} onClick={() => { setReason(id); setIssueFile(null); }}>{label}</button>
+                  <button
+                    key={id}
+                    type="button"
+                    className={`min-h-14 rounded-xl border px-3 text-left text-[17px] font-semibold ${reason === id ? "border-2 border-primary" : ""}`}
+                    onClick={() => {
+                      setReason(id);
+                      setIssueFile(null);
+                      setSkipNote("");
+                    }}
+                  >
+                    {label}
+                  </button>
                 ))}
               </div>
-              {needPhoto ? <button type="button" className="mt-4 flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" onClick={() => issue.current?.click()}>{issueFile ? "Photo ready" : "Take problem photo"}</button> : null}
-              <p className="mt-3 text-[15px] text-muted-foreground">{needPhoto ? "Gate locked and dog loose need a photo." : "Keep working, or skip this stop."}</p>
+              {needNote ? (
+                <textarea
+                  value={skipNote}
+                  maxLength={2000}
+                  onChange={(event) => setSkipNote(event.target.value)}
+                  placeholder="What makes this unsafe?"
+                  className="mt-4 min-h-24 w-full rounded-xl border p-3 text-[17px]"
+                />
+              ) : null}
+              {needPhoto || optionalPhoto ? (
+                <button
+                  type="button"
+                  className="mt-4 flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold"
+                  onClick={() => issue.current?.click()}
+                >
+                  {issueFile ? "Photo ready" : needPhoto ? "Take after photo" : "Add photo (optional)"}
+                </button>
+              ) : null}
+              <p className="mt-3 text-[15px] text-muted-foreground">
+                {needPhoto
+                  ? "Gate locked and dog loose need an after photo."
+                  : needNote
+                    ? "Describe the hazard. A photo is optional. This goes to the office as urgent."
+                    : "Keep working, or skip this stop."}
+              </p>
               <div className="mt-4 flex gap-2">
                 <button type="button" className="inline-flex min-h-14 flex-1 items-center justify-center rounded-xl border text-[17px] font-semibold" onClick={() => setSheet(null)}>Keep working</button>
-                <button type="button" className="inline-flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={!reason || (needPhoto && !issueFile) || busy} onClick={() => void confirmSkip()}>Cannot finish</button>
+                <button type="button" className="inline-flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={!canSkip} onClick={() => void confirmSkip()}>Cannot finish</button>
               </div>
             </>
           ) : (
@@ -120,4 +181,3 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
     </>
   );
 }
-

@@ -737,7 +737,7 @@ select throws_ok(
   ),
   '22023',
   null,
-  'a gate locked skip needs an issue photo'
+  'a gate locked skip needs an after photo'
 );
 insert into storage.objects (bucket_id, name)
 values ('visit-photos', :'org' || '/' || :'visit_c' || '/' || :'client_issue' || '.jpg');
@@ -745,10 +745,10 @@ select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
 select is(
   tests.apply_crew(
     'visit_photo_record', :'visit_c'::uuid, :'client_issue'::uuid, null, null,
-    jsonb_build_object('photo_kind', 'issue')
+    jsonb_build_object('photo_kind', 'after')
   ),
   'applied',
-  'the lead can record an issue photo'
+  'the lead can record an after photo for a gate skip'
 );
 select is(
   tests.apply_crew(
@@ -756,7 +756,7 @@ select is(
     jsonb_build_object('reason', 'gate_locked')
   ),
   'applied',
-  'a gate locked skip is accepted with an issue photo'
+  'a gate locked skip is accepted with an after photo'
 );
 
 select gen_random_uuid() as client_missing_photo \gset
