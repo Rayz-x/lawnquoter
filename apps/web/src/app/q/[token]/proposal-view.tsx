@@ -238,15 +238,11 @@ export function ProposalView({
     acceptance?: PublicAcceptance | null;
   };
 }) {
-<<<<<<< HEAD
   const measuringPill = siteCheckMeasuringPill(
     payload.site_check?.window_start,
     payload.site_check?.window_end,
   );
-  const sections = payload.sections ?? [];
-=======
   const sections = useMemo(() => payload.sections ?? [], [payload.sections]);
->>>>>>> ad5fa92 (Stabilize proposal sections memo for lint)
   const known = useMemo(() => new Set(sections.map((section) => section.id)), [sections]);
   const [picked, setPicked] = useState<Record<string, string>>(() => {
     const defaults = new Set(defaultSelectedIds(payload.items));
