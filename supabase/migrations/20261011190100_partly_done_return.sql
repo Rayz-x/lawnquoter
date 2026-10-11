@@ -1,15 +1,19 @@
+-- S12 (renumbered from 20261010210700, which never applied on hosted):
+-- rebuilt on top of 20261010217400's crew_apply_impl / office_attention_tray.
+-- billing_held already exists from 20261010214900; partly done sets
+-- billing_hold_reason = 'partly_done' to satisfy visits_billing_hold_reason_check.
 -- S12: Partly done finish with return visit (issue #92).
 -- Lead finishes with outcome=partly + reason + after photo; original is held
 -- for billing review; a return visit lands unassigned in Needs attention.
 
 alter table public.visits
-  add column billing_held boolean not null default false;
+  add column if not exists billing_held boolean not null default false;
 
 alter table public.visits
-  add column partly_done_reason text;
+  add column if not exists partly_done_reason text;
 
 alter table public.visits
-  add column return_of_visit_id uuid references public.visits(id) on delete set null;
+  add column if not exists return_of_visit_id uuid references public.visits(id) on delete set null;
 
 alter table public.visits
   add constraint visits_partly_done_reason_len check (
@@ -18,22 +22,16 @@ alter table public.visits
   );
 
 alter table public.visits
-  add constraint visits_billing_held_completed check (
-    billing_held = false
-    or status = 'completed'::public.visit_status
-  );
-
-alter table public.visits
   add constraint visits_return_not_self check (
     return_of_visit_id is null
     or return_of_visit_id is distinct from id
   );
 
-create index visits_return_of_visit_id_idx
+create index if not exists visits_return_of_visit_id_idx
   on public.visits (return_of_visit_id)
   where return_of_visit_id is not null;
 
-create unique index visits_one_return_per_parent
+create unique index if not exists visits_one_return_per_parent
   on public.visits (return_of_visit_id)
   where return_of_visit_id is not null;
 
@@ -57,6 +55,7 @@ as $$
 declare
   v_visit public.visits;
   v_crew uuid;
+  v_crew_name text;
   v_route_status public.route_status;
   v_claimed uuid;
   v_existing text;
@@ -65,6 +64,7 @@ declare
   v_skew boolean;
   v_in_window boolean;
   v_active boolean;
+  v_mid_cancel boolean;
   v_reason public.visit_skip_reason;
   v_size integer;
   v_note text;
@@ -80,6 +80,7 @@ declare
   v_tz text;
   v_event public.visit_event_kind;
   v_entry public.time_entry_kind;
+  v_forgot boolean;
   v_outcome text;
   v_partly_reason text;
   v_return_id uuid;
@@ -90,8 +91,8 @@ begin
   end if;
   if p_kind not in (
     'visit_start', 'visit_pause', 'visit_resume', 'visit_finish', 'visit_skip',
-    'visit_reopen', 'visit_set_crew_size', 'visit_set_note', 'visit_task_set',
-    'visit_photo_record', 'enhancement_create'
+    'visit_stop', 'visit_reopen', 'visit_set_crew_size', 'visit_set_note', 'visit_task_set',
+    'visit_photo_record', 'visit_flag_photo_lost', 'enhancement_create'
   ) then
     raise exception 'mutation kind is not valid' using errcode = '22023';
   end if;
@@ -105,14 +106,29 @@ begin
     raise exception 'visit not found' using errcode = 'P0002';
   end if;
 
-  select r.crew_id, r.status
-    into v_crew, v_route_status
+  select r.crew_id, r.status, c.name
+    into v_crew, v_route_status, v_crew_name
   from public.routes r
+  join public.crews c
+    on c.id = r.crew_id
+   and c.org_id = r.org_id
   where r.id = v_visit.route_id
     and r.org_id = v_visit.org_id;
 
-  -- Live membership, not the JWT role. A demoted lead fails here, before the
-  -- receipt, so a replay does not succeed after the demotion.
+  -- Stale finish / cross-crew: a live lead (of any crew) gets a clear message.
+  -- A demoted lead still hits not-allowed below.
+  if p_kind = 'visit_finish'
+     and v_visit.status = 'completed'::public.visit_status
+     and exists (
+       select 1
+       from public.crews c
+       where c.org_id = v_visit.org_id
+         and private.is_live_crew_lead(c.org_id, c.id)
+     ) then
+    raise exception 'Already done by %', coalesce(nullif(btrim(v_crew_name), ''), 'another crew')
+      using errcode = '22023';
+  end if;
+
   if v_crew is null or not private.is_live_crew_lead(v_visit.org_id, v_crew) then
     raise exception 'not allowed' using errcode = '42501';
   end if;
@@ -141,6 +157,8 @@ begin
     'in_progress'::public.visit_status,
     'paused'::public.visit_status
   );
+  v_mid_cancel := v_visit.status = 'cancelled'::public.visit_status
+    and v_visit.started_at is not null;
   v_in_window := v_route_status is distinct from 'draft'::public.route_status
     and v_visit.scheduled_date between private.org_local_today(v_visit.org_id) - 1
                                     and private.org_local_today(v_visit.org_id) + 1;
@@ -172,9 +190,9 @@ begin
     v_event := 'resumed';
     v_entry := 'job';
   elsif p_kind = 'visit_finish' then
-    -- In progress on a past day is still finishable. The schema only blocks
-    -- a second active visit on the same scheduled date.
-    if not v_active then
+    -- Active, or mid-visit cancel (office cancelled after start). Past-day and
+    -- past-midnight finishes keep scheduled_date unchanged.
+    if not (v_active or v_mid_cancel) then
       raise exception 'that visit cannot be finished' using errcode = '22023';
     end if;
     v_outcome := nullif(btrim(coalesce(p_payload->>'outcome', '')), '');
@@ -196,6 +214,9 @@ begin
       set status = 'completed',
           completed_at = v_at,
           billing_held = true,
+          billing_hold_reason = 'partly_done'::public.billing_hold_reason,
+          forgot_to_finish = forgot_to_finish
+            or coalesce(started_at, v_at) <= v_at - interval '12 hours',
           partly_done_reason = v_partly_reason,
           reopen_until = null
       where id = v_visit.id;
@@ -244,16 +265,31 @@ begin
         'return_visit_id', v_return_id
       );
     else
+      v_forgot := coalesce(v_visit.started_at, v_at) <= v_at - interval '12 hours';
       update public.visits
       set status = 'completed',
           completed_at = v_at,
-          reopen_until = (
-            (private.org_local_today(v_visit.org_id)::text || ' 18:00:00')::timestamp
-            at time zone v_tz
-          )
+          forgot_to_finish = forgot_to_finish or v_forgot,
+          reopen_until = case
+            when v_mid_cancel then null
+            else (
+              (private.org_local_today(v_visit.org_id)::text || ' 18:00:00')::timestamp
+              at time zone v_tz
+            )
+          end
       where id = v_visit.id;
     end if;
     v_event := 'finished';
+  elsif p_kind = 'visit_stop' then
+    -- Mid-visit cancel: crew chooses Stop instead of Finish.
+    if not v_mid_cancel then
+      raise exception 'that visit cannot be stopped' using errcode = '22023';
+    end if;
+    update public.time_entries te
+    set ended_at = greatest(te.started_at, v_at)
+    where te.visit_id = v_visit.id
+      and te.ended_at is null;
+    return 'applied';
   elsif p_kind = 'visit_skip' then
     if v_active then
       null;
@@ -305,7 +341,8 @@ begin
     v_event := 'reopened';
     v_entry := 'job';
   elsif p_kind = 'visit_set_crew_size' then
-    if v_visit.status = 'cancelled'::public.visit_status or not (v_in_window or v_active) then
+    if (v_visit.status = 'cancelled'::public.visit_status and not v_mid_cancel)
+       or not (v_in_window or v_active or v_mid_cancel) then
       raise exception 'that visit cannot be changed' using errcode = '22023';
     end if;
     v_size := (p_payload->>'crew_size')::integer;
@@ -314,13 +351,15 @@ begin
     end if;
     update public.visits set crew_size = v_size where id = v_visit.id;
   elsif p_kind = 'visit_set_note' then
-    if v_visit.status = 'cancelled'::public.visit_status or not (v_in_window or v_active) then
+    if (v_visit.status = 'cancelled'::public.visit_status and not v_mid_cancel)
+       or not (v_in_window or v_active or v_mid_cancel) then
       raise exception 'that visit cannot be changed' using errcode = '22023';
     end if;
     v_note := nullif(btrim(coalesce(p_payload->>'note', '')), '');
     update public.visits set crew_note = v_note where id = v_visit.id;
   elsif p_kind = 'visit_task_set' then
-    if v_visit.status = 'cancelled'::public.visit_status or not (v_in_window or v_active) then
+    if (v_visit.status = 'cancelled'::public.visit_status and not v_mid_cancel)
+       or not (v_in_window or v_active or v_mid_cancel) then
       raise exception 'that visit cannot be changed' using errcode = '22023';
     end if;
     v_task := (p_payload->>'task_id')::uuid;
@@ -342,7 +381,7 @@ begin
         end
     where id = v_task;
   elsif p_kind = 'visit_photo_record' then
-    if v_visit.status = 'cancelled'::public.visit_status or not (v_in_window or v_active) then
+    if (v_visit.status = 'cancelled'::public.visit_status and not v_mid_cancel) then
       raise exception 'that visit cannot take a photo' using errcode = '22023';
     end if;
     begin
@@ -353,6 +392,17 @@ begin
     end;
     if v_photo_kind is null then
       raise exception 'photo kind is not valid' using errcode = '22023';
+    end if;
+    -- Offline finish may land first; after photos may arrive while photo_pending.
+    -- Mid-visit cancel also allows photos while finishing/stopping.
+    if v_visit.status = 'completed'::public.visit_status then
+      if not v_visit.photo_pending or v_photo_kind is distinct from 'after'::public.visit_photo_kind then
+        raise exception 'that visit cannot take a photo' using errcode = '22023';
+      end if;
+    elsif v_mid_cancel then
+      null;
+    elsif not (v_in_window or v_active) then
+      raise exception 'that visit cannot take a photo' using errcode = '22023';
     end if;
     v_lat := (p_payload->>'lat')::double precision;
     v_lng := (p_payload->>'lng')::double precision;
@@ -372,6 +422,14 @@ begin
       p_client_id,
       v_skew
     );
+  elsif p_kind = 'visit_flag_photo_lost' then
+    if v_visit.status is distinct from 'completed'::public.visit_status then
+      raise exception 'that visit cannot be flagged' using errcode = '22023';
+    end if;
+    update public.visits
+    set photo_lost = true,
+        photo_pending = true
+    where id = v_visit.id;
   elsif p_kind = 'enhancement_create' then
     if v_visit.status = 'cancelled'::public.visit_status or not (v_in_window or v_active) then
       raise exception 'that visit cannot take an enhancement' using errcode = '22023';
@@ -484,7 +542,6 @@ revoke all on function private.crew_apply_impl(text, uuid, uuid, timestamptz, ti
 grant execute on function private.crew_apply_impl(text, uuid, uuid, timestamptz, timestamptz, jsonb)
   to service_role;
 
--- Surface return visits in the unassigned tray with a clear reason.
 create or replace function public.office_attention_tray(p_as_of date default null)
 returns jsonb
 language plpgsql
@@ -518,13 +575,25 @@ begin
       v.route_id,
       v.budget_minutes,
       v.completed_after_cancel,
+      v.forgot_to_finish,
       coalesce(j.title, 'Visit') as title,
       a.name as account_name,
       p.address_line1,
       p.city,
       case
+        when v.photo_lost then 'Photo lost'
         when v.return_of_visit_id is not null then 'Return visit'
         when v.completed_after_cancel then 'Completed after cancel'
+        when v.forgot_to_finish
+          or (
+            v.status in (
+              'in_progress'::public.visit_status,
+              'paused'::public.visit_status
+            )
+            and v.started_at is not null
+            and v.started_at <= pg_catalog.now() - interval '12 hours'
+          )
+          then 'Forgot to finish'
         when exists (
           select 1
           from public.enhancement_requests e
@@ -543,7 +612,17 @@ begin
         else null
       end as reason,
       case
-        when v.completed_after_cancel
+        when v.photo_lost
+          or v.completed_after_cancel
+          or v.forgot_to_finish
+          or (
+            v.status in (
+              'in_progress'::public.visit_status,
+              'paused'::public.visit_status
+            )
+            and v.started_at is not null
+            and v.started_at <= pg_catalog.now() - interval '12 hours'
+          )
           or exists (
             select 1
             from public.enhancement_requests e
