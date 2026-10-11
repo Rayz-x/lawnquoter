@@ -11,13 +11,13 @@ Production: https://lawnquoter.vercel.app
 
 ## What it does
 
-Office staff keep accounts and properties, measure a lot on satellite imagery, price the work from the company catalog, and send a proposal. The customer opens a public link, reviews the included work and any options, and accepts with an electronic signature. When a price is a range, that acceptance is a not-to-exceed amount: the customer agrees to pay no more than the cap, and the final bill may be lower. A sealed copy of the signed proposal is emailed when email is configured. Each company can set its own logo, brand color, and heading style on the public page and the PDF.
+Office staff keep accounts and properties, measure a lot on satellite imagery, price the work from the company catalog, and send a proposal. The customer opens a public link, reviews the included work and any options, and accepts with an electronic signature. When a price is a range, that acceptance is a not-to-exceed amount: the customer agrees to pay no more than the cap, and the final bill may be lower. A line flagged for a site check says the price will be confirmed on site within five days of acceptance, and the customer can request a final price from that page. A sealed copy of the signed proposal is emailed when email is configured. Each company can set its own logo, brand color, and heading style on the public page and the PDF. Every account includes billing details. The billing email stays blank until someone enters it, and the billing address starts as the first property.
 
-An accepted quote becomes scheduled work. The office keeps agreements, names crews, assigns stops, and publishes the day. Crews install LawnQuoter on a phone and can keep working without a signal. The day's stops, a visit timer, before-and-after photos, skip reasons, and upsells stay on the phone until they send.
+An accepted quote becomes scheduled work. The office keeps agreements, names crews, assigns stops, and publishes the day. Recurring agreements stay filled about ten weeks ahead. The schedule lists stops that need attention, and a rain day can move that day's scheduled stops to the next work day. Crews install LawnQuoter on a phone and can keep working without a signal. The day's stops, a visit timer, before-and-after photos, skip reasons, and upsells stay on the phone until they send. The crew map shows today's stop pins, or an outline map with no satellite tiles when battery saver is on. Gate codes are shown for yesterday, today, and tomorrow on the company clock.
 
 Property addresses are geocoded with Esri and stored on the property. Maps that draw that pin credit Esri.
 
-Leads, bids, invoices, and analytics appear in the office navigation and do not have screens yet. The dashboard figures are placeholders. The Payments tab does not charge cards; click-to-accept records the signature without it. The crew Map tab shows today's stop pins when online, or an outline map with battery saver.
+The office picks a lead source on the account. Lead sources, in the Sales menu, shows how fast leads are first contacted and how often each source becomes a customer. A lead page lets the office log a contact, assign it, and set a follow-up. The menu does not list every lead. When email is configured, people with follow-ups due get one morning email. The company owner can connect a Stripe account from Settings so card payments can go to that account. Accepting a quote records the signature and does not charge a card. When an invoice is issued, it gets the next number for the year and the tax stays locked. The office menu has no invoices screen. The dashboard figures are placeholders. Bids and analytics are not in the menu.
 
 ## Stack
 
@@ -42,7 +42,7 @@ Requirements: Node 22+, pnpm 12+, PostgreSQL 17 with PostGIS and pgTAP (Homebrew
 pnpm install
 cp apps/web/.env.example apps/web/.env.local   # fill in your Supabase project keys
 pnpm db:test        # boots a throwaway Postgres, applies migrations, runs pgTAP
-bash scripts/db-types.sh   # regenerates apps/web/src/lib/supabase/database.types.ts
+pnpm db:types       # regenerates apps/web/src/lib/supabase/database.types.ts
 pnpm dev            # http://localhost:3000
 ```
 
@@ -60,8 +60,10 @@ Optional:
 - `ARCGIS_API_KEY` — server-only key for stored Esri geocoding. It needs the geocode (stored) privilege.
 - `NEXT_PUBLIC_ARCGIS_API_KEY` — public browser key for Esri World Imagery tiles. It is not used for geocoding.
 - `REGRID_API_TOKEN` — parcel lookup while measuring. Without it, the lot is traced by hand.
-- `RESEND_API_KEY` and `EMAIL_FROM` — email the sealed acceptance copy. Leave both unset to skip sending.
-- Stripe and SignWell keys are listed for later card payments and formal contracts. Click-to-accept works without them.
+- `RESEND_API_KEY` and `EMAIL_FROM` — email the sealed acceptance copy, and the morning follow-up list. Leave both unset to skip sending.
+- `CRON_SECRET` — shared secret for the hourly follow-up job (`Authorization: Bearer`). Leave unset and that job refuses the request. The job still needs the email keys above before it sends.
+- `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `STRIPE_WEBHOOK_SECRET` — Stripe Connect. The company owner connects an Express account from the Payments section of Settings. Click-to-accept does not charge a card, and it works with these unset.
+- `SIGNWELL_API_KEY` — listed for a later formal-contract step. Accepting a quote does not use it.
 
 ## Connecting a Supabase project
 
