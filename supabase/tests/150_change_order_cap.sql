@@ -1,5 +1,6 @@
 -- I13: range-line billing clamps at cap until an accepted change order raises it.
-select plan(12);
+-- Acceptance evidence is writable only via change_order_accept (security definer).
+select plan(18);
 
 select tests.create_user('co-owner@example.com', 'CO Owner') as owner \gset
 select tests.create_user('co-crew@example.com', 'CO Crew') as crew \gset
@@ -104,6 +105,82 @@ select throws_ok(
   '22023',
   null,
   'accept without ESIGN disclosure fails'
+);
+
+-- Office authenticated cannot forge or edit acceptance evidence via table writes.
+select tests.authenticate_as(:'owner'::uuid, :'org'::uuid, 'owner');
+select throws_ok(
+  format(
+    $$ insert into public.change_orders (
+         org_id, account_id, quote_id, line_item_id, status,
+         prior_cap_cents, proposed_amount_cents, new_cap_cents,
+         sent_at, signer_name, disclosure_accepted, document_hash, accepted_at
+       ) values (
+         %L::uuid, %L::uuid, %L::uuid, %L::uuid, 'accepted',
+         15000, 20000, 20000,
+         now(), 'Forged Signer', true, 'deadbeef', now()
+       ) $$,
+    :'org', :'acct', :'qid', :'mow'
+  ),
+  '42501',
+  null,
+  'office cannot insert a forged accepted change order'
+);
+
+select id as sent_co from public.change_orders where public_token = :'cotok2'::uuid \gset
+select throws_ok(
+  format(
+    $$ update public.change_orders
+       set status = 'accepted',
+           signer_name = 'Forged Signer',
+           disclosure_accepted = true,
+           document_hash = 'deadbeef',
+           accepted_at = now()
+       where id = %L::uuid $$,
+    :'sent_co'
+  ),
+  '42501',
+  null,
+  'office cannot update a sent change order to accepted'
+);
+
+select is(
+  (select status from public.change_orders where id = :'sent_co'::uuid),
+  'sent'::public.change_order_status,
+  'forged update left the change order sent'
+);
+select is(
+  public.billable_line_amount_cents(:'mow'::uuid, 18000),
+  15000::bigint,
+  'forged accept did not raise the billing cap'
+);
+
+-- Legitimate accept still works; PUBLIC cannot execute the new RPCs by default grant.
+select tests.authenticate_anon();
+select lives_ok(
+  format(
+    $$ select public.change_order_accept(%L::uuid, 'Pat Customer', 'pat@example.com', true) $$,
+    :'cotok2'
+  ),
+  'customer can still accept via change_order_accept'
+);
+select ok(
+  not has_function_privilege(
+    'public',
+    'public.change_order_create(uuid, bigint, text)',
+    'execute'
+  )
+  and not has_function_privilege(
+    'public',
+    'public.change_order_public(uuid)',
+    'execute'
+  )
+  and not has_function_privilege(
+    'public',
+    'public.change_order_accept(uuid, text, text, boolean)',
+    'execute'
+  ),
+  'PUBLIC cannot execute the three change-order RPCs'
 );
 
 select * from finish();

@@ -141,6 +141,8 @@ $$;
 comment on function public.billable_line_amount_cents(uuid, bigint) is
   'Clamp an actual amount to the line''s effective billing cap (range high / accepted change order).';
 
+revoke all on function public.line_billing_cap_cents(uuid) from public;
+revoke all on function public.billable_line_amount_cents(uuid, bigint) from public;
 grant execute on function public.line_billing_cap_cents(uuid) to authenticated, service_role;
 grant execute on function public.billable_line_amount_cents(uuid, bigint) to authenticated, service_role;
 
@@ -205,6 +207,7 @@ begin
 end;
 $$;
 
+revoke all on function public.change_order_create(uuid, bigint, text) from public;
 grant execute on function public.change_order_create(uuid, bigint, text) to authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -256,6 +259,7 @@ begin
 end;
 $$;
 
+revoke all on function public.change_order_public(uuid) from public;
 grant execute on function public.change_order_public(uuid) to anon, authenticated;
 
 create or replace function public.change_order_accept(
@@ -334,10 +338,65 @@ begin
 end;
 $$;
 
+revoke all on function public.change_order_accept(uuid, text, text, boolean) from public;
 grant execute on function public.change_order_accept(uuid, text, text, boolean) to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- RLS: office can manage; crew denied. Public access is RPC-only.
+-- Acceptance evidence: only change_order_accept (security definer) may write
+-- status=accepted / signer_name / document_hash / accepted_at / disclosure.
+-- Authenticated INSERT may create sent/draft rows via change_order_create;
+-- authenticated has no UPDATE privilege on the table.
+-- ---------------------------------------------------------------------------
+create or replace function private.change_orders_protect_acceptance()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  -- Definer RPCs run as the function owner (not authenticated/anon).
+  if current_user not in ('authenticated', 'anon') then
+    return new;
+  end if;
+
+  if tg_op = 'INSERT' then
+    if new.status = 'accepted'::public.change_order_status
+       or new.accepted_at is not null
+       or new.signer_name is not null
+       or new.document_hash is not null
+       or new.disclosure_accepted is true then
+      raise exception 'change order acceptance evidence is RPC-only'
+        using errcode = '42501';
+    end if;
+    return new;
+  end if;
+
+  if new.status is distinct from old.status
+     and new.status = 'accepted'::public.change_order_status then
+    raise exception 'change order acceptance evidence is RPC-only'
+      using errcode = '42501';
+  end if;
+  if new.accepted_at is distinct from old.accepted_at
+     or new.signer_name is distinct from old.signer_name
+     or new.document_hash is distinct from old.document_hash
+     or new.disclosure_accepted is distinct from old.disclosure_accepted then
+    raise exception 'change order acceptance evidence is RPC-only'
+      using errcode = '42501';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function private.change_orders_protect_acceptance() from public, anon;
+grant execute on function private.change_orders_protect_acceptance() to authenticated, service_role;
+
+create trigger change_orders_protect_acceptance
+  before insert or update on public.change_orders
+  for each row execute function private.change_orders_protect_acceptance();
+
+-- ---------------------------------------------------------------------------
+-- RLS: office can read + insert non-accepted rows; crew denied.
+-- Public access and acceptance writes are RPC-only.
 -- ---------------------------------------------------------------------------
 alter table public.change_orders enable row level security;
 alter table public.change_orders force row level security;
@@ -347,11 +406,32 @@ create policy change_orders_select on public.change_orders
   using ((select private.can_read_pricing(org_id)));
 create policy change_orders_insert on public.change_orders
   for insert to authenticated
-  with check ((select private.can_edit_customers(org_id)));
-create policy change_orders_update on public.change_orders
-  for update to authenticated
-  using ((select private.can_edit_customers(org_id)))
-  with check ((select private.can_edit_customers(org_id)));
+  with check (
+    (select private.can_edit_customers(org_id))
+    and status <> 'accepted'::public.change_order_status
+    and accepted_at is null
+    and signer_name is null
+    and document_hash is null
+    and coalesce(disclosure_accepted, false) is not true
+  );
 
-grant select, insert, update on public.change_orders to authenticated;
-grant all on public.change_orders to service_role;
+revoke all on table public.change_orders from public, anon, authenticated;
+grant select on table public.change_orders to authenticated;
+grant insert (
+  id,
+  org_id,
+  account_id,
+  quote_id,
+  line_item_id,
+  public_token,
+  status,
+  prior_cap_cents,
+  proposed_amount_cents,
+  new_cap_cents,
+  reason,
+  signer_email,
+  sent_at,
+  created_at,
+  updated_at
+) on table public.change_orders to authenticated;
+grant all on table public.change_orders to service_role;
