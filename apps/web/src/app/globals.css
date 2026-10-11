@@ -612,6 +612,10 @@
     display: flex;
   }
 
+}
+
+/* .dispatch-main sits outside the topnav container, so pad it with a media query. */
+@media (max-width: 759px) {
   .dispatch-main {
     padding-block-end: calc(4.25rem + env(safe-area-inset-bottom, 0px));
   }

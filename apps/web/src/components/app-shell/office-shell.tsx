@@ -7,6 +7,9 @@ import { Bell, ChevronDown, Plus, Search } from "lucide-react";
 import { useTheme } from "next-themes";
 import type { OrgRole } from "@lawnquoter/shared";
 import { activeNavHref, visibleNav, type NavItem } from "./nav-config";
+
+/** Phone tab bar: Today, then Quotes and Schedule when the role can open them. */
+const TAB_HREFS: readonly string[] = ["/dashboard", "/quotes", "/schedule"];
 import { CommandPalette, type PaletteCommand } from "./command-palette";
 import { UserMenu } from "./user-menu";
 
@@ -60,6 +63,8 @@ export function OfficeShell({
   const [help, setHelp] = useState(false);
   const [orgOpen, setOrgOpen] = useState(false);
   const items = visibleNav(role).flatMap((group) => group.items);
+  const canSee = (href: string) => items.some((item) => item.href === href);
+  const tabLabel = (href: string) => items.find((item) => item.href === href)?.title ?? href;
   const current = activeNavHref(pathname, items);
   const section = items.find((item) => item.href === current);
   const showCrew = items.some((item) => item.href === "/crew/today");
@@ -199,13 +204,18 @@ export function OfficeShell({
         </div>
 
         <nav aria-label="Mobile" className="dispatch-tabs">
-          <Tab href="/dashboard" label="Today" current={current === "/dashboard"} />
-          <Tab href="/quotes" label="Quotes" current={current === "/quotes"} />
-          <Link href="/quotes/new" className="dispatch-tab-new" aria-label="New quote">
-            <Plus className="size-6" />
-          </Link>
-          <Tab href="/schedule" label="Schedule" current={current === "/schedule"} />
-          <MoreMenu items={items.filter((item) => item.place !== "user" && !["/dashboard", "/quotes", "/schedule"].includes(item.href))} current={current} label="More" up />
+          {TAB_HREFS.filter((href) => href === "/dashboard" || canSee(href)).slice(0, 2).map((href) => (
+            <Tab key={href} href={href} label={tabLabel(href)} current={current === href} />
+          ))}
+          {canSee("/quotes") ? (
+            <Link href="/quotes/new" className="dispatch-tab-new" aria-label="New quote">
+              <Plus className="size-6" />
+            </Link>
+          ) : null}
+          {TAB_HREFS.filter((href) => href !== "/dashboard" && canSee(href)).slice(1, 2).map((href) => (
+            <Tab key={href} href={href} label={tabLabel(href)} current={current === href} />
+          ))}
+          <MoreMenu items={items.filter((item) => item.place !== "user" && !TAB_HREFS.some((href) => href === item.href && (href === "/dashboard" || canSee(href))))} current={current} label="More" up />
         </nav>
       </header>
 
