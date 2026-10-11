@@ -1,0 +1,118 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  LEAD_INTAKE_IP_LIMIT,
+  submitPublicLeadRequest,
+  type LeadIntakeDeps,
+  type LeadIntakeInput,
+} from "./submit-request";
+
+function baseInput(overrides: Partial<LeadIntakeInput> = {}): LeadIntakeInput {
+  return {
+    slug: "acme-lawn",
+    contactName: "Jane Doe",
+    addressTyped: "123 Main St, Austin, TX 78701",
+    phone: "5125551212",
+    email: null,
+    turnstileToken: "token-ok",
+    honeypot: "",
+    formStartedAtMs: Date.now() - 10_000,
+    smsConsent: false,
+    services: ["mowing"],
+    note: null,
+    isBusiness: false,
+    preferredContact: null,
+    heardAbout: null,
+    heardAboutOther: null,
+    utmSource: "google",
+    utmMedium: "cpc",
+    utmCampaign: "spring",
+    utmTerm: null,
+    utmContent: null,
+    referrer: "https://google.com",
+    landingPage: "https://example.com/r/acme-lawn",
+    clientIp: "203.0.113.10",
+    userAgent: "vitest",
+    ...overrides,
+  };
+}
+
+function makeDeps(overrides: Partial<LeadIntakeDeps> = {}): LeadIntakeDeps {
+  return {
+    findOrgBySlug: vi.fn(async () => ({
+      orgId: "org-1",
+      consentTextVersion: "v1",
+      defaultAssigneeId: "user-owner",
+    })),
+    countRecentByIpHash: vi.fn(async () => 0),
+    countRecentByOrg: vi.fn(async () => 0),
+    geocode: vi.fn(async () => ({
+      score: 0.9,
+      line1: "123 Main St",
+      city: "Austin",
+      region: "TX",
+      postalCode: "78701",
+      country: "US",
+      lng: -97.74,
+      lat: 30.27,
+      attribution: "Esri",
+      raw: { ok: true },
+    })),
+    insertLead: vi.fn(async () => ({ id: "lead-1" })),
+    verifyTurnstile: vi.fn(async () => true),
+    nowMs: () => Date.now(),
+    ...overrides,
+  };
+}
+
+describe("submitPublicLeadRequest", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("rejects an invalid Turnstile token before geocode or storage", async () => {
+    const deps = makeDeps({
+      verifyTurnstile: vi.fn(async () => false),
+    });
+
+    const result = await submitPublicLeadRequest(baseInput(), deps);
+
+    expect(result).toEqual({ ok: false, reason: "turnstile" });
+    expect(vi.mocked(deps.geocode)).not.toHaveBeenCalled();
+    expect(vi.mocked(deps.insertLead)).not.toHaveBeenCalled();
+  });
+
+  it("stores honeypot submissions as spam and skips geocode", async () => {
+    const deps = makeDeps();
+
+    const result = await submitPublicLeadRequest(baseInput({ honeypot: "http://spam.test" }), deps);
+
+    expect(result).toEqual({ ok: true, status: "spam" });
+    expect(vi.mocked(deps.geocode)).not.toHaveBeenCalled();
+    expect(vi.mocked(deps.insertLead)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(deps.insertLead).mock.calls[0]?.[0]).toMatchObject({
+      status: "spam",
+      spamScore: expect.any(Number),
+    });
+    expect(vi.mocked(deps.insertLead).mock.calls[0]?.[0].spamScore).toBeGreaterThan(0);
+  });
+
+  it("rejects the N+1 submission from one IP hash", async () => {
+    const deps = makeDeps({
+      countRecentByIpHash: vi.fn(async () => LEAD_INTAKE_IP_LIMIT),
+    });
+
+    const result = await submitPublicLeadRequest(baseInput(), deps);
+
+    expect(result).toEqual({ ok: false, reason: "rate_limit" });
+    expect(vi.mocked(deps.geocode)).not.toHaveBeenCalled();
+    expect(vi.mocked(deps.insertLead)).not.toHaveBeenCalled();
+  });
+
+  it("returns the same generic success shape for a clean store", async () => {
+    const deps = makeDeps();
+    const result = await submitPublicLeadRequest(baseInput(), deps);
+    expect(result).toEqual({ ok: true, status: "new" });
+    expect(vi.mocked(deps.geocode)).toHaveBeenCalledOnce();
+    expect(vi.mocked(deps.insertLead)).toHaveBeenCalledOnce();
+  });
+});
