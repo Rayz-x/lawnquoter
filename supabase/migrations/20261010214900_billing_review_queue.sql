@@ -83,6 +83,7 @@ revoke all on function private.invoice_batch_visit_eligible(uuid) from public, a
 grant execute on function private.invoice_batch_visit_eligible(uuid) to authenticated, service_role;
 
 -- Price a visit task from its source quote line (dollars → cents).
+-- Clamps through public.billable_line_amount_cents so accepted change-order caps apply.
 create or replace function private.visit_task_bill_cents(p_task_id uuid)
 returns bigint
 language plpgsql
@@ -91,24 +92,22 @@ security definer
 set search_path = ''
 as $$
 declare
+  v_line_id uuid;
   v_price numeric;
-  v_high numeric;
+  v_actual bigint;
 begin
-  select li.price, li.range_high
-    into v_price, v_high
+  select li.id, li.price
+    into v_line_id, v_price
   from public.visit_tasks t
   join public.quote_line_items li on li.id = t.source_line_item_id
   where t.id = p_task_id;
 
-  if not found then
+  if not found or v_line_id is null then
     return 0;
   end if;
 
-  if v_high is not null then
-    v_price := least(coalesce(v_price, v_high), v_high);
-  end if;
-
-  return greatest(0, round(coalesce(v_price, 0) * 100)::bigint);
+  v_actual := greatest(0, round(coalesce(v_price, 0) * 100)::bigint);
+  return public.billable_line_amount_cents(v_line_id, v_actual);
 end;
 $$;
 
