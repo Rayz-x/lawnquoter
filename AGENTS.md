@@ -21,6 +21,14 @@ Skills in `.agents/skills/` are MIT-licensed. See `.agents/skills/LICENSE`.
 - Keep UI pull requests under ~500 lines.
 - Never merge, push to `main`, or apply Supabase migrations to the hosted database. Dusty approves every merge and hosted migration.
 
+## Cursor Cloud
+
+The Cloud Agent environment installs PostgreSQL 17 with PostGIS and pgTAP, the Supabase CLI, and `pnpm` dependencies. On boot it starts a local Supabase stack with the native runtime (no Docker), writes gitignored `apps/web/.env.local` from that stack, and runs `pnpm dev` at http://localhost:3000.
+
+Open `localhost`, not `127.0.0.1`. Next.js dev resources do not hydrate client JavaScript from the IP address. The package Postgres cluster on port 5432 stays stopped; the app uses the Supabase database. `pnpm db:test` uses the PostgreSQL 17 binaries and its own throwaway cluster.
+
+Do not apply migrations to the hosted Supabase project.
+
 ## Default workflow: Matt Pocock skills
 
 Every agent working on lawnquoter uses these skills by default:
