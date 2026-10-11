@@ -162,7 +162,10 @@ describe("submitPublicLeadRequest", () => {
       ]),
     });
 
-    const result = await submitPublicLeadRequest(baseInput({ phone: "512-555-1212" }), deps);
+    const result = await submitPublicLeadRequest(
+      baseInput({ phone: "512-555-1212", formStartedAtMs: now - 10_000 }),
+      deps,
+    );
 
     expect(result).toEqual({ ok: true, status: "new" });
     expect(vi.mocked(deps.foldIntoLead)).toHaveBeenCalledWith(
