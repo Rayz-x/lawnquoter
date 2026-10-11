@@ -19,7 +19,7 @@ import {
   siteCheckReasonsSummary,
   siteCheckRequestWindowCopy,
 } from "@/lib/quotes/site-check";
-import { orgToday } from "@/lib/scheduling/office-date";
+import { formatOfficeDay, orgToday } from "@/lib/scheduling/office-date";
 import { QuoteLostPrompt } from "@/components/leads/quote-lost-prompt";
 import { findLeadForQuote } from "@/lib/leads/supabase-store";
 import { createClient } from "@/lib/supabase/server";
@@ -41,7 +41,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .select(
-      "id, number, title, status, site_check_status, created_at, current_version, intro, notes_customer, notes_internal, public_token, property_id, accounts(name), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs)",
+      "id, number, title, status, site_check_status, created_at, current_version, intro, notes_customer, notes_internal, public_token, expires_at, property_id, accounts(name), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs)",
     )
     .eq("id", id)
     .eq("org_id", session.orgId)
@@ -248,6 +248,20 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             {finalPriceRequested ? (
               <Badge variant="outline" className="border-transparent bg-warning/15 text-warning">
                 {SITE_CHECK_REQUESTED_BADGE}
+              </Badge>
+            ) : null}
+            {quote.expires_at ? (
+              <Badge
+                variant="outline"
+                className={
+                  quote.status === "expired"
+                    ? "border-transparent bg-destructive/12 text-destructive"
+                    : undefined
+                }
+              >
+                {quote.status === "expired"
+                  ? `Expired ${formatOfficeDay(quote.expires_at)}`
+                  : `Expires ${formatOfficeDay(quote.expires_at)}`}
               </Badge>
             ) : null}
             {siteCheckCount > 0 ? (

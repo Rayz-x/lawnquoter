@@ -23,6 +23,7 @@ import {
   siteCheckWhatHappensNext,
   youPayNoMoreThan,
 } from "@/lib/quotes/site-check";
+import { formatOfficeDay } from "@/lib/scheduling/office-date";
 import { AcceptForm } from "./accept-form";
 import { RecordView } from "./record-view";
 import { RequestFinalPrice } from "./request-final-price";
@@ -200,6 +201,13 @@ export function ProposalView({
         </div>
         <h1 className="mt-5 text-3xl font-bold">{payload.title}</h1>
         <p className="text-sm text-muted-foreground">Quote #{payload.number}</p>
+        {payload.expires_at ? (
+          <p className="mt-1 text-sm text-muted-foreground">
+            {payload.status === "expired"
+              ? `Expired ${formatOfficeDay(payload.expires_at)}`
+              : `Valid through ${formatOfficeDay(payload.expires_at)}`}
+          </p>
+        ) : null}
         {payload.intro ? <p className="mt-4 text-lg leading-7">{payload.intro}</p> : null}
 
         <div className="mt-6 flex flex-col gap-4">
