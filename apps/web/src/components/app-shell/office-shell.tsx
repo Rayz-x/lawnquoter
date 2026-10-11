@@ -6,24 +6,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { Bell, ChevronDown, Plus, Search } from "lucide-react";
 import { useTheme } from "next-themes";
 import type { OrgRole } from "@lawnquoter/shared";
-import { activeNavHref, visibleNav, type NavItem } from "./nav-config";
-
-/** Phone tab bar: Today, then Quotes and Schedule when the role can open them. */
-const TAB_HREFS: readonly string[] = ["/dashboard", "/quotes", "/schedule"];
+import { visibleNav } from "./nav-config";
 import { CommandPalette, type PaletteCommand } from "./command-palette";
+import { NavSectionTitle, OfficeMenubar, OfficeTabBar, useFineHover } from "./office-nav";
 import { UserMenu } from "./user-menu";
 
 export type OfficeOrg = { id: string; name: string };
-
-function onBar(item: NavItem, width: number | null, current: boolean) {
-  if (item.place !== "primary") return false;
-  if (width == null) return true;
-  if (width < 760) return false;
-  if (current) return true;
-  if (width < 1000) return item.priority <= 3;
-  if (width < 1250) return item.priority <= 5;
-  return true;
-}
 
 function monogram(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -51,6 +39,7 @@ export function OfficeShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const fineHover = useFineHover();
   const { resolvedTheme, setTheme } = useTheme();
   const themeRef = useRef(resolvedTheme);
   useEffect(() => {
@@ -62,12 +51,9 @@ export function OfficeShell({
   const [palette, setPalette] = useState(false);
   const [help, setHelp] = useState(false);
   const [orgOpen, setOrgOpen] = useState(false);
-  const items = visibleNav(role).flatMap((group) => group.items);
-  const canSee = (href: string) => items.some((item) => item.href === href);
-  const tabLabel = (href: string) => items.find((item) => item.href === href)?.title ?? href;
-  const current = activeNavHref(pathname, items);
-  const section = items.find((item) => item.href === current);
-  const showCrew = items.some((item) => item.href === "/crew/today");
+  const categories = visibleNav(role);
+  const items = categories.flatMap((category) => category.items);
+  const canQuote = items.some((item) => item.href === "/quotes");
 
   useEffect(() => {
     const bar = barRef.current;
@@ -116,13 +102,9 @@ export function OfficeShell({
   }, [orgOpen]);
 
   const commands: PaletteCommand[] = [
-    ...items
-      .filter((item) => item.place !== "user")
-      .map((item) => ({ id: item.href, label: item.title, hint: "Go to", href: item.href })),
+    ...items.map((item) => ({ id: item.href, label: item.title, hint: "Go to", href: item.href })),
     { id: "new-quote", label: "New quote", hint: "Action", href: "/quotes/new", keys: "C" },
   ];
-
-  const moreItems = items.filter((item) => item.place === "more" || (item.place === "primary" && !onBar(item, width, item.href === current)));
 
   return (
     <div className="dispatch flex min-h-dvh flex-col">
@@ -156,32 +138,9 @@ export function OfficeShell({
             ) : null}
           </div>
 
-          <span className="dispatch-section-title truncate text-sm font-semibold">{section?.title ?? "LawnQuoter"}</span>
+          <NavSectionTitle categories={categories} pathname={pathname} />
 
-          <nav aria-label="Primary" className="dispatch-links flex items-center gap-0.5">
-            {items
-              .filter((item) => item.place === "primary")
-              .map((item) => {
-                const active = item.href === current;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    data-nav-priority={item.priority}
-                    data-nav-current={active ? "true" : "false"}
-                    aria-current={active ? "page" : undefined}
-                    className="dispatch-link"
-                  >
-                    {item.title}
-                    {item.href === "/leads" && requestCount > 0 ? (
-                      <span className="dispatch-count">{requestCount > 99 ? "99+" : requestCount}</span>
-                    ) : null}
-                  </Link>
-                );
-              })}
-          </nav>
-
-          <MoreMenu items={moreItems} current={current} className="dispatch-more-desktop" />
+          <OfficeMenubar categories={categories} pathname={pathname} width={width} requestCount={requestCount} fineHover={fineHover} />
 
           <button type="button" className="dispatch-search" onClick={() => setPalette(true)}>
             <Search aria-hidden className="size-4" />
@@ -199,24 +158,11 @@ export function OfficeShell({
               <span>New</span>
               <kbd>C</kbd>
             </Link>
-            <UserMenu email={userEmail} name={userName} role={role} showCrew={showCrew} />
+            <UserMenu email={userEmail} name={userName} role={role} links={categories.filter((category) => category.place === "user").flatMap((category) => category.items)} />
           </div>
         </div>
 
-        <nav aria-label="Mobile" className="dispatch-tabs">
-          {TAB_HREFS.filter((href) => href === "/dashboard" || canSee(href)).slice(0, 2).map((href) => (
-            <Tab key={href} href={href} label={tabLabel(href)} current={current === href} />
-          ))}
-          {canSee("/quotes") ? (
-            <Link href="/quotes/new" className="dispatch-tab-new" aria-label="New quote">
-              <Plus className="size-6" />
-            </Link>
-          ) : null}
-          {TAB_HREFS.filter((href) => href !== "/dashboard" && canSee(href)).slice(1, 2).map((href) => (
-            <Tab key={href} href={href} label={tabLabel(href)} current={current === href} />
-          ))}
-          <MoreMenu items={items.filter((item) => item.place !== "user" && !TAB_HREFS.some((href) => href === item.href && (href === "/dashboard" || canSee(href))))} current={current} label="More" up />
-        </nav>
+        <OfficeTabBar categories={categories} pathname={pathname} requestCount={requestCount} showNew={canQuote} />
       </header>
 
       <div className="dispatch-main flex min-h-0 flex-1 flex-col">{children}</div>
@@ -252,68 +198,3 @@ function Shortcut({ keys, label }: { keys: string; label: string }) {
   );
 }
 
-function Tab({ href, label, current }: { href: string; label: string; current: boolean }) {
-  return (
-    <Link href={href} aria-current={current ? "page" : undefined} className="dispatch-tab">
-      {label}
-    </Link>
-  );
-}
-
-function MoreMenu({
-  items,
-  current,
-  className,
-  label = "More",
-  up = false,
-}: {
-  items: NavItem[];
-  current: string | null;
-  className?: string;
-  label?: string;
-  up?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    function onPointer(event: PointerEvent) {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
-    }
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    window.addEventListener("pointerdown", onPointer);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("pointerdown", onPointer);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div ref={ref} className={`relative ${className ?? ""}`}>
-      <button type="button" className={up ? "dispatch-tab" : "dispatch-link"} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((value) => !value)}>
-        {label}
-        {up ? null : <ChevronDown aria-hidden className="size-3.5 opacity-70" />}
-      </button>
-      {open ? (
-        <div role="menu" className={`absolute z-50 min-w-52 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg ${up ? "end-0 bottom-[calc(100%+0.4rem)]" : "end-0 top-[calc(100%+0.35rem)]"}`}>
-          <p className="px-2 py-1 text-[10px] tracking-wide text-muted-foreground uppercase">More sections</p>
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              role="menuitem"
-              aria-current={item.href === current ? "page" : undefined}
-              className="flex min-h-11 items-center rounded-md px-2 text-sm aria-[current=page]:bg-accent"
-              onClick={() => setOpen(false)}
-            >
-              {item.title}
-            </Link>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}

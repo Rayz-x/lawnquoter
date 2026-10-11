@@ -29,7 +29,9 @@ export type AppSidebarProps = {
 
 export function AppSidebar({ orgName, userEmail, userName, role }: AppSidebarProps) {
   const pathname = usePathname();
-  const groups = visibleNav(role);
+  const categories = visibleNav(role);
+  const groups = categories.filter((category) => category.place === "bar");
+  const userLinks = categories.filter((category) => category.place === "user").flatMap((category) => category.items);
 
   return (
     <Sidebar collapsible="icon" className="overscroll-contain">
@@ -73,7 +75,7 @@ export function AppSidebar({ orgName, userEmail, userName, role }: AppSidebarPro
         ))}
       </SidebarContent>
       <SidebarFooter>
-        <UserMenu email={userEmail} name={userName} role={role} />
+        <UserMenu email={userEmail} name={userName} role={role} links={userLinks} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
