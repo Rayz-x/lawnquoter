@@ -145,7 +145,7 @@ describe("crew outbox", () => {
       now,
     );
     expect(seen).toEqual(["visit_finish:fin", "visit_flag_photo_lost:flag"]);
-    expect(result).toEqual({ sent: 2, pending: 1 });
+    expect(result).toEqual({ sent: 2, pending: 1, revoked: false });
     const left = await store.listOutbox();
     expect(left).toMatchObject([
       { client_id: "gone-after", needs_office: true, last_error: "The photo file is missing." },
