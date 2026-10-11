@@ -1,12 +1,19 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { LeadActivityRecord, LeadLostStore, LeadPipelineStatus, LeadRecord } from "./lost";
+import {
+  LEAD_LOST_REASON_LABELS,
+  parseLeadLostReason,
+  type LeadActivityRecord,
+  type LeadLostStore,
+  type LeadPipelineStatus,
+  type LeadRecord,
+} from "./lost";
 
 /**
  * Thin adapter over L01 `lead_requests` / `lead_activities`.
- * Tables are owned by L01 — this module does not migrate them.
- * Lost reason lives on the activity payload (L11 has no migration).
+ * Lost reason and note are columns on `lead_requests`.
+ * Activities store `summary` plus `meta`.
  */
 type LeadQuery = {
   select: (columns: string) => LeadFilter;
@@ -39,9 +46,20 @@ function mapLead(row: Record<string, unknown>): LeadRecord {
     id: String(row.id),
     orgId: String(row.org_id),
     status: String(row.status) as LeadPipelineStatus,
-    lostReason: null,
-    lostNote: null,
+    lostReason: parseLeadLostReason(typeof row.lost_reason === "string" ? row.lost_reason : null),
+    lostNote: typeof row.lost_note === "string" ? row.lost_note : null,
   };
+}
+
+function activitySummary(kind: string, payload: Record<string, unknown>): string {
+  if (kind === "lead.lost") {
+    const reason = parseLeadLostReason(typeof payload.reason === "string" ? payload.reason : null);
+    const label = reason ? LEAD_LOST_REASON_LABELS[reason] : "";
+    return label ? `Marked lost: ${label}` : "Marked lost";
+  }
+  if (kind === "lead.reopened") return "Reopened";
+  const fallback = kind.trim();
+  return (fallback || "Lead activity").slice(0, 500);
 }
 
 export function createSupabaseLeadLostStore(supabase: SupabaseClient): LeadLostStore {
@@ -49,14 +67,26 @@ export function createSupabaseLeadLostStore(supabase: SupabaseClient): LeadLostS
 
   return {
     async getLead(leadId) {
-      const { data, error } = await db.from("lead_requests").select("id, org_id, status").eq("id", leadId).maybeSingle();
+      const { data, error } = await db
+        .from("lead_requests")
+        .select("id, org_id, status, lost_reason, lost_note")
+        .eq("id", leadId)
+        .maybeSingle();
       if (error) throw new Error(error.message);
       if (!data) return null;
       return mapLead(data);
     },
 
     async saveLead(lead) {
-      const result = await (db.from("lead_requests").update({ status: lead.status }).eq("id", lead.id).eq("org_id", lead.orgId) as unknown as Promise<{
+      const result = await (db
+        .from("lead_requests")
+        .update({
+          status: lead.status,
+          lost_reason: lead.lostReason,
+          lost_note: lead.lostNote,
+        })
+        .eq("id", lead.id)
+        .eq("org_id", lead.orgId) as unknown as Promise<{
         error: { message: string } | null;
       }>);
       if (result.error) throw new Error(result.error.message);
@@ -69,9 +99,10 @@ export function createSupabaseLeadLostStore(supabase: SupabaseClient): LeadLostS
           lead_request_id: activity.leadId,
           org_id: activity.orgId,
           kind: activity.kind,
-          payload: activity.payload,
+          summary: activitySummary(activity.kind, activity.payload),
+          meta: activity.payload,
         })
-        .select("id, lead_request_id, org_id, kind, payload")
+        .select("id, lead_request_id, org_id, kind, summary, meta")
         .single();
       if (error) throw new Error(error.message);
       if (!data) throw new Error("Activity insert returned no row.");
@@ -80,7 +111,7 @@ export function createSupabaseLeadLostStore(supabase: SupabaseClient): LeadLostS
         leadId: String(data.lead_request_id),
         orgId: String(data.org_id),
         kind: String(data.kind),
-        payload: (data.payload as Record<string, unknown>) ?? {},
+        payload: (data.meta as Record<string, unknown>) ?? {},
       };
       return row;
     },
