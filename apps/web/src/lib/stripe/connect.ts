@@ -16,6 +16,10 @@ export function connectStatusFromFlags(chargesEnabled: boolean, payoutsEnabled: 
   return chargesEnabled && payoutsEnabled ? "ready" : "pending";
 }
 
+export function isPayEnabled(status: ConnectStatus) {
+  return status === "ready";
+}
+
 export type ConnectStore = {
   getByOrg: (orgId: string) => Promise<{ stripe_account_id: string | null; status: ConnectStatus } | null>;
   upsert: (row: ConnectRow) => Promise<void>;
