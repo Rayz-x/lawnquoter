@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { Tables } from "@/lib/supabase/types";
+import { formatSeasonLabel } from "@/lib/scheduling/season";
+import { updateOrgSeason } from "@/lib/actions/scheduling";
 import { lookupOfficeAddress, saveOrgCard } from "./actions";
 const TABS = ["identity", "company", "branding", "payments", "lead-form"] as const;
 const ZONES = [["America/New_York", "Eastern"], ["America/Chicago", "Central"], ["America/Denver", "Mountain"], ["America/Phoenix", "Arizona"], ["America/Los_Angeles", "Pacific"], ["America/Anchorage", "Alaska"], ["Pacific/Honolulu", "Hawaii"], ["UTC", "UTC"]] as const;
@@ -19,7 +21,7 @@ type CardId = "identity" | "contact" | "address" | "region";
 type Edit = { canEdit: boolean; editing: boolean; onEdit: () => void; onDone: () => void };
 type Contact = { phone: string; email: string; website: string };
 type Address = { line1: string; line2: string; city: string; region: string; postal: string };
-type Region = { timezone: string; currency: string };
+type Region = { timezone: string; currency: string; startMonth: number; startDay: number; endMonth: number; endDay: number };
 function toForm(section: string, fields: Record<string, string>) {
   const data = new FormData();
   data.set("section", section);
@@ -173,8 +175,20 @@ function AddressCard({ org, canEdit, editing, onEdit, onDone }: Edit & { org: Ta
   );
 }
 function RegionCard({ org, canEdit, editing, onEdit, onDone }: Edit & { org: Tables<"orgs"> }) {
-  const initial = useMemo<Region>(() => ({ timezone: org.timezone, currency: org.currency }), [org.timezone, org.currency]);
+  const initial = useMemo<Region>(
+    () => ({
+      timezone: org.timezone,
+      currency: org.currency,
+      startMonth: org.season_start_month,
+      startDay: org.season_start_day,
+      endMonth: org.season_end_month,
+      endDay: org.season_end_day,
+    }),
+    [org.timezone, org.currency, org.season_start_month, org.season_start_day, org.season_end_month, org.season_end_day],
+  );
   const [values, setValues, ref] = useFields(initial);
+  const [seasonError, setSeasonError] = useState<string | null>(null);
+  const router = useRouter();
   const save = useOrgSave("region", initial, (next) => ({ timezone: next.timezone, currency: next.currency }), setValues);
   const zones = [values.timezone, ...ZONES.map(([zone]) => zone)].filter((zone, index, list) => list.indexOf(zone) === index);
   const commit = (next: Region, immediate = false) => {
@@ -182,8 +196,30 @@ function RegionCard({ org, canEdit, editing, onEdit, onDone }: Edit & { org: Tab
     if (!next.timezone.trim()) return;
     save.save(next, immediate ? { immediate: true, rollback: true } : undefined);
   };
+  const commitSeason = (next: Region) => {
+    setValues(next);
+    void updateOrgSeason({
+      startMonth: next.startMonth,
+      startDay: next.startDay,
+      endMonth: next.endMonth,
+      endDay: next.endDay,
+    }).then((result) => {
+      if (result.ok) {
+        setSeasonError(null);
+        router.refresh();
+      } else {
+        setSeasonError(result.error);
+      }
+    });
+  };
+  const seasonLabel = formatSeasonLabel({
+    startMonth: values.startMonth,
+    startDay: values.startDay,
+    endMonth: values.endMonth,
+    endDay: values.endDay,
+  });
   return (
-    <SectionCard title="Region & time" heading="h3" status={save.status} error={save.error} onRetry={save.retry} mode={editing ? "edit" : "view"} onEdit={canEdit && !editing ? onEdit : undefined} menu={canEdit ? editButton(editing, onEdit, onDone) : undefined}>
+    <SectionCard title="Region & time" heading="h3" status={save.status} error={seasonError ?? save.error} onRetry={save.retry} mode={editing ? "edit" : "view"} onEdit={canEdit && !editing ? onEdit : undefined} menu={canEdit ? editButton(editing, onEdit, onDone) : undefined}>
       {editing ? (
         <div className="flex flex-col gap-4">
           <TextField id="timezone" label="Timezone" list="org-timezones" value={values.timezone} onValue={(timezone) => setValues({ ...ref.current, timezone })} onBlur={(timezone) => commit({ ...ref.current, timezone })} />
@@ -194,8 +230,41 @@ function RegionCard({ org, canEdit, editing, onEdit, onDone }: Edit & { org: Tab
               {[values.currency, "USD", "CAD"].filter((value, index, list) => list.indexOf(value) === index).map((value) => <option key={value} value={value}>{value}</option>)}
             </select>
           </Field>
+          <div className="grid grid-cols-2 gap-3">
+            {(
+              [
+                ["startMonth", "Season start month"],
+                ["startDay", "Season start day"],
+                ["endMonth", "Season end month"],
+                ["endDay", "Season end day"],
+              ] as const
+            ).map(([key, label]) => (
+              <Field key={key}>
+                <FieldLabel htmlFor={`org-${key}`}>{label}</FieldLabel>
+                <Input
+                  id={`org-${key}`}
+                  type="number"
+                  min={1}
+                  max={key.endsWith("Month") ? 12 : 31}
+                  className="max-lg:h-11"
+                  value={values[key]}
+                  onChange={(event) => setValues({ ...ref.current, [key]: Number(event.target.value) })}
+                  onBlur={() => commitSeason(ref.current)}
+                />
+              </Field>
+            ))}
+          </div>
         </div>
-      ) : <FactRows onEdit={canEdit ? onEdit : undefined} rows={[{ label: "Timezone", value: zoneLabel(values.timezone) }, { label: "Currency", value: values.currency }]} />}
+      ) : (
+        <FactRows
+          onEdit={canEdit ? onEdit : undefined}
+          rows={[
+            { label: "Timezone", value: zoneLabel(values.timezone) },
+            { label: "Currency", value: values.currency },
+            { label: "Season", value: seasonLabel },
+          ]}
+        />
+      )}
     </SectionCard>
   );
 }

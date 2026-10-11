@@ -21,7 +21,11 @@ select tests.create_user('horizon-dispatch@example.com', 'Horizon Dispatch') as 
 select tests.create_org('Horizon Co', 'horizon-co', :'owner'::uuid) as org \gset
 select tests.add_member(:'org'::uuid, :'dispatcher'::uuid, 'dispatcher');
 
-update public.orgs set timezone = 'America/Chicago' where id = :'org'::uuid;
+update public.orgs
+set timezone = 'America/Chicago',
+    season_start_month = 1, season_start_day = 1,
+    season_end_month = 12, season_end_day = 31
+where id = :'org'::uuid;
 
 select private.org_local_today(:'org'::uuid) as today \gset
 
@@ -145,7 +149,11 @@ select is(:'after_move'::integer, 0, 'extension after a move adds nothing when t
 select tests.clear_auth();
 select tests.create_user('horizon-tz@example.com', 'Horizon TZ') as tz_owner \gset
 select tests.create_org('Horizon TZ Co', 'horizon-tz', :'tz_owner'::uuid) as org_tz \gset
-update public.orgs set timezone = 'Pacific/Kiritimati' where id = :'org_tz'::uuid;
+update public.orgs
+set timezone = 'Pacific/Kiritimati',
+    season_start_month = 1, season_start_day = 1,
+    season_end_month = 12, season_end_day = 31
+where id = :'org_tz'::uuid;
 select private.org_local_today(:'org_tz'::uuid) as kir_today \gset
 
 insert into public.accounts (org_id, name)

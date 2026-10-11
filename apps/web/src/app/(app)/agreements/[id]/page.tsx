@@ -12,7 +12,9 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { OFFICE_ROLES, QUOTE_CONVERT_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
 import { formatOfficeDay } from "@/lib/scheduling/office-date";
+import { DEFAULT_SEASON } from "@/lib/scheduling/season";
 import { createClient } from "@/lib/supabase/server";
+import { AgreementLifecycleForm } from "./agreement-lifecycle-form";
 import { AgreementScheduleForm } from "./agreement-schedule-form";
 
 export const metadata: Metadata = { title: "Agreement" };
@@ -47,14 +49,21 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
   }
 
   const supabase = await createClient();
-  const { data: agreement, error: agreementError } = await supabase
-    .from("agreements")
-    .select(
-      "id, kind, frequency, status, start_date, end_date, preferred_dow, service_kind, notes_office, quote_id, account_id, property_id, accounts(name), properties(formatted_address, address_line1, city)",
-    )
-    .eq("id", id)
-    .eq("org_id", session.orgId)
-    .maybeSingle();
+  const [{ data: agreement, error: agreementError }, { data: org }] = await Promise.all([
+    supabase
+      .from("agreements")
+      .select(
+        "id, kind, frequency, status, start_date, end_date, preferred_dow, service_kind, notes_office, quote_id, account_id, property_id, resume_on, season_start_month, season_start_day, season_end_month, season_end_day, accounts(name), properties(formatted_address, address_line1, city)",
+      )
+      .eq("id", id)
+      .eq("org_id", session.orgId)
+      .maybeSingle(),
+    supabase
+      .from("orgs")
+      .select("season_start_month, season_start_day, season_end_month, season_end_day")
+      .eq("id", session.orgId)
+      .maybeSingle(),
+  ]);
 
   if (agreementError) {
     return (
@@ -91,7 +100,14 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
     [property?.address_line1, property?.city].filter(Boolean).join(", ") ||
     "Address unavailable";
   const canEditSchedule = agreement.status !== "ended" && hasRole(session.orgRole, QUOTE_CONVERT_ROLES);
+  const canManageLifecycle = agreement.status !== "ended" && hasRole(session.orgRole, ["owner", "admin", "dispatcher"]);
   const recurring = agreement.kind === "recurring" && agreement.frequency != null && agreement.status === "active";
+  const orgSeason = {
+    startMonth: org?.season_start_month ?? DEFAULT_SEASON.startMonth,
+    startDay: org?.season_start_day ?? DEFAULT_SEASON.startDay,
+    endMonth: org?.season_end_month ?? DEFAULT_SEASON.endMonth,
+    endDay: org?.season_end_day ?? DEFAULT_SEASON.endDay,
+  };
   const visitsThrough =
     visits
       ?.filter((visit) => visit.status !== "cancelled" && visit.occurrence_date)
@@ -282,6 +298,27 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
                     <span className="capitalize">{label(agreement.service_kind)}</span>
                   </div>
                 ) : null}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Season & status</CardTitle>
+                <CardDescription>Mowing season, pause, and end.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AgreementLifecycleForm
+                  agreementId={agreement.id}
+                  status={agreement.status}
+                  resumeOn={agreement.resume_on}
+                  seasonStartMonth={agreement.season_start_month}
+                  seasonStartDay={agreement.season_start_day}
+                  seasonEndMonth={agreement.season_end_month}
+                  seasonEndDay={agreement.season_end_day}
+                  orgSeason={orgSeason}
+                  canEditSeason={canEditSchedule}
+                  canManageStatus={canManageLifecycle}
+                />
               </CardContent>
             </Card>
 
