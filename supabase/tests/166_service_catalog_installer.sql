@@ -30,10 +30,10 @@ select '[
 ]' as entries \gset
 
 select public.install_catalog_services(:'entries'::jsonb) ->> 'installed' as installed \gset
-select is(:'installed', '2', 'owner installs two catalog services');
+select is(:'installed'::text, '2'::text, 'owner installs two catalog services');
 
 select id as draft from public.price_lists where org_id = :'org'::uuid and status = 'draft' \gset
-select isnt(:'draft', :'active_list', 'catalog rules go to a separate draft list');
+select isnt(:'draft'::uuid, :'active_list'::uuid, 'catalog rules go to a separate draft list');
 
 select is(
   (select count(*) from public.pricing_rules r join public.services s on s.id = r.service_id
