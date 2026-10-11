@@ -79,6 +79,7 @@ select is(
     'invoice_balance_cents',
     'invoice_public',
     'issue_invoice',
+    'job_seasonal_warn_state',
     'my_crews',
     'office_attention_tray',
     'office_rain_day_push',

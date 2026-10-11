@@ -412,14 +412,14 @@ isOneToOne: false
                   ]
                 },"jobs": {
                   Row: {
-                    "agreement_id": string | null,"created_at": string,"id": string,"org_id": string,"property_id": string,"quote_id": string | null,"status": Database["public"]['Enums']["job_status"],"title": string,"updated_at": string
+                    "agreement_id": string | null,"created_at": string,"id": string,"org_id": string,"property_id": string,"quote_id": string | null,"service_id": string | null,"status": Database["public"]['Enums']["job_status"],"title": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "agreement_id"?: string | null,"created_at"?: string,"id"?: string,"org_id": string,"property_id": string,"quote_id"?: string | null,"status"?: Database["public"]['Enums']["job_status"],"title": string,"updated_at"?: string
+                    "agreement_id"?: string | null,"created_at"?: string,"id"?: string,"org_id": string,"property_id": string,"quote_id"?: string | null,"service_id"?: string | null,"status"?: Database["public"]['Enums']["job_status"],"title": string,"updated_at"?: string
                   }
                   Update: {
-                    "agreement_id"?: string | null,"created_at"?: string,"id"?: string,"org_id"?: string,"property_id"?: string,"quote_id"?: string | null,"status"?: Database["public"]['Enums']["job_status"],"title"?: string,"updated_at"?: string
+                    "agreement_id"?: string | null,"created_at"?: string,"id"?: string,"org_id"?: string,"property_id"?: string,"quote_id"?: string | null,"service_id"?: string | null,"status"?: Database["public"]['Enums']["job_status"],"title"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -427,6 +427,12 @@ isOneToOne: false
       columns: ["agreement_id"]
 isOneToOne: false
       referencedRelation: "agreements"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "jobs_service_id_fkey"
+      columns: ["service_id"]
+isOneToOne: false
+      referencedRelation: "services"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "jobs_org_id_fkey"
@@ -982,14 +988,14 @@ isOneToOne: false
                   ]
                 },"services": {
                   Row: {
-                    "active": boolean,"created_at": string,"description": string | null,"id": string,"kind": Database["public"]['Enums']["service_kind"],"name": string,"org_id": string,"slug": string,"sort": number,"updated_at": string
+                    "active": boolean,"created_at": string,"description": string | null,"id": string,"kind": Database["public"]['Enums']["service_kind"],"name": string,"org_id": string,"slug": string,"sort": number,"updated_at": string,"warn_date": string | null,"window_end": string | null,"window_start": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "active"?: boolean,"created_at"?: string,"description"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["service_kind"],"name": string,"org_id": string,"slug": string,"sort"?: number,"updated_at"?: string
+                    "active"?: boolean,"created_at"?: string,"description"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["service_kind"],"name": string,"org_id": string,"slug": string,"sort"?: number,"updated_at"?: string,"warn_date"?: string | null,"window_end"?: string | null,"window_start"?: string | null
                   }
                   Update: {
-                    "active"?: boolean,"created_at"?: string,"description"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["service_kind"],"name"?: string,"org_id"?: string,"slug"?: string,"sort"?: number,"updated_at"?: string
+                    "active"?: boolean,"created_at"?: string,"description"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["service_kind"],"name"?: string,"org_id"?: string,"slug"?: string,"sort"?: number,"updated_at"?: string,"warn_date"?: string | null,"window_end"?: string | null,"window_start"?: string | null
                   }
                   Relationships: [
                     {
@@ -1387,6 +1393,9 @@ isOneToOne: false
                            },
 "generate_agreement_visits":
 { Args: { "p_agreement_id": string,"p_through": string }; Returns: number
+                           },
+"job_seasonal_warn_state":
+{ Args: { "p_as_of"?: string,"p_job_id": string }; Returns: string
                            },
 "line_billing_cap_cents":
 { Args: { "p_line_item_id": string }; Returns: number

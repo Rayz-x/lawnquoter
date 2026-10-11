@@ -66,20 +66,65 @@ export async function createService(fd: FormData): Promise<ActionResult<{ id: st
   return { ok: true, data: { id: data.id } };
 }
 
+const optionalIsoDate = z
+  .string()
+  .trim()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD")
+  .optional()
+  .or(z.literal(""));
+
 export async function updateService(fd: FormData): Promise<ActionResult> {
   const session = await requireOrg();
   if (!hasRole(session.orgRole, ADMIN_ROLES)) return denyPricing();
   const parsed = z
     .object({
       id: z.string().uuid(),
-      description: z.string().trim().max(2000),
+      description: z.string().trim().max(2000).optional(),
+      window_start: optionalIsoDate,
+      window_end: optionalIsoDate,
+      warn_date: optionalIsoDate,
     })
     .safeParse(Object.fromEntries(fd));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
+
+  const windowStart = parsed.data.window_start || null;
+  const windowEnd = parsed.data.window_end || null;
+  const warnDate = parsed.data.warn_date || null;
+  const anyWindow = Boolean(windowStart || windowEnd || warnDate);
+  if (anyWindow && !(windowStart && windowEnd && warnDate)) {
+    return fail("Set window start, warn date, and window end together — or clear all three.");
+  }
+  if (windowStart && warnDate && windowStart > warnDate) {
+    return fail("Warn date must be on or after the window start.");
+  }
+  if (warnDate && windowEnd && warnDate > windowEnd) {
+    return fail("Warn date must be on or before the window end.");
+  }
+
+  const patch: {
+    description?: string | null;
+    window_start?: string | null;
+    window_end?: string | null;
+    warn_date?: string | null;
+  } = {};
+  if (parsed.data.description !== undefined) {
+    patch.description = parsed.data.description || null;
+  }
+  if (
+    parsed.data.window_start !== undefined ||
+    parsed.data.window_end !== undefined ||
+    parsed.data.warn_date !== undefined
+  ) {
+    patch.window_start = windowStart;
+    patch.window_end = windowEnd;
+    patch.warn_date = warnDate;
+  }
+  if (Object.keys(patch).length === 0) return fail("Nothing to update");
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("services")
-    .update({ description: parsed.data.description || null })
+    .update(patch)
     .eq("id", parsed.data.id)
     .eq("org_id", session.orgId)
     .select("id");
