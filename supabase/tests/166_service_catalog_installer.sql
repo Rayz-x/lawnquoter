@@ -23,7 +23,7 @@ values (:'org'::uuid, :'active_list'::uuid, :'mow'::uuid, 'Weekly Mow', 'tier_ma
   '{"type":"tier_matrix","quantityKey":"turf_sqft","rows":[{"upTo":null,"price":55,"hours":0,"cost":0}]}');
 
 select '[
-  {"key":"core-aeration","version":"2026-10-11","name":"Core aeration","kind":"other","description":"Aerate","crew_task_name":"Core aerate","taxable":false,"is_material":false,"window_start":"2026-09-01","window_end":"2026-10-31",
+  {"key":"core-aeration","version":"2026-10-11","name":"Core aeration","kind":"other","description":"Aerate","crew_task_name":"Core aerate","taxable":false,"is_material":false,"window_start":"2026-09-01","window_end":"2026-10-31","warn_date":"2026-10-17",
    "config":{"type":"tier_matrix","quantityKey":"turf_sqft","rows":[{"upTo":1000,"price":17,"hours":0,"cost":0}],"tail":{"every":1000,"over":1000,"addPrice":17,"addHours":0,"addCost":0}}},
   {"key":"mulch-installation","version":"2026-10-11","name":"Mulch installation","kind":"install","is_material":true,
    "config":{"type":"tier_matrix","quantityKey":"bed_sqft","rows":[{"upTo":162,"price":85.5,"hours":0,"cost":0}],"tail":{"every":162,"over":162,"addPrice":85.5,"addHours":0,"addCost":0}}}

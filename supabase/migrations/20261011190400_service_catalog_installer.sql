@@ -121,7 +121,7 @@ begin
 
     insert into public.services (
       org_id, name, slug, kind, description, active, sort,
-      window_start, window_end,
+      window_start, window_end, warn_date,
       catalog_key, catalog_version, crew_task_name, taxable, is_material
     ) values (
       v_org,
@@ -133,6 +133,7 @@ begin
       coalesce((v_entry->>'sort')::integer, 0),
       nullif(v_entry->>'window_start', '')::date,
       nullif(v_entry->>'window_end', '')::date,
+      nullif(v_entry->>'warn_date', '')::date,
       v_entry->>'key',
       v_entry->>'version',
       nullif(v_entry->>'crew_task_name', ''),
