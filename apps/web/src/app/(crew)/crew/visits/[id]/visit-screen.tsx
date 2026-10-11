@@ -38,9 +38,13 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
   const photos = useRef<VisitPhotosHandle | null>(null);
   const [afterFor, setAfterFor] = useState(visitId);
   const [afterReady, setAfterReady] = useState(false);
+  const [afterQueued, setAfterQueued] = useState(false);
+  const [afterNeedsOffice, setAfterNeedsOffice] = useState(false);
   if (afterFor !== visitId) {
     setAfterFor(visitId);
     setAfterReady(false);
+    setAfterQueued(false);
+    setAfterNeedsOffice(false);
   }
 
   useEffect(() => {
@@ -58,6 +62,11 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
       const row = packs.sort((a, b) => b.saved_at.localeCompare(a.saved_at))[0];
       const visit = row ? visitFromPack(row.pack, visitId) : null;
       const rows = (await store.listOutbox()).filter((item) => item.user_id === userId && item.org_id === orgId);
+      const afterRows = rows.filter(
+        (item) => item.visit_id === visitId && item.kind === "visit_photo_record" && item.payload.photo_kind === "after",
+      );
+      const afterQueue = afterRows.length > 0;
+      const afterOffice = afterRows.some((item) => item.needs_office);
       let entries: Segment[] | null = null;
       try {
         const { data, error: rpcError } = await createClient().from("time_entries").select("kind, started_at, ended_at").eq("visit_id", visitId);
@@ -97,14 +106,20 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
       setPackDate(row.date);
       setDetail(visit);
       setClock(next);
+      setAfterQueued(afterQueue);
+      setAfterNeedsOffice(afterOffice);
       setOthers(visitsInPack(row.pack).map((item) => ({ ...item, status: item.id === visitId ? next.status : projectVisit(item, readClock(localStorage, scope, item.id), null, pending(rows, item.id)).status })));
       setReady(true);
     };
     void load();
     window.addEventListener("online", load);
+    window.addEventListener("crew-queue", load);
+    window.addEventListener("crew-pack", load);
     return () => {
       stop = true;
       window.removeEventListener("online", load);
+      window.removeEventListener("crew-queue", load);
+      window.removeEventListener("crew-pack", load);
     };
   }, [visitId, userId, orgId, scope]);
 
@@ -127,7 +142,17 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
         const store = browserCrewStore();
         const current = await loadDayPack(store, packDate);
         if (current) {
-          await saveDayPack(store, packDate, patchVisitPack(current.pack, visitId, { status: next.status, started_at: next.startedAt ?? undefined, crew_size: next.crewSize ?? undefined }) as Json);
+          const photoPending = kind === "visit_finish" ? afterQueued && !afterNeedsOffice : undefined;
+          await saveDayPack(
+            store,
+            packDate,
+            patchVisitPack(current.pack, visitId, {
+              status: next.status,
+              started_at: next.startedAt ?? undefined,
+              crew_size: next.crewSize ?? undefined,
+              ...(photoPending !== undefined ? { photo_pending: photoPending, photo_lost: afterNeedsOffice } : {}),
+            }) as Json,
+          );
         }
       }
       void flushOutbox(browserCrewStore(), sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto);
@@ -164,7 +189,18 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
     <section className="flex flex-1 flex-col px-4 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-28">
       {onBack ? <button type="button" className="inline-flex min-h-12 items-center text-[17px] font-semibold" onClick={onBack}>Today</button> : <Link href="/crew/today" className="inline-flex min-h-12 items-center text-[17px] font-semibold">Today</Link>}
       {!online ? <p className="mt-3 rounded-xl bg-warning/15 px-3 py-2 text-[15px] font-semibold text-warning">No signal. Your work is saved on this phone.</p> : null}
-      <p className="mt-2 text-[15px] font-semibold text-muted-foreground">Stop {detail.number}{statusLabel(clock.status) ? ` · ${statusLabel(clock.status)}` : ""}</p>
+      <p className="mt-2 text-[15px] font-semibold text-muted-foreground">
+        Stop {detail.number}
+        {(() => {
+          const label = statusLabel(clock.status, {
+            photoPending: detail.photoPending || afterQueued,
+            photoLost: detail.photoLost || afterNeedsOffice,
+            afterQueued,
+            afterNeedsOffice,
+          });
+          return label ? ` · ${label}` : "";
+        })()}
+      </p>
       <h1 className="font-serif text-2xl font-bold [overflow-wrap:anywhere]">{detail.address}</h1>
       {detail.lastName ? <p className="text-[17px]">{detail.lastName}</p> : null}
       {detail.title ? <p className="text-[15px] text-muted-foreground">{detail.title}</p> : null}

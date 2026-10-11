@@ -6,7 +6,7 @@
 -- Quote price and cost denial is covered by the privilege-gaps tests; this
 -- file does not duplicate them.
 
-select plan(103);
+select plan(105);
 
 -- Gate codes live on property_access. These helpers read that table.
 create or replace function tests.note_property_access(p_org uuid, p_property uuid, p_code text, p_notes text)
@@ -281,11 +281,19 @@ insert into public.visits (
   :'today'::date, :'today'::date, 'scheduled'
 ) returning id as visit_open \gset
 
-select throws_ok(
-  format($$ update public.visits set status = 'completed' where id = %L $$, :'visit_mine'),
-  '22023',
-  null,
-  'a visit cannot be completed before an after photo exists'
+select lives_ok(
+  format($$ update public.visits set status = 'completed', completed_at = now() where id = %L $$, :'visit_mine'),
+  'a visit can complete before the after photo arrives (photo pending)'
+);
+select is(
+  (select photo_pending from public.visits where id = :'visit_mine'::uuid),
+  true,
+  'completing without an after photo sets photo_pending'
+);
+-- Reset for the rest of the schedule RLS checks.
+select lives_ok(
+  format($$ update public.visits set status = 'scheduled', completed_at = null, photo_pending = false where id = %L $$, :'visit_mine'),
+  'reset visit_mine after photo-pending check'
 );
 
 insert into public.visit_tasks (org_id, visit_id, label, quantity_text, sort)

@@ -1,3 +1,5 @@
+import { completionLabel } from "@/lib/crew/photo-pending";
+
 const CLOSED = new Set(["completed", "skipped", "cant_complete", "cancelled"]);
 
 export type AccessChip = { label: string; warning: boolean };
@@ -12,6 +14,8 @@ export type DayStop = {
   budgetMinutes: number | null;
   startedAt: string | null;
   skipReason: string | null;
+  photoPending: boolean;
+  photoLost: boolean;
   lat: number | null;
   lng: number | null;
   chips: AccessChip[];
@@ -84,6 +88,8 @@ export function parseDayPack(data: unknown): DayPackView | null {
       budgetMinutes: typeof visit.budget_minutes === "number" ? visit.budget_minutes : null,
       startedAt: text(visit.started_at),
       skipReason: skipLabel(text(visit.skip_reason)),
+      photoPending: visit.photo_pending === true,
+      photoLost: visit.photo_lost === true,
       lat: typeof property.lat === "number" ? property.lat : null,
       lng: typeof property.lng === "number" ? property.lng : null,
       chips: accessChips(property),
@@ -259,7 +265,19 @@ const STATUS_LABELS: Record<string, string> = {
   paused: "Paused",
 };
 
-export function statusLabel(status: string): string | null {
+export function statusLabel(
+  status: string,
+  photo?: { photoPending?: boolean; photoLost?: boolean; afterQueued?: boolean; afterNeedsOffice?: boolean },
+): string | null {
+  if (status === "completed") {
+    return completionLabel({
+      status,
+      photoPending: photo?.photoPending === true,
+      photoLost: photo?.photoLost === true,
+      afterQueued: photo?.afterQueued,
+      afterNeedsOffice: photo?.afterNeedsOffice,
+    });
+  }
   return STATUS_LABELS[status] ?? null;
 }
 

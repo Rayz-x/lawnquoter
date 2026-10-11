@@ -1,7 +1,7 @@
 -- Crew day pack, crew_sync, and the visit mutations. Prices, customer
 -- phone, and customer email stay out of the pack. Replays do not duplicate.
 
-select plan(102);
+select plan(106);
 
 create or replace function tests.apply_crew(
   p_kind text,
@@ -604,11 +604,28 @@ select tests.apply_crew(
   'visit_resume', :'visit_a'::uuid, :'client_future_resume'::uuid, null, null, '{}'::jsonb
 ) as future_resume \gset
 
-select throws_ok(
-  format($$ select tests.apply_crew('visit_finish', %L, %L, null, null, '{}') $$, :'visit_a', :'client_finish'),
-  '22023',
-  null,
-  'finishing requires the after photo file'
+select is(
+  tests.apply_crew('visit_finish', :'visit_a'::uuid, :'client_finish'::uuid, null, null, '{}'::jsonb),
+  'applied',
+  'finishing without the after photo file is photo pending'
+);
+select is(
+  (select photo_pending from public.visits where id = :'visit_a'::uuid),
+  true,
+  'finish without after photo sets photo_pending'
+);
+-- Reopen so the classic photo-then-finish path still exercises reopen_until.
+-- Finish sets reopen_until to 18:00 org-local; CI after that hour needs a bump
+-- (same pattern as the reopen-before-deadline block below).
+select tests.clear_auth();
+update public.visits
+set reopen_until = now() + interval '1 hour'
+where id = :'visit_a'::uuid;
+select tests.authenticate_as(:'lead'::uuid, :'org'::uuid, 'crew_lead');
+select is(
+  tests.apply_crew('visit_reopen', :'visit_a'::uuid, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa10'::uuid, null, null, '{}'::jsonb),
+  'applied',
+  'reopen after a photo-pending finish'
 );
 insert into storage.objects (bucket_id, name)
 values ('visit-photos', :'org' || '/' || :'visit_a' || '/' || :'client_photo' || '.jpg');
@@ -622,7 +639,7 @@ select is(
   'the lead can record an after photo'
 );
 select is(
-  tests.apply_crew('visit_finish', :'visit_a'::uuid, :'client_finish'::uuid, null, null, '{}'::jsonb),
+  tests.apply_crew('visit_finish', :'visit_a'::uuid, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa11'::uuid, null, null, '{}'::jsonb),
   'applied',
   'the lead can finish after the photo is stored'
 );

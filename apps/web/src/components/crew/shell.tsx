@@ -37,7 +37,10 @@ export function CrewShell({ children, userId, orgId }: { children: ReactNode; us
         return sync?.register("crew-outbox");
       })
       .catch(() => undefined);
-    void navigator.storage?.persist?.();
+    void navigator.storage
+      ?.persist?.()
+      .then(() => window.dispatchEvent(new Event("crew-storage")))
+      .catch(() => window.dispatchEvent(new Event("crew-storage")));
   }, []);
   useEffect(() => {
     const key = scopeKey(userId, orgId);

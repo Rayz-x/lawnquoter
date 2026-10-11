@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { packIsFresh } from "@/app/(crew)/crew/today";
 import { afterPhotoReady, downscalePhoto, packPhotoKinds } from "@/lib/crew/photo";
+import { cameraPickIsNoop } from "@/lib/crew/photo-pending";
 import { browserCrewStore, enqueuePhoto, flushOutbox, notifyCrewQueue } from "@/lib/crew/queue";
 import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
 
@@ -70,7 +71,7 @@ export function VisitPhotos({
   }
 
   async function onFile(file: File | undefined) {
-    if (!file || busy) return;
+    if (busy || cameraPickIsNoop(file) || !file) return;
     setBusy(true);
     setError(null);
     try {

@@ -11,6 +11,7 @@ export const CREW_MUTATION_KINDS = [
   "visit_set_note",
   "visit_task_set",
   "visit_photo_record",
+  "visit_flag_photo_lost",
   "enhancement_create",
 ] as const;
 
@@ -268,6 +269,26 @@ async function flushOutboxOnce(
       const bytes = await store.getPhoto(item.client_id);
       if (!bytes || !upload) {
         await store.settle([], { ...row, attempts: row.attempts + 1, last_error: "The photo file is missing.", needs_office: true });
+        // After-photo loss: park for the office, flag the visit, and let Finish continue.
+        if (row.payload.photo_kind === "after") {
+          const flagged = rows.some(
+            (entry) =>
+              entry.kind === "visit_flag_photo_lost" &&
+              entry.visit_id === row.visit_id &&
+              entry.user_id === scope.userId &&
+              entry.org_id === scope.orgId,
+          );
+          if (!flagged) {
+            await enqueueMutation(store, {
+              kind: "visit_flag_photo_lost",
+              visit_id: row.visit_id,
+              user_id: scope.userId,
+              org_id: scope.orgId,
+            }, now);
+          }
+          deferred = true;
+          continue;
+        }
         halted = true;
         break;
       }
