@@ -604,3 +604,46 @@ export async function waiveLineSiteCheck(quoteId: string, lineId: string, fd: Fo
   revalidatePath(`/quotes/${quoteId}`);
   return { ok: true };
 }
+
+export async function approveSiteCheckRequest(quoteId: string, siteCheckId: string): Promise<ActionResult> {
+  const session = await requireOrg();
+  const denied = denyUnlessSales(session.orgRole);
+  if (denied) return denied;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("site_check_approve", { p_id: siteCheckId });
+  if (error) return fail(error.message);
+  const body = data && typeof data === "object" ? (data as { ok?: boolean }) : {};
+  if (body.ok !== true) return fail("Could not approve this request");
+
+  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/quotes");
+  return { ok: true };
+}
+
+export async function declineSiteCheckRequest(
+  quoteId: string,
+  siteCheckId: string,
+  fd: FormData,
+): Promise<ActionResult> {
+  const session = await requireOrg();
+  const denied = denyUnlessSales(session.orgRole);
+  if (denied) return denied;
+  const parsed = z
+    .object({ reason: z.string().trim().min(1, "Add a reason.").max(2000) })
+    .safeParse(Object.fromEntries(fd));
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("site_check_decline", {
+    p_id: siteCheckId,
+    p_reason: parsed.data.reason,
+  });
+  if (error) return fail(error.message);
+  const body = data && typeof data === "object" ? (data as { ok?: boolean }) : {};
+  if (body.ok !== true) return fail("Could not decline this request");
+
+  revalidatePath(`/quotes/${quoteId}`);
+  revalidatePath("/quotes");
+  return { ok: true };
+}

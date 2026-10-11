@@ -116,3 +116,54 @@ export async function declineQuote(token: string): Promise<ActionResult> {
   if (error) return fail(error.message);
   return { ok: true };
 }
+
+const requestSchema = z.object({
+  email: z.string().trim().email("Enter a valid email"),
+  note: z.string().trim().max(2000).optional(),
+  selected: z.array(z.string().uuid()).default([]),
+});
+
+export async function requestFinalPrice(
+  token: string,
+  fd: FormData,
+): Promise<ActionResult<{ status: string }>> {
+  const parsed = requestSchema.safeParse({
+    email: fd.get("email") ?? "",
+    note: fd.get("note") || undefined,
+    selected: fd.getAll("selected"),
+  });
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the form and try again");
+
+  const hdrs = await headers();
+  const ip = clientIp(hdrs);
+  const userAgent = hdrs.get("user-agent");
+  const forwarded: Record<string, string> = {};
+  if (ip) forwarded["x-forwarded-for"] = ip;
+  if (userAgent) forwarded["user-agent"] = userAgent;
+  const supabase = await createClient({ headers: forwarded });
+  const { data, error } = await supabase.rpc("site_check_request", {
+    p_token: token,
+    p_email: parsed.data.email,
+    ...(parsed.data.note ? { p_note: parsed.data.note } : {}),
+    p_selected: parsed.data.selected,
+  });
+  if (error) {
+    if (/account request limit/i.test(error.message)) {
+      return fail("Call us to schedule a final price — this account has reached the request limit.");
+    }
+    if (/rate limit/i.test(error.message)) {
+      return fail("Too many requests. Please try again in a little while.");
+    }
+    return fail(error.message);
+  }
+  const body = data && typeof data === "object" ? (data as { ok?: boolean; status?: string }) : {};
+  if (body.ok !== true) return fail("Could not request a final price");
+  return { ok: true, data: { status: body.status ?? "requested" } };
+}
+
+export async function cancelFinalPriceRequest(token: string): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("site_check_cancel_request", { p_token: token });
+  if (error) return fail(error.message);
+  return { ok: true };
+}

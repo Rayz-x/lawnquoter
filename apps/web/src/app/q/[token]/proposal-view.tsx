@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { formatMoney, formatMoneyRange } from "@/lib/money";
 import { formatNotToExceedAmount, notToExceedClause } from "@/lib/quotes/legal-copy";
 import { acceptanceTotals, lineHasRange } from "@/lib/quotes/not-to-exceed";
-import type { PublicAcceptance, PublicQuote } from "@/lib/quotes/public-quote";
+import type { PublicAcceptance, PublicQuote, PublicSiteCheck } from "@/lib/quotes/public-quote";
 import { defaultSelectedIds } from "@/lib/quotes/selection";
 import {
   SITE_CHECK_EXPLANATION_TITLE,
@@ -19,11 +19,13 @@ import {
   acceptUpToLabel,
   hasSiteCheck,
   siteCheckCustomerBody,
+  siteCheckMeasuringPill,
   siteCheckWhatHappensNext,
   youPayNoMoreThan,
 } from "@/lib/quotes/site-check";
 import { AcceptForm } from "./accept-form";
 import { RecordView } from "./record-view";
+import { RequestFinalPrice } from "./request-final-price";
 
 type Item = PublicQuote["items"][number];
 
@@ -42,11 +44,11 @@ function priceBlock(item: Item) {
   return <span className="shrink-0 font-heading tabular-nums">{formatMoney(Number(item.price))}</span>;
 }
 
-function SiteCheckPill() {
+function SiteCheckPill({ label }: { label?: string | null }) {
   return (
     <span className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">
       <span className="size-1.5 rounded-full bg-warning" aria-hidden />
-      {SITE_CHECK_LINE_PILL}
+      {label || SITE_CHECK_LINE_PILL}
     </span>
   );
 }
@@ -125,11 +127,18 @@ export function ProposalView({
     notes_customer: string | null;
     expires_at: string | null;
     status: string;
+    site_check?: PublicSiteCheck | null;
+    site_check_can_request?: boolean | null;
+    site_check_account_cap_reached?: boolean | null;
     org: PublicOrg;
     items: Item[];
     acceptance?: PublicAcceptance | null;
   };
 }) {
+  const measuringPill = siteCheckMeasuringPill(
+    payload.site_check?.window_start,
+    payload.site_check?.window_end,
+  );
   const groups = [...new Set(payload.items.filter((i) => i.option_group).map((i) => i.option_group!))];
   const [picked, setPicked] = useState<Record<string, string>>(() => {
     const defaults = new Set(defaultSelectedIds(payload.items));
@@ -167,6 +176,7 @@ export function ProposalView({
   const clause = hasRanges ? (stored?.not_to_exceed_clause ?? notToExceedClause(nteLabel)) : null;
   const selectedItems = payload.items.filter((item) => selectedIds.includes(item.id));
   const selectedFlagged = selectedItems.filter((item) => hasSiteCheck(item.site_check_reasons));
+  const selectedRanged = selectedItems.filter((item) => lineHasRange(item));
   const explanationReasons = selectedFlagged.flatMap((item) => item.site_check_reasons ?? []);
   const showExplanation = selectedFlagged.length > 0;
   const estimateLow = selectedItems.reduce(
@@ -213,7 +223,9 @@ export function ProposalView({
                           {priceBlock(o)}
                         </div>
                         {o.description ? <p className="text-xs text-muted-foreground">{o.description}</p> : null}
-                        {hasSiteCheck(o.site_check_reasons) ? <SiteCheckPill /> : null}
+                        {hasSiteCheck(o.site_check_reasons) || (lineHasRange(o) && measuringPill) ? (
+                          <SiteCheckPill label={measuringPill} />
+                        ) : null}
                       </div>
                     </label>
                   ))}
@@ -244,7 +256,9 @@ export function ProposalView({
                     {priceBlock(i)}
                   </div>
                   {i.description ? <p className="text-xs text-muted-foreground">{i.description}</p> : null}
-                  {hasSiteCheck(i.site_check_reasons) ? <SiteCheckPill /> : null}
+                  {hasSiteCheck(i.site_check_reasons) || (lineHasRange(i) && measuringPill) ? (
+                    <SiteCheckPill label={measuringPill} />
+                  ) : null}
                   {i.state === "recommended" ? (
                     <span className="mt-1 inline-flex rounded-md bg-[var(--brand-soft)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--brand-text)]">
                       Recommended
@@ -275,6 +289,18 @@ export function ProposalView({
               ))}
             </ol>
           </section>
+        ) : null}
+        {LIVE_TOKEN.test(token) ? (
+          <RequestFinalPrice
+            token={token}
+            selectedIds={selectedIds}
+            rangedLineNames={selectedRanged.map((item) => item.name)}
+            phone={payload.org.phone}
+            siteCheck={payload.site_check}
+            canRequest={payload.site_check_can_request === true}
+            accountCapReached={payload.site_check_account_cap_reached === true}
+            hasSelectedRanged={selectedRanged.length > 0}
+          />
         ) : null}
         <div className="sticky bottom-0 mt-8 flex items-center justify-between gap-3 border-t bg-background py-4 [padding-block-end:calc(1rem+env(safe-area-inset-bottom,0px))]">
           <div>

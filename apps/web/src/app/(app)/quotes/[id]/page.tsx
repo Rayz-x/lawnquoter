@@ -13,7 +13,12 @@ import { requireOrg } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/money";
 import { catalogPickerRules, measurementQuantities, priceCatalogLine, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
 import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
-import { hasSiteCheck, siteCheckReasonsSummary } from "@/lib/quotes/site-check";
+import {
+  SITE_CHECK_REQUESTED_BADGE,
+  hasSiteCheck,
+  siteCheckReasonsSummary,
+  siteCheckRequestWindowCopy,
+} from "@/lib/quotes/site-check";
 import { orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/server";
 import { ConvertToJobForm } from "./convert-to-job-button";
@@ -22,6 +27,7 @@ import { QuoteLines } from "./quote-lines";
 import { QuoteMetaForm } from "./quote-meta-form";
 import { SendQuoteButton } from "./send-quote-button";
 import { SiteCheckPanel } from "./site-check-panel";
+import { SiteCheckRequestActions } from "./site-check-request-actions";
 import { ReviseQuoteButton } from "./revise-quote-button";
 
 export const metadata: Metadata = { title: "Quote" };
@@ -33,7 +39,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .select(
-      "id, number, title, status, created_at, current_version, intro, notes_customer, notes_internal, public_token, property_id, accounts(name), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs)",
+      "id, number, title, status, site_check_status, created_at, current_version, intro, notes_customer, notes_internal, public_token, property_id, accounts(name), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs)",
     )
     .eq("id", id)
     .eq("org_id", session.orgId)
@@ -72,6 +78,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     { data: lists, error: listError },
     { data: measurement, error: measurementError },
     { data: sections, error: sectionsError },
+    { data: openSiteCheck, error: siteCheckError },
   ] = await Promise.all([
     versionId
       ? supabase
@@ -114,6 +121,15 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     versionId
       ? supabase.from("quote_sections").select("id, title, sort").eq("version_id", versionId).order("sort")
       : Promise.resolve({ data: [] as { id: string; title: string; sort: number }[], error: null }),
+    supabase
+      .from("site_checks")
+      .select("id, status, origin, requested_email, request_note, window_start, window_end, decline_reason")
+      .eq("quote_id", id)
+      .eq("org_id", session.orgId)
+      .in("status", ["requested", "open", "scheduled", "declined"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
   const listModifiers = new Map(
     (lists ?? []).filter((row) => row.status === "active").map((row) => [row.id, row.modifiers]),
@@ -127,6 +143,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     listError?.message ??
     measurementError?.message ??
     sectionsError?.message ??
+    siteCheckError?.message ??
     null;
   if (loadError) {
     return (
@@ -169,6 +186,11 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     (line) => pickedSet.has(line.id) && hasSiteCheck(line.site_check_reasons),
   );
   const siteCheckCount = selectedFlagged.length;
+  const finalPriceRequested = quote.site_check_status === "requested" || openSiteCheck?.status === "requested";
+  const siteCheckWindowCopy = siteCheckRequestWindowCopy(
+    openSiteCheck?.window_start,
+    openSiteCheck?.window_end,
+  );
   const estimateLow = lines
     .filter((line) => pickedSet.has(line.id))
     .reduce((sum, line) => sum + (line.range_low ?? Number(line.price)), 0);
@@ -209,6 +231,11 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
         <div className="flex flex-col gap-3 lg:col-span-2">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="capitalize">{quote.status}</Badge>
+            {finalPriceRequested ? (
+              <Badge variant="outline" className="border-transparent bg-warning/15 text-warning">
+                {SITE_CHECK_REQUESTED_BADGE}
+              </Badge>
+            ) : null}
             {siteCheckCount > 0 ? (
               <Badge variant="outline" className="border-transparent bg-warning/15 text-warning">
                 Needs site check · {siteCheckCount} line{siteCheckCount === 1 ? "" : "s"}
@@ -297,18 +324,37 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               </div>
             </CardContent>
           </Card>
-          {siteCheckCount > 0 ? (
+          {siteCheckCount > 0 || openSiteCheck ? (
             <Card className="border-warning/30 bg-warning/5">
               <CardHeader>
                 <CardTitle className="text-warning">Site check</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1 text-sm">
-                <p>Created on acceptance</p>
-                <p className="text-muted-foreground">
-                  {siteCheckCount} line{siteCheckCount === 1 ? "" : "s"} · {siteCheckReasonsSummary(
-                    selectedFlagged.flatMap((line) => line.site_check_reasons),
-                  )}
+                <p className="capitalize">
+                  {openSiteCheck
+                    ? openSiteCheck.origin === "customer_request"
+                      ? `Customer request · ${openSiteCheck.status}`
+                      : openSiteCheck.status
+                    : "Created on acceptance"}
                 </p>
+                {siteCheckWindowCopy ? <p>{siteCheckWindowCopy}</p> : null}
+                {openSiteCheck?.status === "declined" && openSiteCheck.decline_reason ? (
+                  <p className="text-muted-foreground">Declined: {openSiteCheck.decline_reason}</p>
+                ) : null}
+                {siteCheckCount > 0 ? (
+                  <p className="text-muted-foreground">
+                    {siteCheckCount} line{siteCheckCount === 1 ? "" : "s"} ·{" "}
+                    {siteCheckReasonsSummary(selectedFlagged.flatMap((line) => line.site_check_reasons))}
+                  </p>
+                ) : null}
+                {openSiteCheck?.status === "requested" && openSiteCheck.origin === "customer_request" ? (
+                  <SiteCheckRequestActions
+                    quoteId={quote.id}
+                    siteCheckId={openSiteCheck.id}
+                    requestedEmail={openSiteCheck.requested_email}
+                    requestNote={openSiteCheck.request_note}
+                  />
+                ) : null}
               </CardContent>
             </Card>
           ) : null}

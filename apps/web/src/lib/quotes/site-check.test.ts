@@ -4,14 +4,18 @@ import {
   SITE_CHECK_AFTER_ACCEPTANCE,
   SITE_CHECK_EXPLANATION_TITLE,
   SITE_CHECK_LINE_PILL,
+  SITE_CHECK_REQUESTED_PENDING,
+  SITE_CHECK_REQUEST_CTA,
   acceptUpToLabel,
   autoSiteCheckReasons,
   hasSiteCheck,
   mergeSiteCheckReasons,
   siteCheckCustomerBody,
   siteCheckCustomerSees,
+  siteCheckMeasuringPill,
   siteCheckReasonLabel,
   siteCheckReasonsSummary,
+  siteCheckRequestWindowCopy,
   siteCheckWhatHappensNext,
   youPayNoMoreThan,
 } from "./site-check";
@@ -157,5 +161,22 @@ describe("customer site-check copy", () => {
     expect(youPayNoMoreThan("$2,095.00")).toBe("You pay no more than $2,095.00");
     expect(SITE_CHECK_LINE_PILL).toBe("Price confirmed on site");
     expect(SITE_CHECK_EXPLANATION_TITLE).toBe("One price is confirmed on site");
+  });
+});
+
+describe("final price request copy", () => {
+  it("uses the pending confirmation until a window exists", () => {
+    expect(SITE_CHECK_REQUESTED_PENDING).toBe(
+      "Final price requested. We'll confirm a visit date shortly.",
+    );
+    expect(SITE_CHECK_REQUEST_CTA).toBe("Request a final price");
+    expect(siteCheckRequestWindowCopy(null, null)).toBeNull();
+  });
+
+  it("describes the approved window for the customer", () => {
+    expect(siteCheckRequestWindowCopy("2026-10-13", "2026-10-15")).toBe(
+      "We'll measure Tue, Oct 13 – Thu, Oct 15 and send your final price. You don't need to be home.",
+    );
+    expect(siteCheckMeasuringPill("2026-10-13", "2026-10-15")).toBe("Measuring Oct 13–15");
   });
 });

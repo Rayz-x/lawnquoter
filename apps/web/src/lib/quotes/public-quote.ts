@@ -30,6 +30,17 @@ export type PublicAcceptance = {
   selections: string[] | null;
 };
 
+export type PublicSiteCheck = {
+  id: string;
+  status: string;
+  origin: string;
+  window_start: string | null;
+  window_end: string | null;
+  decline_reason: string | null;
+  requested_at: string | null;
+  method: string | null;
+};
+
 export type PublicQuote = {
   title: string;
   number: number;
@@ -38,6 +49,9 @@ export type PublicQuote = {
   expires_at: string | null;
   status: string;
   site_check_status?: string | null;
+  site_check?: PublicSiteCheck | null;
+  site_check_can_request?: boolean | null;
+  site_check_account_cap_reached?: boolean | null;
   org: PublicOrg;
   items: PublicQuoteItem[];
   acceptance: PublicAcceptance | null;

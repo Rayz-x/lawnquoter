@@ -24,7 +24,14 @@ select is(
       and p.prosecdef
       and has_function_privilege('anon', p.oid, 'execute')
   ),
-  array['quote_accept', 'quote_decline', 'quote_public', 'quote_record_view']::text[],
+  array[
+    'quote_accept',
+    'quote_decline',
+    'quote_public',
+    'quote_record_view',
+    'site_check_cancel_request',
+    'site_check_request'
+  ]::text[],
   'anon can execute only the public quote security definer RPCs'
 );
 
@@ -70,6 +77,10 @@ select is(
     'set_active_org',
     'set_crew_lead',
     'set_lead_for_today',
+    'site_check_approve',
+    'site_check_cancel_request',
+    'site_check_decline',
+    'site_check_request',
     'skip_visit',
     'update_agreement_schedule'
   ]::text[],

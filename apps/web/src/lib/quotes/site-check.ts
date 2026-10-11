@@ -162,3 +162,66 @@ export function acceptUpToLabel(notToExceedLabel: string): string {
 
 export const SITE_CHECK_LINE_PILL = "Price confirmed on site";
 export const SITE_CHECK_PDF_WHY_TITLE = "Why one price is a range";
+
+/** Shown after the customer requests a final price, before office approval. */
+export const SITE_CHECK_REQUESTED_PENDING =
+  "Final price requested. We'll confirm a visit date shortly.";
+
+export const SITE_CHECK_REQUEST_CTA = "Request a final price";
+export const SITE_CHECK_REQUEST_HINT =
+  "Rather know first? We measure, then send a firm price to accept. Free, no commitment.";
+export const SITE_CHECK_REQUEST_DECLINED = "We'll be in touch about a final price";
+export const SITE_CHECK_REQUEST_CALL_US = "Call us to schedule";
+export const SITE_CHECK_REQUESTED_BADGE = "Final price requested";
+
+export function siteCheckRequestWindowCopy(
+  windowStart: string | null | undefined,
+  windowEnd: string | null | undefined,
+): string | null {
+  if (!windowStart || !windowEnd) return null;
+  const start = formatSiteCheckDate(windowStart);
+  const end = formatSiteCheckDate(windowEnd);
+  if (!start || !end) return null;
+  return `We'll measure ${start === end ? start : `${start} – ${end}`} and send your final price. You don't need to be home.`;
+}
+
+/** Line pill after office approval sets a visit window. */
+export function siteCheckMeasuringPill(
+  windowStart: string | null | undefined,
+  windowEnd: string | null | undefined,
+): string | null {
+  if (!windowStart || !windowEnd) return null;
+  const startParts = parseSiteCheckDateParts(windowStart);
+  const endParts = parseSiteCheckDateParts(windowEnd);
+  if (!startParts || !endParts) return null;
+  const startLabel = `${startParts.month} ${startParts.day}`;
+  if (startParts.iso === endParts.iso) return `Measuring ${startLabel}`;
+  if (startParts.month === endParts.month) {
+    return `Measuring ${startLabel}–${endParts.day}`;
+  }
+  return `Measuring ${startLabel}–${endParts.month} ${endParts.day}`;
+}
+
+function parseSiteCheckDateParts(
+  value: string,
+): { iso: string; month: string; day: number } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!match) return null;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  if (Number.isNaN(date.getTime())) return null;
+  const month = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(date);
+  return { iso: `${match[1]}-${match[2]}-${match[3]}`, month, day: Number(match[3]) };
+}
+
+function formatSiteCheckDate(value: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!match) return null;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
