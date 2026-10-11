@@ -61,9 +61,18 @@ function makeDeps(overrides: Partial<LeadIntakeDeps> = {}): LeadIntakeDeps {
     listOpenLeadsForFold: vi.fn(async () => []),
     listMatchCandidates: vi.fn(async () => []),
     foldIntoLead: vi.fn(async ({ leadId }) => ({ id: leadId })),
+    uploadLeadPhotos: vi.fn(async () => ["org-1/lead-1/a.jpg"]),
     verifyTurnstile: vi.fn(async () => true),
     nowMs: () => Date.now(),
     ...overrides,
+  };
+}
+
+function jpegPhoto(byteLength = 1_024) {
+  return {
+    mimeType: "image/jpeg",
+    byteLength,
+    body: new Uint8Array(byteLength),
   };
 }
 
@@ -82,6 +91,86 @@ describe("submitPublicLeadRequest", () => {
     expect(result).toEqual({ ok: false, reason: "turnstile" });
     expect(vi.mocked(deps.geocode)).not.toHaveBeenCalled();
     expect(vi.mocked(deps.insertLead)).not.toHaveBeenCalled();
+  });
+
+  it("rejects a fourth image before upload", async () => {
+    const deps = makeDeps();
+    const result = await submitPublicLeadRequest(
+      baseInput({
+        photos: [jpegPhoto(), jpegPhoto(), jpegPhoto(), jpegPhoto()],
+      }),
+      deps,
+    );
+
+    expect(result).toEqual({ ok: false, reason: "validation" });
+    expect(vi.mocked(deps.verifyTurnstile)).not.toHaveBeenCalled();
+    expect(vi.mocked(deps.uploadLeadPhotos)).not.toHaveBeenCalled();
+    expect(vi.mocked(deps.insertLead)).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-image attachment before upload", async () => {
+    const deps = makeDeps();
+    const result = await submitPublicLeadRequest(
+      baseInput({
+        photos: [
+          {
+            mimeType: "application/pdf",
+            byteLength: 1_024,
+            body: new Uint8Array(1_024),
+          },
+        ],
+      }),
+      deps,
+    );
+
+    expect(result).toEqual({ ok: false, reason: "validation" });
+    expect(vi.mocked(deps.uploadLeadPhotos)).not.toHaveBeenCalled();
+  });
+
+  it("does not upload photos when the bot check fails", async () => {
+    const deps = makeDeps({
+      verifyTurnstile: vi.fn(async () => false),
+    });
+
+    const result = await submitPublicLeadRequest(
+      baseInput({ photos: [jpegPhoto()] }),
+      deps,
+    );
+
+    expect(result).toEqual({ ok: false, reason: "turnstile" });
+    expect(vi.mocked(deps.uploadLeadPhotos)).not.toHaveBeenCalled();
+    expect(vi.mocked(deps.insertLead)).not.toHaveBeenCalled();
+  });
+
+  it("uploads photos only after the bot check and lead insert", async () => {
+    const order: string[] = [];
+    const deps = makeDeps({
+      verifyTurnstile: vi.fn(async () => {
+        order.push("turnstile");
+        return true;
+      }),
+      insertLead: vi.fn(async () => {
+        order.push("insert");
+        return { id: "lead-1" };
+      }),
+      uploadLeadPhotos: vi.fn(async () => {
+        order.push("upload");
+        return ["org-1/lead-1/a.jpg"];
+      }),
+    });
+
+    const result = await submitPublicLeadRequest(
+      baseInput({ photos: [jpegPhoto()] }),
+      deps,
+    );
+
+    expect(result).toEqual({ ok: true, status: "new" });
+    expect(order).toEqual(["turnstile", "insert", "upload"]);
+    expect(vi.mocked(deps.uploadLeadPhotos)).toHaveBeenCalledWith({
+      orgId: "org-1",
+      leadId: "lead-1",
+      photos: [expect.objectContaining({ mimeType: "image/jpeg" })],
+    });
   });
 
   it("stores honeypot submissions as spam and skips geocode", async () => {
@@ -162,7 +251,10 @@ describe("submitPublicLeadRequest", () => {
       ]),
     });
 
-    const result = await submitPublicLeadRequest(baseInput({ phone: "512-555-1212" }), deps);
+    const result = await submitPublicLeadRequest(
+      baseInput({ phone: "512-555-1212", formStartedAtMs: now - 10_000 }),
+      deps,
+    );
 
     expect(result).toEqual({ ok: true, status: "new" });
     expect(vi.mocked(deps.foldIntoLead)).toHaveBeenCalledWith(

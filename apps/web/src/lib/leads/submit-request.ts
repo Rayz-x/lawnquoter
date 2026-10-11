@@ -7,10 +7,16 @@ import {
   type MatchCandidateInput,
   type OpenLeadForFold,
 } from "./dedupe";
+import {
+  validateLeadPhotoCandidates,
+  type LeadPhotoFile,
+} from "./lead-photos";
 import { WEBSITE_FORM_SOURCE } from "./lead-source";
 import { normalizeEmail, normalizePhoneE164 } from "./normalize-contact";
 
 export const LEAD_INTAKE_MAX_BODY_BYTES = 32_768;
+/** Multipart intake may carry up to 3 × 2 MiB images plus form fields. */
+export const LEAD_INTAKE_MAX_MULTIPART_BYTES = 6_500_000;
 export const LEAD_INTAKE_MIN_FILL_MS = 3_000;
 export const LEAD_INTAKE_IP_LIMIT = 5;
 export const LEAD_INTAKE_ORG_LIMIT = 60;
@@ -101,6 +107,8 @@ export type LeadIntakeInput = {
   landingPage: string | null;
   clientIp: string | null;
   userAgent: string | null;
+  /** Optional form photos; validated before Turnstile, uploaded only after it passes. */
+  photos?: LeadPhotoFile[];
 };
 
 export type LeadIntakeDeps = {
@@ -126,6 +134,11 @@ export type LeadIntakeDeps = {
     services: string[];
     addressTyped: string;
   }) => Promise<{ id: string }>;
+  uploadLeadPhotos: (args: {
+    orgId: string;
+    leadId: string;
+    photos: LeadPhotoFile[];
+  }) => Promise<string[]>;
   nowMs: () => number;
 };
 
@@ -168,6 +181,13 @@ export async function submitPublicLeadRequest(
   if (!slug || !contactName || !addressTyped || (!phone && !email)) {
     return { ok: false, reason: "validation" };
   }
+
+  const photos = input.photos ?? [];
+  const photoCheck = validateLeadPhotoCandidates(photos);
+  if (!photoCheck.ok) {
+    return { ok: false, reason: "validation" };
+  }
+
   if (!clip(input.turnstileToken, 2048)) {
     return { ok: false, reason: "turnstile" };
   }
@@ -223,6 +243,13 @@ export async function submitPublicLeadRequest(
           services,
           addressTyped,
         });
+        if (photos.length > 0) {
+          await deps.uploadLeadPhotos({
+            orgId: org.orgId,
+            leadId: fold.id,
+            photos,
+          });
+        }
       } catch {
         return { ok: false, reason: "store" };
       }
@@ -269,7 +296,7 @@ export async function submitPublicLeadRequest(
       : null;
 
   try {
-    await deps.insertLead({
+    const inserted = await deps.insertLead({
       orgId: org.orgId,
       status,
       contactName,
@@ -308,6 +335,13 @@ export async function submitPublicLeadRequest(
       accountId,
       propertyId,
     });
+    if (photos.length > 0) {
+      await deps.uploadLeadPhotos({
+        orgId: org.orgId,
+        leadId: inserted.id,
+        photos,
+      });
+    }
   } catch {
     return { ok: false, reason: "store" };
   }
