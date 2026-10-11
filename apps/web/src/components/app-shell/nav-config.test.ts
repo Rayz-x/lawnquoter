@@ -1,6 +1,6 @@
 import { FIELD_ROLES, ORG_ROLES } from "@lawnquoter/shared";
 import { describe, expect, it } from "vitest";
-import { visibleNav } from "./nav-config";
+import { categoryFor, visibleNav } from "./nav-config";
 
 function item(role: (typeof ORG_ROLES)[number], title: string) {
   return visibleNav(role)
@@ -8,7 +8,7 @@ function item(role: (typeof ORG_ROLES)[number], title: string) {
     .find((navItem) => navItem.title === title);
 }
 
-describe("Crew App nav", () => {
+describe("office nav categories", () => {
   it("points field roles at today's route and hides it from sales and read_only", () => {
     for (const role of ORG_ROLES) {
       const crew = item(role, "Crew App");
@@ -28,7 +28,7 @@ describe("Crew App nav", () => {
     expect(item("crew_lead", "Requests")).toBeUndefined();
   });
 
-  it("keeps Agreements, Schedule, Invoices, Lead sources, and Crews as office items", () => {
+  it("keeps Agreements, Schedule, Invoices, Reports, and Crews as office items", () => {
     expect(item("owner", "Agreements")?.href).toBe("/agreements");
     expect(item("sales", "Agreements")?.href).toBe("/agreements");
     expect(item("read_only", "Agreements")?.href).toBe("/agreements");
@@ -66,5 +66,52 @@ describe("Crew App nav", () => {
     expect(item("owner", "Crews")?.href).toBe("/settings/crews");
     expect(item("sales", "Crews")).toBeUndefined();
     expect(item("read_only", "Crews")).toBeUndefined();
+  });
+
+  it("groups the bar the way field-service apps do, and parks settings on the user menu", () => {
+    const owner = visibleNav("owner");
+    expect(owner.filter((category) => category.place === "bar").map((category) => category.label)).toEqual([
+      "Home",
+      "Schedule",
+      "Clients",
+      "Sales",
+      "Work",
+      "Money",
+      "Reports",
+    ]);
+    expect(owner.find((category) => category.label === "Clients")?.items.map((entry) => entry.title)).toEqual([
+      "Accounts",
+      "Properties",
+      "Requests",
+    ]);
+    expect(owner.find((category) => category.label === "Sales")?.items.map((entry) => entry.href)).toEqual([
+      "/quotes",
+      "/settings/pricing",
+    ]);
+    expect(owner.find((category) => category.label === "Money")?.items.map((entry) => entry.title)).toEqual([
+      "Invoices",
+      "Payments",
+      "Billing review",
+    ]);
+    expect(owner.find((category) => category.label === "Settings")?.place).toBe("user");
+    expect(item("sales", "Price book")).toBeUndefined();
+    expect(item("owner", "Price book")?.href).toBe("/settings/pricing");
+    expect(item("dispatcher", "Quotes")).toBeUndefined();
+    expect(item("sales", "Team")).toBeUndefined();
+    expect(item("owner", "Settings")?.href).toBe("/settings");
+  });
+
+  it("highlights the category that owns the child route", () => {
+    const owner = visibleNav("owner");
+    expect(categoryFor("/dashboard", owner)?.label).toBe("Home");
+    expect(categoryFor("/leads/report", owner)?.label).toBe("Reports");
+    expect(categoryFor("/leads/abc", owner)?.label).toBe("Clients");
+    expect(categoryFor("/settings/pricing", owner)?.label).toBe("Sales");
+    expect(categoryFor("/settings/crews", owner)?.label).toBe("Work");
+    expect(categoryFor("/settings/team", owner)?.label).toBe("Settings");
+    expect(categoryFor("/settings/profile", owner)?.label).toBe("Settings");
+    expect(categoryFor("/invoices/1", owner)?.label).toBe("Money");
+    expect(categoryFor("/properties/1", owner)?.label).toBe("Clients");
+    expect(categoryFor("/quotes/new", owner)?.label).toBe("Sales");
   });
 });

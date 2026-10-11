@@ -1,10 +1,11 @@
 "use client";
 
-import { LogOut, Monitor, Moon, Smartphone, SunMedium, UserCircle } from "lucide-react";
+import { LogOut, Monitor, Moon, SunMedium } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import type { OrgRole } from "@lawnquoter/shared";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import type { NavItem } from "./nav-config";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,12 +29,12 @@ export function UserMenu({
   email,
   name,
   role,
-  showCrew = false,
+  links = [],
 }: {
   email: string | null;
   name: string | null;
   role: OrgRole;
-  showCrew?: boolean;
+  links?: NavItem[];
 }) {
   const { theme, setTheme } = useTheme();
   const mark = initials(name, email);
@@ -54,18 +55,16 @@ export function UserMenu({
           <span className="block truncate text-xs capitalize text-muted-foreground">{role.replaceAll("_", " ")}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem render={<Link href="/settings/profile" />}>
-            <UserCircle />
-            Profile
-          </DropdownMenuItem>
-          {showCrew ? (
-            <DropdownMenuItem render={<Link href="/crew/today" />}>
-              <Smartphone />
-              Open crew app
-            </DropdownMenuItem>
-          ) : null}
-        </DropdownMenuGroup>
+        {links.length > 0 ? (
+          <DropdownMenuGroup>
+            {links.map((link) => (
+              <DropdownMenuItem key={link.href} render={<Link href={link.href} />}>
+                <link.icon />
+                {link.title === "Crew App" ? "Open crew app" : link.title}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuLabel>Theme</DropdownMenuLabel>

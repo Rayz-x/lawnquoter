@@ -467,7 +467,9 @@
   text-decoration: none;
 }
 
-.dispatch-link[aria-current="page"] {
+.dispatch-link[aria-current="page"],
+.dispatch-link[aria-current="true"],
+.dispatch-link[aria-expanded="true"] {
   background: color-mix(in oklch, white 10%, transparent);
   font-weight: 650;
   box-shadow: inset 0 -3px 0 var(--lime);
@@ -553,7 +555,8 @@
   font-size: 0.7rem;
 }
 
-.dispatch-tab[aria-current="page"] {
+.dispatch-tab[aria-current="page"],
+.dispatch-tab[aria-current="true"] {
   color: var(--lime);
   font-weight: 650;
 }
@@ -569,16 +572,74 @@
   color: var(--lime-ink);
 }
 
-@container topnav (max-width: 1249px) {
-  .dispatch-link[data-nav-priority="6"]:not([data-nav-current="true"]),
-  .dispatch-link[data-nav-priority="7"]:not([data-nav-current="true"]) {
+.dispatch-menu {
+  --lime: oklch(0.89 0.19 128);
+  --lime-ink: oklch(0.24 0.05 140);
+  min-inline-size: 14rem;
+  max-block-size: min(24rem, 70dvh);
+  overflow: auto;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in oklch, white 12%, transparent);
+  background: oklch(0.2 0.01 160);
+  color: oklch(0.96 0.006 155);
+  padding: 0.3rem;
+  box-shadow: 0 18px 40px -24px oklch(0.1 0.01 160);
+}
+
+.dispatch-menu-label {
+  padding-inline: 0.7rem;
+  padding-block: 0.35rem 0.15rem;
+  color: oklch(0.72 0.015 155);
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dispatch-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-block-size: 2.75rem;
+  border-radius: 0.5rem;
+  padding-inline: 0.7rem;
+  color: inherit;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.dispatch-menu-item[aria-current="page"],
+.dispatch-menu-item[data-highlighted] {
+  background: color-mix(in oklch, white 10%, transparent);
+}
+
+.dispatch-menu-item:focus-visible,
+.dispatch-menu-item[data-highlighted] {
+  outline: max(2px, 0.08em) solid var(--lime);
+  outline-offset: -0.15em;
+}
+
+.dispatch-tab-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  gap: 0.15rem;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+@container topnav (max-width: 1099px) {
+  .dispatch-cat[data-nav-priority="5"]:not([data-nav-current="true"]),
+  .dispatch-cat[data-nav-priority="6"]:not([data-nav-current="true"]) {
     display: none;
   }
 }
 
 @container topnav (max-width: 999px) {
-  .dispatch-link[data-nav-priority="4"]:not([data-nav-current="true"]),
-  .dispatch-link[data-nav-priority="5"]:not([data-nav-current="true"]),
+  .dispatch-cat[data-nav-priority="4"]:not([data-nav-current="true"]) {
+    display: none;
+  }
+
   .dispatch-count {
     display: none;
   }
