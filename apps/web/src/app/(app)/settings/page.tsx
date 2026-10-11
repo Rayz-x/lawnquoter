@@ -6,7 +6,9 @@ import { requireOrg } from "@/lib/auth/session";
 import type { ConnectStatus } from "@/lib/stripe/connect";
 import { createClient } from "@/lib/supabase/server";
 import { headingSturdy } from "@/app/q/[token]/heading-font";
+import { leadFormSlugFromOrg } from "@/lib/leads/embed-snippets";
 import { BrandingForm } from "./branding-form";
+import { LeadFormEmbedCard } from "./lead-form-embed-card";
 import { OrgSettingsForm } from "./org-settings-form";
 import { StripeConnectCard } from "./stripe-connect-card";
 
@@ -38,6 +40,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   if (!org) notFound();
   const canEdit = session.orgRole === "owner" || session.orgRole === "admin";
   const isOwner = session.orgRole === "owner";
+  const appOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const formSlug = leadFormSlugFromOrg(org);
 
   let connectStatus: ConnectStatus = "not_connected";
   let stripeAccountId: string | null = null;
@@ -63,6 +67,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <OrgSettingsForm
           org={org}
           canEdit={canEdit}
+          isOwner={isOwner}
           tab={tab}
           branding={<BrandingForm org={org} canEdit={canEdit} />}
           payments={
@@ -73,6 +78,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               payoutsEnabled={payoutsEnabled}
             />
           }
+          leadForm={<LeadFormEmbedCard isOwner={isOwner} origin={appOrigin} slug={formSlug} />}
         />
       </div>
     </div>
