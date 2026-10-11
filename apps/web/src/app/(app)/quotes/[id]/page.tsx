@@ -393,7 +393,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
                 <p className="capitalize">
                   {openSiteCheck
                     ? openSiteCheck.origin === "customer_request"
-                      ? `Customer request · ${openSiteCheck.status}`
+                      ? openSiteCheck.status === "requested"
+                        ? "Customer asked for a final price · Waiting for your approval"
+                        : `Customer request · ${openSiteCheck.status}`
                       : openSiteCheck.status
                     : "Created on acceptance"}
                 </p>

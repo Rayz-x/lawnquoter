@@ -689,16 +689,42 @@ export async function waiveLineSiteCheck(quoteId: string, lineId: string, fd: Fo
   return { ok: true };
 }
 
-export async function approveSiteCheckRequest(quoteId: string, siteCheckId: string): Promise<ActionResult> {
+export async function approveSiteCheckRequest(
+  quoteId: string,
+  siteCheckId: string,
+  window?: { start: string; end: string } | null,
+): Promise<ActionResult> {
   const session = await requireOrg();
   const denied = denyUnlessSales(session.orgRole);
   if (denied) return denied;
 
+  let edited: { start: string; end: string } | null = null;
+  if (window) {
+    const parsed = z
+      .object({ start: z.string().date(), end: z.string().date() })
+      .refine((w) => w.end >= w.start, "The window must end on or after it starts.")
+      .safeParse(window);
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the visit window");
+    edited = parsed.data;
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("site_check_approve", { p_id: siteCheckId });
   if (error) return fail(error.message);
-  const body = data && typeof data === "object" ? (data as { ok?: boolean }) : {};
+  const body =
+    data && typeof data === "object"
+      ? (data as { ok?: boolean; window_start?: string | null; window_end?: string | null })
+      : {};
   if (body.ok !== true) return fail("Could not approve this request");
+
+  if (edited && (edited.start !== body.window_start || edited.end !== body.window_end)) {
+    const { error: windowError } = await supabase
+      .from("site_checks")
+      .update({ window_start: edited.start, window_end: edited.end, due_on: edited.end })
+      .eq("id", siteCheckId)
+      .eq("org_id", session.orgId);
+    if (windowError) return fail(windowError.message);
+  }
 
   revalidatePath(`/quotes/${quoteId}`);
   revalidatePath("/quotes");

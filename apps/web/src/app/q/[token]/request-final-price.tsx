@@ -3,6 +3,17 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -19,11 +30,12 @@ import {
   siteCheckRequestWindowCopy,
 } from "@/lib/quotes/site-check";
 import { cancelFinalPriceRequest, requestFinalPrice } from "./actions";
+import { SITE_CHECK_REQUEST_LIMIT_ERROR } from "./request-limit";
 
 const AFTER_REQUEST_STEPS = [
   "We check the work on site.",
   "We email and text you the firm price.",
-  "You accept that price then — nothing owed until you do.",
+  "You accept that price then. Nothing is owed until you do.",
 ];
 
 export function RequestFinalPrice({
@@ -48,6 +60,7 @@ export function RequestFinalPrice({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
+  const [limitReached, setLimitReached] = useState(false);
   const status = siteCheck?.status ?? null;
   const openRequest = status === "requested" || status === "scheduled" || status === "open";
   const declined = status === "declined";
@@ -77,11 +90,15 @@ export function RequestFinalPrice({
   if (openRequest) {
     return (
       <section
-        className="mt-4 rounded-xl bg-success/10 p-4 text-sm ring-1 ring-success/30"
+        className={
+          status === "requested" || !windowCopy
+            ? "mt-4 rounded-xl bg-warning/10 p-4 text-sm ring-1 ring-warning/30"
+            : "mt-4 rounded-xl bg-success/10 p-4 text-sm ring-1 ring-success/30"
+        }
         aria-label="Final price requested"
       >
         {status === "requested" || !windowCopy ? (
-          <p className="font-medium text-success">{SITE_CHECK_REQUESTED_PENDING}</p>
+          <p className="font-medium text-warning">{SITE_CHECK_REQUESTED_PENDING}</p>
         ) : (
           <>
             <p className="font-medium text-success">{SITE_CHECK_REQUESTED_BADGE}</p>
@@ -101,27 +118,40 @@ export function RequestFinalPrice({
             })}
           </p>
         ) : null}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="mt-3"
-          disabled={pending}
-          onClick={() =>
-            startTransition(async () => {
-              const result = await cancelFinalPriceRequest(token);
-              if (!result.ok) {
-                toast.error(result.error);
-                return;
-              }
-              toast.success("Request cancelled");
-              router.refresh();
-            })
-          }
-        >
-          {pending ? <Spinner data-icon="inline-start" /> : null}
-          Cancel request
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger
+            render={
+              <Button type="button" variant="outline" className="mt-3 min-h-11" disabled={pending} />
+            }
+          >
+            {pending ? <Spinner data-icon="inline-start" /> : null}
+            Cancel request
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancel your request?</AlertDialogTitle>
+              <AlertDialogDescription>You can still accept the estimate.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep request</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() =>
+                  startTransition(async () => {
+                    const result = await cancelFinalPriceRequest(token);
+                    if (!result.ok) {
+                      toast.error(result.error);
+                      return;
+                    }
+                    toast.success("Request cancelled");
+                    router.refresh();
+                  })
+                }
+              >
+                Cancel request
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </section>
     );
   }
@@ -164,6 +194,10 @@ export function RequestFinalPrice({
         startTransition(async () => {
           const result = await requestFinalPrice(token, fd);
           if (!result.ok) {
+            if (result.error === SITE_CHECK_REQUEST_LIMIT_ERROR) {
+              setLimitReached(true);
+              return;
+            }
             toast.error(result.error);
             return;
           }
@@ -198,6 +232,22 @@ export function RequestFinalPrice({
           placeholder="e.g. side gate is locked on Mondays"
         />
       </Field>
+      {limitReached ? (
+        <p className="text-sm" role="alert">
+          {SITE_CHECK_REQUEST_LIMIT_ERROR}{" "}
+          {phone ? (
+            <>
+              Call us at{" "}
+              <a className="text-[var(--brand-text)] underline" href={`tel:${phone}`}>
+                {phone}
+              </a>
+              .
+            </>
+          ) : (
+            "Please call us."
+          )}
+        </p>
+      ) : null}
       <div className="flex gap-2">
         <Button type="submit" size="lg" disabled={pending}>
           {pending ? <Spinner data-icon="inline-start" /> : null}
