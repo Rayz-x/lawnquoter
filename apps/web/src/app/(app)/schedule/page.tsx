@@ -113,8 +113,17 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
 
   const { date: requested } = await searchParams;
   const supabase = await createClient();
-  const { data: org } = await supabase.from("orgs").select("timezone").eq("id", session.orgId).maybeSingle();
+  const { data: org } = await supabase
+    .from("orgs")
+    .select("timezone, settings")
+    .eq("id", session.orgId)
+    .maybeSingle();
   const today = orgToday(org?.timezone);
+  const saturdayWorkday =
+    org?.settings != null &&
+    typeof org.settings === "object" &&
+    !Array.isArray(org.settings) &&
+    (org.settings as { saturday_workday?: unknown }).saturday_workday === true;
   if (requested && !isIsoDate(requested)) {
     return (
       <>
@@ -286,6 +295,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             date={date}
             canWrite={canWrite}
             timeZone={org?.timezone ?? "UTC"}
+            saturdayWorkday={saturdayWorkday}
             tray={tray}
             columns={columns}
           />

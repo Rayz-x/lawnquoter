@@ -11,9 +11,18 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
-import { assignVisit, cancelVisit, publishRoute, reorderVisits, skipVisit } from "@/lib/actions/scheduling";
+import {
+  assignVisit,
+  cancelVisit,
+  publishRoute,
+  rainDayPush,
+  reorderVisits,
+  skipVisit,
+} from "@/lib/actions/scheduling";
 import type { AttentionTray } from "@/lib/scheduling/attention-tray";
+import { formatOfficeDay } from "@/lib/scheduling/office-date";
 import { phoneSyncStatus } from "@/lib/scheduling/phone-sync";
+import { nextWorkday } from "@/lib/scheduling/workday";
 import { AttentionTrayPanel } from "./attention-tray-panel";
 
 export type BoardVisit = {
@@ -76,18 +85,26 @@ export function DayBoard({
   date,
   canWrite,
   timeZone,
+  saturdayWorkday,
   tray,
   columns,
 }: {
   date: string;
   canWrite: boolean;
   timeZone: string;
+  saturdayWorkday: boolean;
   tray: AttentionTray;
   columns: BoardColumn[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
   const crews = columns.map((column) => ({ id: column.crewId, name: column.crewName }));
+  const targetDay = nextWorkday(date, { saturdayWorkday });
+  const targetLabel = formatOfficeDay(targetDay);
+  const selectedIds = Object.entries(selected)
+    .filter(([, on]) => on)
+    .map(([id]) => id);
 
   const run = (work: () => Promise<{ ok: true } | { ok: false; error: string }>, success: string) => {
     startTransition(async () => {
@@ -101,9 +118,60 @@ export function DayBoard({
     });
   };
 
+  const runRain = (
+    work: () => Promise<
+      | { ok: true; data: { targetDate: string; pushed: number; skipped: number; untouched: number } }
+      | { ok: false; error: string }
+    >,
+  ) => {
+    startTransition(async () => {
+      const result = await work();
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      const { pushed, skipped, untouched, targetDate } = result.data;
+      toast.success(
+        `Rain day → ${formatOfficeDay(targetDate)}: ${pushed} pushed, ${skipped} skipped` +
+          (untouched > 0 ? `, ${untouched} left in progress` : ""),
+      );
+      setSelected({});
+      router.refresh();
+    });
+  };
+
   return (
     <div className="grid gap-4 xl:grid-cols-[20rem_1fr]">
       <AttentionTrayPanel date={date} canWrite={canWrite} tray={tray} crews={crews} />
+
+      <div className="grid gap-4">
+        {canWrite ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={pending}
+              onClick={() =>
+                runRain(() =>
+                  rainDayPush({
+                    date,
+                    visitIds: selectedIds.length > 0 ? selectedIds : undefined,
+                  }),
+                )
+              }
+            >
+              {pending ? <Spinner data-icon="inline-start" /> : null}
+              {selectedIds.length > 0
+                ? `Rain day · selection → ${targetLabel}`
+                : `Rain day · all crews → ${targetLabel}`}
+            </Button>
+            {selectedIds.length > 0 ? (
+              <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setSelected({})}>
+                Clear selection
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
         {columns.length === 0 ? (
@@ -130,6 +198,17 @@ export function DayBoard({
                 <CardDescription>
                   {column.visits.length === 0 ? "No stops this day." : `${column.visits.length} stops`}
                 </CardDescription>
+                {canWrite && scheduledIds(column.visits).length > 0 ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() => runRain(() => rainDayPush({ date, crewId: column.crewId }))}
+                  >
+                    Rain day → {targetLabel}
+                  </Button>
+                ) : null}
                 <PhoneSyncLines
                   phones={column.phones}
                   routeVersion={column.routeVersion}
@@ -143,7 +222,18 @@ export function DayBoard({
                   <ol className="flex flex-col gap-3">
                     {column.visits.map((visit, index) => (
                       <li key={visit.id}>
-                        <VisitCard visit={visit}>
+                        <VisitCard
+                          visit={visit}
+                          select={
+                            canWrite && visit.status === "scheduled"
+                              ? {
+                                  checked: Boolean(selected[visit.id]),
+                                  onChange: (checked) =>
+                                    setSelected((prev) => ({ ...prev, [visit.id]: checked })),
+                                }
+                              : null
+                          }
+                        >
                           {canWrite && column.routeId && visit.status === "scheduled" ? (
                             <div className="flex flex-wrap gap-2">
                               <Button
@@ -230,18 +320,38 @@ export function DayBoard({
           ))
         )}
       </div>
+      </div>
     </div>
   );
 }
 
-function VisitCard({ visit, children }: { visit: BoardVisit; children?: ReactNode }) {
+function VisitCard({
+  visit,
+  select,
+  children,
+}: {
+  visit: BoardVisit;
+  select?: { checked: boolean; onChange: (checked: boolean) => void } | null;
+  children?: ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-2 rounded-md border p-3 text-sm">
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="font-medium">{visit.title}</div>
-          <div className="text-muted-foreground">{visit.customer}</div>
-          <div className="text-muted-foreground">{visit.address}</div>
+        <div className="flex items-start gap-2">
+          {select ? (
+            <input
+              type="checkbox"
+              className="mt-1 size-4 accent-primary"
+              checked={select.checked}
+              onChange={(event) => select.onChange(event.target.checked)}
+              aria-label={`Select ${visit.title} for rain day`}
+            />
+          ) : null}
+          <div>
+            <div className="font-medium">{visit.title}</div>
+            <div className="text-muted-foreground">{visit.customer}</div>
+            <div className="text-muted-foreground">{visit.address}</div>
+          </div>
         </div>
         <div className="flex flex-col items-end gap-1">
           {visit.overdue ? <Badge variant="destructive">Overdue</Badge> : null}
