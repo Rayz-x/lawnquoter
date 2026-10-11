@@ -213,14 +213,14 @@ async function editableLine(quoteId: string, id: string, orgId: string) {
   const supabase = await createClient();
   const { data: item } = await supabase
     .from("quote_line_items")
-    .select("id, quote_versions(quote_id, frozen)")
+    .select("id, range_low, range_high, quote_versions(quote_id, frozen)")
     .eq("id", id)
     .eq("org_id", orgId)
     .maybeSingle();
   const version = item ? lineVersion(item) : null;
-  if (!item || !version || version.quote_id !== quoteId) return { supabase, error: "Line item not found" as const };
-  if (version.frozen) return { supabase, error: "This proposal is frozen. Revise it before editing." as const };
-  return { supabase, error: null };
+  if (!item || !version || version.quote_id !== quoteId) return { supabase, item: null, error: "Line item not found" as const };
+  if (version.frozen) return { supabase, item: null, error: "This proposal is frozen. Revise it before editing." as const };
+  return { supabase, item, error: null };
 }
 
 export async function updateLineItem(quoteId: string, id: string, fd: FormData): Promise<ActionResult> {
@@ -238,15 +238,24 @@ export async function updateLineItem(quoteId: string, id: string, fd: FormData):
   if (parsed.data.state === undefined && parsed.data.name === undefined && parsed.data.price === undefined) {
     return fail("Nothing to save.");
   }
-  const { supabase, error: lineError } = await editableLine(quoteId, id, session.orgId);
-  if (lineError) return fail(lineError);
+  const { supabase, item, error: lineError } = await editableLine(quoteId, id, session.orgId);
+  if (lineError || !item) return fail(lineError ?? "Line item not found");
   const patch: { state?: "included" | "recommended" | "optional"; selected?: boolean; name?: string; price?: number } = {};
   if (parsed.data.state !== undefined) {
     patch.state = parsed.data.state;
     patch.selected = parsed.data.state === "included";
   }
   if (parsed.data.name !== undefined) patch.name = parsed.data.name;
-  if (parsed.data.price !== undefined) patch.price = parsed.data.price;
+  if (parsed.data.price !== undefined) {
+    const rangeLow = item.range_low;
+    const rangeHigh = item.range_high;
+    if (rangeLow != null && rangeHigh != null) {
+      if (parsed.data.price < rangeLow || parsed.data.price > rangeHigh) {
+        return fail("The price has to fall inside the range.");
+      }
+    }
+    patch.price = parsed.data.price;
+  }
   const { data, error } = await supabase
     .from("quote_line_items")
     .update(patch)
@@ -290,7 +299,7 @@ export async function updateQuoteTerms(id: string, fd: FormData): Promise<Action
   if (!quote) return fail("Quote not found");
   const { data: version } = await supabase
     .from("quote_versions")
-    .select("frozen")
+    .select("id, frozen")
     .eq("quote_id", id)
     .eq("org_id", session.orgId)
     .eq("version", quote.current_version)
@@ -300,7 +309,16 @@ export async function updateQuoteTerms(id: string, fd: FormData): Promise<Action
     return fail("This proposal is frozen. Revise it before editing.");
   }
   const patch: { deposit_amount?: number | null; expires_at?: string | null } = {};
-  if (parsed.data.deposit_amount !== undefined) patch.deposit_amount = parsed.data.deposit_amount;
+  if (parsed.data.deposit_amount !== undefined) {
+    const { data: lines } = await supabase
+      .from("quote_line_items")
+      .select("price")
+      .eq("version_id", version.id)
+      .eq("org_id", session.orgId)
+      .eq("selected", true);
+    const quoteTotal = (lines ?? []).reduce((sum, line) => sum + Number(line.price), 0);
+    patch.deposit_amount = Math.min(parsed.data.deposit_amount, quoteTotal);
+  }
   if (parsed.data.expires_at !== undefined) patch.expires_at = parsed.data.expires_at;
   const { data, error } = await supabase.from("quotes").update(patch).eq("id", id).eq("org_id", session.orgId).select("id");
   const missed = unchanged(data, error);
