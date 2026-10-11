@@ -16,6 +16,8 @@ vi.mock("./actions", () => ({
   logLeadContact: vi.fn(),
   reassignLead: vi.fn(),
   setLeadFollowUp: vi.fn(),
+  linkLeadMatch: vi.fn(),
+  dismissLeadMatch: vi.fn(),
 }));
 
 vi.mock("./convert-actions", () => ({
@@ -88,5 +90,31 @@ describe("LeadDetail read_only", () => {
     expect(markup).toContain('data-testid="lead-actions"');
     expect(markup).toContain('data-testid="lead-log-contact"');
     expect(markup).not.toContain('data-testid="lead-view-only"');
+  });
+
+  it("shows possible-match banner with Link for an unlinked lead", () => {
+    const markup = renderToStaticMarkup(
+      createElement(LeadDetail, {
+        lead,
+        activities,
+        assigneeName: "Owner One",
+        people: [{ id: "owner-1", name: "Owner One" }],
+        canEdit: true,
+        possibleMatches: [
+          {
+            kind: "possible",
+            accountId: "acct-9",
+            accountName: "Ada Account",
+            propertyId: "prop-9",
+            label: "Ada Account",
+            bannerText: "Possible match: Ada Account",
+          },
+        ],
+      }),
+    );
+    expect(markup).toContain('data-testid="possible-match-banner"');
+    expect(markup).toContain("Possible match: Ada Account");
+    expect(markup).toContain('data-testid="possible-match-link"');
+    expect(markup).toContain('data-testid="possible-match-create-new"');
   });
 });

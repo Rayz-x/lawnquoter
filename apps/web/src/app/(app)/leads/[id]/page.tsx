@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { requireOrg } from "@/lib/auth/session";
 import { leadsClient } from "@/lib/leads/client";
 import { canEditLeads, canViewLeads, leadDisplayName, type LeadActivity, type LeadRequest } from "@/lib/leads/detail";
+import { loadPossibleMatchesForLead } from "@/lib/leads/match-candidates";
 import { createClient } from "@/lib/supabase/server";
 import { LeadDetail } from "./lead-detail";
 
@@ -69,7 +70,12 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   }
   if (!lead) notFound();
 
-  const typedLead = lead as LeadRequest;
+  const typedLead = lead as LeadRequest & {
+    phone?: string | null;
+    email?: string | null;
+    address_typed?: string | null;
+    assignee_id?: string | null;
+  };
   const typedActivities = (activities ?? []) as LeadActivity[];
   const people = (members ?? []).map((member) => {
     const profile = member.profiles as { full_name: string | null } | { full_name: string | null }[] | null;
@@ -79,20 +85,39 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
       name: row?.full_name?.trim() || "Teammate",
     };
   });
-  const assigneeName = typedLead.assigned_to
-    ? (people.find((person) => person.id === typedLead.assigned_to)?.name ?? "Teammate")
+  const assigneeId = typedLead.assigned_to ?? typedLead.assignee_id ?? null;
+  const assigneeName = assigneeId
+    ? (people.find((person) => person.id === assigneeId)?.name ?? "Teammate")
     : null;
+
+  let possibleMatches: Awaited<ReturnType<typeof loadPossibleMatchesForLead>> = [];
+  if (!typedLead.account_id) {
+    try {
+      possibleMatches = await loadPossibleMatchesForLead(supabase, session.orgId, {
+        account_id: typedLead.account_id,
+        phone: typedLead.phone ?? typedLead.contact_phone,
+        email: typedLead.email ?? typedLead.contact_email,
+        address_line1: typedLead.address_line1,
+        address_typed: typedLead.address_typed,
+        city: typedLead.city,
+        postal_code: typedLead.postal_code,
+      });
+    } catch {
+      possibleMatches = [];
+    }
+  }
 
   return (
     <>
       <PageHeader title={leadDisplayName(typedLead)} description="Lead detail" />
       <div className="page-body">
         <LeadDetail
-          lead={typedLead}
+          lead={{ ...typedLead, assigned_to: assigneeId }}
           activities={typedActivities}
           assigneeName={assigneeName}
           people={people}
           canEdit={canEditLeads(session.orgRole)}
+          possibleMatches={possibleMatches}
         />
       </div>
     </>

@@ -121,6 +121,9 @@ export async function POST(request: Request): Promise<Response> {
       countRecentByIpHash: store.countRecentByIpHash,
       countRecentByOrg: store.countRecentByOrg,
       insertLead: store.insertLead,
+      listOpenLeadsForFold: store.listOpenLeadsForFold,
+      listMatchCandidates: store.listMatchCandidates,
+      foldIntoLead: store.foldIntoLead,
       nowMs: () => Date.now(),
     },
   );
