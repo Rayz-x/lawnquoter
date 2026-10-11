@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { requireOrg } from "@/lib/auth/session";
+import { formatLeadSource } from "@/lib/leads/lead-source";
 import { createClient } from "@/lib/supabase/server";
 import { AccountHeader } from "./account-header";
 import { AccountRail } from "./account-rail";
@@ -108,7 +109,7 @@ export default async function AccountDetailPage({
             {
               label: "Customer since",
               value: new Date(account.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" }),
-              detail: account.lead_source,
+              detail: formatLeadSource(account.lead_source, account.lead_source_other),
             },
           ]}
         />

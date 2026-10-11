@@ -13,12 +13,12 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import type { GeocodeResult } from "@/lib/geo/types";
 import { parseStreetAddress } from "./[id]/property-quick-add";
-import { LEAD_SOURCES } from "./[id]/account-rail";
+import { LEAD_SOURCES } from "@/lib/leads/lead-source";
 import { suggestPropertyAddresses } from "./address-suggest";
 import { identityError, normalizeIdentity } from "./account-format";
 import { createAccount, createProperty } from "./actions";
 
-type FieldName = "name" | "phone" | "email" | "billing" | "terms" | "address";
+type FieldName = "name" | "phone" | "email" | "billing" | "terms" | "address" | "source";
 
 function streetOf(picked: GeocodeResult | null, address: string) {
   if (picked?.addressLine1 && picked.city && picked.region && picked.postalCode) {
@@ -46,6 +46,7 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
   const [taxExempt, setTaxExempt] = useState(false);
   const [consolidated, setConsolidated] = useState(false);
   const [source, setSource] = useState("");
+  const [sourceOther, setSourceOther] = useState("");
   const [notes, setNotes] = useState("");
   const [invalid, setInvalid] = useState<FieldName | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,11 +90,14 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
           ? "terms"
           : address.trim() && !street
             ? "address"
-            : null;
+            : source === "Other" && !sourceOther.trim()
+              ? "source"
+              : null;
     const message = identity
       ?? (field === "billing" ? "Enter a valid billing email." : null)
       ?? (field === "terms" ? "Custom net days must be from 1 to 120." : null)
-      ?? (field === "address" ? "Pick an address, or use Street, City, ST ZIP." : null);
+      ?? (field === "address" ? "Pick an address, or use Street, City, ST ZIP." : null)
+      ?? (field === "source" ? "Describe the lead source when Other is selected." : null);
     if (field && message) {
       reject(field, message);
       return;
@@ -112,6 +116,7 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
         fd.set("billing_email", billingEmail.trim());
         fd.set("net_terms_days", String(days));
         fd.set("lead_source", source);
+        fd.set("lead_source_other", source === "Other" ? sourceOther : "");
         fd.set("notes", notes);
         if (poRequired) fd.set("po_required", "true");
         if (taxExempt) fd.set("tax_exempt", "true");
@@ -221,12 +226,33 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
           ) : null}
           <MoreDisclosure label="+ More">
             <div className="flex flex-col gap-3">
-              <Field>
+              <Field data-invalid={invalid === "source" ? true : undefined}>
                 <FieldLabel htmlFor="new-source">Lead source</FieldLabel>
-                <NativeSelect id="new-source" value={source} onChange={(event) => setSource(event.target.value)}>
+                <NativeSelect
+                  id="new-source"
+                  value={source}
+                  aria-invalid={invalid === "source" ? true : undefined}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setSource(next);
+                    if (next !== "Other") setSourceOther("");
+                  }}
+                >
                   <option value="">None</option>
                   {LEAD_SOURCES.map((item) => <option key={item} value={item}>{item}</option>)}
                 </NativeSelect>
+                {source === "Other" ? (
+                  <Input
+                    id="new-source-other"
+                    className="mt-2 max-lg:h-12"
+                    value={sourceOther}
+                    placeholder="How did they find you?"
+                    aria-label="Other lead source"
+                    aria-invalid={invalid === "source" ? true : undefined}
+                    onChange={(event) => setSourceOther(event.target.value)}
+                  />
+                ) : null}
+                {fieldError("source")}
               </Field>
               <Field><FieldLabel htmlFor="new-notes">Notes</FieldLabel><Textarea id="new-notes" value={notes} rows={3} onChange={(event) => setNotes(event.target.value)} /></Field>
             </div>

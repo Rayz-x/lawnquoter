@@ -8,6 +8,7 @@ import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { LEAD_SOURCES, WEBSITE_FORM_SOURCE } from "@/lib/leads/lead-source";
 import type { Tables } from "@/lib/supabase/types";
 import {
   updateAccountBilling,
@@ -18,7 +19,6 @@ import {
   type SalesDraft,
 } from "../rail-actions";
 
-export const LEAD_SOURCES = ["Google", "Referral", "Door hanger", "Yard sign", "Repeat", "Other"];
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function showBilling(account: Tables<"accounts">) {
@@ -232,15 +232,23 @@ function BillingCard({ account, parents }: { account: Tables<"accounts">; parent
 function SalesCard({ account, ownerName }: { account: Tables<"accounts">; ownerName: string }) {
   const router = useRouter();
   const initial = useMemo<SalesDraft>(
-    () => ({ lead_source: account.lead_source ?? "", tags: account.tags.join(", ") }),
-    [account.lead_source, account.tags],
+    () => ({
+      lead_source: account.lead_source ?? "",
+      lead_source_other: account.lead_source_other ?? "",
+      tags: account.tags.join(", "),
+    }),
+    [account.lead_source, account.lead_source_other, account.tags],
   );
   const [draft, setDraft] = useState(initial);
-  const sources = draft.lead_source && !LEAD_SOURCES.includes(draft.lead_source) ? [draft.lead_source, ...LEAD_SOURCES] : LEAD_SOURCES;
+  const systemSource = draft.lead_source === WEBSITE_FORM_SOURCE;
   const { status, error, save, retry } = useSectionAutosave<SalesDraft>({
     initial,
     onRollback(values) {
-      setDraft((current) => ({ ...current, lead_source: values.lead_source }));
+      setDraft((current) => ({
+        ...current,
+        lead_source: values.lead_source,
+        lead_source_other: values.lead_source_other,
+      }));
     },
     action: async (values) => {
       const result = await updateAccountSales(account.id, values);
@@ -259,18 +267,39 @@ function SalesCard({ account, ownerName }: { account: Tables<"accounts">; ownerN
           className="max-md:h-12"
           onChange={(event) => {
             const lead_source = event.target.value;
-            setDraft((current) => ({ ...current, lead_source }));
-            save({ lead_source }, { immediate: true, rollback: true });
+            const lead_source_other = lead_source === "Other" ? draft.lead_source_other : "";
+            setDraft((current) => ({ ...current, lead_source, lead_source_other }));
+            if (lead_source === "Other" && !lead_source_other.trim()) return;
+            save({ lead_source, lead_source_other }, { immediate: true, rollback: true });
           }}
         >
           <option value="">None</option>
-          {sources.map((source) => (
+          {systemSource ? <option value={WEBSITE_FORM_SOURCE}>{WEBSITE_FORM_SOURCE}</option> : null}
+          {LEAD_SOURCES.map((source) => (
             <option key={source} value={source}>
               {source}
             </option>
           ))}
         </NativeSelect>
       </Field>
+      {draft.lead_source === "Other" ? (
+        <Field>
+          <FieldLabel htmlFor="lead_source_other">Other source</FieldLabel>
+          <Input
+            id="lead_source_other"
+            value={draft.lead_source_other}
+            placeholder="How did they find you?"
+            className="max-md:h-12"
+            onChange={(event) => setDraft({ ...draft, lead_source_other: event.target.value })}
+            onBlur={(event) => {
+              const lead_source_other = event.target.value;
+              setDraft((current) => ({ ...current, lead_source_other }));
+              if (!lead_source_other.trim()) return;
+              save({ lead_source: "Other", lead_source_other });
+            }}
+          />
+        </Field>
+      ) : null}
       <Field>
         <FieldLabel htmlFor="tags">Tags</FieldLabel>
         <Input
