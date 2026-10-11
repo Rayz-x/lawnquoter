@@ -20,6 +20,8 @@ import {
   siteCheckRequestWindowCopy,
 } from "@/lib/quotes/site-check";
 import { orgToday } from "@/lib/scheduling/office-date";
+import { QuoteLostPrompt } from "@/components/leads/quote-lost-prompt";
+import { findLeadForQuote } from "@/lib/leads/supabase-store";
 import { createClient } from "@/lib/supabase/server";
 import { ConvertToJobForm } from "./convert-to-job-button";
 import { DeleteQuoteButton } from "./delete-quote-button";
@@ -203,6 +205,10 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const basis = turf > 0 ? `Priced from ${Math.round(turf).toLocaleString("en-US")} sq ft` : "Priced from this property";
   const editable = quote.status === "draft" || quote.status === "changed";
   const canRevise = quote.status === "sent" || quote.status === "viewed" || quote.status === "declined" || quote.status === "expired";
+  const linkedLead =
+    quote.status === "declined" || quote.status === "expired"
+      ? await findLeadForQuote(supabase, { orgId: session.orgId, quoteId: quote.id })
+      : null;
 
   return (
     <>
@@ -229,6 +235,14 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
       />
       <div className="page-pad grid gap-4 pb-20 md:pb-0 lg:grid-cols-3">
         <div className="flex flex-col gap-3 lg:col-span-2">
+          {linkedLead ? (
+            <QuoteLostPrompt
+              quoteId={quote.id}
+              quoteStatus={quote.status}
+              leadId={linkedLead.id}
+              leadStatus={linkedLead.status}
+            />
+          ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="capitalize">{quote.status}</Badge>
             {finalPriceRequested ? (
