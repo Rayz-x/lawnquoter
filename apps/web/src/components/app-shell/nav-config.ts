@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  BarChart3,
   Building2,
   CalendarDays,
   FileText,
@@ -33,7 +34,10 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Sales",
-    items: [{ title: "Quotes", href: "/quotes", icon: FileText, roles: SALES_ROLES }],
+    items: [
+      { title: "Quotes", href: "/quotes", icon: FileText, roles: SALES_ROLES },
+      { title: "Lead sources", href: "/leads/report", icon: BarChart3, roles: OFFICE_ROLES },
+    ],
   },
   {
     label: "Customers",
