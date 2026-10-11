@@ -17,7 +17,7 @@ An accepted quote becomes scheduled work. The office keeps agreements, names cre
 
 Property addresses are geocoded with Esri and stored on the property. Maps that draw that pin credit Esri.
 
-The office picks a lead source on the account. Lead sources, in the Sales menu, shows how fast leads are first contacted and how often each source becomes a customer. A lead page lets the office log a contact, assign it, and set a follow-up. The menu does not list every lead. When email is configured, people with follow-ups due get one morning email. The company owner can connect a Stripe account from Settings so card payments can go to that account. Accepting a quote records the signature and does not charge a card. When an invoice is issued, it gets the next number for the year and the tax stays locked. The office menu has no invoices screen. The dashboard figures are placeholders. Bids and analytics are not in the menu.
+The office picks a lead source on the account. Lead sources, in the Sales menu, shows how fast leads are first contacted and how often each source becomes a customer. A lead page lets the office log a contact, assign it, and set a follow-up. The menu does not list every lead. When email is configured, people with follow-ups due get one morning email. The company owner can connect the company's Stripe account from Settings. Accepting a quote records the signature and does not charge a card. When an invoice is issued, it gets the next number for the year and the tax and total stay locked. There is no screen to open or issue an invoice. The dashboard figures are placeholders. Bids and analytics are not in the menu.
 
 ## Stack
 

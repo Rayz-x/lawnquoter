@@ -8,20 +8,20 @@ Company setup, accounts and properties, satellite measurement, the price catalog
 
 ### Accounts
 
-- Account, property, price, and company screens save one section at a time. A choice or a number saves immediately. Notes and most text save shortly after you stop typing. If a save fails, the last saved value comes back. (#36, #44)
+- On the account, property, price, and company screens, a choice or a number saves immediately. Notes and most text save shortly after you stop typing. If a save fails, the last saved value comes back. (#36, #37, #38, #39, #40, #42, #43, #44, #59)
 - An account shows the customer, a short strip of facts, and tabs for properties and contacts. Adding a property can suggest an address and then open measuring. A contact can be marked primary, for billing, or for text messages. (#37, #41)
 - Billing terms, who created the account, and internal notes sit beside the account on a wide screen and under it on a phone. The billing email stays empty until someone types it. The account email is only a hint under that field. (#42)
 - New customers are added from the accounts list. The account starts as a lead. When an address is filled in, the next step is measuring the lot. (#46)
 - The property page shows the lot facts, the map, mowing conditions, and access notes, and there is no separate Save for the whole page. The gate code can be shown or hidden and saves when you leave the field. Dogs on site mark the access card. (#38, #59)
 - Every account, including a home, has a Billing details section. The billing email stays blank until someone enters it. The billing address starts as the first property. (#156)
 - Lead source is a fixed list: Google, referral, door hanger, yard sign, repeat, or other. Other asks for a short description. Website form is filled in by the system, not chosen by staff. (#137)
-- Accepting a quote, or turning that quote into scheduled work, moves a lead account to active. An archived account stays archived. The account menu can activate or archive the account. (#154)
+- Accepting a quote, or turning that quote into scheduled work, moves a lead account to active. An archived account stays archived. The account menu can mark the account as a lead, make it active, archive it, or bring an archived account back. (#154)
 
 ### Pricing and company settings
 
 - Services and prices open as a searchable list and a tier table (how much, the price, the hours, and the cost) that saves as you go. Adjustments for the property save when you leave that field. (#39, #40)
 - Company settings are edited by section, and only owners and admins can change them. Quote expiry, the deposit, and which day the week starts are not on that screen. (#43)
-- Slope, a narrow gate, and the service minimum still apply when a price list has no extra adjustments saved. A service added from the catalog is priced from that list, not from a number typed onto the quote. (#60, #61)
+- Slope, a narrow gate, and the service minimum still apply when a price list has no extra adjustments saved. Bagging, travel, and how close the stops are packed are no longer adjustments you can edit. A service added from the catalog is priced from that list, not from a number typed onto the quote. (#60, #61)
 
 ### Quotes
 
@@ -32,13 +32,13 @@ Company setup, accounts and properties, satellite measurement, the price catalog
 ### Measuring
 
 - Changing the recorded size of a drawn outline keeps the area the map measured. (#63)
-- If a new measurement cannot retire the previous one, the save stops and the previous measurement stays current. (#64)
+- If a new measurement cannot set the previous one aside, the save stops and the previous measurement stays the one on file. (#64)
 
 ### Site checks
 
 - Some quote lines are flagged to confirm on site. The public quote and the PDF mark those lines and say the crew will confirm on site within five days of acceptance. The customer still agrees to pay no more than the high ends of those flagged lines added together. The check is created when the customer accepts, not when the quote is sent. (#133, #134, #135)
 - The customer can request a final price. Until the office approves a visit date, the page says that date will be confirmed shortly. If the office declines, the customer sees the reason and can still accept the quoted range. (#139)
-- A crew can see a site check for their stop without the email or note the customer sent with the request. (#115)
+- A site check prepared for a crew leaves out the email and note from the customer's request. The crew phone does not show site checks yet. (#115)
 
 ### Scheduling
 
@@ -54,20 +54,20 @@ Company setup, accounts and properties, satellite measurement, the price catalog
 - Crew settings include a battery-saver toggle kept on that phone. With it on, the crew map uses an outline basemap with no satellite tiles and animations are reduced. Sun mode stays when the crew picked it; otherwise the dark outdoor theme is used. Office maps are unchanged. (#114)
 - Gate codes show on the crew phone for yesterday, today, and tomorrow, using the company clock. A stop left in progress from an earlier day stays on the phone, including its gate code. The phone's own clock does not extend that window. (#113, #138)
 - Visit photos can save the phone's location. (#51)
-- If the lead for a day changes, updates the previous lead already made still go through for the time they were lead. Someone who is not the lead cannot start or finish a stop. Switching leads leaves a visit that is already running, and its timer, as they are. (#109)
+- If who is in charge of a crew changes during the day, updates the earlier person already made still go through for the time they were in charge. Someone who is not in charge cannot start or finish a stop. Switching who is in charge leaves a visit that is already running, and its timer, as they are. (#109)
 
 ### Leads
 
 - Lead sources, in the office menu, shows how long leads wait for a first contact and how often each source becomes a customer. (#149, #151)
 - Opening a lead lets the office log a contact, assign someone, set a follow-up date, and read a timeline of those notes. The menu does not list every lead. (#153, #151)
 - When a quote tied to a lead is declined or expires, the office is asked why that lead was lost. A reason is required. (#152)
-- A rough in-house price from the lot size stays off public pages, emails, and the office screens for now. A missing lot size is left blank rather than treated as zero. (#150)
+- A rough in-house price from the lot size is for the office only and is not on a screen yet. It is never put on a public page or in an email. If the lot size is missing, there is no price. (#150)
 - Around 7 in the morning, each person with follow-ups due or overdue gets one email listing them, when email is set up. (#140)
 
 ### Invoices and payments
 
-- Invoice drafts, payments, and credits are kept for the office. Field crews cannot see them. When an invoice is issued, it gets the next number for that year, with no gaps, and the tax and total stay locked. Only owners and admins can issue one. The office menu does not have an invoices screen yet. (#105, #145)
-- The company owner can connect the company's own Stripe account from Settings. Card payments are meant to go to that account. Accepting a quote still only records the signature. (#110)
+- Invoices, payments, and credits can be stored, and field crews cannot see them. When an owner or admin issues an invoice, it gets the next number for that year, with no gaps, and the tax and total stay locked. There is no invoices screen yet, so the office cannot open or issue one from the menu. (#105, #145)
+- The company owner can connect the company's own Stripe account from Settings. Accepting a quote still only records the signature and does not charge a card. (#110)
 
 ### Access and reliability
 
