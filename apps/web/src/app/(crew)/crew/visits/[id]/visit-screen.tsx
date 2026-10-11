@@ -15,6 +15,8 @@ import {
   activeAddress, alreadyDoneMessage, applyClock, budgetLabel, cachedLiveLead, crewIdFromPack, crewNameFromPack, elapsedMs, formatElapsed, isAlreadyDoneByOtherCrew, isMidVisitCancel, liveLeadFromPack, midVisitCancelMessage, patchVisitPack, projectVisit, readClock, saveLeadForPack, visitFromPack, visitsInPack, writeClock,
   type ClockAction, type Segment, type VisitClock, type VisitDetail,
 } from "../visit";
+import { canSubmitPartlyDone, partlyDoneFinishPayload } from "@/lib/crew/partly-done";
+import { PartlyDoneSheet } from "./partly-done-sheet";
 import { VisitActions } from "./visit-actions";
 import { VisitPhotos, type VisitPhotosHandle } from "./visit-photos";
 import { VisitTimeCorrect } from "./visit-time-correct";
@@ -38,6 +40,9 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
   const [showGate, setShowGate] = useState(false);
   const [lead, setLead] = useState(false);
   const [packCrewName, setPackCrewName] = useState<string | null>(null);
+  const [finishChoice, setFinishChoice] = useState(false);
+  const [partlyOpen, setPartlyOpen] = useState(false);
+  const [partlyReason, setPartlyReason] = useState("");
   const photos = useRef<VisitPhotosHandle | null>(null);
   const [afterFor, setAfterFor] = useState(visitId);
   const [afterReady, setAfterReady] = useState(false);
@@ -127,7 +132,7 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
     };
   }, [visitId, userId, orgId, scope]);
 
-  async function act(kind: ClockAction["kind"], crewSize?: number) {
+  async function act(kind: ClockAction["kind"], crewSize?: number, payload: Record<string, string> = {}) {
     if (!lead || !detail || !clock || saving) return;
     revision.current += 1;
     setSaving(true);
@@ -135,7 +140,7 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
     try {
       const row = await enqueueMutation(browserCrewStore(), {
         kind, visit_id: visitId, user_id: userId, org_id: orgId,
-        payload: kind === "visit_set_crew_size" ? { crew_size: crewSize } : {},
+        payload: kind === "visit_set_crew_size" ? { crew_size: crewSize } : payload,
       });
       const next = applyClock(clock, { clientId: row.client_id, kind, at: row.occurred_at, crewSize });
       writeClock(localStorage, scope, visitId, next);
@@ -162,7 +167,15 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
       void flushOutbox(browserCrewStore(), sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto);
       window.dispatchEvent(new Event("crew-pack"));
       if (kind === "visit_finish" || kind === "visit_stop") {
-        toast(kind === "visit_stop" ? "Stopped. The office cancel stays." : `Stop ${detail.number} saved. It sends when you have signal.`);
+        toast(
+          kind === "visit_stop"
+            ? "Stopped. The office cancel stays."
+            : payload.outcome === "partly"
+              ? `Stop ${detail.number} partly done. Return visit waits for the office.`
+              : `Stop ${detail.number} saved. It sends when you have signal.`,
+        );
+        setPartlyOpen(false);
+        setFinishChoice(false);
         if (onBack) onBack();
         else router.push("/crew/today");
       }
@@ -171,6 +184,13 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
     } finally {
       setSaving(false);
     }
+  }
+
+  async function confirmPartlyDone() {
+    if (!canSubmitPartlyDone({ reason: partlyReason, hasAfterPhoto: afterReady })) return;
+    const payload = partlyDoneFinishPayload(partlyReason);
+    if (!payload) return;
+    await act("visit_finish", undefined, payload);
   }
 
   if (!ready) return <section className="px-4 pt-6 text-[17px]">Loading this stop.</section>;
@@ -267,6 +287,31 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
       {blocked ? <p className="mt-4 text-[17px] font-semibold">Finish {blocked} first?</p> : null}
       {!lead ? <p className="mt-4 text-[17px]">The crew lead starts and finishes stops.</p> : null}
       {error ? <p className="mt-3 text-[15px] font-semibold text-destructive">{error}</p> : null}
+      {partlyOpen ? (
+        <PartlyDoneSheet
+          reason={partlyReason}
+          onReason={setPartlyReason}
+          hasAfterPhoto={afterReady}
+          busy={saving}
+          error={error}
+          onBack={() => { setPartlyOpen(false); setError(null); }}
+          onPickAfter={() => photos.current?.pickAfter()}
+          onConfirm={() => void confirmPartlyDone()}
+        />
+      ) : null}
+      {finishChoice && !partlyOpen ? (
+        <div className="fixed inset-0 z-40 overflow-y-auto bg-background px-4 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-8" data-testid="finish-choice">
+          <button type="button" className="inline-flex min-h-12 items-center text-[17px] font-semibold" onClick={() => setFinishChoice(false)}>Back</button>
+          <h2 className="mt-2 font-serif text-2xl font-bold">Finish stop</h2>
+          <p className="mt-2 text-[15px] text-muted-foreground">All done, or leave unfinished work for a return visit?</p>
+          <button type="button" className="mt-4 flex min-h-14 w-full items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => void act("visit_finish")} data-testid="finish-done">
+            Done
+          </button>
+          <button type="button" className="mt-2 flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => { setPartlyOpen(true); setError(null); }} data-testid="finish-partly">
+            Partly done
+          </button>
+        </div>
+      ) : null}
       <div className="fixed inset-x-0 bottom-0 z-10 flex gap-2 bg-background px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
         {lead && clock.status === "scheduled" && !closed && !midCancel ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={saving || Boolean(blocked)} onClick={() => void act("visit_start")}>Start job</button> : null}
         {lead && clock.status === "in_progress" && !midCancel ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_pause")}>Pause</button> : null}
@@ -277,7 +322,7 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
         {lead && working && !alreadyDone ? (
           needAfter
             ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => photos.current?.pickAfter()}>Take an after photo to finish</button>
-            : <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => void act("visit_finish")}>{midCancel ? "Finish" : "Finish job"}</button>
+            : <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => (midCancel ? void act("visit_finish") : setFinishChoice(true))} data-testid="finish-job">{midCancel ? "Finish" : "Finish job"}</button>
         ) : null}
       </div>
     </section>
