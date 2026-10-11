@@ -134,6 +134,10 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json(GENERIC_FAIL, { status });
   }
 
-  // Same success body whether spam quarantine or new — no existence leak.
+  // Same success shape whether spam quarantine or new — no existence leak.
+  // Optional polite message (e.g. out-of-area) is safe to surface on success.
+  if (result.message) {
+    return NextResponse.json({ ...GENERIC_OK, message: result.message }, { status: 200 });
+  }
   return NextResponse.json(GENERIC_OK, { status: 200 });
 }

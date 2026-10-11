@@ -15,9 +15,20 @@ export const LEAD_INTAKE_MIN_FILL_MS = 3_000;
 export const LEAD_INTAKE_IP_LIMIT = 5;
 export const LEAD_INTAKE_ORG_LIMIT = 60;
 export const LEAD_INTAKE_WINDOW_MS = 60 * 60 * 1000;
+/** Esri candidate score normalized to 0–1; below this → needs address check. */
+export const LEAD_INTAKE_MIN_GEOCODE_SCORE = 0.8;
+/** Rooftop / street-level Esri Addr_type values that pass the N1 gate. */
+export const LEAD_INTAKE_ALLOWED_ADDRESS_TYPES = new Set([
+  "PointAddress",
+  "StreetAddress",
+  "Subaddress",
+]);
+export const LEAD_INTAKE_OUT_OF_AREA_MESSAGE =
+  "Thanks — this address may be outside our area. We'll still review your request.";
 
 export type LeadIntakeGeocode = {
   score: number | null;
+  addressType: string | null;
   line1: string | null;
   city: string | null;
   region: string | null;
@@ -33,6 +44,7 @@ export type LeadIntakeOrg = {
   orgId: string;
   consentTextVersion: string;
   defaultAssigneeId: string | null;
+  serviceAreaZips: string[];
 };
 
 export type LeadIntakeInsert = {
@@ -52,6 +64,8 @@ export type LeadIntakeInsert = {
   geocodeScore: number | null;
   geocodeAttribution: string | null;
   geocodeRaw: Record<string, unknown> | null;
+  needsAddressCheck: boolean;
+  outOfArea: boolean;
   services: string[];
   note: string | null;
   source: string;
@@ -130,8 +144,36 @@ export type LeadIntakeDeps = {
 };
 
 export type LeadIntakeResult =
-  | { ok: true; status: "new" | "spam" }
+  | { ok: true; status: "new" | "spam"; message?: string }
   | { ok: false; reason: "validation" | "turnstile" | "rate_limit" | "not_found" | "store" };
+
+export function normalizeLeadZip(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const match = value.trim().match(/\d{5}/);
+  return match?.[0] ?? null;
+}
+
+export function passesLeadGeocodeGate(geocode: LeadIntakeGeocode | null): boolean {
+  if (!geocode) return false;
+  if (geocode.score == null || geocode.score < LEAD_INTAKE_MIN_GEOCODE_SCORE) return false;
+  const type = geocode.addressType?.trim();
+  if (!type || !LEAD_INTAKE_ALLOWED_ADDRESS_TYPES.has(type)) return false;
+  return true;
+}
+
+export function isOutsideLeadServiceArea(
+  postalCode: string | null,
+  serviceAreaZips: string[],
+): boolean {
+  if (serviceAreaZips.length === 0) return false;
+  const zip = normalizeLeadZip(postalCode);
+  if (!zip) return false;
+  const allowed = new Set(
+    serviceAreaZips.map((entry) => normalizeLeadZip(entry)).filter((entry): entry is string => Boolean(entry)),
+  );
+  if (allowed.size === 0) return false;
+  return !allowed.has(zip);
+}
 
 export function hashClientIp(ip: string | null): string {
   const material = ip?.trim() || "unknown";
@@ -207,9 +249,17 @@ export async function submitPublicLeadRequest(
     geocode = await deps.geocode(addressTyped);
   }
 
+  const gatePassed = status === "new" && passesLeadGeocodeGate(geocode);
+  const needsAddressCheck = status === "new" && !gatePassed;
+  const zipForArea =
+    normalizeLeadZip(geocode?.postalCode) ?? normalizeLeadZip(addressTyped);
+  const outOfArea =
+    status === "new" && isOutsideLeadServiceArea(zipForArea, org.serviceAreaZips ?? []);
+
   const services = normalizeServices(input.services ?? []);
   const note = clip(input.note, 5000);
 
+  // Append-only fold (#176): never overwrite open-lead address/geocode from intake.
   if (status === "new") {
     const foldSinceIso = new Date(now - LEAD_REPEAT_FOLD_WINDOW_MS).toISOString();
     const openLeads = await deps.listOpenLeadsForFold(org.orgId, foldSinceIso);
@@ -226,6 +276,9 @@ export async function submitPublicLeadRequest(
       } catch {
         return { ok: false, reason: "store" };
       }
+      if (outOfArea) {
+        return { ok: true, status: "new", message: LEAD_INTAKE_OUT_OF_AREA_MESSAGE };
+      }
       return { ok: true, status: "new" };
     }
   }
@@ -233,24 +286,29 @@ export async function submitPublicLeadRequest(
   let accountId: string | null = null;
   let propertyId: string | null = null;
   if (status === "new") {
+    const structuredLine1 = gatePassed ? (geocode?.line1 ?? null) : null;
+    const structuredCity = gatePassed ? (geocode?.city ?? null) : null;
+    const structuredPostal = gatePassed ? (geocode?.postalCode ?? null) : null;
+    const structuredLat = gatePassed ? (geocode?.lat ?? null) : null;
+    const structuredLng = gatePassed ? (geocode?.lng ?? null) : null;
     const candidates = await deps.listMatchCandidates(org.orgId, {
       phone,
       email,
-      addressLine1: geocode?.line1 ?? null,
-      postalCode: geocode?.postalCode ?? null,
-      lat: geocode?.lat ?? null,
-      lng: geocode?.lng ?? null,
+      addressLine1: structuredLine1,
+      postalCode: structuredPostal,
+      lat: structuredLat,
+      lng: structuredLng,
     });
     const ranked = rankMatchCandidates(
       {
         phone,
         email,
         addressTyped,
-        addressLine1: geocode?.line1 ?? null,
-        city: geocode?.city ?? null,
-        postalCode: geocode?.postalCode ?? null,
-        lat: geocode?.lat ?? null,
-        lng: geocode?.lng ?? null,
+        addressLine1: structuredLine1,
+        city: structuredCity,
+        postalCode: structuredPostal,
+        lat: structuredLat,
+        lng: structuredLng,
       },
       candidates,
     );
@@ -277,15 +335,18 @@ export async function submitPublicLeadRequest(
       email,
       preferredContact: preferred,
       isBusiness: Boolean(input.isBusiness),
+      // Typed address always kept; structured fields only when the score/type gate passes.
       addressTyped,
-      addressLine1: geocode?.line1 ?? null,
-      city: geocode?.city ?? null,
-      region: geocode?.region ?? null,
-      postalCode: geocode?.postalCode ?? null,
-      country: geocode?.country ?? "US",
+      addressLine1: gatePassed ? (geocode?.line1 ?? null) : null,
+      city: gatePassed ? (geocode?.city ?? null) : null,
+      region: gatePassed ? (geocode?.region ?? null) : null,
+      postalCode: gatePassed ? (geocode?.postalCode ?? null) : null,
+      country: gatePassed ? (geocode?.country ?? "US") : "US",
       geocodeScore: geocode?.score ?? null,
       geocodeAttribution: geocode?.attribution ?? null,
       geocodeRaw: geocode?.raw ?? null,
+      needsAddressCheck,
+      outOfArea,
       services,
       note,
       source: WEBSITE_FORM_SOURCE,
@@ -312,5 +373,8 @@ export async function submitPublicLeadRequest(
     return { ok: false, reason: "store" };
   }
 
+  if (outOfArea) {
+    return { ok: true, status, message: LEAD_INTAKE_OUT_OF_AREA_MESSAGE };
+  }
   return { ok: true, status };
 }

@@ -9,6 +9,10 @@ export type GeocodeResult = {
   region: string;
   postalCode: string;
   country: string;
+  /** Esri candidate score normalized to 0–1 when present. */
+  score: number | null;
+  /** Esri Addr_type (e.g. PointAddress, StreetAddress). */
+  addressType: string | null;
 };
 
 export type ParcelResult = {

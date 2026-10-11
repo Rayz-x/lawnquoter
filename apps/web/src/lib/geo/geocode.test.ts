@@ -23,13 +23,14 @@ const esriCandidate = {
         Postal: "92373",
         Country: "USA",
         MatchID: "AQFV9QAAmeQBAJUB",
+        Addr_type: "PointAddress",
       },
     },
     {
       address: "Wrong second candidate",
       location: { x: 0, y: 0 },
       score: 10,
-      attributes: { LongLabel: "Wrong", MatchID: "other" },
+      attributes: { LongLabel: "Wrong", MatchID: "other", Addr_type: "Locality" },
     },
   ],
 };
@@ -67,6 +68,8 @@ describe("geocodeAddress", () => {
       region: "CA",
       postalCode: "92373",
       country: "US",
+      score: 1,
+      addressType: "PointAddress",
     });
     expect(fetchMock).toHaveBeenCalledOnce();
     const [url, init] = fetchMock.mock.calls[0] ?? [];
@@ -78,6 +81,7 @@ describe("geocodeAddress", () => {
     expect(parsed.searchParams.get("f")).toBe("json");
     expect(parsed.searchParams.get("outSR")).toBe("4326");
     expect(parsed.searchParams.get("maxLocations")).toBe("1");
+    expect(parsed.searchParams.get("outFields")).toContain("Addr_type");
     expect(parsed.searchParams.get("token")).toBeNull();
     expect(parsed.toString()).not.toContain("server-key");
     const headers = new Headers(init.headers);
