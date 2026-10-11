@@ -53,6 +53,7 @@ select is(
   ),
   array[
     'accept_org_invite',
+    'account_statement_public',
     'add_crew_member',
     'agreement_installment_balance',
     'assign_visit',
@@ -70,6 +71,7 @@ select is(
     'crew_ack_day_pack',
     'crew_day_pack',
     'crew_sync',
+    'ensure_account_statement_link',
     'generate_agreement_visits',
     'issue_invoice',
     'my_crews',
