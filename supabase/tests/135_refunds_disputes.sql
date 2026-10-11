@@ -9,10 +9,10 @@ insert into public.accounts (org_id, name) values (:'org'::uuid, 'Acme') returni
 
 insert into public.invoices (
   org_id, account_id, status, source, currency,
-  subtotal_cents, tax_cents, total_cents, issued_at, number, number_label, due_on
+  subtotal_cents, tax_cents, total_cents, issued_at, paid_at, number, number_label, due_on
 ) values (
   :'org'::uuid, :'acct'::uuid, 'paid', 'manual', 'usd',
-  10000, 0, 10000, now(), 1, 'INV-2026-0001', current_date
+  10000, 0, 10000, now(), now(), 1, 'INV-2026-0001', current_date
 ) returning id as inv \gset
 
 select has_column('public', 'invoices', 'payment_dispute_open', 'invoices.payment_dispute_open exists');
