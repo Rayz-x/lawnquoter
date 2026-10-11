@@ -1,3 +1,4 @@
+-- Restacked on main tip (photo_pending/photo_lost from #163).
 -- S11: Office Revoke phone ends the crew session (HTTP 401 / SQLSTATE 28000),
 -- snapshots started-but-unsynced visits, and packs still expire after 48h on device.
 
@@ -457,6 +458,8 @@ begin
             'skip_reason', v.skip_reason,
             'reopen_until', v.reopen_until,
             'completed_after_cancel', v.completed_after_cancel,
+            'photo_pending', v.photo_pending,
+            'photo_lost', v.photo_lost,
             'crew_note', v.crew_note,
             'title', j.title,
             'property', jsonb_build_object(
