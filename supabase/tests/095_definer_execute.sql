@@ -25,6 +25,7 @@ select is(
       and has_function_privilege('anon', p.oid, 'execute')
   ),
   array[
+    'account_statement_public',
     'change_order_accept',
     'change_order_public',
     'invoice_public',
@@ -35,7 +36,7 @@ select is(
     'site_check_cancel_request',
     'site_check_request'
   ]::text[],
-  'anon can execute only the public quote and invoice security definer RPCs'
+  'anon can execute only the public quote, invoice, and statement security definer RPCs'
 );
 
 select is(
@@ -53,6 +54,7 @@ select is(
   ),
   array[
     'accept_org_invite',
+    'account_statement_public',
     'add_crew_member',
     'agreement_installment_balance',
     'assign_visit',
@@ -71,6 +73,7 @@ select is(
     'crew_ack_day_pack',
     'crew_day_pack',
     'crew_sync',
+    'ensure_account_statement_link',
     'generate_agreement_visits',
     'invoice_balance_cents',
     'invoice_public',

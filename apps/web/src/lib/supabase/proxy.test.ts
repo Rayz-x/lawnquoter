@@ -9,6 +9,7 @@ describe("isPublicPath", () => {
     expect(isPublicPath("/manifest.webmanifest")).toBe(true);
     expect(isPublicPath("/co/sample-token")).toBe(true);
     expect(isPublicPath("/i/sample-token")).toBe(true);
+    expect(isPublicPath("/s/sample-token")).toBe(true);
     expect(isPublicPath("/crew/today")).toBe(false);
   });
 });
