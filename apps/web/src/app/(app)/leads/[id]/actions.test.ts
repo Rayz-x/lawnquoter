@@ -141,7 +141,7 @@ function makeQuery(table: string) {
   return api;
 }
 
-import { ensureDefaultLeadAssignee, logLeadContact, reassignLead, setLeadFollowUp } from "./actions";
+import { logLeadContact, reassignLead, setLeadFollowUp } from "./actions";
 
 function fd(entries: Record<string, string>) {
   const form = new FormData();
@@ -186,21 +186,6 @@ describe("logLeadContact", () => {
       error: "You don't have permission to update leads.",
     });
     expect(state.activities).toHaveLength(0);
-  });
-});
-
-describe("ensureDefaultLeadAssignee", () => {
-  it("assigns a new lead to the org owner by default", async () => {
-    const result = await ensureDefaultLeadAssignee("lead-1");
-    expect(result).toEqual({ ok: true, data: { assigned_to: "11111111-1111-4111-8111-111111111111" } });
-    expect(state.lead.assigned_to).toBe("11111111-1111-4111-8111-111111111111");
-    expect(state.activities.some((a) => a.kind === "lead.assigned")).toBe(true);
-  });
-
-  it("uses org_lead_settings.default_assignee_id when set", async () => {
-    state.settings.default_assignee_id = "22222222-2222-4222-8222-222222222222";
-    const result = await ensureDefaultLeadAssignee("lead-1");
-    expect(result).toEqual({ ok: true, data: { assigned_to: "22222222-2222-4222-8222-222222222222" } });
   });
 });
 

@@ -96,32 +96,6 @@ export async function createAccount(fd: FormData): Promise<ActionResult<{ id: st
   return { ok: true, data: { id: data.id } };
 }
 
-export async function updateAccount(id: string, fd: FormData): Promise<ActionResult> {
-  const session = await requireAccountEditor();
-  if (!session) return fail("You don't have permission to edit customers.");
-  const parsed = parseAccount(fd);
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid input");
-  const { lead_source, lead_source_other, ...rest } = parsed.data;
-  const lead = leadFields(lead_source, lead_source_other);
-  if (!lead.ok) return fail(lead.error);
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("accounts")
-    .update({
-      ...emptyToNull(rest),
-      lead_source: lead.lead_source,
-      lead_source_other: lead.lead_source_other,
-    })
-    .eq("id", id)
-    .eq("org_id", session.orgId)
-    .select("id");
-  if (error) return fail(error.message);
-  if (!data?.length) return fail("Could not save. You may not have permission, or this record changed.");
-  revalidatePath(`/accounts/${id}`);
-  revalidatePath("/accounts");
-  return { ok: true };
-}
-
 const contactSchema = z.object({
   first_name: z.string().trim().max(100).default(""),
   last_name: z.string().trim().max(100).default(""),
@@ -311,40 +285,6 @@ export async function createProperty(accountId: string, fd: FormData): Promise<A
   return { ok: true, data: { id: data.id, warnings } };
 }
 
-export async function updateProperty(id: string, fd: FormData): Promise<ActionResult<{ warnings: string[] }>> {
-  const session = await requireOrg();
-  const parsed = parseProperty(fd);
-  if (!parsed.success) return fail(parsed.error);
-  const supabase = await createClient();
-  const { data: before } = await supabase
-    .from("properties")
-    .select("address_line1, city, region, postal_code, account_id")
-    .eq("id", id)
-    .eq("org_id", session.orgId)
-    .maybeSingle();
-  if (!before) return fail("Property not found");
-  const { error } = await supabase
-    .from("properties")
-    .update({ ...parsed.data, formatted_address: null })
-    .eq("id", id)
-    .eq("org_id", session.orgId);
-  if (error) return fail(error.message);
-  const accessError = await savePropertyAccess(id, session.orgId, parsed.access);
-  if (accessError) return fail(accessError);
-
-  const addressChanged =
-    before.address_line1 !== parsed.data.address_line1 ||
-    before.city !== parsed.data.city ||
-    before.region !== parsed.data.region ||
-    before.postal_code !== parsed.data.postal_code;
-  const warnings = addressChanged
-    ? await resolveAndStoreGeometry(id, parsed.data, { clearOnMiss: addressChanged })
-    : [];
-  revalidatePath(`/properties/${id}`);
-  revalidatePath(`/accounts/${before.account_id}`);
-  return { ok: true, data: { warnings } };
-}
-
 export async function regeocodeProperty(id: string): Promise<ActionResult<{ warnings: string[] }>> {
   const session = await requireOrg();
   const supabase = await createClient();
@@ -363,7 +303,6 @@ export async function regeocodeProperty(id: string): Promise<ActionResult<{ warn
 async function resolveAndStoreGeometry(
   propertyId: string,
   addr: { address_line1: string; city: string; region: string; postal_code: string },
-  options?: { clearOnMiss?: boolean },
 ): Promise<string[]> {
   const supabase = await createClient();
   const address = `${addr.address_line1}, ${addr.city}, ${addr.region} ${addr.postal_code}`;
@@ -382,14 +321,6 @@ async function resolveAndStoreGeometry(
       p_footprint: geo.footprint?.geometry ?? undefined,
       p_footprint_source: geo.footprint?.source ?? undefined,
     });
-  } else if (options?.clearOnMiss) {
-    const { error } = await supabase.rpc("property_clear_geometry", { p_property: propertyId });
-    if (error) {
-      return [
-        ...geo.warnings,
-        "Saved the new address, but the previous map pin could not be cleared.",
-      ];
-    }
   }
   return geo.warnings;
 }

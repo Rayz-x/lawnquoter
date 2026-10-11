@@ -3,9 +3,6 @@
  * public.generate_agreement_visits.
  */
 
-/** Office default matches the rolling nightly horizon (about 10 weeks). */
-export const DEFAULT_VISIT_HORIZON_DAYS = 70;
-
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 function parseDate(value: string): Date {
@@ -32,9 +29,4 @@ export function addDays(iso: string, days: number): string {
   const date = parseDate(iso);
   date.setUTCDate(date.getUTCDate() + days);
   return formatDate(date);
-}
-
-/** Through-date the office UI should pass: the anchor plus 10 weeks, inclusive. */
-export function defaultThroughDate(anchorDate: string): string {
-  return addDays(anchorDate, DEFAULT_VISIT_HORIZON_DAYS);
 }

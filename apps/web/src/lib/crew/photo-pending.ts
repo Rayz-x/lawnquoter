@@ -48,14 +48,6 @@ export function completionLabel(input: CompletionPhotoInput): string | null {
   return "Completed";
 }
 
-/** Spec seam: pending clears when the after photo lands on the server. */
-export function photoArrivalClearsPending(input: {
-  hadPending: boolean;
-  afterPhotoArrived: boolean;
-}): boolean {
-  return input.hadPending && input.afterPhotoArrived;
-}
-
 /** Camera dismiss / back with no file must not error or queue work. */
 export function cameraPickIsNoop(file: File | null | undefined): boolean {
   return file == null;
