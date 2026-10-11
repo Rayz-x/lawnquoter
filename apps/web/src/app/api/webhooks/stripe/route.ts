@@ -1,12 +1,27 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { createStripePaymentWebhookStore } from "@/lib/billing/supabase-stripe-payment-store";
 import { applyStripePaymentEvent } from "@/lib/billing/stripe-payment-webhook";
+import { applyStripeRefundDisputeEvent } from "@/lib/billing/stripe-refund-dispute-webhook";
+import { createStripePaymentWebhookStore } from "@/lib/billing/supabase-stripe-payment-store";
+import { createStripeRefundDisputeStore } from "@/lib/billing/supabase-stripe-refund-dispute-store";
 import { applyAccountUpdated, type ConnectStatus } from "@/lib/stripe/connect";
 import { getStripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
+
+const REFUND_DISPUTE_TYPES = new Set([
+  "charge.refunded",
+  "charge.dispute.created",
+  "charge.dispute.closed",
+]);
+
+const PAYMENT_TYPES = new Set([
+  "checkout.session.completed",
+  "payment_intent.succeeded",
+  "payment_intent.processing",
+  "payment_intent.payment_failed",
+]);
 
 async function paymentMethodDetails(
   stripe: Stripe,
@@ -84,14 +99,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
 
-  const paymentTypes = new Set([
-    "checkout.session.completed",
-    "payment_intent.succeeded",
-    "payment_intent.processing",
-    "payment_intent.payment_failed",
-  ]);
+  if (REFUND_DISPUTE_TYPES.has(event.type)) {
+    const object = event.data.object as Stripe.Charge | Stripe.Dispute;
+    const result = await applyStripeRefundDisputeEvent({
+      event: {
+        id: event.id,
+        type: event.type,
+        object: object as unknown as Parameters<
+          typeof applyStripeRefundDisputeEvent
+        >[0]["event"]["object"],
+      },
+      store: createStripeRefundDisputeStore(admin),
+    });
+    return NextResponse.json({ received: true, outcome: result.outcome });
+  }
 
-  if (paymentTypes.has(event.type)) {
+  if (PAYMENT_TYPES.has(event.type)) {
     const object = event.data.object as Stripe.Checkout.Session | Stripe.PaymentIntent;
     const stripeAccount =
       typeof event.account === "string" && event.account.length > 0 ? event.account : undefined;

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { hasRole } from "@lawnquoter/shared";
+import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,9 @@ import { requireOrg } from "@/lib/auth/session";
 import { PAYMENT_LIST_METHODS, PAYMENT_LIST_STATUSES } from "@/lib/billing/payments-list";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
+import { DisputeFlag } from "./dispute-flag";
 import { loadPaymentsPageData } from "./load-payments";
+import { RefundButton } from "./refund-button";
 import { StatementLinkForm } from "./statement-link-form";
 
 export const metadata: Metadata = { title: "Payments" };
@@ -35,6 +37,21 @@ function defaultPeriod(): { from: string; to: string; asOf: string } {
   const asOf = `${y}-${m}-${d}`;
   return { from: `${y}-${m}-01`, to: asOf, asOf };
 }
+
+type UntypedFilter = {
+  eq: (col: string, value: string | boolean) => UntypedFilter;
+  order: (col: string, opts: { ascending: boolean }) => UntypedFilter;
+  limit: (n: number) => PromiseLike<{
+    data: Record<string, unknown>[] | null;
+    error: { message: string } | null;
+  }>;
+};
+
+type UntypedClient = {
+  from: (table: string) => {
+    select: (cols: string) => UntypedFilter;
+  };
+};
 
 export default async function PaymentsPage({
   searchParams,
@@ -67,6 +84,17 @@ export default async function PaymentsPage({
   );
   const appOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   const { aging } = data;
+  const canRefund = hasRole(session.orgRole, ADMIN_ROLES);
+
+  const client = supabase as unknown as UntypedClient;
+  const { data: disputes, error: disputeError } = await client
+    .from("invoices")
+    .select("id, number, number_label, payment_dispute_deadline")
+    .eq("org_id", session.orgId)
+    .eq("payment_dispute_open", true)
+    .order("payment_dispute_deadline", { ascending: true })
+    .limit(50);
+  if (disputeError) throw new Error(disputeError.message);
 
   return (
     <>
@@ -101,6 +129,32 @@ export default async function PaymentsPage({
               </AlertDescription>
             </Alert>
           ) : null}
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold tracking-tight">Open disputes</h2>
+          {(disputes ?? []).length === 0 ? (
+            <p className="text-sm text-muted-foreground">No open payment disputes.</p>
+          ) : (
+            (disputes ?? []).map((invoice) => (
+              <DisputeFlag
+                key={String(invoice.id)}
+                invoiceId={String(invoice.id)}
+                invoiceLabel={
+                  typeof invoice.number_label === "string"
+                    ? invoice.number_label
+                    : invoice.number != null
+                      ? `Invoice ${Number(invoice.number)}`
+                      : "Invoice"
+                }
+                deadline={
+                  invoice.payment_dispute_deadline == null
+                    ? null
+                    : String(invoice.payment_dispute_deadline)
+                }
+              />
+            ))
+          )}
         </section>
 
         <section className="space-y-3">
@@ -154,6 +208,7 @@ export default async function PaymentsPage({
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
+                  {canRefund ? <TableHead className="text-right">Refund</TableHead> : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -178,6 +233,13 @@ export default async function PaymentsPage({
                       {payment.receivedAt ? payment.receivedAt.slice(0, 10) : "—"}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{dollars(payment.amountCents)}</TableCell>
+                    {canRefund ? (
+                      <TableCell className="text-right">
+                        {payment.status === "succeeded" && payment.method === "stripe" ? (
+                          <RefundButton paymentId={payment.id} />
+                        ) : null}
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                 ))}
               </TableBody>

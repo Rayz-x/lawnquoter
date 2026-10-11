@@ -12,6 +12,7 @@ const harness = vi.hoisted(() => {
   const retrieve = vi.fn();
   const membershipsSelect = vi.fn();
   const orgsMaybeSingle = vi.fn();
+  const applyRefundDispute = vi.fn();
   return {
     constructEvent,
     update,
@@ -24,6 +25,7 @@ const harness = vi.hoisted(() => {
     retrieve,
     membershipsSelect,
     orgsMaybeSingle,
+    applyRefundDispute,
     eq: vi.fn(() => ({ select: () => ({ maybeSingle: harness.maybeSingle }) })),
   };
 });
@@ -115,6 +117,19 @@ vi.mock("@/lib/supabase/server", () => ({
     },
   }),
 }));
+
+vi.mock("@/lib/billing/supabase-stripe-refund-dispute-store", () => ({
+  createStripeRefundDisputeStore: () => ({ mocked: true }),
+}));
+vi.mock("@/lib/billing/stripe-refund-dispute-webhook", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/billing/stripe-refund-dispute-webhook")>(
+    "@/lib/billing/stripe-refund-dispute-webhook",
+  );
+  return {
+    ...actual,
+    applyStripeRefundDisputeEvent: harness.applyRefundDispute,
+  };
+});
 
 import { POST } from "./route";
 
@@ -280,5 +295,63 @@ describe("POST /api/webhooks/stripe", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ received: true, outcome: "processing" });
     expect(harness.invoicesUpdate).not.toHaveBeenCalled();
+  });
+
+  it("charge.refunded records a refund once via the refund/dispute handler", async () => {
+    harness.applyRefundDispute.mockResolvedValue({ ok: true, outcome: "refunded" });
+    harness.constructEvent.mockReturnValue({
+      id: "evt_refund_1",
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_1",
+          object: "charge",
+          payment_intent: "pi_1",
+          amount_refunded: 12500,
+          refunds: { data: [{ id: "re_1", amount: 12500 }] },
+        },
+      },
+    });
+    const response = await POST(signedRequest());
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ received: true, outcome: "refunded" });
+    expect(harness.applyRefundDispute).toHaveBeenCalledTimes(1);
+  });
+
+  it("charge.dispute.created flags and charge.dispute.closed clears", async () => {
+    harness.applyRefundDispute
+      .mockResolvedValueOnce({ ok: true, outcome: "dispute_flagged" })
+      .mockResolvedValueOnce({ ok: true, outcome: "dispute_cleared" });
+
+    harness.constructEvent.mockReturnValue({
+      id: "evt_dispute_1",
+      type: "charge.dispute.created",
+      data: {
+        object: {
+          id: "dp_1",
+          object: "dispute",
+          charge: "ch_1",
+          evidence_details: { due_by: 1_760_000_000 },
+        },
+      },
+    });
+    const created = await POST(signedRequest());
+    expect(await created.json()).toEqual({ received: true, outcome: "dispute_flagged" });
+
+    harness.constructEvent.mockReturnValue({
+      id: "evt_dispute_2",
+      type: "charge.dispute.closed",
+      data: {
+        object: {
+          id: "dp_1",
+          object: "dispute",
+          charge: "ch_1",
+          status: "won",
+        },
+      },
+    });
+    const closed = await POST(signedRequest());
+    expect(await closed.json()).toEqual({ received: true, outcome: "dispute_cleared" });
+    expect(harness.applyRefundDispute).toHaveBeenCalledTimes(2);
   });
 });
