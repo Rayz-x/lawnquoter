@@ -1,3 +1,4 @@
+-- Restacked on main tip (photo_pending/photo_lost from #163).
 -- S05: Seasonal one-time services (aeration / cleanup) sit in a window with a
 -- warn date and turn red when still unscheduled after that date.
 
@@ -396,6 +397,7 @@ begin
       p.city,
       (public.job_seasonal_warn_state(j.id, v_as_of) = 'warn') as seasonal_warn,
       case
+        when v.photo_lost then 'Photo lost'
         when v.completed_after_cancel then 'Completed after cancel'
         when exists (
           select 1
@@ -415,7 +417,8 @@ begin
         else null
       end as reason,
       case
-        when v.completed_after_cancel
+        when v.photo_lost
+          or v.completed_after_cancel
           or exists (
             select 1
             from public.enhancement_requests e
