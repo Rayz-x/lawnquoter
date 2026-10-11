@@ -24,6 +24,9 @@ export type LeadRequest = {
   assigned_to: string | null;
   first_contacted_at: string | null;
   next_follow_up_on: string | null;
+  quote_id?: string | null;
+  account_id?: string | null;
+  property_id?: string | null;
   created_at: string;
 };
 

@@ -1343,6 +1343,9 @@ isOneToOne: false
 "convert_accepted_quote":
 { Args: { "p_frequency"?: string,"p_kind"?: string,"p_preferred_dow"?: number,"p_quote_id": string,"p_start_date"?: string }; Returns: Json
                            },
+"convert_lead_request":
+{ Args: { "p_lead": string,"p_account"?: string,"p_force_fail"?: boolean }; Returns: Json
+                           },
 "create_crew":
 { Args: { "p_name": string }; Returns: string
                            },

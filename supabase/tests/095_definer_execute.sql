@@ -61,6 +61,7 @@ select is(
     'claim_lead_for_today',
     'configure_seasonal_installments',
     'convert_accepted_quote',
+    'convert_lead_request',
     'create_crew',
     'create_installment_invoice',
     'create_org',

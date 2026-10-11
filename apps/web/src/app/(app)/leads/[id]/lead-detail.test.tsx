@@ -18,6 +18,10 @@ vi.mock("./actions", () => ({
   setLeadFollowUp: vi.fn(),
 }));
 
+vi.mock("./convert-actions", () => ({
+  convertLeadAndOpenMeasurement: vi.fn(),
+}));
+
 const lead: LeadRequest = {
   id: "lead-1",
   org_id: "org-1",
@@ -65,6 +69,7 @@ describe("LeadDetail read_only", () => {
     expect(markup).not.toContain('data-testid="lead-log-contact"');
     expect(markup).not.toContain('data-testid="lead-reassign"');
     expect(markup).not.toContain('data-testid="lead-set-follow-up"');
+    expect(markup).not.toContain('data-testid="lead-convert"');
     expect(markup).toContain("Ada Lovelace");
     expect(markup).toContain("Lead created");
   });
@@ -79,6 +84,7 @@ describe("LeadDetail read_only", () => {
         canEdit: true,
       }),
     );
+    expect(markup).toContain('data-testid="lead-convert"');
     expect(markup).toContain('data-testid="lead-actions"');
     expect(markup).toContain('data-testid="lead-log-contact"');
     expect(markup).not.toContain('data-testid="lead-view-only"');
