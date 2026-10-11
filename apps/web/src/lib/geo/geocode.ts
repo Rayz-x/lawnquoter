@@ -25,7 +25,15 @@ const OUT_FIELDS = [
   "Postal",
   "Country",
   "MatchID",
+  "Addr_type",
 ].join(",");
+
+function normalizeEsriScore(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  // Esri scores are 0–100; store as 0–1 for lead_requests.geocode_score.
+  if (value > 1) return Math.min(1, Math.max(0, value / 100));
+  return Math.min(1, Math.max(0, value));
+}
 
 const ISO3_TO_ISO2: Record<string, string> = {
   USA: "US",
@@ -37,6 +45,7 @@ type CandidateAttributes = Record<string, unknown>;
 
 type AddressCandidate = {
   address?: string;
+  score?: unknown;
   location?: { x?: unknown; y?: unknown };
   attributes?: CandidateAttributes;
 };
@@ -85,6 +94,8 @@ function toResult(candidate: AddressCandidate | undefined): GeocodeResult | null
     region: attribute(candidate.attributes, "RegionAbbr") || attribute(candidate.attributes, "Region"),
     postalCode: attribute(candidate.attributes, "Postal"),
     country: countryCode(attribute(candidate.attributes, "Country")),
+    score: normalizeEsriScore(candidate.score),
+    addressType: attribute(candidate.attributes, "Addr_type") || null,
   };
 }
 

@@ -36,27 +36,34 @@ function baseInput(overrides: Partial<LeadIntakeInput> = {}): LeadIntakeInput {
   };
 }
 
+function goodGeocode(overrides: Record<string, unknown> = {}) {
+  return {
+    score: 0.9,
+    addressType: "PointAddress",
+    line1: "123 Main St",
+    city: "Austin",
+    region: "TX",
+    postalCode: "78701",
+    country: "US",
+    lng: -97.74,
+    lat: 30.27,
+    attribution: "Esri",
+    raw: { ok: true },
+    ...overrides,
+  };
+}
+
 function makeDeps(overrides: Partial<LeadIntakeDeps> = {}): LeadIntakeDeps {
   return {
     findOrgBySlug: vi.fn(async () => ({
       orgId: "org-1",
       consentTextVersion: "v1",
       defaultAssigneeId: "user-owner",
+      serviceAreaZips: [] as string[],
     })),
     countRecentByIpHash: vi.fn(async () => 0),
     countRecentByOrg: vi.fn(async () => 0),
-    geocode: vi.fn(async () => ({
-      score: 0.9,
-      line1: "123 Main St",
-      city: "Austin",
-      region: "TX",
-      postalCode: "78701",
-      country: "US",
-      lng: -97.74,
-      lat: 30.27,
-      attribution: "Esri",
-      raw: { ok: true },
-    })),
+    geocode: vi.fn(async () => goodGeocode()),
     insertLead: vi.fn(async () => ({ id: "lead-1" })),
     listOpenLeadsForFold: vi.fn(async () => []),
     listMatchCandidates: vi.fn(async () => []),
@@ -261,5 +268,77 @@ describe("submitPublicLeadRequest", () => {
       expect.objectContaining({ leadId: "lead-open", orgId: "org-1" }),
     );
     expect(vi.mocked(deps.insertLead)).not.toHaveBeenCalled();
+  });
+
+  it("marks needs address check on a low-score geocode and keeps the typed address", async () => {
+    const typed = "99 Mystery Ln, Austin, TX 78701";
+    const deps = makeDeps({
+      geocode: vi.fn(async () =>
+        goodGeocode({
+          score: 0.42,
+          addressType: "PointAddress",
+          line1: "Esri Guess Rd",
+          city: "Wrongville",
+          postalCode: "99999",
+        }),
+      ),
+    });
+
+    const result = await submitPublicLeadRequest(baseInput({ addressTyped: typed }), deps);
+
+    expect(result).toEqual({ ok: true, status: "new" });
+    expect(vi.mocked(deps.geocode)).toHaveBeenCalledOnce();
+    expect(vi.mocked(deps.insertLead).mock.calls[0]?.[0]).toMatchObject({
+      status: "new",
+      addressTyped: typed,
+      addressLine1: null,
+      city: null,
+      region: null,
+      postalCode: null,
+      needsAddressCheck: true,
+      geocodeScore: 0.42,
+    });
+  });
+
+  it("does not call the geocoder for a spam (too-fast) request", async () => {
+    const deps = makeDeps();
+    const result = await submitPublicLeadRequest(
+      baseInput({ formStartedAtMs: Date.now() - 500 }),
+      deps,
+    );
+
+    expect(result).toEqual({ ok: true, status: "spam" });
+    expect(vi.mocked(deps.geocode)).not.toHaveBeenCalled();
+    expect(vi.mocked(deps.insertLead).mock.calls[0]?.[0]).toMatchObject({
+      status: "spam",
+      needsAddressCheck: false,
+      outOfArea: false,
+    });
+  });
+
+  it("flags an out-of-area ZIP, accepts the request, and returns a polite message", async () => {
+    const deps = makeDeps({
+      findOrgBySlug: vi.fn(async () => ({
+        orgId: "org-1",
+        consentTextVersion: "v1",
+        defaultAssigneeId: "user-owner",
+        serviceAreaZips: ["78701", "78702"],
+      })),
+      geocode: vi.fn(async () => goodGeocode({ postalCode: "90210" })),
+    });
+
+    const result = await submitPublicLeadRequest(baseInput(), deps);
+
+    expect(result).toEqual({
+      ok: true,
+      status: "new",
+      message: "Thanks — this address may be outside our area. We'll still review your request.",
+    });
+    expect(vi.mocked(deps.insertLead).mock.calls[0]?.[0]).toMatchObject({
+      status: "new",
+      outOfArea: true,
+      postalCode: "90210",
+      needsAddressCheck: false,
+    });
   });
 });

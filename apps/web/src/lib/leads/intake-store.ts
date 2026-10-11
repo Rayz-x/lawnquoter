@@ -52,6 +52,19 @@ function settingsText(settings: unknown, key: string): string | null {
   return trimmed || null;
 }
 
+function settingsZipList(settings: unknown): string[] {
+  if (!settings || typeof settings !== "object") return [];
+  const value = (settings as Record<string, unknown>).lead_service_area_zips;
+  if (!Array.isArray(value)) return [];
+  const out: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string") continue;
+    const trimmed = entry.trim();
+    if (trimmed) out.push(trimmed);
+  }
+  return out;
+}
+
 async function resolveDefaultAssignee(
   client: UntypedClient,
   orgId: string,
@@ -105,7 +118,8 @@ export function createLeadIntakeStore(
       const orgId = String(data.id);
       const consentTextVersion = settingsText(data.settings, "lead_consent_text_version") ?? "v1";
       const defaultAssigneeId = await resolveDefaultAssignee(db, orgId, data.settings);
-      return { orgId, consentTextVersion, defaultAssigneeId };
+      const serviceAreaZips = settingsZipList(data.settings);
+      return { orgId, consentTextVersion, defaultAssigneeId, serviceAreaZips };
     },
 
     async countRecentByIpHash(orgId, ipHash, sinceIso) {
@@ -343,6 +357,8 @@ export function createLeadIntakeStore(
         geocode_score: row.geocodeScore,
         geocode_attribution: row.geocodeAttribution,
         geocode_raw: row.geocodeRaw,
+        needs_address_check: row.needsAddressCheck,
+        out_of_area: row.outOfArea,
         services: row.services,
         note: row.note,
         source: row.source,
@@ -365,7 +381,7 @@ export function createLeadIntakeStore(
         account_id: row.accountId,
         property_id: row.propertyId,
       };
-      // location geography left null; coordinates stay in geocode_raw for L06 pin write.
+      // PostgREST cannot round-trip geography on insert; pin lives in geocode_raw.
 
       const { data, error } = await db.from("lead_requests").insert(payload).select("id").single();
       if (error || !data?.id) throw new Error(error?.message ?? "lead insert failed");
@@ -375,10 +391,18 @@ export function createLeadIntakeStore(
         org_id: row.orgId,
         lead_request_id: leadId,
         kind: row.status === "spam" ? "spam_quarantine" : "received",
-        summary: row.status === "spam" ? "Quarantined as spam" : "Public form submission received",
+        summary: row.status === "spam"
+          ? "Quarantined as spam"
+          : row.outOfArea
+            ? "Public form submission received (may be outside service area)"
+            : row.needsAddressCheck
+              ? "Public form submission received (needs address check)"
+              : "Public form submission received",
         meta: {
           channel: "website_form",
           spam_score: row.spamScore,
+          needs_address_check: row.needsAddressCheck,
+          out_of_area: row.outOfArea,
           ...(row.accountId && row.propertyId
             ? { auto_linked_account_id: row.accountId, auto_linked_property_id: row.propertyId }
             : {}),
