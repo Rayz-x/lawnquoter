@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { ConvertLeadButton } from "@/components/leads/convert-lead-button";
 import type { ContactChannel, LeadActivity, LeadRequest } from "@/lib/leads/detail";
 import { leadAddressLine, leadDisplayName } from "@/lib/leads/detail";
 import { logLeadContact, reassignLead, setLeadFollowUp } from "./actions";
@@ -83,6 +84,15 @@ export function LeadDetail({ lead, activities, assigneeName, people, canEdit }: 
           { label: "Next follow-up", value: lead.next_follow_up_on ?? "—" },
         ]}
       />
+
+      {canEdit ? (
+        <div className="flex flex-wrap items-center gap-3" data-testid="lead-convert-row">
+          <ConvertLeadButton leadId={lead.id} alreadyConverted={Boolean(lead.quote_id)} />
+          <p className="text-sm text-muted-foreground">
+            Creates the account, property, and draft quote, then opens measurement.
+          </p>
+        </div>
+      ) : null}
 
       {canEdit ? (
         <div className="grid gap-4 lg:grid-cols-3" data-testid="lead-actions">

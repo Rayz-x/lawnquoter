@@ -55,6 +55,7 @@ select is(
     'cancel_visit',
     'claim_lead_for_today',
     'convert_accepted_quote',
+    'convert_lead_request',
     'create_crew',
     'create_org',
     'create_org_invite',
