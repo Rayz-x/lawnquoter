@@ -131,6 +131,7 @@ describe("billing details disclosure", () => {
       consolidated_invoicing: false,
       parent_account_id: null,
       lead_source: null,
+      lead_source_other: null,
       notes: null,
       tags: [] as string[],
       created_by: null,
