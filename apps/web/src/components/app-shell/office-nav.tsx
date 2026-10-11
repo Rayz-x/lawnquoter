@@ -30,6 +30,17 @@ export function categoryOnBar(category: NavCategory, width: number | null, curre
   return true;
 }
 
+/**
+ * The popup is portaled to <body>, so it must out-rank the sticky top bar and
+ * phone tab bar (both z-40). Without this it painted underneath them.
+ */
+export const MENU_POSITIONER_CLASS = "isolate z-50 outline-none";
+
+/** Desktop menus drop down; only the phone tab bar opens upward. */
+export function menuSide(up: boolean) {
+  return up ? ("top" as const) : ("bottom" as const);
+}
+
 function loneItem(category: NavCategory): NavItem | null {
   return category.items.length === 1 ? category.items[0]! : null;
 }
@@ -218,7 +229,7 @@ function CategoryMenu({
         {up ? null : <ChevronDown aria-hidden className="size-3.5 opacity-70" />}
       </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Positioner side={up ? "top" : "bottom"} sideOffset={8} align={up ? "center" : "start"}>
+        <Menu.Positioner className={MENU_POSITIONER_CLASS} side={menuSide(up)} sideOffset={8} align={up ? "center" : "start"} collisionPadding={8}>
           <Menu.Popup className="dispatch-menu">
             {grouped.map((group) => (
               <Menu.Group key={group.label}>
