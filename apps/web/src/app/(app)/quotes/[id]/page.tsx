@@ -28,6 +28,7 @@ import { ConvertToJobForm } from "./convert-to-job-button";
 import { DeleteQuoteButton } from "./delete-quote-button";
 import { QuoteLines } from "./quote-lines";
 import { QuoteMetaForm } from "./quote-meta-form";
+import { QuoteTermsForm } from "./quote-terms-form";
 import { SendQuoteButton } from "./send-quote-button";
 import { SiteCheckPanel } from "./site-check-panel";
 import { SiteCheckRequestActions } from "./site-check-request-actions";
@@ -42,7 +43,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .select(
-      "id, number, title, status, site_check_status, created_at, current_version, intro, notes_customer, notes_internal, public_token, expires_at, property_id, accounts(name), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs)",
+      "id, number, title, status, site_check_status, created_at, current_version, intro, notes_customer, notes_internal, deposit_amount, public_token, expires_at, property_id, accounts(name), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs)",
     )
     .eq("id", id)
     .eq("org_id", session.orgId)
@@ -417,6 +418,12 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               </CardContent>
             </Card>
           ) : null}
+          <QuoteTermsForm
+            quoteId={quote.id}
+            depositAmount={quote.deposit_amount != null ? Number(quote.deposit_amount) : null}
+            expiresAt={quote.expires_at}
+            editable={editable}
+          />
           <QuoteMetaForm quote={quote} editable={editable} />
         </div>
       </div>
