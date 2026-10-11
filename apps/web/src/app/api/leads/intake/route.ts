@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { geocodeForLeadIntake } from "@/lib/leads/intake-geocode";
-import { createLeadIntakeStore } from "@/lib/leads/intake-store";
+import { createLeadIntakeStore, createNotifyNewLead } from "@/lib/leads/intake-store";
 import {
   LEAD_PHOTO_MAX_COUNT,
   isAllowedLeadPhotoMime,
@@ -207,6 +207,7 @@ export async function POST(request: Request): Promise<Response> {
       listMatchCandidates: store.listMatchCandidates,
       foldIntoLead: store.foldIntoLead,
       uploadLeadPhotos: (args) => uploadLeadPhotos(admin, args),
+      notifyNewLead: createNotifyNewLead(admin),
       nowMs: () => Date.now(),
     },
   );

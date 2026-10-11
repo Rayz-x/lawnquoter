@@ -1,8 +1,13 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Json } from "@/lib/supabase/database.types";
+import { createEmailProvider } from "@/lib/email/provider";
 import type { MatchCandidateInput, OpenLeadForFold } from "./dedupe";
+import { DEFAULT_RESPONSE_TARGET_MINUTES } from "./age-badge";
+import { sendQueuedNewLeadEmails } from "./new-lead-notify";
 import { normalizeEmail, normalizePhoneE164 } from "./normalize-contact";
+import { responseTargetMinutes } from "./response-target";
 import type { LeadIntakeDeps, LeadIntakeInsert, LeadIntakeOrg } from "./submit-request";
 
 type UntypedFrom = {
@@ -93,6 +98,43 @@ async function resolveDefaultAssignee(
   return owner?.user_id ? String(owner.user_id) : null;
 }
 
+async function resolveProfileEmail(client: UntypedClient, userId: string | null): Promise<string | null> {
+  if (!userId) return null;
+  const { data } = await client.from("profiles").select("email").eq("id", userId).maybeSingle();
+  if (typeof data?.email === "string" && data.email.trim()) return data.email.trim();
+  return null;
+}
+
+/** L08 notify hook: assignee email, else org office email; confirmation to requester only. */
+export function createNotifyNewLead(
+  admin: SupabaseClient,
+  send?: ReturnType<typeof createEmailProvider>["send"],
+): NonNullable<LeadIntakeDeps["notifyNewLead"]> {
+  const db = asUntyped(admin);
+  const provider = createEmailProvider();
+  const sendMail = send ?? ((message) => provider.send(message));
+
+  return async ({ status, row, org }) => {
+    if (status !== "new") return;
+    const assigneeEmail = await resolveProfileEmail(db, row.assigneeId);
+    const officeTo = assigneeEmail ?? org.officeEmail;
+    await sendQueuedNewLeadEmails(
+      {
+        status,
+        officeTo,
+        requesterEmail: row.email,
+        orgName: org.name,
+        contactName: row.contactName,
+        addressTyped: row.addressTyped,
+        services: row.services,
+        phone: row.phone,
+        replyWithinMinutes: org.responseTargetMinutes,
+      },
+      sendMail,
+    );
+  };
+}
+
 export function createLeadIntakeStore(
   admin: SupabaseClient,
 ): Pick<
@@ -111,7 +153,7 @@ export function createLeadIntakeStore(
     async findOrgBySlug(slug: string): Promise<LeadIntakeOrg | null> {
       const { data, error } = await db
         .from("orgs")
-        .select("id, settings")
+        .select("id, name, email, settings")
         .filter("settings->>lead_form_slug", "eq", slug)
         .maybeSingle();
       if (error || !data) return null;
@@ -119,7 +161,19 @@ export function createLeadIntakeStore(
       const consentTextVersion = settingsText(data.settings, "lead_consent_text_version") ?? "v1";
       const defaultAssigneeId = await resolveDefaultAssignee(db, orgId, data.settings);
       const serviceAreaZips = settingsZipList(data.settings);
-      return { orgId, consentTextVersion, defaultAssigneeId, serviceAreaZips };
+      const officeEmail =
+        typeof data.email === "string" && data.email.trim() ? data.email.trim() : null;
+      const name = typeof data.name === "string" && data.name.trim() ? data.name.trim() : "Office";
+      return {
+        orgId,
+        name,
+        officeEmail,
+        consentTextVersion,
+        defaultAssigneeId,
+        serviceAreaZips,
+        responseTargetMinutes:
+          responseTargetMinutes(data.settings as Json) || DEFAULT_RESPONSE_TARGET_MINUTES,
+      };
     },
 
     async countRecentByIpHash(orgId, ipHash, sinceIso) {

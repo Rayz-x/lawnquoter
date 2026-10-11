@@ -48,9 +48,13 @@ export type LeadIntakeGeocode = {
 
 export type LeadIntakeOrg = {
   orgId: string;
+  name: string;
+  /** Org contact email used when no assignee email is available. */
+  officeEmail: string | null;
   consentTextVersion: string;
   defaultAssigneeId: string | null;
   serviceAreaZips: string[];
+  responseTargetMinutes: number;
 };
 
 export type LeadIntakeInsert = {
@@ -153,6 +157,13 @@ export type LeadIntakeDeps = {
     leadId: string;
     photos: LeadPhotoFile[];
   }) => Promise<string[]>;
+  /** L08: email assignee/office + requester confirmation after a successful store. */
+  notifyNewLead?: (input: {
+    status: "new" | "spam";
+    leadId: string;
+    row: LeadIntakeInsert;
+    org: LeadIntakeOrg;
+  }) => Promise<void>;
   nowMs: () => number;
 };
 
@@ -353,49 +364,53 @@ export async function submitPublicLeadRequest(
       ? input.preferredContact
       : null;
 
+  // Typed address always kept; structured fields only when the score/type gate passes.
+  const row: LeadIntakeInsert = {
+    orgId: org.orgId,
+    status,
+    contactName,
+    phone,
+    email,
+    preferredContact: preferred,
+    isBusiness: Boolean(input.isBusiness),
+    addressTyped,
+    addressLine1: gatePassed ? (geocode?.line1 ?? null) : null,
+    city: gatePassed ? (geocode?.city ?? null) : null,
+    region: gatePassed ? (geocode?.region ?? null) : null,
+    postalCode: gatePassed ? (geocode?.postalCode ?? null) : null,
+    country: gatePassed ? (geocode?.country ?? "US") : "US",
+    geocodeScore: geocode?.score ?? null,
+    geocodeAttribution: geocode?.attribution ?? null,
+    geocodeRaw: geocode?.raw ?? null,
+    needsAddressCheck,
+    outOfArea,
+    services,
+    note,
+    source: WEBSITE_FORM_SOURCE,
+    sourceOther: clip(input.heardAboutOther ?? input.heardAbout, 100),
+    utmSource: clip(input.utmSource, 200),
+    utmMedium: clip(input.utmMedium, 200),
+    utmCampaign: clip(input.utmCampaign, 200),
+    utmTerm: clip(input.utmTerm, 200),
+    utmContent: clip(input.utmContent, 200),
+    referrer: clip(input.referrer, 2000),
+    landingPage: clip(input.landingPage, 2000),
+    smsConsent: Boolean(input.smsConsent),
+    consentTextVersion: org.consentTextVersion,
+    consentAt: new Date(now).toISOString(),
+    consentIpHash: ipHash,
+    consentUa: clip(input.userAgent, 500),
+    spamScore,
+    ipHash,
+    assigneeId: status === "new" ? org.defaultAssigneeId : null,
+    accountId,
+    propertyId,
+  };
+
+  let leadId: string;
   try {
-    const inserted = await deps.insertLead({
-      orgId: org.orgId,
-      status,
-      contactName,
-      phone,
-      email,
-      preferredContact: preferred,
-      isBusiness: Boolean(input.isBusiness),
-      // Typed address always kept; structured fields only when the score/type gate passes.
-      addressTyped,
-      addressLine1: gatePassed ? (geocode?.line1 ?? null) : null,
-      city: gatePassed ? (geocode?.city ?? null) : null,
-      region: gatePassed ? (geocode?.region ?? null) : null,
-      postalCode: gatePassed ? (geocode?.postalCode ?? null) : null,
-      country: gatePassed ? (geocode?.country ?? "US") : "US",
-      geocodeScore: geocode?.score ?? null,
-      geocodeAttribution: geocode?.attribution ?? null,
-      geocodeRaw: geocode?.raw ?? null,
-      needsAddressCheck,
-      outOfArea,
-      services,
-      note,
-      source: WEBSITE_FORM_SOURCE,
-      sourceOther: clip(input.heardAboutOther ?? input.heardAbout, 100),
-      utmSource: clip(input.utmSource, 200),
-      utmMedium: clip(input.utmMedium, 200),
-      utmCampaign: clip(input.utmCampaign, 200),
-      utmTerm: clip(input.utmTerm, 200),
-      utmContent: clip(input.utmContent, 200),
-      referrer: clip(input.referrer, 2000),
-      landingPage: clip(input.landingPage, 2000),
-      smsConsent: Boolean(input.smsConsent),
-      consentTextVersion: org.consentTextVersion,
-      consentAt: new Date(now).toISOString(),
-      consentIpHash: ipHash,
-      consentUa: clip(input.userAgent, 500),
-      spamScore,
-      ipHash,
-      assigneeId: status === "new" ? org.defaultAssigneeId : null,
-      accountId,
-      propertyId,
-    });
+    const inserted = await deps.insertLead(row);
+    leadId = inserted.id;
     if (photos.length > 0) {
       await deps.uploadLeadPhotos({
         orgId: org.orgId,
@@ -405,6 +420,15 @@ export async function submitPublicLeadRequest(
     }
   } catch {
     return { ok: false, reason: "store" };
+  }
+
+  if (deps.notifyNewLead) {
+    try {
+      await deps.notifyNewLead({ status, leadId, row, org });
+    } catch {
+      // Store already succeeded; do not fail the public response on mail errors.
+      console.error("new-lead notify failed");
+    }
   }
 
   if (outOfArea) {

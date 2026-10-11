@@ -29,6 +29,7 @@ vi.mock("@/lib/leads/intake-store", () => ({
     listMatchCandidates: vi.fn(),
     foldIntoLead: vi.fn(),
   }),
+  createNotifyNewLead: () => vi.fn(),
 }));
 vi.mock("@/lib/leads/upload-lead-photos", () => ({
   uploadLeadPhotos: vi.fn(),

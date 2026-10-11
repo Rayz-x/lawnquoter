@@ -57,9 +57,12 @@ function makeDeps(overrides: Partial<LeadIntakeDeps> = {}): LeadIntakeDeps {
   return {
     findOrgBySlug: vi.fn(async () => ({
       orgId: "org-1",
+      name: "Acme Lawn",
+      officeEmail: "office@acme.test",
       consentTextVersion: "v1",
       defaultAssigneeId: "user-owner",
       serviceAreaZips: [] as string[],
+      responseTargetMinutes: 60,
     })),
     countRecentByIpHash: vi.fn(async () => 0),
     countRecentByOrg: vi.fn(async () => 0),
@@ -320,9 +323,12 @@ describe("submitPublicLeadRequest", () => {
     const deps = makeDeps({
       findOrgBySlug: vi.fn(async () => ({
         orgId: "org-1",
+        name: "Acme Lawn",
+        officeEmail: "office@acme.test",
         consentTextVersion: "v1",
         defaultAssigneeId: "user-owner",
         serviceAreaZips: ["78701", "78702"],
+        responseTargetMinutes: 60,
       })),
       geocode: vi.fn(async () => goodGeocode({ postalCode: "90210" })),
     });
@@ -340,5 +346,23 @@ describe("submitPublicLeadRequest", () => {
       postalCode: "90210",
       needsAddressCheck: false,
     });
+  });
+
+  it("notifies after a clean store and also invokes notify for spam (queue is empty)", async () => {
+    const notifyNewLead = vi.fn<NonNullable<LeadIntakeDeps["notifyNewLead"]>>(async () => undefined);
+    const clean = makeDeps({ notifyNewLead });
+    await submitPublicLeadRequest(baseInput({ email: "pat@example.com" }), clean);
+    expect(notifyNewLead).toHaveBeenCalledOnce();
+    expect(notifyNewLead.mock.calls[0]![0]).toMatchObject({
+      status: "new",
+      leadId: "lead-1",
+      row: { email: "pat@example.com" },
+    });
+
+    notifyNewLead.mockClear();
+    const spam = makeDeps({ notifyNewLead });
+    await submitPublicLeadRequest(baseInput({ honeypot: "bot" }), spam);
+    expect(notifyNewLead).toHaveBeenCalledOnce();
+    expect(notifyNewLead.mock.calls[0]![0].status).toBe("spam");
   });
 });
