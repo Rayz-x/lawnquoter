@@ -5,7 +5,7 @@ export type VisitClock = { status: string; startedAt: string | null; crewSize: n
 export type VisitTask = { label: string; quantity: string | null; note: string | null };
 export type VisitDetail = {
   id: string; number: number; status: string; title: string; address: string; lastName: string | null;
-  budgetMinutes: number | null; startedAt: string | null; crewSize: number | null; crewNote: string | null;
+  budgetMinutes: number | null; startedAt: string | null; completedAt: string | null; crewSize: number | null; crewNote: string | null;
   gateCode: string | null; gateWidthIn: number | null; accessNotes: string | null; officeNotes: string | null;
   hasDogs: boolean; hasStairs: boolean; steep: boolean; lat: number | null; lng: number | null; tasks: VisitTask[];
   photoPending: boolean; photoLost: boolean;
@@ -38,6 +38,7 @@ export function visitFromPack(data: unknown, visitId: string): VisitDetail | nul
     lastName: text(property.last_name),
     budgetMinutes: typeof visit.budget_minutes === "number" ? visit.budget_minutes : null,
     startedAt: text(visit.started_at),
+    completedAt: text(visit.completed_at),
     crewSize: typeof visit.crew_size === "number" ? visit.crew_size : null,
     crewNote: text(visit.crew_note),
     gateCode: cancelled ? null : text(property.gate_code),
@@ -181,6 +182,7 @@ export function patchVisitPack(
   patch: {
     status?: string;
     started_at?: string;
+    completed_at?: string;
     crew_size?: number;
     skip_reason?: string;
     photo_pending?: boolean;

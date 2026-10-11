@@ -15,6 +15,7 @@ export const CREW_MUTATION_KINDS = [
   "visit_photo_record",
   "visit_flag_photo_lost",
   "enhancement_create",
+  "visit_correct_times",
 ] as const;
 
 export type CrewMutationKind = (typeof CREW_MUTATION_KINDS)[number];
