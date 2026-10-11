@@ -1,3 +1,4 @@
+-- Restacked on main tip (photo_pending/photo_lost from #163).
 -- S16: crew upsell requests stay priceless; office can approve an on-the-spot
 -- extra for the rest of the org-local day. Dusty applies hosted.
 
@@ -209,6 +210,7 @@ begin
         limit 1
       ) as same_day_approved_until,
       case
+        when v.photo_lost then 'Photo lost'
         when v.completed_after_cancel then 'Completed after cancel'
         when exists (
           select 1
@@ -234,7 +236,8 @@ begin
         else null
       end as reason,
       case
-        when v.completed_after_cancel
+        when v.photo_lost
+          or v.completed_after_cancel
           or exists (
             select 1
             from public.enhancement_requests e
