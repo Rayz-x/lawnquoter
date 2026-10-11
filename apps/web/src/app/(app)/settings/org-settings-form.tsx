@@ -11,7 +11,7 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { Tables } from "@/lib/supabase/types";
 import { lookupOfficeAddress, saveOrgCard } from "./actions";
-const TABS = ["identity", "company", "branding", "payments"] as const;
+const TABS = ["identity", "company", "branding", "payments", "lead-form"] as const;
 const ZONES = [["America/New_York", "Eastern"], ["America/Chicago", "Central"], ["America/Denver", "Mountain"], ["America/Phoenix", "Arizona"], ["America/Los_Angeles", "Pacific"], ["America/Anchorage", "Alaska"], ["Pacific/Honolulu", "Hawaii"], ["UTC", "UTC"]] as const;
 const UNRESOLVED = "That address didn't resolve.";
 const MISSED = "We couldn't find that address. Check it, or use it as typed.";
@@ -199,17 +199,19 @@ function RegionCard({ org, canEdit, editing, onEdit, onDone }: Edit & { org: Tab
     </SectionCard>
   );
 }
-const NAV = [{ label: "Identity", tab: "identity" }, { label: "Company", tab: "company" }, { label: "Branding", tab: "branding" }, { label: "Payments", tab: "payments" }, { label: "Team", href: "/settings/team" }, { label: "Crews", href: "/settings/crews" }, { label: "Services & Pricing", href: "/settings/pricing" }] as const;
-export function OrgSettingsForm({ org, canEdit, tab, branding, payments }: { org: Tables<"orgs">; canEdit: boolean; tab?: string; branding: ReactNode; payments: ReactNode }) {
-  const [current, setCurrent] = useState(() => resolveEntryTab(tab, TABS, "company"));
+const NAV = [{ label: "Identity", tab: "identity" }, { label: "Company", tab: "company" }, { label: "Branding", tab: "branding" }, { label: "Payments", tab: "payments" }, { label: "Lead form", tab: "lead-form", ownerOnly: true }, { label: "Team", href: "/settings/team" }, { label: "Crews", href: "/settings/crews" }, { label: "Services & Pricing", href: "/settings/pricing" }] as const;
+export function OrgSettingsForm({ org, canEdit, tab, branding, payments, leadForm, isOwner = false }: { org: Tables<"orgs">; canEdit: boolean; tab?: string; branding: ReactNode; payments: ReactNode; leadForm?: ReactNode; isOwner?: boolean }) {
+  const tabs = isOwner ? TABS : TABS.filter((name) => name !== "lead-form");
+  const [current, setCurrent] = useState(() => resolveEntryTab(tab, tabs, "company"));
   const [open, setOpen] = useState<CardId | null>(null);
   const edit = (id: CardId): Edit => ({ canEdit, editing: open === id, onEdit: () => setOpen(id), onDone: () => setOpen(null) });
-  const show = (next: (typeof TABS)[number]) => { setCurrent(next); setOpen(null); };
+  const show = (next: (typeof tabs)[number]) => { setCurrent(next); setOpen(null); };
   const itemClass = (active: boolean) => `shrink-0 whitespace-nowrap rounded-md px-3 text-left max-lg:inline-flex max-lg:h-11 max-lg:items-center lg:w-full lg:px-2 lg:py-1.5 ${active ? "bg-muted font-medium" : "hover:bg-muted"}`;
+  const nav = NAV.filter((item) => !("ownerOnly" in item && item.ownerOnly) || isOwner);
   return (
     <div className="flex w-full min-w-0 flex-col gap-4 lg:flex-row lg:items-start">
       <nav aria-label="Settings" className="flex w-full min-w-0 flex-nowrap gap-1 overflow-x-auto text-sm lg:w-44 lg:shrink-0 lg:flex-col lg:overflow-visible">
-        {NAV.map((item) => "href" in item ? <Link key={item.href} href={item.href} className={itemClass(false)}>{item.label}</Link> : <button key={item.tab} type="button" className={itemClass(current === item.tab)} aria-current={current === item.tab ? "page" : undefined} onClick={() => show(item.tab)}>{item.label}</button>)}
+        {nav.map((item) => "href" in item ? <Link key={item.href} href={item.href} className={itemClass(false)}>{item.label}</Link> : <button key={item.tab} type="button" className={itemClass(current === item.tab)} aria-current={current === item.tab ? "page" : undefined} onClick={() => show(item.tab)}>{item.label}</button>)}
       </nav>
       <div className="flex w-full min-w-0 flex-1 flex-col gap-4">
         {current === "identity" ? <IdentityCard org={org} {...edit("identity")} /> : null}
@@ -223,6 +225,7 @@ export function OrgSettingsForm({ org, canEdit, tab, branding, payments }: { org
         ) : null}
         {current === "branding" ? branding : null}
         {current === "payments" ? <div className="w-full min-w-0">{payments}</div> : null}
+        {current === "lead-form" ? <div className="w-full min-w-0">{leadForm}</div> : null}
       </div>
     </div>
   );
