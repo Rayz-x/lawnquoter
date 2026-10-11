@@ -17,11 +17,6 @@ export function useSectionAutosave<T>({
   onError,
 }: {
   action: SectionAutosaveAction<T>;
-  /**
-   * Debounce for text. Pass the whole section, or a partial object that is merged
-   * into it, so one field does not drop another. Chips and toggles pass
-   * `{ immediate: true, rollback: true }` and restore the last choice if the save fails.
-   */
   debounceMs?: number;
   initial?: T;
   onRollback?: (values: T) => void;
