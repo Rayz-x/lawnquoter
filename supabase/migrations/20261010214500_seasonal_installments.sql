@@ -92,6 +92,7 @@ begin
     return new;
   end if;
 
+  -- Carry forward I04 (#145) lock fields plus installment identity.
   if new.subtotal_cents is distinct from old.subtotal_cents
      or new.tax_cents is distinct from old.tax_cents
      or new.total_cents is distinct from old.total_cents
@@ -101,7 +102,11 @@ begin
      or new.source is distinct from old.source
      or new.currency is distinct from old.currency
      or new.number is distinct from old.number
+     or new.number_label is distinct from old.number_label
+     or new.tax_rate_bps is distinct from old.tax_rate_bps
+     or new.tax_label is distinct from old.tax_label
      or new.issued_at is distinct from old.issued_at
+     or new.due_on is distinct from old.due_on
      or new.billing_period is distinct from old.billing_period
   then
     raise exception 'issued invoice totals and identity are locked'
