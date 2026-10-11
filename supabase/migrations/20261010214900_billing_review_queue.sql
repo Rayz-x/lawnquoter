@@ -10,9 +10,9 @@ create type public.billing_hold_reason as enum (
   'upsell_review'
 );
 
+-- billing_held is created by 20261010210700_partly_done_return.sql.
 alter table public.visits
-  add column billing_held boolean not null default false,
-  add column billing_hold_reason public.billing_hold_reason;
+  add column if not exists billing_hold_reason public.billing_hold_reason;
 
 alter table public.visits
   add constraint visits_billing_hold_reason_check check (
