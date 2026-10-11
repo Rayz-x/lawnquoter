@@ -2,9 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SITE_CHECK_REQUESTED_PENDING } from "@/lib/quotes/site-check";
 import { approveSiteCheckRequest, declineSiteCheckRequest } from "../actions";
 
 export function SiteCheckRequestActions({
@@ -21,11 +29,41 @@ export function SiteCheckRequestActions({
   const [pending, startTransition] = useTransition();
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState("");
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [windowStart, setWindowStart] = useState("");
+  const [windowEnd, setWindowEnd] = useState("");
+
+  function openApprove() {
+    // Same default the server applies when no nearby visit: tomorrow through +5 days.
+    const day = (offset: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    };
+    setWindowStart(day(1));
+    setWindowEnd(day(5));
+    setApproveOpen(true);
+  }
+
+  function confirmApprove() {
+    startTransition(async () => {
+      const result = await approveSiteCheckRequest(quoteId, siteCheckId, {
+        start: windowStart,
+        end: windowEnd,
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setApproveOpen(false);
+      toast.success("Visit window confirmed");
+    });
+  }
 
   return (
     <div className="mt-3 space-y-2 border-t border-warning/20 pt-3">
       <p className="text-xs text-muted-foreground">Customer request</p>
-      <p className="text-sm">{SITE_CHECK_REQUESTED_PENDING}</p>
+      <p className="text-sm">Approve to give the customer a visit window, or decline with a reason.</p>
       {requestedEmail ? (
         <p className="text-xs text-muted-foreground">
           Requested by {requestedEmail}
@@ -34,21 +72,7 @@ export function SiteCheckRequestActions({
       ) : null}
       {!declining ? (
         <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            size="sm"
-            disabled={pending}
-            onClick={() =>
-              startTransition(async () => {
-                const result = await approveSiteCheckRequest(quoteId, siteCheckId);
-                if (!result.ok) {
-                  toast.error(result.error);
-                  return;
-                }
-                toast.success("Visit window confirmed");
-              })
-            }
-          >
+          <Button type="button" size="sm" disabled={pending} onClick={openApprove}>
             Approve
           </Button>
           <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => setDeclining(true)}>
@@ -75,7 +99,7 @@ export function SiteCheckRequestActions({
           }}
         >
           <label className="text-xs text-muted-foreground" htmlFor="decline-reason">
-            Reason for declining
+            Message to the customer (they&apos;ll see this)
           </label>
           <Input
             id="decline-reason"
@@ -96,6 +120,45 @@ export function SiteCheckRequestActions({
           </div>
         </form>
       )}
+      <AlertDialog open={approveOpen} onOpenChange={setApproveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve the final-price visit</AlertDialogTitle>
+            <AlertDialogDescription>The customer will see this window.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              From
+              <Input
+                type="date"
+                value={windowStart}
+                disabled={pending}
+                onChange={(event) => setWindowStart(event.target.value)}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              To
+              <Input
+                type="date"
+                value={windowEnd}
+                min={windowStart || undefined}
+                disabled={pending}
+                onChange={(event) => setWindowEnd(event.target.value)}
+              />
+            </label>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>Back</AlertDialogCancel>
+            <Button
+              type="button"
+              disabled={pending || !windowStart || !windowEnd || windowEnd < windowStart}
+              onClick={confirmApprove}
+            >
+              Approve and share window
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

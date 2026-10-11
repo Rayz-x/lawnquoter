@@ -9,6 +9,7 @@ import { signerAuditHeaders } from "@/lib/actions/signer-audit";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { acceptedQuoteMessage } from "@/lib/email/accepted-quote";
 import { createEmailProvider } from "@/lib/email/provider";
+import { SITE_CHECK_REQUEST_LIMIT_ERROR } from "./request-limit";
 import { createClient } from "@/lib/supabase/server";
 import { loadPublicQuote } from "./load-public-quote";
 import { ProposalPdf } from "./proposal-pdf";
@@ -120,7 +121,7 @@ export async function requestFinalPrice(
   });
   if (error) {
     if (/account request limit/i.test(error.message)) {
-      return fail("Call us to schedule a final price — this account has reached the request limit.");
+      return fail(SITE_CHECK_REQUEST_LIMIT_ERROR);
     }
     if (/rate limit/i.test(error.message)) {
       return fail("Too many requests. Please try again in a little while.");
