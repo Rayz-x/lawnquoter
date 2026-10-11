@@ -19,6 +19,7 @@ type Line = {
   description: string | null;
   state: string;
   section_id: string | null;
+  option_group: string | null;
   option_tier: string;
   price: number;
   range_low: number | null;
@@ -31,6 +32,9 @@ export function QuoteLines({
   versionId,
   lines,
   sections,
+  sectionTotals,
+  addOnTotal,
+  selectedIds,
   rules,
   basis,
   editable,
@@ -39,6 +43,9 @@ export function QuoteLines({
   versionId: string | null;
   lines: Line[];
   sections: { id: string; title: string }[];
+  sectionTotals: { id: string; title: string; price: number }[];
+  addOnTotal: number;
+  selectedIds: string[];
   rules: { id: string; name: string; priced: PricedLine }[];
   basis: string;
   editable: boolean;
@@ -49,10 +56,17 @@ export function QuoteLines({
   const [tab, setTab] = useState<string | null>(null);
   const [naming, setNaming] = useState(false);
   const known = new Set(sections.map((section) => section.id));
+  const picked = new Set(selectedIds);
   const loose = lines.filter((line) => !line.section_id || !known.has(line.section_id));
+  const priceBySection = new Map(sectionTotals.map((section) => [section.id, section.price]));
   const tabs = [
-    ...sections.map((section) => ({ id: section.id, label: section.title, rows: lines.filter((line) => line.section_id === section.id) })),
-    { id: "lines", label: sections.length ? "Add-ons" : "Lines", rows: loose },
+    ...sections.map((section) => ({
+      id: section.id,
+      label: section.title,
+      rows: lines.filter((line) => line.section_id === section.id),
+      subtotal: priceBySection.get(section.id) ?? 0,
+    })),
+    { id: "lines", label: sections.length ? "Add-ons" : "Lines", rows: loose, subtotal: addOnTotal },
   ];
   const value = tabs.some((section) => section.id === tab) ? (tab ?? "lines") : (tabs[0]?.id ?? "lines");
   const current = tabs.find((section) => section.id === value) ?? tabs[0];
@@ -128,6 +142,7 @@ export function QuoteLines({
       {current?.rows.map((line, index) => {
         const flagged = hasSiteCheck(line.site_check_reasons);
         const ranged = line.range_low != null && line.range_high != null;
+        const counts = picked.has(line.id);
         return (
           <div
             key={line.id}
@@ -146,6 +161,12 @@ export function QuoteLines({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{line.name}</span>
+                  {line.option_group ? (
+                    <Badge variant="outline" className="font-normal">
+                      {line.option_group}
+                      {counts ? " · counted" : " · pick one"}
+                    </Badge>
+                  ) : null}
                   {flagged ? (
                     <Badge variant="outline" className="border-transparent bg-warning/15 text-warning">
                       Site check
@@ -155,7 +176,7 @@ export function QuoteLines({
                 {line.description ? <div className="text-xs text-muted-foreground">{line.description}</div> : null}
                 {flagged ? <div className="text-xs text-warning">{siteCheckReasonsSummary(line.site_check_reasons)}</div> : null}
               </div>
-              <div className="text-right font-heading tabular-nums">
+              <div className={`text-right font-heading tabular-nums${counts ? "" : " text-muted-foreground"}`}>
                 {ranged ? (
                   <>
                     <div>{formatMoney(line.range_low!)} – {formatMoney(line.range_high!)}</div>
@@ -193,6 +214,12 @@ export function QuoteLines({
         );
       })}
       {current && current.rows.length === 0 ? <p className="text-sm text-muted-foreground">Nothing in this section.</p> : null}
+      {current && current.rows.length > 0 ? (
+        <div className="flex justify-between border-t pt-2 text-sm">
+          <span className="text-muted-foreground">{current.label} total</span>
+          <span className="font-heading tabular-nums">{formatMoney(current.subtotal)}</span>
+        </div>
+      ) : null}
       {editable && versionId ? <QuickAddForm quoteId={quoteId} versionId={versionId} sectionId={value === "lines" ? null : value} /> : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </section>

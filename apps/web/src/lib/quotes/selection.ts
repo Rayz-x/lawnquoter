@@ -2,6 +2,7 @@ export type SelectableItem = {
   id: string;
   state: string;
   option_group: string | null;
+  section_id?: string | null;
   selected?: boolean;
   price?: number | string | null;
   hours?: number | string | null;

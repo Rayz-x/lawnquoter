@@ -13,6 +13,7 @@ import { formatNotToExceedAmount, notToExceedClause } from "@/lib/quotes/legal-c
 import { acceptanceTotals, lineHasRange } from "@/lib/quotes/not-to-exceed";
 import type { PublicAcceptance, PublicQuote, PublicSiteCheck } from "@/lib/quotes/public-quote";
 import { defaultSelectedIds } from "@/lib/quotes/selection";
+import { quoteSectionTotals } from "@/lib/quotes/section-totals";
 import {
   SITE_CHECK_EXPLANATION_TITLE,
   SITE_CHECK_LINE_PILL,
@@ -29,6 +30,7 @@ import { RecordView } from "./record-view";
 import { RequestFinalPrice } from "./request-final-price";
 
 type Item = PublicQuote["items"][number];
+type Section = NonNullable<PublicQuote["sections"]>[number];
 
 const POWERED_BY = "https://lawnquoter.com/?utm_source=lawnquoter&utm_medium=quote&utm_campaign=powered_by";
 const LIVE_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -116,6 +118,106 @@ function StatusBadge({ status }: { status: string }) {
   return null;
 }
 
+function OptionGroupBlock({
+  group,
+  options,
+  value,
+  onChange,
+  measuringPill,
+}: {
+  group: string;
+  options: Item[];
+  value: string | undefined;
+  onChange: (id: string) => void;
+  measuringPill: string | null;
+}) {
+  return (
+    <section className="rounded-xl border p-4">
+      <h3 className="font-medium">{group}</h3>
+      <RadioGroup value={value} onValueChange={onChange} className="mt-3 grid gap-2">
+        {options.map((o) => (
+          <label
+            key={o.id}
+            className="flex cursor-pointer items-start gap-3 rounded-lg border border-input p-3 has-data-[checked]:border-[var(--brand-edge)] has-data-[checked]:bg-[var(--brand-soft)]"
+          >
+            <RadioGroupItem value={o.id} className="mt-1" />
+            <div className="min-w-0 flex-1">
+              <div className="flex justify-between gap-2">
+                <span className="min-w-0 font-medium capitalize [overflow-wrap:anywhere]">
+                  {o.option_tier === "none" ? o.name : o.option_tier}
+                </span>
+                {priceBlock(o)}
+              </div>
+              {o.description ? <p className="text-xs text-muted-foreground">{o.description}</p> : null}
+              {hasSiteCheck(o.site_check_reasons) || (lineHasRange(o) && measuringPill) ? (
+                <SiteCheckPill label={measuringPill} />
+              ) : null}
+            </div>
+          </label>
+        ))}
+      </RadioGroup>
+    </section>
+  );
+}
+
+function StandaloneLine({
+  item,
+  extras,
+  onExtra,
+  measuringPill,
+}: {
+  item: Item;
+  extras: Record<string, boolean>;
+  onExtra: (id: string, checked: boolean) => void;
+  measuringPill: string | null;
+}) {
+  return (
+    <label className="flex items-start gap-3 rounded-xl border p-4 has-data-[checked]:border-[var(--brand-edge)] has-data-[checked]:bg-[var(--brand-soft)]">
+      {item.state === "included" ? (
+        <span className="mt-0.5 text-xs text-muted-foreground">Included</span>
+      ) : (
+        <Checkbox
+          checked={!!extras[item.id]}
+          onCheckedChange={(checked) => onExtra(item.id, !!checked)}
+          className="mt-1"
+        />
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex justify-between gap-2">
+          <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{item.name}</span>
+          {priceBlock(item)}
+        </div>
+        {item.description ? <p className="text-xs text-muted-foreground">{item.description}</p> : null}
+        {hasSiteCheck(item.site_check_reasons) || (lineHasRange(item) && measuringPill) ? (
+          <SiteCheckPill label={measuringPill} />
+        ) : null}
+        {item.state === "recommended" ? (
+          <span className="mt-1 inline-flex rounded-md bg-[var(--brand-soft)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--brand-text)]">
+            Recommended
+          </span>
+        ) : null}
+        {item.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={item.photo_url}
+            alt=""
+            className="mt-2 w-full rounded-md bg-muted object-cover [aspect-ratio:16/9] [block-size:auto]"
+          />
+        ) : null}
+      </div>
+    </label>
+  );
+}
+
+function itemsForBucket(items: Item[], sectionId: string | null, known: Set<string>) {
+  if (sectionId) return items.filter((item) => item.section_id === sectionId);
+  return items.filter((item) => !item.section_id || !known.has(item.section_id));
+}
+
+function groupNames(items: Item[]) {
+  return [...new Set(items.filter((item) => item.option_group).map((item) => item.option_group!))];
+}
+
 export function ProposalView({
   token,
   payload,
@@ -132,6 +234,7 @@ export function ProposalView({
     site_check_can_request?: boolean | null;
     site_check_account_cap_reached?: boolean | null;
     org: PublicOrg;
+    sections?: Section[];
     items: Item[];
     acceptance?: PublicAcceptance | null;
   };
@@ -140,7 +243,8 @@ export function ProposalView({
     payload.site_check?.window_start,
     payload.site_check?.window_end,
   );
-  const groups = [...new Set(payload.items.filter((i) => i.option_group).map((i) => i.option_group!))];
+  const sections = useMemo(() => payload.sections ?? [], [payload.sections]);
+  const known = useMemo(() => new Set(sections.map((section) => section.id)), [sections]);
   const [picked, setPicked] = useState<Record<string, string>>(() => {
     const defaults = new Set(defaultSelectedIds(payload.items));
     const init: Record<string, string> = {};
@@ -169,6 +273,10 @@ export function ProposalView({
   }, [payload.items, picked, extras]);
 
   const live = useMemo(() => acceptanceTotals(payload.items, selectedIds), [payload.items, selectedIds]);
+  const breakdown = useMemo(
+    () => quoteSectionTotals(payload.items, sections.map((section) => ({ id: section.id, title: section.title })), selectedIds),
+    [payload.items, sections, selectedIds],
+  );
   const stored = payload.status === "accepted" ? (payload.acceptance ?? null) : null;
   const hasRanges = stored?.has_ranges ?? live.hasRanges;
   const notToExceed = stored?.accepted_not_to_exceed ?? live.notToExceed;
@@ -189,6 +297,20 @@ export function ProposalView({
     0,
   );
   const website = payload.org.website;
+  const buckets: { id: string; title: string | null; items: Item[]; subtotal: number }[] = [
+    ...sections.map((section) => ({
+      id: section.id,
+      title: section.title,
+      items: itemsForBucket(payload.items, section.id, known),
+      subtotal: breakdown.sections.find((row) => row.id === section.id)?.price ?? 0,
+    })),
+    {
+      id: "add-ons",
+      title: sections.length ? "Add-ons" : null,
+      items: itemsForBucket(payload.items, null, known),
+      subtotal: breakdown.addOns.price,
+    },
+  ].filter((bucket) => bucket.items.length > 0);
 
   return (
     <div className="min-h-svh bg-background text-foreground">
@@ -210,79 +332,42 @@ export function ProposalView({
         ) : null}
         {payload.intro ? <p className="mt-4 text-lg leading-7">{payload.intro}</p> : null}
 
-        <div className="mt-6 flex flex-col gap-4">
-          {groups.map((g) => {
-            const options = payload.items.filter((i) => i.option_group === g);
+        <div className="mt-6 flex flex-col gap-6">
+          {buckets.map((bucket) => {
+            const groups = groupNames(bucket.items);
+            const standalones = bucket.items.filter((item) => !item.option_group);
             return (
-              <section key={g} className="rounded-xl border p-4">
-                <h2 className="font-medium">{g}</h2>
-                <RadioGroup value={picked[g]} onValueChange={(id) => setPicked((p) => ({ ...p, [g]: id }))} className="mt-3 grid gap-2">
-                  {options.map((o) => (
-                    <label
-                      key={o.id}
-                      className="flex cursor-pointer items-start gap-3 rounded-lg border border-input p-3 has-data-[checked]:border-[var(--brand-edge)] has-data-[checked]:bg-[var(--brand-soft)]"
-                    >
-                      <RadioGroupItem value={o.id} className="mt-1" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex justify-between gap-2">
-                          <span className="min-w-0 font-medium capitalize [overflow-wrap:anywhere]">
-                            {o.option_tier === "none" ? o.name : o.option_tier}
-                          </span>
-                          {priceBlock(o)}
-                        </div>
-                        {o.description ? <p className="text-xs text-muted-foreground">{o.description}</p> : null}
-                        {hasSiteCheck(o.site_check_reasons) || (lineHasRange(o) && measuringPill) ? (
-                          <SiteCheckPill label={measuringPill} />
-                        ) : null}
-                      </div>
-                    </label>
-                  ))}
-                </RadioGroup>
+              <section key={bucket.id} className="flex flex-col gap-3" aria-label={bucket.title ?? "Quote lines"}>
+                {bucket.title ? (
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h2 className="font-heading text-xl font-semibold">{bucket.title}</h2>
+                    <span className="font-heading text-sm tabular-nums text-muted-foreground">
+                      {formatMoney(bucket.subtotal, { cents: true })}
+                    </span>
+                  </div>
+                ) : null}
+                {groups.map((g) => (
+                  <OptionGroupBlock
+                    key={g}
+                    group={g}
+                    options={bucket.items.filter((item) => item.option_group === g)}
+                    value={picked[g]}
+                    onChange={(id) => setPicked((prev) => ({ ...prev, [g]: id }))}
+                    measuringPill={measuringPill}
+                  />
+                ))}
+                {standalones.map((item) => (
+                  <StandaloneLine
+                    key={item.id}
+                    item={item}
+                    extras={extras}
+                    onExtra={(id, checked) => setExtras((prev) => ({ ...prev, [id]: checked }))}
+                    measuringPill={measuringPill}
+                  />
+                ))}
               </section>
             );
           })}
-
-          {payload.items
-            .filter((i) => !i.option_group)
-            .map((i) => (
-              <label
-                key={i.id}
-                className="flex items-start gap-3 rounded-xl border p-4 has-data-[checked]:border-[var(--brand-edge)] has-data-[checked]:bg-[var(--brand-soft)]"
-              >
-                {i.state === "included" ? (
-                  <span className="mt-0.5 text-xs text-muted-foreground">Included</span>
-                ) : (
-                  <Checkbox
-                    checked={!!extras[i.id]}
-                    onCheckedChange={(checked) => setExtras((x) => ({ ...x, [i.id]: checked }))}
-                    className="mt-1"
-                  />
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex justify-between gap-2">
-                    <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{i.name}</span>
-                    {priceBlock(i)}
-                  </div>
-                  {i.description ? <p className="text-xs text-muted-foreground">{i.description}</p> : null}
-                  {hasSiteCheck(i.site_check_reasons) || (lineHasRange(i) && measuringPill) ? (
-                    <SiteCheckPill label={measuringPill} />
-                  ) : null}
-                  {i.state === "recommended" ? (
-                    <span className="mt-1 inline-flex rounded-md bg-[var(--brand-soft)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--brand-text)]">
-                      Recommended
-                    </span>
-                  ) : null}
-                  {i.photo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={i.photo_url}
-                      alt=""
-                      className="mt-2 w-full rounded-md bg-muted object-cover [aspect-ratio:16/9] [block-size:auto]"
-                    />
-                  ) : null}
-                </div>
-              </label>
-            ))}
         </div>
 
         {showExplanation ? (
