@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Geist_Mono, Source_Sans_3, Source_Serif_4 } from "next/font/google";
+import { Geist, Geist_Mono, Source_Sans_3, Source_Serif_4 } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
@@ -20,6 +20,7 @@ const sourceSerif = Source_Serif_4({
   axes: ["opsz"],
 });
 
+const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -43,7 +44,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${sourceSans.variable} ${sourceSerif.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geist.variable} ${sourceSans.variable} ${sourceSerif.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-svh flex-col bg-background font-sans text-foreground">
         <ThemeProvider>

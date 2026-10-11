@@ -38,13 +38,13 @@ const LIVE_TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 function priceBlock(item: Item) {
   if (lineHasRange(item)) {
     return (
-      <span className="shrink-0 text-right font-heading tabular-nums">
+      <span className="num shrink-0 text-end">
         <span className="block">{formatMoneyRange(Number(item.range_low), Number(item.range_high))}</span>
         <span className="block text-xs text-muted-foreground">est. {formatMoney(Number(item.price))}</span>
       </span>
     );
   }
-  return <span className="shrink-0 font-heading tabular-nums">{formatMoney(Number(item.price))}</span>;
+  return <span className="num shrink-0">{formatMoney(Number(item.price))}</span>;
 }
 
 function SiteCheckPill({ label }: { label?: string | null }) {
@@ -172,7 +172,7 @@ function StandaloneLine({
   measuringPill: string | null;
 }) {
   return (
-    <label className="flex items-start gap-3 rounded-xl border p-4 has-data-[checked]:border-[var(--brand-edge)] has-data-[checked]:bg-[var(--brand-soft)]">
+    <label className="flex items-start gap-3 border-b border-border py-4 has-data-[checked]:bg-[var(--brand-soft)]">
       {item.state === "included" ? (
         <span className="mt-0.5 text-xs text-muted-foreground">Included</span>
       ) : (
@@ -305,141 +305,156 @@ export function ProposalView({
     },
   ].filter((bucket) => bucket.items.length > 0);
 
+  const totalLabel = hasRanges ? formatMoneyRange(estimateRange.low, estimateRange.high) : formatMoney(estimate, { cents: true });
+
   return (
-    <div className="min-h-svh bg-background text-foreground">
-      <div className="fixed inset-x-0 top-0 z-30 h-1 bg-primary" />
-      <main className="mx-auto min-h-svh max-w-xl px-4 py-10 [padding-inline-start:max(1rem,env(safe-area-inset-left,0px))] [padding-inline-end:max(1rem,env(safe-area-inset-right,0px))]">
-        {LIVE_TOKEN.test(token) ? <RecordView token={token} status={payload.status} /> : null}
-        <div className="flex items-start justify-between gap-3">
-          <QuoteMark org={payload.org} />
-          <StatusBadge status={payload.status} />
-        </div>
-        <h1 className="mt-5 text-3xl font-bold">{payload.title}</h1>
-        <p className="text-sm text-muted-foreground">Quote #{payload.number}</p>
-        {payload.expires_at ? (
-          <p className="mt-1 text-sm text-muted-foreground">
-            {payload.status === "expired"
-              ? `Expired ${formatOfficeDay(payload.expires_at)}`
-              : `Valid through ${formatOfficeDay(payload.expires_at)}`}
-          </p>
-        ) : null}
-        {payload.intro ? <p className="mt-4 text-lg leading-7">{payload.intro}</p> : null}
-
-        <div className="mt-6 flex flex-col gap-6">
-          {buckets.map((bucket) => {
-            const groups = groupNames(bucket.items);
-            const standalones = bucket.items.filter((item) => !item.option_group);
-            return (
-              <section key={bucket.id} className="flex flex-col gap-3" aria-label={bucket.title ?? "Quote lines"}>
-                {bucket.title ? (
-                  <div className="flex items-baseline justify-between gap-3">
-                    <h2 className="font-heading text-xl font-semibold">{bucket.title}</h2>
-                    <span className="font-heading text-sm tabular-nums text-muted-foreground">
-                      {formatMoney(bucket.subtotal, { cents: true })}
-                    </span>
-                  </div>
-                ) : null}
-                {groups.map((g) => (
-                  <OptionGroupBlock
-                    key={g}
-                    group={g}
-                    options={bucket.items.filter((item) => item.option_group === g)}
-                    value={picked[g]}
-                    onChange={(id) => setPicked((prev) => ({ ...prev, [g]: id }))}
-                    measuringPill={measuringPill}
-                  />
-                ))}
-                {standalones.map((item) => (
-                  <StandaloneLine
-                    key={item.id}
-                    item={item}
-                    extras={extras}
-                    onExtra={(id, checked) => setExtras((prev) => ({ ...prev, [id]: checked }))}
-                    measuringPill={measuringPill}
-                  />
-                ))}
-              </section>
-            );
-          })}
-        </div>
-
-        {showExplanation ? (
-          <section className="mt-6 rounded-xl bg-warning/10 p-4 text-sm ring-1 ring-warning/30" aria-labelledby="site-check-explain">
-            <h2 id="site-check-explain" className="font-medium text-warning">
-              {SITE_CHECK_EXPLANATION_TITLE}
-            </h2>
-            <p className="mt-2">{siteCheckCustomerBody(explanationReasons)}</p>
-            <ol className="mt-3 list-decimal space-y-1 pl-5">
-              {siteCheckWhatHappensNext(nteLabel).map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ol>
-          </section>
-        ) : null}
-        {LIVE_TOKEN.test(token) ? (
-          <RequestFinalPrice
-            token={token}
-            selectedIds={selectedIds}
-            rangedLineNames={selectedRanged.map((item) => item.name)}
-            phone={payload.org.phone}
-            siteCheck={payload.site_check}
-            canRequest={payload.site_check_can_request === true}
-            accountCapReached={payload.site_check_account_cap_reached === true}
-            hasSelectedRanged={selectedRanged.length > 0}
-          />
-        ) : null}
-        <div className="sticky bottom-0 mt-8 flex items-center justify-between gap-3 border-t bg-background py-4 [padding-block-end:calc(1rem+env(safe-area-inset-bottom,0px))]">
-          <div>
-            <div className="text-xs text-muted-foreground">{hasRanges ? "Estimated total" : "Total"}</div>
-            <div className="font-heading text-2xl font-bold tabular-nums">
-              {hasRanges
-                ? formatMoneyRange(estimateRange.low, estimateRange.high)
-                : formatMoney(estimate, { cents: true })}
+    <div className="min-h-svh">
+      <main className="mx-auto grid w-full max-w-6xl gap-10 px-[clamp(1rem,0.5rem+2vw,3rem)] py-8 [padding-inline-start:max(1rem,env(safe-area-inset-left,0px))] [padding-inline-end:max(1rem,env(safe-area-inset-right,0px))] lg:grid-cols-[minmax(0,1fr)_22rem] lg:py-12">
+        <article className="quote-letter min-w-0">
+          {LIVE_TOKEN.test(token) ? <RecordView token={token} status={payload.status} /> : null}
+          <div className="flex items-start justify-between gap-3">
+            <QuoteMark org={payload.org} />
+            <div className="text-end">
+              <StatusBadge status={payload.status} />
+              <p className="num mt-1 text-xs text-muted-foreground">Proposal #{payload.number}</p>
             </div>
-            {hasRanges ? <div className="text-xs text-warning">{youPayNoMoreThan(nteLabel)}</div> : null}
           </div>
-          <Button size="lg" render={<a href={`/q/${token}/pdf?selected=${selectedIds.join(",")}`} />}>
-            Download PDF
-          </Button>
-        </div>
-        {LIVE_TOKEN.test(token) ? (
-          <AcceptForm
-            token={token}
-            status={payload.status}
-            selectedIds={selectedIds}
-            clause={clause}
-            acceptLabel={hasRanges ? acceptUpToLabel(nteLabel) : "Accept"}
-          />
-        ) : null}
-        {payload.notes_customer ? <p className="mt-4 text-sm text-muted-foreground">{payload.notes_customer}</p> : null}
-        <p className="mt-6 text-xs text-muted-foreground">
-          {payload.org.phone}
-          {payload.org.email ? (
-            <>
-              {" "}
-              ·{" "}
-              <a className="text-[var(--brand-text)] underline" href={`mailto:${payload.org.email}`}>
-                {payload.org.email}
-              </a>
-            </>
+          <h1 className="mt-8 text-[clamp(2.2rem,1.4rem+2.4vw,3.6rem)] leading-[1.05]">{payload.title}</h1>
+          {payload.expires_at ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              {payload.status === "expired"
+                ? `Expired ${formatOfficeDay(payload.expires_at)}`
+                : `Valid through ${formatOfficeDay(payload.expires_at)}`}
+            </p>
           ) : null}
-          {website ? (
-            <>
-              {" "}
-              ·{" "}
-              <a className="text-[var(--brand-text)] underline" href={website} rel="noopener">
-                {website.replace(/^https?:\/\//, "")}
-              </a>
-            </>
+          {payload.intro ? <p className="mt-6 text-lg leading-8">{payload.intro}</p> : null}
+
+          <div className="mt-8 flex flex-col gap-8">
+            {buckets.map((bucket) => {
+              const groups = groupNames(bucket.items);
+              const standalones = bucket.items.filter((item) => !item.option_group);
+              return (
+                <section key={bucket.id} className="flex flex-col" aria-label={bucket.title ?? "Quote lines"}>
+                  {bucket.title ? (
+                    <div className="flex items-baseline justify-between gap-3 border-b border-border pb-2">
+                      <h2 className="text-2xl">{bucket.title}</h2>
+                      <span className="num text-sm text-muted-foreground">{formatMoney(bucket.subtotal, { cents: true })}</span>
+                    </div>
+                  ) : null}
+                  {groups.map((g) => (
+                    <OptionGroupBlock
+                      key={g}
+                      group={g}
+                      options={bucket.items.filter((item) => item.option_group === g)}
+                      value={picked[g]}
+                      onChange={(id) => setPicked((prev) => ({ ...prev, [g]: id }))}
+                      measuringPill={measuringPill}
+                    />
+                  ))}
+                  {standalones.map((item) => (
+                    <StandaloneLine
+                      key={item.id}
+                      item={item}
+                      extras={extras}
+                      onExtra={(id, checked) => setExtras((prev) => ({ ...prev, [id]: checked }))}
+                      measuringPill={measuringPill}
+                    />
+                  ))}
+                </section>
+              );
+            })}
+          </div>
+
+          {showExplanation ? (
+            <section className="mt-8 rounded-2xl bg-warning/10 p-4 text-sm" aria-labelledby="site-check-explain">
+              <h2 id="site-check-explain" className="text-xl text-warning">
+                {SITE_CHECK_EXPLANATION_TITLE}
+              </h2>
+              <p className="mt-2 font-sans">{siteCheckCustomerBody(explanationReasons)}</p>
+              <ol className="mt-3 list-decimal space-y-1 ps-5 font-sans">
+                {siteCheckWhatHappensNext(nteLabel).map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+            </section>
           ) : null}
-        </p>
-        <p className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
-          <Image src="/brand/lq-mark-16.svg" alt="" width={16} height={16} unoptimized className="size-4" />
-          <a href={POWERED_BY} rel="noopener" className="text-muted-foreground">
-            Powered by LawnQuoter
-          </a>
-        </p>
+          {payload.notes_customer ? <p className="mt-6 text-sm text-muted-foreground">{payload.notes_customer}</p> : null}
+          <p className="mt-8 font-sans text-sm">— {payload.org.name}</p>
+          <p className="mt-6 text-xs text-muted-foreground">
+            {payload.org.phone}
+            {payload.org.email ? (
+              <>
+                {" "}
+                ·{" "}
+                <a className="text-[var(--brand-text)] underline" href={`mailto:${payload.org.email}`}>
+                  {payload.org.email}
+                </a>
+              </>
+            ) : null}
+            {website ? (
+              <>
+                {" "}
+                ·{" "}
+                <a className="text-[var(--brand-text)] underline" href={website} rel="noopener">
+                  {website.replace(/^https?:\/\//, "")}
+                </a>
+              </>
+            ) : null}
+          </p>
+          <p className="mt-8 flex items-center gap-2 text-xs text-muted-foreground">
+            <Image src="/brand/lq-mark-16.svg" alt="" width={16} height={16} unoptimized className="size-4" />
+            <a href={POWERED_BY} rel="noopener" className="text-muted-foreground">
+              Powered by LawnQuoter
+            </a>
+          </p>
+        </article>
+
+        <aside id="accept" className="flex flex-col gap-4 lg:sticky lg:top-6 lg:self-start">
+          <section className="rounded-2xl bg-card p-5 shadow-[0_12px_40px_-24px_oklch(0.28_0.03_60)]">
+            <p className="text-xs tracking-wide text-muted-foreground uppercase">{hasRanges ? "Season total" : "Total"}</p>
+            <p className="num mt-1 text-3xl">{totalLabel}</p>
+            {hasRanges ? <p className="mt-2 text-sm text-warning">{youPayNoMoreThan(nteLabel)}</p> : null}
+            <Button className="mt-4 w-full" size="lg" render={<a href={`/q/${token}/pdf?selected=${selectedIds.join(",")}`} />}>
+              Download PDF
+            </Button>
+            {payload.org.email ? (
+              <a className="mt-3 block text-center text-sm underline" href={`mailto:${payload.org.email}`}>
+                Ask a question
+              </a>
+            ) : null}
+          </section>
+          {LIVE_TOKEN.test(token) ? (
+            <RequestFinalPrice
+              token={token}
+              selectedIds={selectedIds}
+              rangedLineNames={selectedRanged.map((item) => item.name)}
+              phone={payload.org.phone}
+              siteCheck={payload.site_check}
+              canRequest={payload.site_check_can_request === true}
+              accountCapReached={payload.site_check_account_cap_reached === true}
+              hasSelectedRanged={selectedRanged.length > 0}
+            />
+          ) : null}
+          {LIVE_TOKEN.test(token) ? (
+            <AcceptForm
+              token={token}
+              status={payload.status}
+              selectedIds={selectedIds}
+              clause={clause}
+              acceptLabel={hasRanges ? acceptUpToLabel(nteLabel) : "Accept"}
+            />
+          ) : null}
+        </aside>
       </main>
+      <div className="sticky inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-sm [padding-block-end:calc(0.75rem+env(safe-area-inset-bottom,0px))] lg:hidden">
+        <div>
+          <p className="text-xs text-muted-foreground">{hasRanges ? "Estimated total" : "Total"}</p>
+          <p className="num text-xl">{totalLabel}</p>
+        </div>
+        <a href="#accept" className="inline-flex min-h-11 items-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground">
+          {hasRanges ? acceptUpToLabel(nteLabel) : "Accept"}
+        </a>
+      </div>
     </div>
   );
 }

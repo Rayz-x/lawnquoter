@@ -44,6 +44,23 @@ export default async function AccountsPage({
         }
       />
       <div className="page-body">
+        <nav aria-label="Account segments" className="flex flex-wrap gap-1">
+          {[
+            { label: "All", href: q ? `?q=${encodeURIComponent(q)}` : "/accounts", current: !type && status !== "lead" },
+            { label: "Residential", href: `?type=residential${q ? `&q=${encodeURIComponent(q)}` : ""}`, current: type === "residential" },
+            { label: "Commercial", href: `?type=commercial${q ? `&q=${encodeURIComponent(q)}` : ""}`, current: type === "commercial" },
+            { label: "Leads", href: `?status=lead${q ? `&q=${encodeURIComponent(q)}` : ""}`, current: status === "lead" },
+          ].map((segment) => (
+            <Link
+              key={segment.label}
+              href={segment.href}
+              aria-current={segment.current ? "page" : undefined}
+              className="inline-flex min-h-11 items-center rounded-full border border-border px-3 text-sm aria-[current=page]:bg-foreground aria-[current=page]:text-background"
+            >
+              {segment.label}
+            </Link>
+          ))}
+        </nav>
         <form className="flex flex-wrap items-center gap-2">
           <Input name="q" placeholder="Search by name" defaultValue={q ?? ""} className="max-w-xs" />
           <NativeSelect name="type" defaultValue={type ?? ""} className="w-auto">
@@ -77,12 +94,12 @@ export default async function AccountsPage({
         ) : (
           <Table>
             <TableHeader>
-              <TableRow>
+                <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Contact</TableHead>
-                <TableHead className="text-right">Properties</TableHead>
+                <TableHead className="text-end">Properties</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -101,7 +118,7 @@ export default async function AccountsPage({
                     <Badge variant={a.status === "active" ? "secondary" : "outline"}>{a.status}</Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{a.phone ?? a.email ?? "—"}</TableCell>
-                  <TableCell className="text-right tabular-nums">{a.properties?.[0]?.count ?? 0}</TableCell>
+                  <TableCell className="num text-end">{a.properties?.[0]?.count ?? 0}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

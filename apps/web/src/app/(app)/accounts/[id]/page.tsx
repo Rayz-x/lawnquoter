@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { requireOrg } from "@/lib/auth/session";
 import { formatLeadSource } from "@/lib/leads/lead-source";
+import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { AccountHeader } from "./account-header";
 import { AccountRail } from "./account-rail";
@@ -97,9 +98,42 @@ export default async function AccountDetailPage({
   const primary = (contacts ?? []).find((contact) => contact.is_primary) ?? contacts?.[0] ?? null;
   const primaryName = [primary?.first_name, primary?.last_name].filter(Boolean).join(" ") || null;
   const showSites = account.type === "commercial" && (children?.length ?? 0) > 0;
-  const allowed = ["properties", "contacts", "activity", ...(showSites ? ["sites"] : [])];
-  const tabValue = tab && allowed.includes(tab) ? tab : "properties";
   const canEdit = hasRole(session.orgRole, SALES_ROLES);
+  const propertyIds = (properties ?? []).map((property) => property.id);
+  const [{ data: workQuotes }, { data: workInvoices }, { data: workLeads }, { data: workJobs }] = await Promise.all([
+    supabase
+      .from("quotes")
+      .select("id, number, title, status")
+      .eq("account_id", id)
+      .eq("org_id", session.orgId)
+      .order("updated_at", { ascending: false })
+      .limit(12),
+    supabase
+      .from("invoices")
+      .select("id, number_label, status, total_cents")
+      .eq("account_id", id)
+      .eq("org_id", session.orgId)
+      .order("created_at", { ascending: false })
+      .limit(12),
+    supabase
+      .from("lead_requests")
+      .select("id, contact_name, status")
+      .eq("account_id", id)
+      .eq("org_id", session.orgId)
+      .order("created_at", { ascending: false })
+      .limit(12),
+    propertyIds.length === 0
+      ? Promise.resolve({ data: [] as { id: string; title: string; status: string; property_id: string }[] })
+      : supabase
+          .from("jobs")
+          .select("id, title, status, property_id")
+          .eq("org_id", session.orgId)
+          .in("property_id", propertyIds)
+          .order("created_at", { ascending: false })
+          .limit(12),
+  ]);
+  const allowed = ["properties", "work", "contacts", "activity", ...(showSites ? ["sites"] : [])];
+  const tabValue = tab && allowed.includes(tab) ? tab : "properties";
 
   return (
     <>
@@ -166,6 +200,19 @@ export default async function AccountDetailPage({
               ))}
             <PropertyQuickAdd accountId={account.id} canEdit={canEdit} />
             </div>
+              ),
+            },
+            {
+              value: "work",
+              label: "Work",
+              count: (workQuotes?.length ?? 0) + (workJobs?.length ?? 0) + (workInvoices?.length ?? 0) + (workLeads?.length ?? 0),
+              content: (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <WorkList title="Requests" rows={(workLeads ?? []).map((lead) => ({ id: lead.id, href: `/leads/${lead.id}`, label: lead.contact_name, meta: lead.status }))} empty="No requests on this account." />
+                  <WorkList title="Quotes" rows={(workQuotes ?? []).map((quote) => ({ id: quote.id, href: `/quotes/${quote.id}`, label: `#${quote.number} ${quote.title}`, meta: quote.status }))} empty="No quotes yet." />
+                  <WorkList title="Jobs" rows={(workJobs ?? []).map((job) => ({ id: job.id, href: `/properties/${job.property_id}`, label: job.title, meta: job.status }))} empty="No jobs yet." />
+                  <WorkList title="Invoices" rows={(workInvoices ?? []).map((invoice) => ({ id: invoice.id, href: `/invoices/${invoice.id}`, label: invoice.number_label ?? "Invoice", meta: `${invoice.status} · ${formatMoney(invoice.total_cents / 100, { cents: true })}` }))} empty="No invoices yet." />
+                </div>
               ),
             },
             {
@@ -243,5 +290,35 @@ export default async function AccountDetailPage({
         </div>
       </div>
     </>
+  );
+}
+
+function WorkList({
+  title,
+  rows,
+  empty,
+}: {
+  title: string;
+  rows: { id: string; href: string; label: string; meta: string }[];
+  empty: string;
+}) {
+  return (
+    <section className="rounded-xl border border-border p-3">
+      <h3 className="mb-2 text-sm font-semibold">{title}</h3>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{empty}</p>
+      ) : (
+        <ul className="flex flex-col">
+          {rows.map((row) => (
+            <li key={row.id}>
+              <Link href={row.href} className="flex min-h-11 items-center justify-between gap-3 text-sm">
+                <span className="truncate">{row.label}</span>
+                <span className="shrink-0 text-xs capitalize text-muted-foreground">{row.meta}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
