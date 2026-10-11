@@ -30,7 +30,7 @@ insert into public.lead_requests (
   'Website form',
   'google', 'cpc', 'spring-sale',
   'new'
-) returning id as lead1 \gset;
+) returning id as lead1 \gset
 
 -- ---------------------------------------------------------------------------
 -- Failure mid-convert rolls back everything
