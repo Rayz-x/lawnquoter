@@ -749,5 +749,3 @@ end;
 $$;
 revoke all on function public.office_attention_tray(date) from public, anon;
 grant execute on function public.office_attention_tray(date) to authenticated, service_role;
-
-  to authenticated, service_role;
