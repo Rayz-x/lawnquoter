@@ -13,6 +13,7 @@ import {
   Smartphone,
   Tags,
   Users,
+  Wallet,
 } from "lucide-react";
 import type { OrgRole } from "@lawnquoter/shared";
 import { ADMIN_ROLES, DISPATCH_ROLES, FIELD_ROLES, SALES_ROLES } from "@lawnquoter/shared";

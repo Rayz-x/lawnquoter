@@ -7,6 +7,7 @@ const PUBLIC_PREFIXES = [
   "/auth",
   "/q/",
   "/co/",
+  "/s/",
   "/api/public",
   // Linked from every page. A login redirect is HTML, which the browser reports as a manifest syntax error.
   "/manifest.webmanifest",

@@ -25,6 +25,7 @@ select is(
       and has_function_privilege('anon', p.oid, 'execute')
   ),
   array[
+    'account_statement_public',
     'change_order_accept',
     'change_order_public',
     'quote_accept',
@@ -34,7 +35,7 @@ select is(
     'site_check_cancel_request',
     'site_check_request'
   ]::text[],
-  'anon can execute only the public quote security definer RPCs'
+  'anon can execute only the public quote and statement security definer RPCs'
 );
 
 select is(
