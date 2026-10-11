@@ -65,6 +65,7 @@ select is(
     'my_crews',
     'office_attention_tray',
     'office_reschedule_visit',
+    'org_payments_ready',
     'publish_route',
     'quote_accept',
     'quote_decline',

@@ -200,21 +200,21 @@ function RegionCard({ org, canEdit, editing, onEdit, onDone }: Edit & { org: Tab
   );
 }
 const NAV = [{ label: "Identity", tab: "identity" }, { label: "Company", tab: "company" }, { label: "Branding", tab: "branding" }, { label: "Payments", tab: "payments" }, { label: "Team", href: "/settings/team" }, { label: "Crews", href: "/settings/crews" }, { label: "Services & Pricing", href: "/settings/pricing" }] as const;
-export function OrgSettingsForm({ org, canEdit, tab, stripeOn, branding }: { org: Tables<"orgs">; canEdit: boolean; tab?: string; stripeOn: boolean; branding: ReactNode }) {
+export function OrgSettingsForm({ org, canEdit, tab, branding, payments }: { org: Tables<"orgs">; canEdit: boolean; tab?: string; branding: ReactNode; payments: ReactNode }) {
   const [current, setCurrent] = useState(() => resolveEntryTab(tab, TABS, "company"));
   const [open, setOpen] = useState<CardId | null>(null);
   const edit = (id: CardId): Edit => ({ canEdit, editing: open === id, onEdit: () => setOpen(id), onDone: () => setOpen(null) });
   const show = (next: (typeof TABS)[number]) => { setCurrent(next); setOpen(null); };
   const itemClass = (active: boolean) => `shrink-0 whitespace-nowrap rounded-md px-3 text-left max-lg:inline-flex max-lg:h-11 max-lg:items-center lg:w-full lg:px-2 lg:py-1.5 ${active ? "bg-muted font-medium" : "hover:bg-muted"}`;
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-      <nav aria-label="Settings" className="flex flex-nowrap gap-1 overflow-x-auto text-sm lg:w-44 lg:shrink-0 lg:flex-col lg:overflow-visible">
+    <div className="flex w-full min-w-0 flex-col gap-4 lg:flex-row lg:items-start">
+      <nav aria-label="Settings" className="flex w-full min-w-0 flex-nowrap gap-1 overflow-x-auto text-sm lg:w-44 lg:shrink-0 lg:flex-col lg:overflow-visible">
         {NAV.map((item) => "href" in item ? <Link key={item.href} href={item.href} className={itemClass(false)}>{item.label}</Link> : <button key={item.tab} type="button" className={itemClass(current === item.tab)} aria-current={current === item.tab ? "page" : undefined} onClick={() => show(item.tab)}>{item.label}</button>)}
       </nav>
-      <div className="flex min-w-0 flex-1 flex-col gap-4">
+      <div className="flex w-full min-w-0 flex-1 flex-col gap-4">
         {current === "identity" ? <IdentityCard org={org} {...edit("identity")} /> : null}
         {current === "company" ? (
-          <section aria-labelledby="settings-company-heading" className="grid items-start gap-4 lg:grid-cols-2">
+          <section aria-labelledby="settings-company-heading" className="grid w-full min-w-0 items-start gap-4 lg:grid-cols-2">
             <h2 id="settings-company-heading" className="text-base font-medium lg:col-span-2">Company</h2>
             <ContactCard org={org} {...edit("contact")} />
             <AddressCard org={org} {...edit("address")} />
@@ -222,11 +222,7 @@ export function OrgSettingsForm({ org, canEdit, tab, stripeOn, branding }: { org
           </section>
         ) : null}
         {current === "branding" ? branding : null}
-        {current === "payments" ? (
-          <SectionCard title="Payments" heading="h2" description="Stripe Connect Express for deposits, card on file, and ACH. SignWell is optional for formal commercial contracts.">
-            <p className="text-sm text-muted-foreground">Configure <code className="text-xs">STRIPE_SECRET_KEY</code> and <code className="text-xs">SIGNWELL_API_KEY</code> on the server. Click-to-accept on public proposals is live without either. {stripeOn ? "Stripe secret is configured." : "Stripe is not configured yet — acceptances still record an ESIGN audit trail."}</p>
-          </SectionCard>
-        ) : null}
+        {current === "payments" ? <div className="w-full min-w-0">{payments}</div> : null}
       </div>
     </div>
   );
