@@ -45,7 +45,7 @@ describe("offline E2E: outbox survives sign-out", () => {
     const attempted = await flushOutbox(phone, async () => {
       throw new Error("bob must not send maria's rows");
     }, bobScope);
-    expect(attempted).toEqual({ sent: 0, pending: 3 });
+    expect(attempted).toEqual({ sent: 0, pending: 3, revoked: false });
     expect(syncItems(await phone.listOutbox(), now.toISOString(), bobScope)).toEqual([]);
 
     const mariaScope = { userId: "maria", orgId: "org-1" };
@@ -53,6 +53,6 @@ describe("offline E2E: outbox survives sign-out", () => {
       expect(items.map((item) => item.client_id)).toEqual(["1", "2", "3"]);
       return items.map((item) => ({ client_id: item.client_id, status: "applied" as const, message: null }));
     }, mariaScope);
-    expect(sent).toEqual({ sent: 3, pending: 0 });
+    expect(sent).toEqual({ sent: 3, pending: 0, revoked: false });
   });
 });
