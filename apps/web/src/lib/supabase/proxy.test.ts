@@ -12,4 +12,10 @@ describe("isPublicPath", () => {
     expect(isPublicPath("/s/sample-token")).toBe(true);
     expect(isPublicPath("/crew/today")).toBe(false);
   });
+
+  it("serves the hosted request-a-quote form and intake without login", () => {
+    expect(isPublicPath("/r/acme-lawn")).toBe(true);
+    expect(isPublicPath("/api/leads/intake")).toBe(true);
+    expect(isPublicPath("/api/public/anything")).toBe(true);
+  });
 });
