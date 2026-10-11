@@ -33,7 +33,7 @@ export function RequestQuoteForm({
   responseTargetMinutes,
   turnstileSiteKey,
 }: RequestQuoteFormProps) {
-  const startedAt = useRef(Date.now());
+  const startedAt = useRef<number | null>(null);
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +53,10 @@ export function RequestQuoteForm({
   const [turnstileToken, setTurnstileToken] = useState("");
   const [honeypot, setHoneypot] = useState("");
   const turnstileRef = useRef<HTMLDivElement>(null);
+
+  function markFormStarted() {
+    if (startedAt.current == null) startedAt.current = Date.now();
+  }
 
   useEffect(() => {
     if (!turnstileSiteKey || !turnstileRef.current) return;
@@ -83,17 +87,23 @@ export function RequestQuoteForm({
   }, [turnstileSiteKey]);
 
   useEffect(() => {
-    if (addressTyped.trim().length < 3) {
-      setSuggestions([]);
-      return;
-    }
+    const query = addressTyped.trim();
+    if (query.length < 3) return;
+    let current = true;
     const handle = window.setTimeout(() => {
-      void fetch(`/api/public/address-suggest?q=${encodeURIComponent(addressTyped.trim())}`)
+      void fetch(`/api/public/address-suggest?q=${encodeURIComponent(query)}`)
         .then((res) => res.json())
-        .then((json: { suggestions?: Suggest[] }) => setSuggestions(json.suggestions ?? []))
-        .catch(() => setSuggestions([]));
+        .then((json: { suggestions?: Suggest[] }) => {
+          if (current) setSuggestions(json.suggestions ?? []);
+        })
+        .catch(() => {
+          if (current) setSuggestions([]);
+        });
     }, 250);
-    return () => window.clearTimeout(handle);
+    return () => {
+      current = false;
+      window.clearTimeout(handle);
+    };
   }, [addressTyped]);
 
   function toggleService(service: string) {
@@ -105,6 +115,7 @@ export function RequestQuoteForm({
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    markFormStarted();
     const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
     const utm = utmFromSearchParams(params);
     const body = buildHostedIntakeBody({
@@ -122,7 +133,7 @@ export function RequestQuoteForm({
       heardAboutOther,
       turnstileToken: turnstileToken || (turnstileSiteKey ? "" : "dev-missing-site-key"),
       honeypot,
-      formStartedAtMs: startedAt.current,
+      formStartedAtMs: startedAt.current ?? Date.now(),
       ...utm,
       referrer: typeof document !== "undefined" ? document.referrer || null : null,
       landingPage: typeof window !== "undefined" ? window.location.href : null,
@@ -170,7 +181,12 @@ export function RequestQuoteForm({
           placeholder="Start typing an address"
           className="h-12"
           required
-          onChange={(event) => setAddressTyped(event.target.value)}
+          onChange={(event) => {
+            markFormStarted();
+            const next = event.target.value;
+            setAddressTyped(next);
+            if (next.trim().length < 3) setSuggestions([]);
+          }}
         />
         <div role="listbox" aria-label="Address suggestions" hidden={suggestions.length === 0}>
           {suggestions.map((item) => (
