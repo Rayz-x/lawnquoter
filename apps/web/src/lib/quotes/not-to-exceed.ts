@@ -46,3 +46,27 @@ export function acceptanceTotals(lines: NotToExceedLine[], selectedIds: Iterable
     hasRanges,
   };
 }
+
+/**
+ * Low and high shown as the estimated total.
+ * Each selected line is rounded to cents. A high without a low stays a firm price.
+ * This is the displayed range, not the not-to-exceed cap.
+ */
+export function displayedRangeTotals(lines: NotToExceedLine[], selectedIds: Iterable<string>) {
+  const picked = new Set(selectedIds);
+  let lowCents = 0;
+  let highCents = 0;
+  for (const line of lines) {
+    if (!picked.has(line.id)) continue;
+    const price = amount(line.price) ?? 0;
+    if (lineHasRange(line)) {
+      lowCents += cents(amount(line.range_low) ?? price);
+      highCents += cents(amount(line.range_high) ?? price);
+    } else {
+      const priceCents = cents(price);
+      lowCents += priceCents;
+      highCents += priceCents;
+    }
+  }
+  return { low: lowCents / 100, high: highCents / 100 };
+}

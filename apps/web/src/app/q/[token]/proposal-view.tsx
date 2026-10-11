@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { formatMoney, formatMoneyRange } from "@/lib/money";
 import { formatNotToExceedAmount, notToExceedClause } from "@/lib/quotes/legal-copy";
-import { acceptanceTotals, lineHasRange } from "@/lib/quotes/not-to-exceed";
+import { acceptanceTotals, displayedRangeTotals, lineHasRange } from "@/lib/quotes/not-to-exceed";
 import type { PublicAcceptance, PublicQuote, PublicSiteCheck } from "@/lib/quotes/public-quote";
 import { defaultSelectedIds } from "@/lib/quotes/selection";
 import { quoteSectionTotals } from "@/lib/quotes/section-totals";
@@ -288,14 +288,7 @@ export function ProposalView({
   const selectedRanged = selectedItems.filter((item) => lineHasRange(item));
   const explanationReasons = selectedFlagged.flatMap((item) => item.site_check_reasons ?? []);
   const showExplanation = selectedFlagged.length > 0;
-  const estimateLow = selectedItems.reduce(
-    (sum, item) => sum + (lineHasRange(item) ? Number(item.range_low) : Number(item.price)),
-    0,
-  );
-  const estimateHigh = selectedItems.reduce(
-    (sum, item) => sum + (lineHasRange(item) ? Number(item.range_high) : Number(item.price)),
-    0,
-  );
+  const estimateRange = displayedRangeTotals(payload.items, selectedIds);
   const website = payload.org.website;
   const buckets: { id: string; title: string | null; items: Item[]; subtotal: number }[] = [
     ...sections.map((section) => ({
@@ -400,7 +393,7 @@ export function ProposalView({
             <div className="text-xs text-muted-foreground">{hasRanges ? "Estimated total" : "Total"}</div>
             <div className="font-heading text-2xl font-bold tabular-nums">
               {hasRanges
-                ? formatMoneyRange(estimateLow, estimateHigh)
+                ? formatMoneyRange(estimateRange.low, estimateRange.high)
                 : formatMoney(estimate, { cents: true })}
             </div>
             {hasRanges ? <div className="text-xs text-warning">{youPayNoMoreThan(nteLabel)}</div> : null}

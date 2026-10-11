@@ -5,11 +5,12 @@ import { headers } from "next/headers";
 import { z } from "zod";
 import { loadBrandingRaster } from "@/lib/brand/raster";
 import { brandingPathOrgId } from "@/lib/brand/urls";
+import { signerAuditHeaders } from "@/lib/actions/signer-audit";
+import { fail, type ActionResult } from "@/lib/actions/result";
 import { acceptedQuoteMessage } from "@/lib/email/accepted-quote";
 import { createEmailProvider } from "@/lib/email/provider";
-import { fail, type ActionResult } from "@/lib/actions/result";
-import type { PublicQuote } from "@/lib/quotes/public-quote";
 import { createClient } from "@/lib/supabase/server";
+import { loadPublicQuote } from "./load-public-quote";
 import { ProposalPdf } from "./proposal-pdf";
 
 const acceptSchema = z.object({
@@ -19,53 +20,33 @@ const acceptSchema = z.object({
   selected: z.array(z.string().uuid()).default([]),
 });
 
-function clientIp(hdrs: Headers): string | null {
-  const forwarded = hdrs.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const raw = forwarded || hdrs.get("x-real-ip")?.trim() || "";
-  if (!raw || !/^[0-9a-fA-F:.]+$/.test(raw)) return null;
-  return raw;
-}
-
 async function emailSealedCopy(token: string, to: string): Promise<boolean> {
   try {
-    const supabase = await createClient();
-    const { data } = await supabase.rpc("quote_public", { p_token: token });
-    if (!data || typeof data !== "object") return false;
-    const payload = data as PublicQuote;
-    const acceptance = payload.acceptance;
-    if (!acceptance?.document_hash) return false;
-    const selected = Array.isArray(acceptance.selections)
-      ? acceptance.selections.filter((id): id is string => typeof id === "string")
+    const loaded = await loadPublicQuote(token);
+    if (!loaded?.acceptance?.documentHash) return false;
+    const { quote, acceptance } = loaded;
+    const selected = Array.isArray(quote.acceptance?.selections)
+      ? quote.acceptance.selections.filter((id): id is string => typeof id === "string")
       : null;
-    const logoOrgId = brandingPathOrgId(payload.org.logo_raster_url);
-    const logo = logoOrgId ? await loadBrandingRaster(payload.org.logo_raster_url, logoOrgId) : null;
+    const logoOrgId = brandingPathOrgId(quote.org.logo_raster_url);
+    const logo = logoOrgId ? await loadBrandingRaster(quote.org.logo_raster_url, logoOrgId) : null;
     const base = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
     const pdf = await renderToBuffer(
       ProposalPdf({
-        payload,
+        payload: quote,
         selectedIds: selected,
         logo,
         quoteUrl: `${base}/q/${token}`,
-        acceptance: {
-          documentHash: acceptance.document_hash,
-          acceptedAt: acceptance.accepted_at,
-          signerName: acceptance.signer_name,
-          signerEmail: acceptance.signer_email,
-          acceptedTotal: Number(acceptance.accepted_total ?? 0),
-          notToExceed: Number(acceptance.accepted_not_to_exceed ?? acceptance.accepted_total ?? 0),
-          hasRanges: acceptance.has_ranges,
-          clause: acceptance.not_to_exceed_clause,
-          disclosureVersion: acceptance.disclosure_version,
-        },
+        acceptance,
       }),
     );
     const result = await createEmailProvider().send(
       acceptedQuoteMessage({
         to,
-        orgName: payload.org.name,
-        quoteNumber: payload.number,
-        documentHash: acceptance.document_hash,
-        clause: acceptance.not_to_exceed_clause,
+        orgName: quote.org.name,
+        quoteNumber: quote.number,
+        documentHash: acceptance.documentHash,
+        clause: acceptance.clause,
         pdf: Buffer.from(pdf),
       }),
     );
@@ -89,12 +70,7 @@ export async function acceptQuote(
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the form and try again");
 
   const hdrs = await headers();
-  const ip = clientIp(hdrs);
-  const userAgent = hdrs.get("user-agent");
-  const forwarded: Record<string, string> = {};
-  if (ip) forwarded["x-forwarded-for"] = ip;
-  if (userAgent) forwarded["user-agent"] = userAgent;
-  const supabase = await createClient({ headers: forwarded });
+  const supabase = await createClient({ headers: signerAuditHeaders(hdrs) });
   const { data, error } = await supabase.rpc("quote_accept", {
     p_token: token,
     p_signer_name: parsed.data.signer_name,
@@ -135,12 +111,7 @@ export async function requestFinalPrice(
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Check the form and try again");
 
   const hdrs = await headers();
-  const ip = clientIp(hdrs);
-  const userAgent = hdrs.get("user-agent");
-  const forwarded: Record<string, string> = {};
-  if (ip) forwarded["x-forwarded-for"] = ip;
-  if (userAgent) forwarded["user-agent"] = userAgent;
-  const supabase = await createClient({ headers: forwarded });
+  const supabase = await createClient({ headers: signerAuditHeaders(hdrs) });
   const { data, error } = await supabase.rpc("site_check_request", {
     p_token: token,
     p_email: parsed.data.email,

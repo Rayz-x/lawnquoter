@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptanceTotals } from "./not-to-exceed";
+import { acceptanceTotals, displayedRangeTotals } from "./not-to-exceed";
 
 const lines = [
   { id: "mow", price: 100, range_low: 90, range_high: 120 },
@@ -31,5 +31,32 @@ describe("acceptance totals", () => {
       notToExceed: 60,
       hasRanges: false,
     });
+  });
+});
+
+describe("displayed range totals", () => {
+  it("rounds each selected line to cents before summing the low and high the customer sees", () => {
+    expect(
+      displayedRangeTotals(
+        [
+          { id: "a", price: 0.01, range_low: 0.014, range_high: 0.026 },
+          { id: "b", price: 0.01, range_low: 0.014, range_high: 0.026 },
+        ],
+        ["a", "b"],
+      ),
+    ).toEqual({ low: 0.02, high: 0.06 });
+  });
+
+  it("keeps a high without a low at the point price and ignores lines that were not selected", () => {
+    expect(
+      displayedRangeTotals(
+        [
+          { id: "hedge", price: 10.004, range_low: null, range_high: 99 },
+          { id: "bed", price: 1, range_low: 0.014, range_high: 0.026 },
+          { id: "skip", price: 500, range_low: 400, range_high: 600 },
+        ],
+        ["hedge", "bed"],
+      ),
+    ).toEqual({ low: 10.01, high: 10.03 });
   });
 });
