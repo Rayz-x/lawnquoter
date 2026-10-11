@@ -198,6 +198,44 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"change_orders": {
+                  Row: {
+                    "accepted_at": string | null,"account_id": string,"created_at": string,"disclosure_accepted": boolean | null,"document_hash": string | null,"id": string,"line_item_id": string,"new_cap_cents": number,"org_id": string,"prior_cap_cents": number,"proposed_amount_cents": number,"public_token": string,"quote_id": string | null,"reason": string | null,"sent_at": string | null,"signer_email": string | null,"signer_name": string | null,"status": Database["public"]['Enums']["change_order_status"],"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "accepted_at"?: string | null,"account_id": string,"created_at"?: string,"disclosure_accepted"?: boolean | null,"document_hash"?: string | null,"id"?: string,"line_item_id": string,"new_cap_cents": number,"org_id": string,"prior_cap_cents": number,"proposed_amount_cents": number,"public_token"?: string,"quote_id"?: string | null,"reason"?: string | null,"sent_at"?: string | null,"signer_email"?: string | null,"signer_name"?: string | null,"status"?: Database["public"]['Enums']["change_order_status"],"updated_at"?: string
+                  }
+                  Update: {
+                    "accepted_at"?: string | null,"account_id"?: string,"created_at"?: string,"disclosure_accepted"?: boolean | null,"document_hash"?: string | null,"id"?: string,"line_item_id"?: string,"new_cap_cents"?: number,"org_id"?: string,"prior_cap_cents"?: number,"proposed_amount_cents"?: number,"public_token"?: string,"quote_id"?: string | null,"reason"?: string | null,"sent_at"?: string | null,"signer_email"?: string | null,"signer_name"?: string | null,"status"?: Database["public"]['Enums']["change_order_status"],"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "change_orders_account_id_fkey"
+      columns: ["account_id"]
+isOneToOne: false
+      referencedRelation: "accounts"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "change_orders_line_item_id_fkey"
+      columns: ["line_item_id"]
+isOneToOne: false
+      referencedRelation: "quote_line_items"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "change_orders_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "change_orders_quote_id_fkey"
+      columns: ["quote_id"]
+isOneToOne: false
+      referencedRelation: "quotes"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"crew_members": {
                   Row: {
                     "created_at": string,"crew_id": string,"id": string,"org_id": string,"profile_id": string,"updated_at": string
@@ -1287,8 +1325,20 @@ isOneToOne: false
 "assign_visit":
 { Args: { "p_crew_id": string,"p_service_date": string,"p_sort"?: number,"p_visit_id": string }; Returns: string
                            },
+"billable_line_amount_cents":
+{ Args: { "p_actual_cents": number,"p_line_item_id": string }; Returns: number
+                           },
 "cancel_visit":
 { Args: { "p_reason": string,"p_visit_id": string }; Returns: undefined
+                           },
+"change_order_accept":
+{ Args: { "p_disclosure"?: boolean,"p_signer_email"?: string,"p_signer_name": string,"p_token": string }; Returns: Json
+                           },
+"change_order_create":
+{ Args: { "p_line_item_id": string,"p_proposed_amount_cents": number,"p_reason"?: string }; Returns: string
+                           },
+"change_order_public":
+{ Args: { "p_token": string }; Returns: Json
                            },
 "convert_accepted_quote":
 { Args: { "p_frequency"?: string,"p_kind"?: string,"p_preferred_dow"?: number,"p_quote_id": string,"p_start_date"?: string }; Returns: Json
@@ -1331,6 +1381,9 @@ isOneToOne: false
                            },
 "generate_agreement_visits":
 { Args: { "p_agreement_id": string,"p_through": string }; Returns: number
+                           },
+"line_billing_cap_cents":
+{ Args: { "p_line_item_id": string }; Returns: number
                            },
 "measurement_ensure":
 { Args: { "p_property": string }; Returns: string
@@ -1432,8 +1485,7 @@ isOneToOne: false
                            }
           }
           Enums: {
-            "acceptance_method": "click"|"signwell"|"wet","account_status": "lead"|"active"|"inactive","account_type": "residential"|"commercial","agreement_frequency": "weekly"|"biweekly"|"monthly","agreement_kind": "one_time"|"recurring","agreement_status": "active"|"paused"|"ended","contact_role": "primary"|"billing"|"site"|"decision_maker"|"other","enhancement_status": "new"|"quoted"|"dismissed","enhancement_tag": "aeration"|"overseed"|"mulch"|"shrub_tree"|"drainage"|"other","feature_category": "turf_front"|"turf_back"|"bed"|"hardscape"|"driveway"|"sidewalk"|"edging_line"|"fence_line"|"canopy"|"roof","feature_source": "auto"|"traced"|"manual"|"imported","geo_source": "regrid"|"county"|"overture"|"osm"|"traced"|"manual"|"unknown","invite_status": "pending"|"accepted"|"revoked"|"expired","item_state": "included"|"recommended"|"optional","job_status": "unscheduled"|"scheduled"|"in_progress"|"completed"|"cancelled","measurement_status": "draft"|"current"|"archived","membership_status": "invited"|"active"|"disabled","option_tier": "none"|"good"|"better"|"best","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only","payment_kind": "deposit"|"balance"|"invoice"|"ach_verify","payment_status": "requires_action"|"processing"|"succeeded"|"failed"|"canceled"|"refunded","price_list_status": "draft"|"active"|"archived","quantity_source": "measurement"|"manual"|"unknown","quote_status": "draft"|"sent"|"viewed"|"accepted"|"declined"|"expired"|"changed","route_status": "draft"|"published"|"in_progress"|"done","rule_type": "tier_matrix"|"assembly"|"catalog"|"program"|"snow"|"irrigation","service_kind": "mowing"|"fert"|"cleanup"|"snow"|"irrigation"|"install"|"other","site_check_method": "desk"|"crew_stop"|"visit","site_check_origin": "acceptance"|"customer_request","site_check_status": "requested"|"open"|"scheduled"|"done"|"waived"|"declined"|"cancelled","slope_class": "flat"|"gentle"|"moderate"|"steep","stripe_connect_status": "not_connected"|"pending"|"ready","time_entry_kind": "job"|"pause","visit_event_kind": "started"|"paused"|"resumed"|"finished"|"reopened"|"skipped","visit_photo_kind": "before"|"after"|"issue"|"upsell","visit_skip_reason": "gate_locked"|"dog_loose"|"customer_skip"|"weather"|"equipment"|"unsafe"|"other","visit_status": "scheduled"|"in_progress"|"paused"|"completed"|"skipped"|"cant_complete"|"cancelled"
-          }
+            "acceptance_method": "click"|"signwell"|"wet","account_status": "lead"|"active"|"inactive","account_type": "residential"|"commercial","agreement_frequency": "weekly"|"biweekly"|"monthly","agreement_kind": "one_time"|"recurring","agreement_status": "active"|"paused"|"ended","change_order_status": "draft"|"sent"|"accepted"|"declined","contact_role": "primary"|"billing"|"site"|"decision_maker"|"other","enhancement_status": "new"|"quoted"|"dismissed","enhancement_tag": "aeration"|"overseed"|"mulch"|"shrub_tree"|"drainage"|"other","feature_category": "turf_front"|"turf_back"|"bed"|"hardscape"|"driveway"|"sidewalk"|"edging_line"|"fence_line"|"canopy"|"roof","feature_source": "auto"|"traced"|"manual"|"imported","geo_source": "regrid"|"county"|"overture"|"osm"|"traced"|"manual"|"unknown","invite_status": "pending"|"accepted"|"revoked"|"expired","item_state": "included"|"recommended"|"optional","job_status": "unscheduled"|"scheduled"|"in_progress"|"completed"|"cancelled","measurement_status": "draft"|"current"|"archived","membership_status": "invited"|"active"|"disabled","option_tier": "none"|"good"|"better"|"best","org_role": "owner"|"admin"|"sales"|"dispatcher"|"crew_lead"|"crew"|"read_only","payment_kind": "deposit"|"balance"|"invoice"|"ach_verify","payment_status": "requires_action"|"processing"|"succeeded"|"failed"|"canceled"|"refunded","price_list_status": "draft"|"active"|"archived","quantity_source": "measurement"|"manual"|"unknown","quote_status": "draft"|"sent"|"viewed"|"accepted"|"declined"|"expired"|"changed","route_status": "draft"|"published"|"in_progress"|"done","rule_type": "tier_matrix"|"assembly"|"catalog"|"program"|"snow"|"irrigation","service_kind": "mowing"|"fert"|"cleanup"|"snow"|"irrigation"|"install"|"other","site_check_method": "desk"|"crew_stop"|"visit","site_check_origin": "acceptance"|"customer_request","site_check_status": "requested"|"open"|"scheduled"|"done"|"waived"|"declined"|"cancelled","slope_class": "flat"|"gentle"|"moderate"|"steep","stripe_connect_status": "not_connected"|"pending"|"ready","time_entry_kind": "job"|"pause","visit_event_kind": "started"|"paused"|"resumed"|"finished"|"reopened"|"skipped","visit_photo_kind": "before"|"after"|"issue"|"upsell","visit_skip_reason": "gate_locked"|"dog_loose"|"customer_skip"|"weather"|"equipment"|"unsafe"|"other","visit_status": "scheduled"|"in_progress"|"paused"|"completed"|"skipped"|"cant_complete"|"cancelled"          }
           CompositeTypes: {
             [_ in never]: never
           }
