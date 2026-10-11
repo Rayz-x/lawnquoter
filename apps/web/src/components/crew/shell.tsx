@@ -5,13 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { clearClocks, clearLiveLead } from "@/app/(crew)/crew/visits/visit";
+import { CrewPinGate } from "@/components/crew/pin-lock";
 import {
   crewShellDisplayClass,
   readBatterySaver,
   subscribeBatterySaver,
   type CrewDisplayMode,
 } from "@/lib/crew/battery-saver";
-import { browserCrewStore, scopeKey } from "@/lib/crew/queue";
+import { browserCrewStore, foreignOutboxWaitingMessage, scopeKey, setCrewAuthorName } from "@/lib/crew/queue";
 import { clearCrewCaches, crewWorkerUrl } from "@/lib/crew/sw-policy";
 import { useCrewSync } from "@/lib/crew/use-crew-sync";
 
@@ -22,12 +23,26 @@ const TABS = [
   { href: "/crew/me", label: "Me", icon: UserCircle },
 ] as const;
 
-export function CrewShell({ children, userId, orgId }: { children: ReactNode; userId: string; orgId: string }) {
+export function CrewShell({
+  children,
+  userId,
+  orgId,
+  authorName,
+}: {
+  children: ReactNode;
+  userId: string;
+  orgId: string;
+  authorName: string;
+}) {
   const pathname = usePathname();
   const waiting = useOutboxCount(userId, orgId);
+  const foreign = useForeignOutbox(userId, orgId);
   useCrewSync(userId, orgId);
   const display = useCrewDisplay();
   const batterySaver = useBatterySaver();
+  useEffect(() => {
+    setCrewAuthorName(authorName);
+  }, [authorName]);
   useEffect(() => {
     const build = process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA;
     void navigator.serviceWorker
@@ -47,6 +62,7 @@ export function CrewShell({ children, userId, orgId }: { children: ReactNode; us
     const previous = localStorage.getItem("crew-cache-user");
     if (previous && previous !== key) {
       void clearCrewCaches();
+      // Wipe route packs for the previous lead; keep the shared outbox.
       void browserCrewStore().clearPacks();
       clearClocks(localStorage);
       clearLiveLead(localStorage);
@@ -57,10 +73,19 @@ export function CrewShell({ children, userId, orgId }: { children: ReactNode; us
   const tabs = !pathname.includes("/visits/");
   const displayClass = crewShellDisplayClass(display, batterySaver);
   return (
-    <div className={`flex min-h-svh flex-col bg-background ${displayClass}`}>
-      <div className={tabs ? "flex flex-1 flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]" : "flex flex-1 flex-col"}>{children}</div>
-      {tabs ? <CrewTabs pathname={pathname} waiting={waiting} /> : null}
-    </div>
+    <CrewPinGate userId={userId}>
+      <div className={`flex min-h-svh flex-col bg-background ${displayClass}`}>
+        {foreign ? (
+          <p className="bg-warning/15 px-4 py-2 text-center text-[15px] font-semibold text-warning" role="status">
+            {foreign}
+          </p>
+        ) : null}
+        <div className={tabs ? "flex flex-1 flex-col pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]" : "flex flex-1 flex-col"}>
+          {children}
+        </div>
+        {tabs ? <CrewTabs pathname={pathname} waiting={waiting} /> : null}
+      </div>
+    </CrewPinGate>
   );
 }
 
@@ -89,7 +114,7 @@ function useOutboxCount(userId: string, orgId: string) {
     let stop = false;
     const refresh = () => {
       void store.listOutbox().then((rows) => {
-        if (!stop) setWaiting(rows.filter((row) => row.user_id === userId && row.org_id === orgId).length);
+        if (!stop) setWaiting(rows.filter((row) => row.org_id === orgId && !row.needs_office).length);
       });
     };
     refresh();
@@ -100,6 +125,26 @@ function useOutboxCount(userId: string, orgId: string) {
     };
   }, [userId, orgId]);
   return waiting;
+}
+
+function useForeignOutbox(userId: string, orgId: string) {
+  const [message, setMessage] = useState<string | null>(null);
+  useEffect(() => {
+    const store = browserCrewStore();
+    let stop = false;
+    const refresh = () => {
+      void store.listOutbox().then((rows) => {
+        if (!stop) setMessage(foreignOutboxWaitingMessage(rows, userId, orgId));
+      });
+    };
+    refresh();
+    window.addEventListener("crew-queue", refresh);
+    return () => {
+      stop = true;
+      window.removeEventListener("crew-queue", refresh);
+    };
+  }, [userId, orgId]);
+  return message;
 }
 
 function CrewTabs({ pathname, waiting }: { pathname: string; waiting: number }) {

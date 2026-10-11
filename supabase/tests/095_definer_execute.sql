@@ -72,6 +72,7 @@ select is(
     'create_org_invite',
     'crew_ack_day_pack',
     'crew_day_pack',
+    'crew_pin_is_set',
     'crew_sync',
     'end_agreement',
     'enhancement_same_day_is_active',
@@ -102,6 +103,7 @@ select is(
     'set_active_org',
     'set_agreement_season_price',
     'set_crew_lead',
+    'set_crew_pin',
     'set_lead_for_today',
     'site_check_approve',
     'site_check_cancel_request',
@@ -112,6 +114,7 @@ select is(
     'update_agreement_schedule',
     'update_agreement_season',
     'update_org_season',
+    'verify_crew_pin',
     'void_invoice'
   ]::text[],
   'anon or authenticated can execute only the intended public security definers'

@@ -37,6 +37,8 @@ export type OutboxRow = {
   last_error: string | null;
   user_id: string;
   org_id: string;
+  /** Display name captured at enqueue so the next lead can see who left work waiting. */
+  author_name: string;
   /** The server rejected this action. Leave it for the office instead of retrying. */
   needs_office: boolean;
 };
@@ -86,6 +88,34 @@ export function photoStoragePath(orgId: string, visitId: string, clientId: strin
   return `${orgId}/${visitId}/${clientId}.jpg`;
 }
 
+const AUTHOR_NAME_KEY = "crew-author-name";
+
+export function setCrewAuthorName(name: string) {
+  if (typeof localStorage === "undefined") return;
+  const trimmed = name.trim();
+  if (trimmed) localStorage.setItem(AUTHOR_NAME_KEY, trimmed);
+}
+
+export function readCrewAuthorName(): string {
+  if (typeof localStorage === "undefined") return "Lead";
+  return localStorage.getItem(AUTHOR_NAME_KEY)?.trim() || "Lead";
+}
+
+export function authorFirstName(fullName: string): string {
+  const first = fullName.trim().split(/\s+/)[0];
+  return first || "Lead";
+}
+
+export function foreignOutboxWaitingMessage(rows: OutboxRow[], currentUserId: string, orgId: string): string | null {
+  const foreign = rows.filter((row) => row.org_id === orgId && row.user_id !== currentUserId && !row.needs_office);
+  if (foreign.length === 0) return null;
+  const names = [...new Set(foreign.map((row) => authorFirstName(row.author_name || "Lead")))];
+  const count = foreign.length;
+  const noun = count === 1 ? "item" : "items";
+  if (names.length === 1) return `${count} ${noun} from ${names[0]} waiting`;
+  return `${count} ${noun} from other leads waiting`;
+}
+
 export function newOutboxRow(
   input: {
     client_id?: string;
@@ -95,6 +125,7 @@ export function newOutboxRow(
     occurred_at?: string;
     user_id: string;
     org_id: string;
+    author_name?: string;
   },
   now: Date,
 ): OutboxRow {
@@ -111,6 +142,7 @@ export function newOutboxRow(
     last_error: null,
     user_id: input.user_id,
     org_id: input.org_id,
+    author_name: (input.author_name ?? readCrewAuthorName()).trim() || "Lead",
     needs_office: false,
   };
 }
@@ -209,6 +241,11 @@ export function packDatesToDrop(packs: DayPackRecord[], now: Date): string[] {
 
 export function outboxBlocksSignOut(rows: OutboxRow[]) {
   return rows.length > 0;
+}
+
+/** Clears addresses, gate codes, and notes. Leaves outbox (+ photos) for the author. */
+export async function wipeRouteDataOnSignOut(store: CrewStore) {
+  await store.clearPacks();
 }
 
 let flushChain: Promise<unknown> = Promise.resolve();

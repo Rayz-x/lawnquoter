@@ -4,6 +4,7 @@ import {
   enqueueMutation,
   enqueuePhoto,
   flushOutbox,
+  foreignOutboxWaitingMessage,
   loadDayPack,
   outboxBlocksSignOut,
   packDatesToDrop,
@@ -13,12 +14,13 @@ import {
   saveDayPack,
   scopeKey,
   syncItems,
+  wipeRouteDataOnSignOut,
   type SyncResult,
 } from "./queue";
 
 const now = new Date("2026-10-09T15:00:00.000Z");
 const scope = { userId: "user-1", orgId: "org-1" };
-const who = { user_id: scope.userId, org_id: scope.orgId };
+const who = { user_id: scope.userId, org_id: scope.orgId, author_name: "Alex Lead" };
 
 describe("crew outbox", () => {
   it("keeps user keys from colliding", () => {
@@ -240,6 +242,38 @@ describe("day packs", () => {
     await store.clear();
     expect(outboxBlocksSignOut(await store.listOutbox())).toBe(false);
     expect(await store.listPacks()).toEqual([]);
+  });
+
+  it("keeps author attribution and only syncs that author's rows", async () => {
+    const store = createMemoryCrewStore();
+    const maria = { user_id: "maria", org_id: "org-1", author_name: "Maria Ruiz" };
+    await enqueueMutation(store, { kind: "visit_start", visit_id: "v1", client_id: "a", ...maria }, now);
+    await enqueueMutation(store, { kind: "visit_pause", visit_id: "v1", client_id: "b", ...maria }, new Date(now.getTime() + 1));
+    await enqueueMutation(store, { kind: "visit_set_note", visit_id: "v2", client_id: "c", ...maria }, new Date(now.getTime() + 2));
+    await enqueueMutation(
+      store,
+      { kind: "visit_start", visit_id: "v3", client_id: "d", user_id: "bob", org_id: "org-1", author_name: "Bob Lead" },
+      now,
+    );
+    const rows = await store.listOutbox();
+    expect(rows.find((row) => row.client_id === "a")?.author_name).toBe("Maria Ruiz");
+    expect(foreignOutboxWaitingMessage(rows, "bob", "org-1")).toBe("3 items from Maria waiting");
+    expect(foreignOutboxWaitingMessage(rows, "maria", "org-1")).toBe("1 item from Bob waiting");
+    const sent = syncItems(rows, now.toISOString(), { userId: "bob", orgId: "org-1" });
+    expect(sent.map((item) => item.client_id)).toEqual(["d"]);
+  });
+
+  it("wipes route packs on sign-out and leaves the outbox for the next lead", async () => {
+    const store = createMemoryCrewStore();
+    const maria = { user_id: "maria", org_id: "org-1", author_name: "Maria Ruiz" };
+    await enqueueMutation(store, { kind: "visit_start", visit_id: "v", client_id: "a", ...maria }, now);
+    await enqueueMutation(store, { kind: "visit_finish", visit_id: "v", client_id: "b", ...maria }, new Date(now.getTime() + 1));
+    await enqueueMutation(store, { kind: "visit_set_note", visit_id: "v", client_id: "c", ...maria }, new Date(now.getTime() + 2));
+    await saveDayPack(store, "2026-10-09", { gate_code: "9911", access_notes: "side yard", stops: [{ address: "1 Main" }] }, now);
+    await wipeRouteDataOnSignOut(store);
+    expect(await store.listPacks()).toEqual([]);
+    expect((await store.listOutbox()).map((row) => row.client_id)).toEqual(["a", "b", "c"]);
+    expect(foreignOutboxWaitingMessage(await store.listOutbox(), "bob", "org-1")).toBe("3 items from Maria waiting");
   });
 
   it("sends an upsell only after its photo is applied", async () => {

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { browserCrewStore } from "@/lib/crew/queue";
+import { clearClocks, clearLiveLead } from "@/app/(crew)/crew/visits/visit";
+import { browserCrewStore, outboxBlocksSignOut, wipeRouteDataOnSignOut } from "@/lib/crew/queue";
 import { clearCrewCaches } from "@/lib/crew/sw-policy";
 
 export function CrewSignOut() {
@@ -9,13 +10,14 @@ export function CrewSignOut() {
 
   async function signOut() {
     const rows = await browserCrewStore().listOutbox();
-    const pending = rows.some((row) => !row.needs_office);
+    const pending = outboxBlocksSignOut(rows.filter((row) => !row.needs_office));
     if (pending && !warn) {
       setWarn(true);
       return;
     }
-    const store = browserCrewStore();
-    await store.clearPacks();
+    await wipeRouteDataOnSignOut(browserCrewStore());
+    clearClocks(localStorage);
+    clearLiveLead(localStorage);
     await clearCrewCaches();
     const form = document.createElement("form");
     form.method = "post";

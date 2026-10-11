@@ -268,6 +268,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"crew_pins": {
+                  Row: {
+                    "created_at": string,"pin_hash": string,"updated_at": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"pin_hash": string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"pin_hash"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "crew_pins_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: true
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"crew_phone_sync": {
                   Row: {
                     "created_at": string,"crew_id": string,"last_synced_at": string,"org_id": string,"pack_version": number,"profile_id": string,"route_date": string,"updated_at": string
@@ -1373,6 +1393,9 @@ isOneToOne: false
 "crew_day_pack":
 { Args: { "p_date": string }; Returns: Json
                            },
+"crew_pin_is_set":
+{ Args: Record<PropertyKey, never>; Returns: boolean
+                           },
 "crew_sync":
 { Args: { "p_mutations": Json }; Returns: Json
                            },
@@ -1504,6 +1527,9 @@ isOneToOne: false
 "set_crew_lead":
 { Args: { "p_crew_id": string,"p_profile_id": string }; Returns: undefined
                            },
+"set_crew_pin":
+{ Args: { "p_pin": string }; Returns: undefined
+                           },
 "site_check_approve":
 { Args: { "p_id": string }; Returns: Json
                            },
@@ -1521,6 +1547,9 @@ isOneToOne: false
                            },
 "update_agreement_schedule":
 { Args: { "p_agreement_id": string,"p_frequency"?: string,"p_kind": string,"p_preferred_dow"?: number,"p_start_date"?: string }; Returns: undefined
+                           },
+"verify_crew_pin":
+{ Args: { "p_pin": string }; Returns: boolean
                            }
           }
           Enums: {
