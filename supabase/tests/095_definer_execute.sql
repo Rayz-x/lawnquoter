@@ -27,6 +27,7 @@ select is(
   array[
     'change_order_accept',
     'change_order_public',
+    'invoice_public',
     'quote_accept',
     'quote_decline',
     'quote_public',
@@ -34,7 +35,7 @@ select is(
     'site_check_cancel_request',
     'site_check_request'
   ]::text[],
-  'anon can execute only the public quote security definer RPCs'
+  'anon can execute only the public quote and invoice security definer RPCs'
 );
 
 select is(
@@ -70,6 +71,7 @@ select is(
     'crew_day_pack',
     'crew_sync',
     'generate_agreement_visits',
+    'invoice_public',
     'issue_invoice',
     'my_crews',
     'office_attention_tray',
