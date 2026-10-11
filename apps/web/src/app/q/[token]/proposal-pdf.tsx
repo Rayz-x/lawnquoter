@@ -4,7 +4,7 @@ import { deriveBrandTheme, pdfBrand } from "@/lib/brand/derive-brand-theme";
 import { formatOrgAddress, headingFontOf, type PublicOrg } from "@/lib/brand/public-org";
 import { formatMoney, formatMoneyRange } from "@/lib/money";
 import { ESIGN_DISCLOSURES, formatNotToExceedAmount, notToExceedClause } from "@/lib/quotes/legal-copy";
-import { acceptanceTotals, lineHasRange } from "@/lib/quotes/not-to-exceed";
+import { acceptanceTotals, displayedRangeTotals, lineHasRange } from "@/lib/quotes/not-to-exceed";
 import { selectionFromIds, type SelectableItem } from "@/lib/quotes/selection";
 import {
   SITE_CHECK_AFTER_ACCEPTANCE,
@@ -202,14 +202,7 @@ export function ProposalPdf({
   const selectedFlagged = selected.filter((item) => hasSiteCheck(item.site_check_reasons));
   const selectedReasons = selectedFlagged.flatMap((item) => item.site_check_reasons ?? []);
   const showSiteCheckWhy = selectedFlagged.length > 0;
-  const estimateLow = selected.reduce(
-    (sum, item) => sum + (lineHasRange(item) ? Number(item.range_low) : Number(item.price ?? 0)),
-    0,
-  );
-  const estimateHigh = selected.reduce(
-    (sum, item) => sum + (lineHasRange(item) ? Number(item.range_high) : Number(item.price ?? 0)),
-    0,
-  );
+  const estimateRange = displayedRangeTotals(payload.items, picked);
   const theme = deriveBrandTheme(payload.org.brand_color);
   const brand = pdfBrand(theme);
   const heading = pdfHeadingFamily(headingFontOf(payload.org.heading_font));
@@ -217,7 +210,7 @@ export function ProposalPdf({
   const contact = [payload.org.phone, payload.org.email].filter(Boolean).join(" · ");
   const logoBox = fitLogo(payload.org.logo_width, payload.org.logo_height);
   const totalLabel = hasRanges
-    ? `Estimated total ${formatMoneyRange(estimateLow, estimateHigh)}`
+    ? `Estimated total ${formatMoneyRange(estimateRange.low, estimateRange.high)}`
     : `Total ${formatMoney(estimate, { cents: true })}`;
 
   return (
