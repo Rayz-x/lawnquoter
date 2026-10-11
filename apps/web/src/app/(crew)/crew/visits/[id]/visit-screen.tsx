@@ -12,13 +12,13 @@ import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
 import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/database.types";
 import {
-  activeAddress, applyClock, budgetLabel, cachedLiveLead, crewIdFromPack, elapsedMs, formatElapsed, liveLeadFromPack, patchVisitPack, projectVisit, readClock, saveLeadForPack, visitFromPack, visitsInPack, writeClock,
+  activeAddress, alreadyDoneMessage, applyClock, budgetLabel, cachedLiveLead, crewIdFromPack, crewNameFromPack, elapsedMs, formatElapsed, isAlreadyDoneByOtherCrew, isMidVisitCancel, liveLeadFromPack, midVisitCancelMessage, patchVisitPack, projectVisit, readClock, saveLeadForPack, visitFromPack, visitsInPack, writeClock,
   type ClockAction, type Segment, type VisitClock, type VisitDetail,
 } from "../visit";
 import { VisitActions } from "./visit-actions";
 import { VisitPhotos, type VisitPhotosHandle } from "./visit-photos";
 
-const ACTIONS = new Set(["visit_start", "visit_pause", "visit_resume", "visit_finish", "visit_set_crew_size"]);
+const ACTIONS = new Set(["visit_start", "visit_pause", "visit_resume", "visit_finish", "visit_stop", "visit_set_crew_size"]);
 
 export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visitId: string; timeZone: string; userId: string; orgId: string; onBack?: () => void }) {
   const router = useRouter();
@@ -36,6 +36,7 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
   const [error, setError] = useState<string | null>(null);
   const [showGate, setShowGate] = useState(false);
   const [lead, setLead] = useState(false);
+  const [packCrewName, setPackCrewName] = useState<string | null>(null);
   const photos = useRef<VisitPhotosHandle | null>(null);
   const [afterFor, setAfterFor] = useState(visitId);
   const [afterReady, setAfterReady] = useState(false);
@@ -105,6 +106,7 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
       const office = row.pack && typeof row.pack === "object" && "office" in row.pack ? (row.pack as { office?: { phone?: unknown } }).office : null;
       setPhone(typeof office?.phone === "string" ? office.phone : null);
       setPackDate(row.date);
+      setPackCrewName(crewNameFromPack(row.pack));
       setDetail(visit);
       setClock(next);
       setAfterQueued(afterQueue);
@@ -158,8 +160,8 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
       }
       void flushOutbox(browserCrewStore(), sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto);
       window.dispatchEvent(new Event("crew-pack"));
-      if (kind === "visit_finish") {
-        toast(`Stop ${detail.number} saved. It sends when you have signal.`);
+      if (kind === "visit_finish" || kind === "visit_stop") {
+        toast(kind === "visit_stop" ? "Stopped. The office cancel stays." : `Stop ${detail.number} saved. It sends when you have signal.`);
         if (onBack) onBack();
         else router.push("/crew/today");
       }
@@ -182,9 +184,12 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
   const started = clock.startedAt ? new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone }).format(new Date(clock.startedAt)) : null;
   const ratio = detail.budgetMinutes ? Math.min(1, elapsed / (detail.budgetMinutes * 60_000)) : 0;
   const crewSize = clock.crewSize ?? 1;
-  const closed = clock.status === "cancelled" || detail.status === "cancelled";
-  const needAfter = (clock.status === "in_progress" || clock.status === "paused") && !afterReady;
-  const canAct = !closed && (clock.status === "scheduled" || clock.status === "in_progress" || clock.status === "paused");
+  const midCancel = isMidVisitCancel(detail);
+  const alreadyDone = isAlreadyDoneByOtherCrew(detail, clock, packCrewName);
+  const closed = !midCancel && (clock.status === "cancelled" || detail.status === "cancelled");
+  const needAfter = (clock.status === "in_progress" || clock.status === "paused" || midCancel) && !afterReady;
+  const canAct = (!closed || midCancel) && (clock.status === "scheduled" || clock.status === "in_progress" || clock.status === "paused" || midCancel);
+  const working = clock.status === "in_progress" || clock.status === "paused" || midCancel;
 
   return (
     <section className="flex flex-1 flex-col px-4 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-28">
@@ -205,7 +210,9 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
       <h1 className="font-serif text-2xl font-bold [overflow-wrap:anywhere]">{detail.address}</h1>
       {detail.lastName ? <p className="text-[17px]">{detail.lastName}</p> : null}
       {detail.title ? <p className="text-[15px] text-muted-foreground">{detail.title}</p> : null}
-      {closed ? <p className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-[15px] font-semibold text-destructive">Office cancelled this stop.</p> : null}
+      {midCancel ? <p className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-[15px] font-semibold text-destructive" data-testid="mid-visit-cancel">{midVisitCancelMessage()}</p> : null}
+      {!midCancel && closed ? <p className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-[15px] font-semibold text-destructive">Office cancelled this stop.</p> : null}
+      {alreadyDone ? <p className="mt-3 rounded-xl bg-warning/15 px-3 py-2 text-[15px] font-semibold text-warning" data-testid="already-done">{alreadyDoneMessage(detail.completedByCrew)}</p> : null}
       <div className="mt-4 flex flex-col gap-2">
         {drive ? <a href={driveUrl(detail.lat!, detail.lng!, false)} className="flex min-h-14 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" onClick={(event) => openMaps(event, detail.lat!, detail.lng!)}>Navigate</a> : null}
         {tel ? <a href={tel} className="flex min-h-14 items-center justify-center rounded-xl border text-[17px] font-semibold">Call office</a> : null}
@@ -245,19 +252,22 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
           ) : null}
         </div>
       ) : null}
-      {lead && (clock.status === "in_progress" || clock.status === "paused") ? <VisitPhotos visitId={visitId} userId={userId} orgId={orgId} onAfter={setAfterReady} pickRef={photos} /> : null}
-      {lead && canAct ? <VisitActions visitId={visitId} userId={userId} orgId={orgId} onLeave={() => { if (onBack) onBack(); else router.push("/crew/today"); }} /> : null}
+      {lead && working && !alreadyDone ? <VisitPhotos visitId={visitId} userId={userId} orgId={orgId} onAfter={setAfterReady} pickRef={photos} /> : null}
+      {lead && canAct && !midCancel && !alreadyDone ? <VisitActions visitId={visitId} userId={userId} orgId={orgId} onLeave={() => { if (onBack) onBack(); else router.push("/crew/today"); }} /> : null}
       {blocked ? <p className="mt-4 text-[17px] font-semibold">Finish {blocked} first?</p> : null}
       {!lead ? <p className="mt-4 text-[17px]">The crew lead starts and finishes stops.</p> : null}
       {error ? <p className="mt-3 text-[15px] font-semibold text-destructive">{error}</p> : null}
       <div className="fixed inset-x-0 bottom-0 z-10 flex gap-2 bg-background px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
-        {lead && clock.status === "scheduled" && !closed ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={saving || Boolean(blocked)} onClick={() => void act("visit_start")}>Start job</button> : null}
-        {lead && clock.status === "in_progress" ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_pause")}>Pause</button> : null}
-        {lead && clock.status === "paused" ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_resume")}>Resume</button> : null}
-        {lead && (clock.status === "in_progress" || clock.status === "paused") ? (
+        {lead && clock.status === "scheduled" && !closed && !midCancel ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={saving || Boolean(blocked)} onClick={() => void act("visit_start")}>Start job</button> : null}
+        {lead && clock.status === "in_progress" && !midCancel ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_pause")}>Pause</button> : null}
+        {lead && clock.status === "paused" && !midCancel ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_resume")}>Resume</button> : null}
+        {lead && midCancel && !alreadyDone ? (
+          <button type="button" className="inline-flex min-h-14 flex-1 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_stop")}>Stop</button>
+        ) : null}
+        {lead && working && !alreadyDone ? (
           needAfter
             ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => photos.current?.pickAfter()}>Take an after photo to finish</button>
-            : <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => void act("visit_finish")}>Finish job</button>
+            : <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => void act("visit_finish")}>{midCancel ? "Finish" : "Finish job"}</button>
         ) : null}
       </div>
     </section>

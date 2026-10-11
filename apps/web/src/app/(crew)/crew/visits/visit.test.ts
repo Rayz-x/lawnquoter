@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { activeAddress, applyClock, budgetLabel, cachedLiveLead, clearLiveLead, elapsedMs, formatElapsed, isLiveCrewLead, leadFromReads, patchVisitPack, projectVisit, readClock, rememberLiveLead, saveLeadForPack, visitFromPack, writeClock, type VisitClock } from "./visit";
+import { activeAddress, alreadyDoneMessage, applyClock, budgetLabel, cachedLiveLead, clearLiveLead, elapsedMs, formatElapsed, isAlreadyDoneByOtherCrew, isLiveCrewLead, isMidVisitCancel, leadFromReads, midVisitCancelMessage, patchVisitPack, projectVisit, readClock, rememberLiveLead, saveLeadForPack, visitFromPack, writeClock, type VisitClock } from "./visit";
 
 const at = "2026-10-09T14:00:00.000Z";
 const pack = {
   date: "2026-10-09",
+  crew: { id: "crew-a", name: "Crew A" },
   visits: [
     { id: "v1", status: "scheduled", title: "Weekly mow", budget_minutes: 35, crew_size: 2, crew_note: "Leave the gate open", property: { formatted_address: "1503 Larkspur", last_name: "Hollis", gate_code: "4815", gate_width_in: 36, has_dogs: true, access_notes: "Side gate", crew_notes: "Watch the bed by the drive", lat: 40.1, lng: -89.2 }, tasks: [{ label: "Mow", quantity_text: "6,840 sq ft", notes_crew: "edge the walk" }] },
     { id: "v2", status: "in_progress", title: "Cleanup", started_at: "2026-10-09T13:00:00.000Z", property: { formatted_address: "88 Oak" }, tasks: [] },
+    { id: "v3", status: "cancelled", started_at: "2026-10-09T12:00:00.000Z", title: "Pulled", property: { formatted_address: "9 Cancel" }, tasks: [] },
+    { id: "v4", status: "completed", completed_by_crew: "Crew B", title: "Taken", property: { formatted_address: "2 Cross" }, tasks: [] },
   ],
 };
 const blank: VisitClock = { status: "scheduled", startedAt: null, crewSize: 2, segments: [], applied: [] };
@@ -86,6 +89,24 @@ describe("visit detail timer", () => {
     const skipped = { ...detail!, status: "skipped" };
     expect(projectVisit(skipped, stored, [{ kind: "job", startedAt: at, endedAt: null }], [{ clientId: "a", kind: "visit_start", at }]).status).toBe("skipped");
     expect(activeAddress([skipped], "other")).toBeNull();
+  });
+
+  it("offers finish or stop after a mid-visit cancel and names a cross-crew completion", () => {
+    const cancelled = visitFromPack(pack, "v3")!;
+    expect(isMidVisitCancel(cancelled)).toBe(true);
+    expect(midVisitCancelMessage()).toBe("Office cancelled this stop. Finish or stop?");
+    const stored: VisitClock = { status: "in_progress", startedAt: "2026-10-09T12:00:00.000Z", crewSize: 2, applied: ["s"], segments: [{ kind: "job", startedAt: "2026-10-09T12:00:00.000Z", endedAt: null }] };
+    const projected = projectVisit(cancelled, stored, null, []);
+    expect(projected.status).toBe("cancelled");
+    expect(projected.segments).toHaveLength(1);
+    const finished = applyClock(projected, { clientId: "f", kind: "visit_finish", at: "2026-10-09T12:30:00.000Z" });
+    expect(finished.status).toBe("completed");
+    const stopped = applyClock(projected, { clientId: "t", kind: "visit_stop", at: "2026-10-09T12:30:00.000Z" });
+    expect(stopped.status).toBe("cancelled");
+    const done = visitFromPack(pack, "v4")!;
+    expect(alreadyDoneMessage(done.completedByCrew)).toBe("Already done by Crew B");
+    expect(isAlreadyDoneByOtherCrew(done, stored, "Crew A")).toBe(true);
+    expect(isAlreadyDoneByOtherCrew(done, { ...blank, status: "completed" }, "Crew B")).toBe(false);
   });
 
   it("treats only the live crew lead as able to run the timer", () => {
