@@ -115,3 +115,24 @@ describe("office nav categories", () => {
     expect(categoryFor("/quotes/new", owner)?.label).toBe("Sales");
   });
 });
+
+describe("office route reachability", () => {
+  it("every top-level office page is in the owner's nav, including the price book catalog", async () => {
+    const { readdirSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const root = join(__dirname, "../../app/(app)");
+    const pages: string[] = [];
+    const walk = (dir: string, route: string) => {
+      for (const name of readdirSync(dir)) {
+        const full = join(dir, name);
+        if (statSync(full).isDirectory()) {
+          if (!name.startsWith("[") && !name.startsWith("(")) walk(full, `${route}/${name}`);
+        } else if (name === "page.tsx" && route && !route.endsWith("/new")) pages.push(route);
+      }
+    };
+    walk(root, "");
+    const hrefs = new Set(visibleNav("owner").flatMap((category) => category.items.map((navItem) => navItem.href)));
+    expect(pages.length).toBeGreaterThan(10);
+    expect(pages.filter((page) => !hrefs.has(page))).toEqual([]);
+  });
+});

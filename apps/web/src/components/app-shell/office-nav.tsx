@@ -146,19 +146,19 @@ function CategoryControl({
   const lone = loneItem(category);
   const count = category.items.some((item) => item.href === "/leads") ? requestCount : 0;
   if (lone) {
+    // A single destination is a plain link, not a menu trigger, so Enter, Cmd-click,
+    // and middle-click all behave like normal navigation.
     return (
-      <Menu.Root>
-        <Menu.Trigger
-          className="dispatch-link dispatch-cat"
-          data-nav-priority={category.priority}
-          data-nav-current={active ? "true" : "false"}
-          aria-current={active ? "page" : undefined}
-          render={<Link href={lone.href} />}
-        >
-          {category.label}
-          <Count count={count} />
-        </Menu.Trigger>
-      </Menu.Root>
+      <Link
+        href={lone.href}
+        className="dispatch-link dispatch-cat"
+        data-nav-priority={category.priority}
+        data-nav-current={active ? "true" : "false"}
+        aria-current={active ? "page" : undefined}
+      >
+        {category.label}
+        <Count count={count} />
+      </Link>
     );
   }
 
@@ -226,16 +226,17 @@ function CategoryMenu({
                 {group.items.map((item) => {
                   const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                   return (
-                    <Menu.Item
+                    <Menu.LinkItem
                       key={item.href}
                       className="dispatch-menu-item"
                       aria-current={active ? "page" : undefined}
+                      closeOnClick
                       render={<Link href={item.href} />}
                     >
                       <item.icon aria-hidden className="size-4 opacity-80" />
                       <span>{item.title}</span>
                       {item.href === "/leads" ? <Count count={requestCount} /> : null}
-                    </Menu.Item>
+                    </Menu.LinkItem>
                   );
                 })}
               </Menu.Group>
