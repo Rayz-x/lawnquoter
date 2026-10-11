@@ -6,7 +6,6 @@ import {
   isLowStorage,
   lowStorageWarning,
   persistentStorageWarning,
-  photoArrivalClearsPending,
   remainingStorageBytes,
 } from "./photo-pending";
 
@@ -42,12 +41,6 @@ describe("photo pending and storage safeguards", () => {
         afterNeedsOffice: true,
       }),
     ).toBe("Completed, photo lost");
-  });
-
-  it("treats a late after-photo upload as clearing the pending state", () => {
-    expect(photoArrivalClearsPending({ hadPending: true, afterPhotoArrived: true })).toBe(true);
-    expect(photoArrivalClearsPending({ hadPending: true, afterPhotoArrived: false })).toBe(false);
-    expect(photoArrivalClearsPending({ hadPending: false, afterPhotoArrived: true })).toBe(false);
   });
 
   it("warns when free storage is under 50 MB", () => {

@@ -6,12 +6,10 @@ import { fail, type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
 import { leadsClient } from "@/lib/leads/client";
 import {
-  applyDefaultAssignee,
   buildContactActivity,
   buildFollowUpActivity,
   buildReassignActivity,
   canEditLeads,
-  defaultAssigneeId,
   nextFirstContactedAt,
   type ContactChannel,
 } from "@/lib/leads/detail";
@@ -288,71 +286,4 @@ export async function dismissLeadMatch(leadId: string, accountId: string): Promi
 
   revalidateLead(leadId);
   return { ok: true };
-}
-
-/**
- * Apply L01 default assignee when a lead is still unassigned.
- * Used by intake/manual create (L03/L04) and available here for backfill.
- */
-export async function ensureDefaultLeadAssignee(leadId: string): Promise<ActionResult<{ assigned_to: string }>> {
-  const session = await requireLeadEditor();
-  if (!session) return fail("You don't have permission to update leads.");
-
-  const supabase = await createClient();
-  const db = leadsClient(supabase);
-  const { data: leadRaw, error: loadError } = await db
-    .from("lead_requests")
-    .select("id, assigned_to")
-    .eq("id", leadId)
-    .eq("org_id", session.orgId)
-    .maybeSingle();
-  if (loadError) return fail(loadError.message);
-  const lead = leadRaw as { id: string; assigned_to: string | null } | null;
-  if (!lead) return fail("Lead not found.");
-
-  const { data: settingsRaw } = await db
-    .from("org_lead_settings")
-    .select("default_assignee_id")
-    .eq("org_id", session.orgId)
-    .maybeSingle();
-  const settings = settingsRaw as { default_assignee_id: string | null } | null;
-
-  const { data: owner } = await supabase
-    .from("memberships")
-    .select("user_id")
-    .eq("org_id", session.orgId)
-    .eq("role", "owner")
-    .eq("status", "active")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (!owner?.user_id) return fail("Org owner not found for default assignment.");
-  const assigneeId = defaultAssigneeId(settings ?? { default_assignee_id: null }, owner.user_id);
-  const patch = applyDefaultAssignee(lead, assigneeId);
-  if (!patch) return { ok: true, data: { assigned_to: lead.assigned_to as string } };
-
-  const { data: updatedRaw, error: updateError } = await db
-    .from("lead_requests")
-    .update(patch)
-    .eq("id", leadId)
-    .eq("org_id", session.orgId)
-    .select("id, assigned_to")
-    .maybeSingle();
-  if (updateError) return fail(updateError.message);
-  const updated = updatedRaw as { id: string; assigned_to: string | null } | null;
-  if (!updated) return fail("Could not assign lead.");
-
-  const { error: activityError } = (await db.from("lead_activities").insert({
-    org_id: session.orgId,
-    lead_request_id: leadId,
-    kind: "lead.assigned",
-    summary: "Assigned to default assignee",
-    meta: { assignee_id: assigneeId, reason: "default" },
-    actor_id: session.userId,
-  })) as { data: unknown; error: { message: string } | null };
-  if (activityError) return fail(activityError.message);
-
-  revalidateLead(leadId);
-  return { ok: true, data: { assigned_to: updated.assigned_to ?? assigneeId } };
 }

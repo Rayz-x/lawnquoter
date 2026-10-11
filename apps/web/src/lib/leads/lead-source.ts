@@ -59,7 +59,3 @@ export function formatLeadSource(source: string | null, other: string | null): s
   if (source === "Other" && other?.trim()) return `Other — ${other.trim()}`;
   return source;
 }
-
-export function isUserLeadSource(value: string): value is UserLeadSource {
-  return USER_SET.has(value);
-}
