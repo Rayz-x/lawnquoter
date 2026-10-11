@@ -13,8 +13,10 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { ConvertLeadButton } from "@/components/leads/convert-lead-button";
+import { PossibleMatchBanner } from "@/components/leads/possible-match-banner";
 import type { ContactChannel, LeadActivity, LeadRequest } from "@/lib/leads/detail";
 import { leadAddressLine, leadDisplayName } from "@/lib/leads/detail";
+import type { MatchCandidate } from "@/lib/leads/dedupe";
 import { logLeadContact, reassignLead, setLeadFollowUp } from "./actions";
 
 export type LeadDetailPerson = { id: string; name: string };
@@ -25,6 +27,7 @@ export type LeadDetailView = {
   assigneeName: string | null;
   people: LeadDetailPerson[];
   canEdit: boolean;
+  matchCandidates?: MatchCandidate[];
 };
 
 const CHANNELS: { value: ContactChannel; label: string }[] = [
@@ -37,7 +40,14 @@ function statusLabel(status: string) {
   return status.replaceAll("_", " ");
 }
 
-export function LeadDetail({ lead, activities, assigneeName, people, canEdit }: LeadDetailView) {
+export function LeadDetail({
+  lead,
+  activities,
+  assigneeName,
+  people,
+  canEdit,
+  matchCandidates = [],
+}: LeadDetailView) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [channel, setChannel] = useState<ContactChannel>("call");
@@ -85,9 +95,17 @@ export function LeadDetail({ lead, activities, assigneeName, people, canEdit }: 
         ]}
       />
 
+      {matchCandidates.length > 0 ? (
+        <PossibleMatchBanner leadId={lead.id} candidates={matchCandidates} canEdit={canEdit} />
+      ) : null}
+
       {canEdit ? (
         <div className="flex flex-wrap items-center gap-3" data-testid="lead-convert-row">
-          <ConvertLeadButton leadId={lead.id} alreadyConverted={Boolean(lead.quote_id)} />
+          <ConvertLeadButton
+            leadId={lead.id}
+            alreadyConverted={Boolean(lead.quote_id)}
+            accountId={lead.account_id}
+          />
           <p className="text-sm text-muted-foreground">
             Creates the account, property, and draft quote, then opens measurement.
           </p>

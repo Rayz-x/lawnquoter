@@ -5,10 +5,27 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { requireOrg } from "@/lib/auth/session";
 import { leadsClient } from "@/lib/leads/client";
 import { canEditLeads, canViewLeads, leadDisplayName, type LeadActivity, type LeadRequest } from "@/lib/leads/detail";
+import { loadBannerMatchCandidates } from "@/lib/leads/match-sources";
 import { createClient } from "@/lib/supabase/server";
 import { LeadDetail } from "./lead-detail";
 
 export const metadata: Metadata = { title: "Lead" };
+
+type LeadRow = LeadRequest & {
+  phone?: string | null;
+  email?: string | null;
+  assignee_id?: string | null;
+  geocode_raw?: Record<string, unknown> | null;
+};
+
+function asLeadRequest(row: LeadRow): LeadRequest {
+  return {
+    ...row,
+    contact_email: row.contact_email ?? row.email ?? null,
+    contact_phone: row.contact_phone ?? row.phone ?? null,
+    assigned_to: row.assigned_to ?? row.assignee_id ?? null,
+  };
+}
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -69,8 +86,34 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   }
   if (!lead) notFound();
 
-  const typedLead = lead as LeadRequest;
+  const rawLead = lead as LeadRow;
+  const typedLead = asLeadRequest(rawLead);
   const typedActivities = (activities ?? []) as LeadActivity[];
+  const dismissedAccountIds = new Set(
+    typedActivities
+      .filter((activity) => activity.kind === "lead.match_dismissed")
+      .map((activity) => {
+        const accountId = activity.meta?.account_id;
+        return typeof accountId === "string" ? accountId : null;
+      })
+      .filter((accountId): accountId is string => Boolean(accountId)),
+  );
+
+  let matchCandidates = await loadBannerMatchCandidates(supabase, {
+    id: typedLead.id,
+    org_id: typedLead.org_id,
+    phone: typedLead.contact_phone,
+    email: typedLead.contact_email,
+    address_line1: typedLead.address_line1,
+    city: typedLead.city,
+    region: typedLead.region,
+    postal_code: typedLead.postal_code,
+    account_id: typedLead.account_id ?? null,
+    property_id: typedLead.property_id ?? null,
+    geocode_raw: rawLead.geocode_raw ?? null,
+  });
+  matchCandidates = matchCandidates.filter((candidate) => !dismissedAccountIds.has(candidate.accountId));
+
   const people = (members ?? []).map((member) => {
     const profile = member.profiles as { full_name: string | null } | { full_name: string | null }[] | null;
     const row = Array.isArray(profile) ? profile[0] : profile;
@@ -93,6 +136,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           assigneeName={assigneeName}
           people={people}
           canEdit={canEditLeads(session.orgRole)}
+          matchCandidates={matchCandidates}
         />
       </div>
     </>

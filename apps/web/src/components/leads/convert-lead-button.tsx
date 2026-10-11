@@ -9,9 +9,11 @@ type Props = {
   leadId: string;
   disabled?: boolean;
   alreadyConverted?: boolean;
+  /** When set (e.g. after L07 Link), convert attaches to this account. */
+  accountId?: string | null;
 };
 
-export function ConvertLeadButton({ leadId, disabled, alreadyConverted }: Props) {
+export function ConvertLeadButton({ leadId, disabled, alreadyConverted, accountId }: Props) {
   const [pending, startTransition] = useTransition();
 
   if (alreadyConverted) {
@@ -29,7 +31,7 @@ export function ConvertLeadButton({ leadId, disabled, alreadyConverted }: Props)
       data-testid="lead-convert"
       onClick={() => {
         startTransition(async () => {
-          const result = await convertLeadAndOpenMeasurement(leadId);
+          const result = await convertLeadAndOpenMeasurement(leadId, accountId);
           if (result && !result.ok) toast.error(result.error);
         });
       }}

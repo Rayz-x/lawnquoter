@@ -57,6 +57,9 @@ function makeDeps(overrides: Partial<LeadIntakeDeps> = {}): LeadIntakeDeps {
       attribution: "Esri",
       raw: { ok: true },
     })),
+    findOpenRequestForFold: vi.fn(async () => null),
+    foldIntoOpenRequest: vi.fn(async () => ({ id: "lead-open" })),
+    findMatchSources: vi.fn(async () => ({ accounts: [], properties: [] })),
     insertLead: vi.fn(async () => ({ id: "lead-1" })),
     verifyTurnstile: vi.fn(async () => true),
     nowMs: () => Date.now(),
@@ -114,5 +117,86 @@ describe("submitPublicLeadRequest", () => {
     expect(result).toEqual({ ok: true, status: "new" });
     expect(vi.mocked(deps.geocode)).toHaveBeenCalledOnce();
     expect(vi.mocked(deps.insertLead)).toHaveBeenCalledOnce();
+  });
+
+  it("matches the same phone in a different format against an existing account", async () => {
+    const deps = makeDeps({
+      findMatchSources: vi.fn(async () => ({
+        accounts: [
+          {
+            id: "acct-1",
+            name: "Jane Doe",
+            phone: "+15125551212",
+            email: null,
+          },
+        ],
+        properties: [],
+      })),
+    });
+
+    const result = await submitPublicLeadRequest(baseInput({ phone: "(512) 555-1212" }), deps);
+
+    expect(result).toEqual({ ok: true, status: "new" });
+    expect(vi.mocked(deps.insertLead).mock.calls[0]?.[0]).toMatchObject({
+      phone: "+15125551212",
+      accountId: null,
+      propertyId: null,
+    });
+  });
+
+  it("auto-links an exact property match without merging other candidates", async () => {
+    const deps = makeDeps({
+      findMatchSources: vi.fn(async () => ({
+        accounts: [
+          {
+            id: "acct-1",
+            name: "Jane Doe",
+            phone: "+15125551212",
+            email: null,
+          },
+        ],
+        properties: [
+          {
+            id: "prop-1",
+            accountId: "acct-1",
+            accountName: "Jane Doe",
+            addressKey: "123 main st|austin|tx|78701",
+            lat: 30.27,
+            lng: -97.74,
+          },
+        ],
+      })),
+    });
+
+    await submitPublicLeadRequest(baseInput(), deps);
+
+    expect(vi.mocked(deps.insertLead).mock.calls[0]?.[0]).toMatchObject({
+      accountId: "acct-1",
+      propertyId: "prop-1",
+    });
+  });
+
+  it("folds a duplicate submit within the short window into one open request", async () => {
+    const now = Date.parse("2026-10-11T00:00:00.000Z");
+    const deps = makeDeps({
+      nowMs: () => now,
+      findOpenRequestForFold: vi.fn(async () => ({
+        id: "lead-open",
+        phone: "+15125551212",
+        email: null,
+        status: "new",
+        createdAtMs: now - 60_000,
+      })),
+      foldIntoOpenRequest: vi.fn(async () => ({ id: "lead-open" })),
+    });
+
+    const result = await submitPublicLeadRequest(
+      baseInput({ phone: "(512) 555-1212", formStartedAtMs: now - 10_000 }),
+      deps,
+    );
+
+    expect(result).toEqual({ ok: true, status: "new", folded: true });
+    expect(vi.mocked(deps.foldIntoOpenRequest)).toHaveBeenCalledOnce();
+    expect(vi.mocked(deps.insertLead)).not.toHaveBeenCalled();
   });
 });

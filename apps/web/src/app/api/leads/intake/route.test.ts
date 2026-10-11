@@ -24,6 +24,9 @@ vi.mock("@/lib/leads/intake-store", () => ({
     findOrgBySlug: vi.fn(),
     countRecentByIpHash: vi.fn(),
     countRecentByOrg: vi.fn(),
+    findOpenRequestForFold: vi.fn(),
+    foldIntoOpenRequest: vi.fn(),
+    findMatchSources: vi.fn(),
     insertLead: vi.fn(),
   }),
 }));

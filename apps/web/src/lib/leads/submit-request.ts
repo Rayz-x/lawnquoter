@@ -1,4 +1,15 @@
 import { createHash } from "node:crypto";
+import {
+  LEAD_FOLD_WINDOW_MS,
+  normalizeAddressKey,
+  normalizeLeadEmail,
+  normalizeLeadPhone,
+  pickAutoLink,
+  rankMatchCandidates,
+  shouldFoldIntoOpenRequest,
+  type MatchSourceAccount,
+  type MatchSourceProperty,
+} from "./dedupe";
 import { WEBSITE_FORM_SOURCE } from "./lead-source";
 
 export const LEAD_INTAKE_MAX_BODY_BYTES = 32_768;
@@ -62,6 +73,35 @@ export type LeadIntakeInsert = {
   spamScore: number;
   ipHash: string;
   assigneeId: string | null;
+  accountId: string | null;
+  propertyId: string | null;
+};
+
+export type LeadFoldOpenRequest = {
+  id: string;
+  phone: string | null;
+  email: string | null;
+  status: string;
+  createdAtMs: number;
+};
+
+export type LeadMatchSources = {
+  accounts: MatchSourceAccount[];
+  properties: MatchSourceProperty[];
+};
+
+export type LeadFoldPatch = {
+  note: string | null;
+  services: string[];
+  addressTyped: string;
+  addressLine1: string | null;
+  city: string | null;
+  region: string | null;
+  postalCode: string | null;
+  country: string;
+  geocodeScore: number | null;
+  geocodeAttribution: string | null;
+  geocodeRaw: Record<string, unknown> | null;
 };
 
 export type LeadIntakeInput = {
@@ -97,12 +137,25 @@ export type LeadIntakeDeps = {
   findOrgBySlug: (slug: string) => Promise<LeadIntakeOrg | null>;
   countRecentByIpHash: (orgId: string, ipHash: string, sinceIso: string) => Promise<number>;
   countRecentByOrg: (orgId: string, sinceIso: string) => Promise<number>;
+  findOpenRequestForFold: (
+    orgId: string,
+    phone: string | null,
+    email: string | null,
+    sinceIso: string,
+  ) => Promise<LeadFoldOpenRequest | null>;
+  foldIntoOpenRequest: (leadId: string, patch: LeadFoldPatch) => Promise<{ id: string }>;
+  findMatchSources: (
+    orgId: string,
+    phone: string | null,
+    email: string | null,
+    postalCode: string | null,
+  ) => Promise<LeadMatchSources>;
   insertLead: (row: LeadIntakeInsert) => Promise<{ id: string }>;
   nowMs: () => number;
 };
 
 export type LeadIntakeResult =
-  | { ok: true; status: "new" | "spam" }
+  | { ok: true; status: "new" | "spam"; folded?: boolean }
   | { ok: false; reason: "validation" | "turnstile" | "rate_limit" | "not_found" | "store" };
 
 export function hashClientIp(ip: string | null): string {
@@ -115,24 +168,6 @@ function clip(value: string | null | undefined, max: number): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   return trimmed.slice(0, max);
-}
-
-function normalizeEmail(raw: string | null): string | null {
-  const email = clip(raw, 320);
-  if (!email) return null;
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
-  return email.toLowerCase();
-}
-
-function normalizePhone(raw: string | null): string | null {
-  if (raw == null) return null;
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const digits = trimmed.replace(/\D/g, "");
-  if (trimmed.startsWith("+") && digits.length >= 8 && digits.length <= 15) return `+${digits}`;
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
-  return clip(trimmed, 40);
 }
 
 function normalizeServices(services: string[]): string[] {
@@ -152,8 +187,8 @@ export async function submitPublicLeadRequest(
   const slug = clip(input.slug, 80);
   const contactName = clip(input.contactName, 200);
   const addressTyped = clip(input.addressTyped, 500);
-  const phone = normalizePhone(input.phone);
-  const email = normalizeEmail(input.email);
+  const phone = normalizeLeadPhone(input.phone) ?? clip(input.phone, 40);
+  const email = normalizeLeadEmail(input.email);
 
   if (!slug || !contactName || !addressTyped || (!phone && !email)) {
     return { ok: false, reason: "validation" };
@@ -170,6 +205,7 @@ export async function submitPublicLeadRequest(
 
   const now = deps.nowMs();
   const sinceIso = new Date(now - LEAD_INTAKE_WINDOW_MS).toISOString();
+  const foldSinceIso = new Date(now - LEAD_FOLD_WINDOW_MS).toISOString();
   const ipHash = hashClientIp(input.clientIp);
 
   const [ipCount, orgCount] = await Promise.all([
@@ -204,6 +240,76 @@ export async function submitPublicLeadRequest(
       ? input.preferredContact
       : null;
 
+  const services = normalizeServices(input.services ?? []);
+  const note = clip(input.note, 5000);
+  const addressLine1 = geocode?.line1 ?? null;
+  const city = geocode?.city ?? null;
+  const region = geocode?.region ?? null;
+  const postalCode = geocode?.postalCode ?? null;
+  const country = geocode?.country ?? "US";
+
+  if (status === "new") {
+    try {
+      const open = await deps.findOpenRequestForFold(org.orgId, phone, email, foldSinceIso);
+      if (
+        open &&
+        shouldFoldIntoOpenRequest(
+          { phone, email },
+          {
+            phone: open.phone,
+            email: open.email,
+            status: open.status,
+            createdAtMs: open.createdAtMs,
+          },
+          now,
+        )
+      ) {
+        await deps.foldIntoOpenRequest(open.id, {
+          note,
+          services,
+          addressTyped,
+          addressLine1,
+          city,
+          region,
+          postalCode,
+          country,
+          geocodeScore: geocode?.score ?? null,
+          geocodeAttribution: geocode?.attribution ?? null,
+          geocodeRaw: geocode?.raw ?? null,
+        });
+        return { ok: true, status: "new", folded: true };
+      }
+    } catch {
+      return { ok: false, reason: "store" };
+    }
+  }
+
+  let accountId: string | null = null;
+  let propertyId: string | null = null;
+  if (status === "new") {
+    try {
+      const sources = await deps.findMatchSources(org.orgId, phone, email, postalCode);
+      const ranked = rankMatchCandidates(
+        {
+          phone,
+          email,
+          addressKey: normalizeAddressKey(addressLine1, city, region, postalCode),
+          lat: geocode?.lat ?? null,
+          lng: geocode?.lng ?? null,
+        },
+        sources.accounts,
+        sources.properties,
+      );
+      const auto = pickAutoLink(ranked);
+      if (auto) {
+        accountId = auto.accountId;
+        propertyId = auto.propertyId;
+      }
+    } catch {
+      return { ok: false, reason: "store" };
+    }
+  }
+
   try {
     await deps.insertLead({
       orgId: org.orgId,
@@ -214,16 +320,16 @@ export async function submitPublicLeadRequest(
       preferredContact: preferred,
       isBusiness: Boolean(input.isBusiness),
       addressTyped,
-      addressLine1: geocode?.line1 ?? null,
-      city: geocode?.city ?? null,
-      region: geocode?.region ?? null,
-      postalCode: geocode?.postalCode ?? null,
-      country: geocode?.country ?? "US",
+      addressLine1,
+      city,
+      region,
+      postalCode,
+      country,
       geocodeScore: geocode?.score ?? null,
       geocodeAttribution: geocode?.attribution ?? null,
       geocodeRaw: geocode?.raw ?? null,
-      services: normalizeServices(input.services ?? []),
-      note: clip(input.note, 5000),
+      services,
+      note,
       source: WEBSITE_FORM_SOURCE,
       sourceOther: clip(input.heardAboutOther ?? input.heardAbout, 100),
       utmSource: clip(input.utmSource, 200),
@@ -241,6 +347,8 @@ export async function submitPublicLeadRequest(
       spamScore,
       ipHash,
       assigneeId: status === "new" ? org.defaultAssigneeId : null,
+      accountId,
+      propertyId,
     });
   } catch {
     return { ok: false, reason: "store" };
