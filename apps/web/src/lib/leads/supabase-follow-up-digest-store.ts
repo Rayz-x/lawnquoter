@@ -7,8 +7,8 @@ import type { DigestOrg, FollowUpDigestStore } from "./run-follow-up-digest";
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 /**
- * Production store. Lead rows require L01 `lead_requests` (+ follow-up / activity).
- * Until that migration is on the database, listFollowUpLeads returns [].
+ * Production store. listFollowUpLeads returns [] only when `lead_requests`
+ * is missing (SQLSTATE 42P01).
  */
 export function createSupabaseFollowUpDigestStore(
   admin: AdminClient = createAdminClient(),
@@ -25,7 +25,7 @@ export function createSupabaseFollowUpDigestStore(
     },
 
     async listFollowUpLeads(orgId: string): Promise<DigestLead[]> {
-      // Untyped until L01 lands in database.types — soft failure if missing.
+      // Untyped until L01 is in database.types. Missing relation (42P01) returns [].
       const { data, error } = await (admin as unknown as {
         from: (table: string) => {
           select: (cols: string) => {
@@ -41,20 +41,12 @@ export function createSupabaseFollowUpDigestStore(
       })
         .from("lead_requests")
         .select(
-          "id, org_id, assignee_id, next_follow_up_on, last_activity_at, status, contact_name, profiles:assignee_id(email)",
+          "id, org_id, assignee_id, next_follow_up_on, status, contact_name, profiles:assignee_id(email)",
         )
         .eq("org_id", orgId);
 
       if (error) {
-        const msg = error.message.toLowerCase();
-        if (
-          error.code === "42P01" ||
-          msg.includes("does not exist") ||
-          msg.includes("could not find") ||
-          msg.includes("schema cache")
-        ) {
-          return [];
-        }
+        if (error.code === "42P01") return [];
         throw new Error(error.message);
       }
 
@@ -66,7 +58,7 @@ export function createSupabaseFollowUpDigestStore(
           assigneeId: row.assignee_id ? String(row.assignee_id) : null,
           assigneeEmail: profile?.email ?? null,
           nextFollowUpOn: row.next_follow_up_on ? String(row.next_follow_up_on).slice(0, 10) : null,
-          lastActivityAt: row.last_activity_at ? String(row.last_activity_at) : null,
+          lastActivityAt: null,
           status: String(row.status ?? "new"),
           contactName: row.contact_name ? String(row.contact_name) : null,
         };

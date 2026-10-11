@@ -1,4 +1,4 @@
-/** Lost reasons for mark-lost (L11). Stored on the activity payload; status becomes `lost`. */
+/** Lost reasons for mark-lost (L11). Status `lost` requires `lost_reason`; Other also requires `lost_note`. */
 export const LEAD_LOST_REASONS = [
   "price",
   "competitor",
