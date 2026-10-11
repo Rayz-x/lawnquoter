@@ -1,5 +1,11 @@
 -- S12 (renumbered from 20261010210700, which never applied on hosted):
--- rebuilt on top of 20261010217400's crew_apply_impl / office_attention_tray.
+-- Also reconciles functions that parallel PRs each redefined, so later
+-- migrations stopped clobbering earlier ones (three-way merged from the
+-- 20261010213300 / 20261010183000 bases):
+--   private.crew_apply        = 215600 time corrections + 215700 same-day extra
+--   private.crew_apply_impl   = 217300 skip reasons + 217400 S13 + S12 partly done
+--   public.crew_day_pack      = 215800 phone revoke + 217400 S13
+--   public.office_attention_tray = 215600 + 215700 + 215900 + 217300 + 217400 + S12
 -- billing_held already exists from 20261010214900; partly done sets
 -- billing_hold_reason = 'partly_done' to satisfy visits_billing_hold_reason_check.
 -- S12: Partly done finish with return visit (issue #92).
@@ -40,6 +46,64 @@ create trigger visits_return_of_org
   for each row execute function private.child_org_guard('visits', 'return_of_visit_id');
 
 -- Body lives on crew_apply_impl (renamed in lead-for-today). Wrapper unchanged.
+create or replace function private.crew_apply(
+  p_kind text,
+  p_visit_id uuid,
+  p_client_id uuid,
+  p_occurred_at timestamptz,
+  p_device_now timestamptz,
+  p_payload jsonb
+) returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_org uuid;
+  v_crew uuid;
+  v_route_date date;
+  v_at timestamptz;
+begin
+  if p_kind = 'enhancement_create'
+     and private.jsonb_has_money_key(coalesce(p_payload, '{}'::jsonb)) then
+    raise exception 'crew payloads cannot include money' using errcode = '22023';
+  end if;
+
+  select v.org_id, r.crew_id, r.date
+    into v_org, v_crew, v_route_date
+  from public.visits v
+  left join public.routes r
+    on r.id = v.route_id
+   and r.org_id = v.org_id
+  where v.id = p_visit_id;
+
+  v_at := least(coalesce(p_occurred_at, pg_catalog.now()), pg_catalog.now());
+  if v_org is not null then
+    perform set_config('lawnquoter.lead_at', v_at::text, true);
+    perform set_config(
+      'lawnquoter.lead_date',
+      coalesce(v_route_date, private.org_local_today(v_org))::text,
+      true
+    );
+  end if;
+
+  if p_kind = 'visit_correct_times' then
+    return private.crew_apply_correct_times(
+      p_visit_id, p_client_id, p_occurred_at, p_device_now, coalesce(p_payload, '{}'::jsonb)
+    );
+  end if;
+
+  return private.crew_apply_impl(
+    p_kind, p_visit_id, p_client_id, p_occurred_at, p_device_now, p_payload
+  );
+end;
+$$;
+
+revoke all on function private.crew_apply(text, uuid, uuid, timestamptz, timestamptz, jsonb)
+  from public, anon, authenticated;
+grant execute on function private.crew_apply(text, uuid, uuid, timestamptz, timestamptz, jsonb)
+  to service_role;
+
 create or replace function private.crew_apply_impl(
   p_kind text,
   p_visit_id uuid,
@@ -307,6 +371,7 @@ begin
     if v_reason is null then
       raise exception 'skip reason is not valid' using errcode = '22023';
     end if;
+    -- Gate/dog proof must satisfy the after-photo rule (kind=after + file).
     if v_reason in ('gate_locked'::public.visit_skip_reason, 'dog_loose'::public.visit_skip_reason)
        and not exists (
          select 1
@@ -316,13 +381,18 @@ begin
           and o.name = p.storage_path
          where p.visit_id = v_visit.id
            and p.org_id = v_visit.org_id
-           and p.kind = 'issue'::public.visit_photo_kind
+           and p.kind = 'after'::public.visit_photo_kind
        ) then
-      raise exception 'gate locked and dog loose need an issue photo' using errcode = '22023';
+      raise exception 'gate locked and dog loose need an after photo' using errcode = '22023';
+    end if;
+    v_note := nullif(btrim(coalesce(p_payload->>'note', '')), '');
+    if v_reason = 'unsafe'::public.visit_skip_reason and v_note is null then
+      raise exception 'an unsafe skip needs a note' using errcode = '22023';
     end if;
     update public.visits
     set status = 'skipped',
-        skip_reason = v_reason
+        skip_reason = v_reason,
+        crew_note = coalesce(v_note, crew_note)
     where id = v_visit.id;
     v_event := 'skipped';
   elsif p_kind = 'visit_reopen' then
@@ -527,7 +597,12 @@ begin
       v_event,
       (select auth.uid()),
       p_client_id,
-      v_event_payload,
+      case
+        when p_kind = 'visit_skip' then jsonb_strip_nulls(
+          jsonb_build_object('reason', v_reason, 'note', v_note)
+        )
+        else v_event_payload
+      end,
       v_at,
       v_skew
     );
@@ -541,6 +616,260 @@ revoke all on function private.crew_apply_impl(text, uuid, uuid, timestamptz, ti
   from public, anon, authenticated;
 grant execute on function private.crew_apply_impl(text, uuid, uuid, timestamptz, timestamptz, jsonb)
   to service_role;
+
+create or replace function public.crew_day_pack(p_date date)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_org uuid;
+  v_crew uuid;
+  v_today date;
+  v_route public.routes;
+begin
+  perform private.assert_crew_phone_session();
+
+  v_org := private.current_org_id();
+  if v_org is null or (select auth.uid()) is null then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+  if not exists (
+    select 1
+    from public.memberships m
+    where m.org_id = v_org
+      and m.user_id = (select auth.uid())
+      and m.status = 'active'
+      and m.role in ('crew'::public.org_role, 'crew_lead'::public.org_role)
+  ) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+
+  select cm.crew_id into v_crew
+  from public.crew_members cm
+  join public.crews c
+    on c.id = cm.crew_id
+   and c.org_id = cm.org_id
+  where cm.org_id = v_org
+    and cm.profile_id = (select auth.uid())
+  order by (c.default_lead_id = (select auth.uid())) desc nulls last, c.id
+  limit 1;
+
+  if v_crew is null or not private.is_crew_member(v_org, v_crew) then
+    raise exception 'not allowed' using errcode = '42501';
+  end if;
+
+  -- Org clock only. The phone date in p_date never moves this window.
+  v_today := private.org_local_today(v_org);
+  if p_date is null or p_date > v_today + 1 then
+    raise exception 'that date is outside the crew window' using errcode = '22023';
+  end if;
+  if p_date < v_today - 1 and not exists (
+    select 1
+    from public.visits v
+    join public.routes r
+      on r.id = v.route_id
+     and r.org_id = v.org_id
+    where v.org_id = v_org
+      and r.crew_id = v_crew
+      and r.date = p_date
+      and r.status <> 'draft'::public.route_status
+      and v.status in ('in_progress'::public.visit_status, 'paused'::public.visit_status)
+  ) then
+    raise exception 'that date is outside the crew window' using errcode = '22023';
+  end if;
+
+  select * into v_route
+  from public.routes r
+  where r.org_id = v_org
+    and r.crew_id = v_crew
+    and r.date = p_date
+    and r.status <> 'draft'::public.route_status;
+
+  return jsonb_build_object(
+    'date', p_date,
+    'server_today', v_today,
+    'version', coalesce(v_route.revision, 0),
+    'is_live_lead', private.is_live_crew_lead(v_org, v_crew),
+    'crew', (
+      select jsonb_build_object('id', c.id, 'name', c.name)
+      from public.crews c
+      where c.id = v_crew
+    ),
+    'office', (
+      select jsonb_build_object('name', o.name, 'phone', o.phone)
+      from public.orgs o
+      where o.id = v_org
+    ),
+    'route', case
+      when v_route.id is null then null
+      else jsonb_build_object(
+        'id', v_route.id,
+        'date', v_route.date,
+        'status', v_route.status,
+        'revision', v_route.revision
+      )
+    end,
+    'visits', coalesce((
+      select jsonb_agg(row_pack.visit order by row_pack.sort, row_pack.id)
+      from (
+        select
+          v.sort,
+          v.id,
+          jsonb_build_object(
+            'id', v.id,
+            'sort', v.sort,
+            'status', v.status,
+            'scheduled_date', v.scheduled_date,
+            'occurrence_date', v.occurrence_date,
+            'window_start', v.window_start,
+            'window_end', v.window_end,
+            'started_at', v.started_at,
+            'completed_at', v.completed_at,
+            'crew_size', v.crew_size,
+            'budget_minutes', v.budget_minutes,
+            'skip_reason', v.skip_reason,
+            'reopen_until', v.reopen_until,
+            'completed_after_cancel', v.completed_after_cancel,
+            'forgot_to_finish', v.forgot_to_finish,
+            'completed_by_crew', case
+              when v.status = 'completed'::public.visit_status then rc.name
+              else null
+            end,
+            'photo_pending', v.photo_pending,
+            'photo_lost', v.photo_lost,
+            'crew_note', v.crew_note,
+            'title', j.title,
+            'property', jsonb_build_object(
+              'id', p.id,
+              'address_line1', p.address_line1,
+              'address_line2', p.address_line2,
+              'city', p.city,
+              'region', p.region,
+              'postal_code', p.postal_code,
+              'formatted_address', p.formatted_address,
+              'last_name', (
+                select nullif(btrim(ct.last_name), '')
+                from public.contacts ct
+                where ct.account_id = a.id
+                  and ct.org_id = a.org_id
+                  and ct.is_primary
+                order by ct.created_at
+                limit 1
+              ),
+              'lat', extensions.st_y(p.location::extensions.geometry),
+              'lng', extensions.st_x(p.location::extensions.geometry),
+              'gate_code', case
+                when private.crew_gate_code_visible(
+                  v_org, v.status, vr.date, v.scheduled_date
+                ) then pa.gate_code
+                else null
+              end,
+              'access_notes', case
+                when private.crew_gate_code_visible(
+                  v_org, v.status, vr.date, v.scheduled_date
+                ) then pa.access_notes
+                else null
+              end,
+              'gate_width_in', p.gate_width_in,
+              'has_dogs', p.has_dogs,
+              'has_stairs', p.has_stairs,
+              'slope', p.slope,
+              'crew_notes', p.crew_notes,
+              'obstacle_count', p.obstacle_count
+            ),
+            'tasks', coalesce((
+              select jsonb_agg(jsonb_build_object(
+                'id', t.id,
+                'label', t.label,
+                'quantity_text', t.quantity_text,
+                'notes_crew', t.notes_crew,
+                'done_at', t.done_at,
+                'not_done_reason', t.not_done_reason,
+                'sort', t.sort
+              ) order by t.sort, t.id)
+              from public.visit_tasks t
+              where t.visit_id = v.id
+                and t.org_id = v.org_id
+            ), '[]'::jsonb),
+            'photos', coalesce((
+              select jsonb_agg(jsonb_build_object(
+                'id', ph.id,
+                'kind', ph.kind,
+                'storage_path', ph.storage_path,
+                'taken_at', ph.taken_at,
+                'client_id', ph.client_id
+              ) order by ph.taken_at, ph.id)
+              from public.visit_photos ph
+              where ph.visit_id = v.id
+                and ph.org_id = v.org_id
+            ), '[]'::jsonb),
+            'plan', coalesce((
+              select jsonb_agg(jsonb_build_object(
+                'category', f.category,
+                'label', f.label,
+                'area_sqft', f.area_sqft,
+                'length_ft', f.length_ft,
+                'geometry', extensions.st_asgeojson(
+                  extensions.st_simplify(f.geom::extensions.geometry, 0.00002)
+                )::jsonb
+              ) order by f.created_at, f.id)
+              from public.measurement_features f
+              join public.measurements m
+                on m.id = f.measurement_id
+               and m.org_id = f.org_id
+              where m.property_id = v.property_id
+                and m.org_id = v.org_id
+                and m.status = 'current'::public.measurement_status
+                and f.geom is not null
+            ), '[]'::jsonb)
+          ) as visit
+        from public.visits v
+        join public.jobs j
+          on j.id = v.job_id
+         and j.org_id = v.org_id
+        join public.properties p
+          on p.id = v.property_id
+         and p.org_id = v.org_id
+        join public.accounts a
+          on a.id = p.account_id
+         and a.org_id = p.org_id
+        left join public.routes vr
+          on vr.id = v.route_id
+         and vr.org_id = v.org_id
+        left join public.crews rc
+          on rc.id = vr.crew_id
+         and rc.org_id = vr.org_id
+        left join public.property_access pa
+          on pa.property_id = p.id
+         and pa.org_id = p.org_id
+        where v.org_id = v_org
+          and (
+            v.route_id = v_route.id
+            or (
+              p_date = v_today
+              and v.status in ('in_progress'::public.visit_status, 'paused'::public.visit_status)
+              and v.scheduled_date < v_today - 1
+              and exists (
+                select 1
+                from public.routes r
+                where r.id = v.route_id
+                  and r.org_id = v.org_id
+                  and r.crew_id = v_crew
+                  and r.status <> 'draft'::public.route_status
+              )
+            )
+          )
+      ) as row_pack
+    ), '[]'::jsonb)
+  );
+end;
+$$;
+
+revoke all on function public.crew_day_pack(date) from public, anon;
+grant execute on function public.crew_day_pack(date) to authenticated, service_role;
 
 create or replace function public.office_attention_tray(p_as_of date default null)
 returns jsonb
@@ -575,15 +904,40 @@ begin
       v.route_id,
       v.budget_minutes,
       v.completed_after_cancel,
+      v.over_budget,
+      v.clock_off,
       v.forgot_to_finish,
       coalesce(j.title, 'Visit') as title,
       a.name as account_name,
       p.address_line1,
       p.city,
+      (
+        select e.id
+        from public.enhancement_requests e
+        where e.visit_id = v.id
+          and e.org_id = v.org_id
+          and e.status = 'new'::public.enhancement_status
+        order by e.received_at asc, e.created_at asc
+        limit 1
+      ) as enhancement_id,
+      (
+        select e.same_day_approved_until
+        from public.enhancement_requests e
+        where e.visit_id = v.id
+          and e.org_id = v.org_id
+          and e.status = 'new'::public.enhancement_status
+          and e.same_day_approved_until is not null
+          and e.same_day_approved_until > pg_catalog.now()
+        order by e.received_at asc, e.created_at asc
+        limit 1
+      ) as same_day_approved_until,
+      (public.job_seasonal_warn_state(j.id, v_as_of) = 'warn') as seasonal_warn,
       case
         when v.photo_lost then 'Photo lost'
         when v.return_of_visit_id is not null then 'Return visit'
         when v.completed_after_cancel then 'Completed after cancel'
+        when v.over_budget then 'Over budget'
+        when v.clock_off then 'Clock off'
         when v.forgot_to_finish
           or (
             v.status in (
@@ -601,7 +955,13 @@ begin
             and e.org_id = v.org_id
             and e.status = 'new'::public.enhancement_status
         ) then (
-          select 'Upsell: ' || e.tag::text
+          select
+            case
+              when e.same_day_approved_until is not null
+               and e.same_day_approved_until > pg_catalog.now()
+              then 'Upsell: ' || e.tag::text || ' · Approved today'
+              else 'Upsell: ' || e.tag::text
+            end
           from public.enhancement_requests e
           where e.visit_id = v.id
             and e.org_id = v.org_id
@@ -609,11 +969,25 @@ begin
           order by e.received_at asc, e.created_at asc
           limit 1
         )
+        when v.status in (
+          'skipped'::public.visit_status,
+          'cant_complete'::public.visit_status
+        )
+          and v.skip_reason = 'unsafe'::public.visit_skip_reason
+          then 'Unsafe — urgent'
+        when v.status in (
+          'skipped'::public.visit_status,
+          'cant_complete'::public.visit_status
+        )
+          and v.skip_reason is not null
+          then initcap(replace(v.skip_reason::text, '_', ' '))
         else null
       end as reason,
       case
         when v.photo_lost
           or v.completed_after_cancel
+          or v.over_budget
+          or v.clock_off
           or v.forgot_to_finish
           or (
             v.status in (
@@ -670,7 +1044,10 @@ begin
         'address_line1', address_line1,
         'city', city,
         'budget_minutes', budget_minutes,
-        'reason', reason
+        'reason', reason,
+        'enhancement_id', enhancement_id,
+        'same_day_approved_until', same_day_approved_until,
+        'seasonal_warn', seasonal_warn
       ) as item
     from base
     where bucket is not null
@@ -680,7 +1057,10 @@ begin
       filter (where bucket = 'unassigned'), '[]'::jsonb),
     coalesce(jsonb_agg(item order by (item ->> 'scheduled_date'), item ->> 'title')
       filter (where bucket = 'overdue'), '[]'::jsonb),
-    coalesce(jsonb_agg(item order by (item ->> 'scheduled_date') nulls last, item ->> 'title')
+    coalesce(jsonb_agg(item order by
+        case when item ->> 'reason' = 'Unsafe — urgent' then 0 else 1 end,
+        (item ->> 'scheduled_date') nulls last,
+        item ->> 'title')
       filter (where bucket = 'needs_reschedule'), '[]'::jsonb),
     coalesce(jsonb_agg(item order by (item ->> 'scheduled_date') nulls last, item ->> 'title')
       filter (where bucket = 'flags'), '[]'::jsonb)
