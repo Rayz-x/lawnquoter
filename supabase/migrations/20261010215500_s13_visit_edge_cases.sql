@@ -1,11 +1,10 @@
 -- S13 (#93): mid-visit cancel finish/stop, cross-crew done message,
 -- past-midnight date stays put, forgot-to-finish 12h flag.
+-- Restacked on main tip (photo_pending/photo_lost from #163).
 
 alter table public.visits
   add column if not exists forgot_to_finish boolean not null default false;
 
--- Mid-visit cancel: crew may still read a cancelled stop they already started
--- so after photos and finish/stop can sync.
 create or replace function private.crew_can_read_visit(target_org uuid, target_visit uuid)
 returns boolean
 language sql
@@ -58,7 +57,6 @@ as $$
       )
   );
 $$;
-
 revoke all on function private.crew_can_read_visit(uuid, uuid) from public, anon;
 grant execute on function private.crew_can_read_visit(uuid, uuid) to authenticated, service_role;
 
@@ -110,7 +108,7 @@ begin
   if p_kind not in (
     'visit_start', 'visit_pause', 'visit_resume', 'visit_finish', 'visit_skip',
     'visit_stop', 'visit_reopen', 'visit_set_crew_size', 'visit_set_note', 'visit_task_set',
-    'visit_photo_record', 'enhancement_create'
+    'visit_photo_record', 'visit_flag_photo_lost', 'enhancement_create'
   ) then
     raise exception 'mutation kind is not valid' using errcode = '22023';
   end if;
@@ -167,6 +165,7 @@ begin
     return 'replayed';
   end if;
 
+  -- A phone clock set ahead must not write a future start, finish, or photo.
   v_at := least(coalesce(p_occurred_at, pg_catalog.now()), pg_catalog.now());
   v_skew := p_device_now is not null
     and abs(extract(epoch from (p_device_now - pg_catalog.now()))) > 300;
@@ -330,8 +329,7 @@ begin
         end
     where id = v_task;
   elsif p_kind = 'visit_photo_record' then
-    if (v_visit.status = 'cancelled'::public.visit_status and not v_mid_cancel)
-       or not (v_in_window or v_active or v_mid_cancel) then
+    if (v_visit.status = 'cancelled'::public.visit_status and not v_mid_cancel) then
       raise exception 'that visit cannot take a photo' using errcode = '22023';
     end if;
     begin
@@ -342,6 +340,17 @@ begin
     end;
     if v_photo_kind is null then
       raise exception 'photo kind is not valid' using errcode = '22023';
+    end if;
+    -- Offline finish may land first; after photos may arrive while photo_pending.
+    -- Mid-visit cancel also allows photos while finishing/stopping.
+    if v_visit.status = 'completed'::public.visit_status then
+      if not v_visit.photo_pending or v_photo_kind is distinct from 'after'::public.visit_photo_kind then
+        raise exception 'that visit cannot take a photo' using errcode = '22023';
+      end if;
+    elsif v_mid_cancel then
+      null;
+    elsif not (v_in_window or v_active) then
+      raise exception 'that visit cannot take a photo' using errcode = '22023';
     end if;
     v_lat := (p_payload->>'lat')::double precision;
     v_lng := (p_payload->>'lng')::double precision;
@@ -361,6 +370,14 @@ begin
       p_client_id,
       v_skew
     );
+  elsif p_kind = 'visit_flag_photo_lost' then
+    if v_visit.status is distinct from 'completed'::public.visit_status then
+      raise exception 'that visit cannot be flagged' using errcode = '22023';
+    end if;
+    update public.visits
+    set photo_lost = true,
+        photo_pending = true
+    where id = v_visit.id;
   elsif p_kind = 'enhancement_create' then
     if v_visit.status = 'cancelled'::public.visit_status or not (v_in_window or v_active) then
       raise exception 'that visit cannot take an enhancement' using errcode = '22023';
@@ -468,12 +485,6 @@ begin
 end;
 $$;
 
-revoke all on function private.crew_apply_impl(text, uuid, uuid, timestamptz, timestamptz, jsonb)
-  from public, anon, authenticated;
-grant execute on function private.crew_apply_impl(text, uuid, uuid, timestamptz, timestamptz, jsonb)
-  to service_role;
-
--- Needs attention: forgot_to_finish (and open > 12h) join the flags bucket.
 create or replace function public.office_attention_tray(p_as_of date default null)
 returns jsonb
 language plpgsql
@@ -513,6 +524,7 @@ begin
       p.address_line1,
       p.city,
       case
+        when v.photo_lost then 'Photo lost'
         when v.completed_after_cancel then 'Completed after cancel'
         when v.forgot_to_finish
           or (
@@ -542,7 +554,8 @@ begin
         else null
       end as reason,
       case
-        when v.completed_after_cancel
+        when v.photo_lost
+          or v.completed_after_cancel
           or v.forgot_to_finish
           or (
             v.status in (
@@ -631,11 +644,9 @@ begin
   );
 end;
 $$;
-
 revoke all on function public.office_attention_tray(date) from public, anon;
 grant execute on function public.office_attention_tray(date) to authenticated, service_role;
 
--- Day pack: expose forgot_to_finish and the completing crew name.
 create or replace function public.crew_day_pack(p_date date)
 returns jsonb
 language plpgsql
@@ -678,6 +689,7 @@ begin
     raise exception 'not allowed' using errcode = '42501';
   end if;
 
+  -- Org clock only. The phone date in p_date never moves this window.
   v_today := private.org_local_today(v_org);
   if p_date is null or p_date > v_today + 1 then
     raise exception 'that date is outside the crew window' using errcode = '22023';
@@ -754,6 +766,8 @@ begin
               when v.status = 'completed'::public.visit_status then rc.name
               else null
             end,
+            'photo_pending', v.photo_pending,
+            'photo_lost', v.photo_lost,
             'crew_note', v.crew_note,
             'title', j.title,
             'property', jsonb_build_object(
@@ -881,6 +895,5 @@ begin
   );
 end;
 $$;
-
 revoke all on function public.crew_day_pack(date) from public, anon;
 grant execute on function public.crew_day_pack(date) to authenticated, service_role;
