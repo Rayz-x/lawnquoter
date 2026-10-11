@@ -61,6 +61,39 @@ export async function convertAcceptedQuote(
   return { ok: true, data: { agreementId: body.data.agreement_id, jobId: body.data.job_id } };
 }
 
+export async function holdAgreementVisits(input: {
+  agreementId: string;
+  startDate: string;
+  endDate: string;
+  note?: string;
+}): Promise<ActionResult<{ holdId: string }>> {
+  await requireOrg();
+  const parsed = z
+    .object({
+      agreementId: idSchema,
+      startDate: dateSchema,
+      endDate: dateSchema,
+      note: z.string().trim().max(500).optional(),
+    })
+    .superRefine((value, ctx) => {
+      if (value.endDate < value.startDate) {
+        ctx.addIssue({ code: "custom", message: "Hold end must be on or after the start" });
+      }
+    })
+    .safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid hold");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("hold_agreement_visits", {
+    p_agreement_id: parsed.data.agreementId,
+    p_start_date: parsed.data.startDate,
+    p_end_date: parsed.data.endDate,
+    ...(parsed.data.note ? { p_note: parsed.data.note } : {}),
+  });
+  if (error || data == null) return fail(error?.message ?? "Could not hold visits");
+  return { ok: true, data: { holdId: data } };
+}
+
 export async function updateAgreementSchedule(input: {
   agreementId: string;
   kind: "one_time" | "recurring";

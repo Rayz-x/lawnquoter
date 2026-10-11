@@ -79,6 +79,7 @@ select is(
     'enhancement_same_day_is_active',
     'ensure_account_statement_link',
     'generate_agreement_visits',
+    'hold_agreement_visits',
     'hold_visit_for_billing',
     'invoice_balance_cents',
     'invoice_public',

@@ -425,6 +425,54 @@ export type Database = {
           },
         ]
       }
+      agreement_holds: {
+        Row: {
+          agreement_id: string
+          created_at: string
+          end_date: string
+          id: string
+          note: string | null
+          org_id: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          agreement_id: string
+          created_at?: string
+          end_date: string
+          id?: string
+          note?: string | null
+          org_id: string
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          agreement_id?: string
+          created_at?: string
+          end_date?: string
+          id?: string
+          note?: string | null
+          org_id?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreement_holds_agreement_id_fkey"
+            columns: ["agreement_id"]
+            isOneToOne: false
+            referencedRelation: "agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agreement_holds_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agreements: {
         Row: {
           account_id: string
@@ -4449,6 +4497,15 @@ export type Database = {
       generate_agreement_visits: {
         Args: { p_agreement_id: string; p_through: string }
         Returns: number
+      }
+      hold_agreement_visits: {
+        Args: {
+          p_agreement_id: string
+          p_end_date: string
+          p_note?: string
+          p_start_date: string
+        }
+        Returns: string
       }
       hold_visit_for_billing: {
         Args: {
