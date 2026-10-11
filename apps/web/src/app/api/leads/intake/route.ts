@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { geocodeForLeadIntake } from "@/lib/leads/intake-geocode";
-import { createLeadIntakeStore } from "@/lib/leads/intake-store";
+import { createLeadIntakeStore, createNotifyNewLead } from "@/lib/leads/intake-store";
 import {
   LEAD_INTAKE_MAX_BODY_BYTES,
   submitPublicLeadRequest,
@@ -107,7 +107,8 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = parseBody(json);
   if (!parsed) return NextResponse.json(GENERIC_FAIL, { status: 400 });
 
-  const store = createLeadIntakeStore(createAdminClient());
+  const admin = createAdminClient();
+  const store = createLeadIntakeStore(admin);
   const result = await submitPublicLeadRequest(
     {
       ...parsed,
@@ -124,6 +125,7 @@ export async function POST(request: Request): Promise<Response> {
       listOpenLeadsForFold: store.listOpenLeadsForFold,
       listMatchCandidates: store.listMatchCandidates,
       foldIntoLead: store.foldIntoLead,
+      notifyNewLead: createNotifyNewLead(admin),
       nowMs: () => Date.now(),
     },
   );

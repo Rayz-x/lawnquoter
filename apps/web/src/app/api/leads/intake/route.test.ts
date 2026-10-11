@@ -26,6 +26,7 @@ vi.mock("@/lib/leads/intake-store", () => ({
     countRecentByOrg: vi.fn(),
     insertLead: vi.fn(),
   }),
+  createNotifyNewLead: () => vi.fn(),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createAdminClient: () => ({}),
