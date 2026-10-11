@@ -30,6 +30,15 @@ const followUpSchema = z.object({
   nextFollowUpOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
+const linkMatchSchema = z.object({
+  accountId: z.string().uuid(),
+  propertyId: z.string().uuid().nullable().optional(),
+});
+
+const dismissMatchSchema = z.object({
+  accountId: z.string().uuid(),
+});
+
 async function requireLeadEditor() {
   const session = await requireOrg();
   if (!canEditLeads(session.orgRole)) return null;
@@ -176,6 +185,103 @@ export async function setLeadFollowUp(leadId: string, fd: FormData): Promise<Act
     kind: activity.kind,
     summary: activity.summary,
     meta: activity.meta,
+    actor_id: session.userId,
+  })) as { data: unknown; error: { message: string } | null };
+  if (activityError) return fail(activityError.message);
+
+  revalidateLead(leadId);
+  return { ok: true };
+}
+
+/** Attach an existing account (and optional property). Never merges accounts. */
+export async function linkLeadMatch(
+  leadId: string,
+  accountId: string,
+  propertyId: string | null,
+): Promise<ActionResult> {
+  const session = await requireLeadEditor();
+  if (!session) return fail("You don't have permission to update leads.");
+  const parsed = linkMatchSchema.safeParse({ accountId, propertyId: propertyId ?? null });
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid match");
+
+  const supabase = await createClient();
+  const db = leadsClient(supabase);
+
+  const { data: account, error: accountError } = await supabase
+    .from("accounts")
+    .select("id, name")
+    .eq("id", parsed.data.accountId)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (accountError) return fail(accountError.message);
+  if (!account) return fail("Account not found.");
+
+  if (parsed.data.propertyId) {
+    const { data: property, error: propertyError } = await supabase
+      .from("properties")
+      .select("id")
+      .eq("id", parsed.data.propertyId)
+      .eq("org_id", session.orgId)
+      .eq("account_id", parsed.data.accountId)
+      .maybeSingle();
+    if (propertyError) return fail(propertyError.message);
+    if (!property) return fail("Property not found on that account.");
+  }
+
+  const { data: updated, error: updateError } = (await db
+    .from("lead_requests")
+    .update({
+      account_id: parsed.data.accountId,
+      property_id: parsed.data.propertyId ?? null,
+    })
+    .eq("id", leadId)
+    .eq("org_id", session.orgId)
+    .select("id")) as { data: { id: string }[] | null; error: { message: string } | null };
+  if (updateError) return fail(updateError.message);
+  if (!updated?.length) return fail("Could not link account.");
+
+  const accountName = (account as { name: string | null }).name?.trim() || "Account";
+  const { error: activityError } = (await db.from("lead_activities").insert({
+    org_id: session.orgId,
+    lead_request_id: leadId,
+    kind: "match_linked",
+    summary: `Linked to ${accountName}`,
+    meta: {
+      account_id: parsed.data.accountId,
+      property_id: parsed.data.propertyId ?? null,
+    },
+    actor_id: session.userId,
+  })) as { data: unknown; error: { message: string } | null };
+  if (activityError) return fail(activityError.message);
+
+  revalidateLead(leadId);
+  return { ok: true };
+}
+
+/** Keep lead unlinked (Create new) — records dismissal; does not merge. */
+export async function dismissLeadMatch(leadId: string, accountId: string): Promise<ActionResult> {
+  const session = await requireLeadEditor();
+  if (!session) return fail("You don't have permission to update leads.");
+  const parsed = dismissMatchSchema.safeParse({ accountId });
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid account");
+
+  const supabase = await createClient();
+  const db = leadsClient(supabase);
+  const { data: lead, error: loadError } = await db
+    .from("lead_requests")
+    .select("id")
+    .eq("id", leadId)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (loadError) return fail(loadError.message);
+  if (!lead) return fail("Lead not found.");
+
+  const { error: activityError } = (await db.from("lead_activities").insert({
+    org_id: session.orgId,
+    lead_request_id: leadId,
+    kind: "match_dismissed",
+    summary: "Kept lead as new (did not link possible match)",
+    meta: { account_id: parsed.data.accountId },
     actor_id: session.userId,
   })) as { data: unknown; error: { message: string } | null };
   if (activityError) return fail(activityError.message);

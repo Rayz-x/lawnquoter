@@ -1,5 +1,14 @@
 import { createHash } from "node:crypto";
+import {
+  findRepeatFoldLead,
+  LEAD_REPEAT_FOLD_WINDOW_MS,
+  pickExactPropertyLink,
+  rankMatchCandidates,
+  type MatchCandidateInput,
+  type OpenLeadForFold,
+} from "./dedupe";
 import { WEBSITE_FORM_SOURCE } from "./lead-source";
+import { normalizeEmail, normalizePhoneE164 } from "./normalize-contact";
 
 export const LEAD_INTAKE_MAX_BODY_BYTES = 32_768;
 export const LEAD_INTAKE_MIN_FILL_MS = 3_000;
@@ -62,6 +71,9 @@ export type LeadIntakeInsert = {
   spamScore: number;
   ipHash: string;
   assigneeId: string | null;
+  /** Exact property auto-link only — never auto-merge accounts. */
+  accountId: string | null;
+  propertyId: string | null;
 };
 
 export type LeadIntakeInput = {
@@ -98,6 +110,22 @@ export type LeadIntakeDeps = {
   countRecentByIpHash: (orgId: string, ipHash: string, sinceIso: string) => Promise<number>;
   countRecentByOrg: (orgId: string, sinceIso: string) => Promise<number>;
   insertLead: (row: LeadIntakeInsert) => Promise<{ id: string }>;
+  listOpenLeadsForFold: (orgId: string, sinceIso: string) => Promise<OpenLeadForFold[]>;
+  listMatchCandidates: (orgId: string, probe: {
+    phone: string | null;
+    email: string | null;
+    addressLine1: string | null;
+    postalCode: string | null;
+    lat: number | null;
+    lng: number | null;
+  }) => Promise<MatchCandidateInput[]>;
+  foldIntoLead: (args: {
+    leadId: string;
+    orgId: string;
+    note: string | null;
+    services: string[];
+    addressTyped: string;
+  }) => Promise<{ id: string }>;
   nowMs: () => number;
 };
 
@@ -117,24 +145,6 @@ function clip(value: string | null | undefined, max: number): string | null {
   return trimmed.slice(0, max);
 }
 
-function normalizeEmail(raw: string | null): string | null {
-  const email = clip(raw, 320);
-  if (!email) return null;
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
-  return email.toLowerCase();
-}
-
-function normalizePhone(raw: string | null): string | null {
-  if (raw == null) return null;
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const digits = trimmed.replace(/\D/g, "");
-  if (trimmed.startsWith("+") && digits.length >= 8 && digits.length <= 15) return `+${digits}`;
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
-  return clip(trimmed, 40);
-}
-
 function normalizeServices(services: string[]): string[] {
   const out: string[] = [];
   for (const item of services) {
@@ -152,7 +162,7 @@ export async function submitPublicLeadRequest(
   const slug = clip(input.slug, 80);
   const contactName = clip(input.contactName, 200);
   const addressTyped = clip(input.addressTyped, 500);
-  const phone = normalizePhone(input.phone);
+  const phone = normalizePhoneE164(input.phone);
   const email = normalizeEmail(input.email);
 
   if (!slug || !contactName || !addressTyped || (!phone && !email)) {
@@ -197,6 +207,60 @@ export async function submitPublicLeadRequest(
     geocode = await deps.geocode(addressTyped);
   }
 
+  const services = normalizeServices(input.services ?? []);
+  const note = clip(input.note, 5000);
+
+  if (status === "new") {
+    const foldSinceIso = new Date(now - LEAD_REPEAT_FOLD_WINDOW_MS).toISOString();
+    const openLeads = await deps.listOpenLeadsForFold(org.orgId, foldSinceIso);
+    const fold = findRepeatFoldLead({ phone, email }, openLeads, { nowMs: now });
+    if (fold) {
+      try {
+        await deps.foldIntoLead({
+          leadId: fold.id,
+          orgId: org.orgId,
+          note,
+          services,
+          addressTyped,
+        });
+      } catch {
+        return { ok: false, reason: "store" };
+      }
+      return { ok: true, status: "new" };
+    }
+  }
+
+  let accountId: string | null = null;
+  let propertyId: string | null = null;
+  if (status === "new") {
+    const candidates = await deps.listMatchCandidates(org.orgId, {
+      phone,
+      email,
+      addressLine1: geocode?.line1 ?? null,
+      postalCode: geocode?.postalCode ?? null,
+      lat: geocode?.lat ?? null,
+      lng: geocode?.lng ?? null,
+    });
+    const ranked = rankMatchCandidates(
+      {
+        phone,
+        email,
+        addressTyped,
+        addressLine1: geocode?.line1 ?? null,
+        city: geocode?.city ?? null,
+        postalCode: geocode?.postalCode ?? null,
+        lat: geocode?.lat ?? null,
+        lng: geocode?.lng ?? null,
+      },
+      candidates,
+    );
+    const exact = pickExactPropertyLink(ranked);
+    if (exact?.propertyId) {
+      accountId = exact.accountId;
+      propertyId = exact.propertyId;
+    }
+  }
+
   const preferred =
     input.preferredContact === "phone" ||
     input.preferredContact === "email" ||
@@ -222,8 +286,8 @@ export async function submitPublicLeadRequest(
       geocodeScore: geocode?.score ?? null,
       geocodeAttribution: geocode?.attribution ?? null,
       geocodeRaw: geocode?.raw ?? null,
-      services: normalizeServices(input.services ?? []),
-      note: clip(input.note, 5000),
+      services,
+      note,
       source: WEBSITE_FORM_SOURCE,
       sourceOther: clip(input.heardAboutOther ?? input.heardAbout, 100),
       utmSource: clip(input.utmSource, 200),
@@ -241,6 +305,8 @@ export async function submitPublicLeadRequest(
       spamScore,
       ipHash,
       assigneeId: status === "new" ? org.defaultAssigneeId : null,
+      accountId,
+      propertyId,
     });
   } catch {
     return { ok: false, reason: "store" };

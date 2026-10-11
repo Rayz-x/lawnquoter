@@ -58,6 +58,9 @@ function makeDeps(overrides: Partial<LeadIntakeDeps> = {}): LeadIntakeDeps {
       raw: { ok: true },
     })),
     insertLead: vi.fn(async () => ({ id: "lead-1" })),
+    listOpenLeadsForFold: vi.fn(async () => []),
+    listMatchCandidates: vi.fn(async () => []),
+    foldIntoLead: vi.fn(async ({ leadId }) => ({ id: leadId })),
     verifyTurnstile: vi.fn(async () => true),
     nowMs: () => Date.now(),
     ...overrides,
@@ -114,5 +117,57 @@ describe("submitPublicLeadRequest", () => {
     expect(result).toEqual({ ok: true, status: "new" });
     expect(vi.mocked(deps.geocode)).toHaveBeenCalledOnce();
     expect(vi.mocked(deps.insertLead)).toHaveBeenCalledOnce();
+  });
+
+  it("matches the same phone in a different format to an exact property", async () => {
+    const deps = makeDeps({
+      listMatchCandidates: vi.fn(async () => [
+        {
+          accountId: "acct-1",
+          accountName: "Jane Doe",
+          propertyId: "prop-1",
+          addressLine1: "123 Main St",
+          city: "Austin",
+          postalCode: "78701",
+          formattedAddress: "123 Main St, Austin, TX 78701",
+          accountPhone: "+15125551212",
+          accountEmail: null,
+          distanceM: null,
+        },
+      ]),
+    });
+
+    const result = await submitPublicLeadRequest(baseInput({ phone: "(512) 555-1212" }), deps);
+
+    expect(result).toEqual({ ok: true, status: "new" });
+    expect(vi.mocked(deps.insertLead).mock.calls[0]?.[0]).toMatchObject({
+      phone: "+15125551212",
+      accountId: "acct-1",
+      propertyId: "prop-1",
+    });
+  });
+
+  it("folds a duplicate submit within the window into one open request", async () => {
+    const now = Date.parse("2026-10-11T12:00:00.000Z");
+    const deps = makeDeps({
+      nowMs: () => now,
+      listOpenLeadsForFold: vi.fn(async () => [
+        {
+          id: "lead-open",
+          phone: "+15125551212",
+          email: null,
+          status: "new",
+          createdAtMs: now - 30_000,
+        },
+      ]),
+    });
+
+    const result = await submitPublicLeadRequest(baseInput({ phone: "512-555-1212" }), deps);
+
+    expect(result).toEqual({ ok: true, status: "new" });
+    expect(vi.mocked(deps.foldIntoLead)).toHaveBeenCalledWith(
+      expect.objectContaining({ leadId: "lead-open", orgId: "org-1" }),
+    );
+    expect(vi.mocked(deps.insertLead)).not.toHaveBeenCalled();
   });
 });

@@ -13,9 +13,11 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { ConvertLeadButton } from "@/components/leads/convert-lead-button";
+import { PossibleMatchBanner } from "@/components/leads/possible-match-banner";
+import type { PossibleMatchView } from "@/lib/leads/dedupe";
 import type { ContactChannel, LeadActivity, LeadRequest } from "@/lib/leads/detail";
 import { leadAddressLine, leadDisplayName } from "@/lib/leads/detail";
-import { logLeadContact, reassignLead, setLeadFollowUp } from "./actions";
+import { dismissLeadMatch, linkLeadMatch, logLeadContact, reassignLead, setLeadFollowUp } from "./actions";
 
 export type LeadDetailPerson = { id: string; name: string };
 
@@ -25,6 +27,7 @@ export type LeadDetailView = {
   assigneeName: string | null;
   people: LeadDetailPerson[];
   canEdit: boolean;
+  possibleMatches?: PossibleMatchView[];
 };
 
 const CHANNELS: { value: ContactChannel; label: string }[] = [
@@ -37,7 +40,14 @@ function statusLabel(status: string) {
   return status.replaceAll("_", " ");
 }
 
-export function LeadDetail({ lead, activities, assigneeName, people, canEdit }: LeadDetailView) {
+export function LeadDetail({
+  lead,
+  activities,
+  assigneeName,
+  people,
+  canEdit,
+  possibleMatches = [],
+}: LeadDetailView) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [channel, setChannel] = useState<ContactChannel>("call");
@@ -46,6 +56,13 @@ export function LeadDetail({ lead, activities, assigneeName, people, canEdit }: 
   const [followUp, setFollowUp] = useState(lead.next_follow_up_on ?? "");
   const title = leadDisplayName(lead);
   const address = leadAddressLine(lead);
+  const dismissedAccountIds = new Set(
+    activities
+      .filter((activity) => activity.kind === "match_dismissed")
+      .map((activity) => String(activity.meta?.account_id ?? ""))
+      .filter(Boolean),
+  );
+  const bannerMatches = possibleMatches.filter((match) => !dismissedAccountIds.has(match.accountId));
 
   const run = (work: () => Promise<{ ok: true } | { ok: false; error: string }>, success: string) => {
     startTransition(async () => {
@@ -84,6 +101,16 @@ export function LeadDetail({ lead, activities, assigneeName, people, canEdit }: 
           { label: "Next follow-up", value: lead.next_follow_up_on ?? "—" },
         ]}
       />
+
+      {!lead.account_id && bannerMatches.length ? (
+        <PossibleMatchBanner
+          leadId={lead.id}
+          matches={bannerMatches}
+          canEdit={canEdit}
+          linkMatch={linkLeadMatch}
+          dismissMatch={dismissLeadMatch}
+        />
+      ) : null}
 
       {canEdit ? (
         <div className="flex flex-wrap items-center gap-3" data-testid="lead-convert-row">
