@@ -77,7 +77,7 @@ begin
   if p_kind not in (
     'visit_start', 'visit_pause', 'visit_resume', 'visit_finish', 'visit_skip',
     'visit_reopen', 'visit_set_crew_size', 'visit_set_note', 'visit_task_set',
-    'visit_photo_record', 'enhancement_create'
+    'visit_photo_record', 'visit_flag_photo_lost', 'enhancement_create'
   ) then
     raise exception 'mutation kind is not valid' using errcode = '22023';
   end if;
@@ -269,7 +269,7 @@ begin
         end
     where id = v_task;
   elsif p_kind = 'visit_photo_record' then
-    if v_visit.status = 'cancelled'::public.visit_status or not (v_in_window or v_active) then
+    if v_visit.status = 'cancelled'::public.visit_status then
       raise exception 'that visit cannot take a photo' using errcode = '22023';
     end if;
     begin
@@ -280,6 +280,14 @@ begin
     end;
     if v_photo_kind is null then
       raise exception 'photo kind is not valid' using errcode = '22023';
+    end if;
+    -- Offline finish may land first; after photos may arrive while photo_pending.
+    if v_visit.status = 'completed'::public.visit_status then
+      if not v_visit.photo_pending or v_photo_kind is distinct from 'after'::public.visit_photo_kind then
+        raise exception 'that visit cannot take a photo' using errcode = '22023';
+      end if;
+    elsif not (v_in_window or v_active) then
+      raise exception 'that visit cannot take a photo' using errcode = '22023';
     end if;
     v_lat := (p_payload->>'lat')::double precision;
     v_lng := (p_payload->>'lng')::double precision;
@@ -299,6 +307,14 @@ begin
       p_client_id,
       v_skew
     );
+  elsif p_kind = 'visit_flag_photo_lost' then
+    if v_visit.status is distinct from 'completed'::public.visit_status then
+      raise exception 'that visit cannot be flagged' using errcode = '22023';
+    end if;
+    update public.visits
+    set photo_lost = true,
+        photo_pending = true
+    where id = v_visit.id;
   elsif p_kind = 'enhancement_create' then
     if v_visit.status = 'cancelled'::public.visit_status or not (v_in_window or v_active) then
       raise exception 'that visit cannot take an enhancement' using errcode = '22023';
@@ -446,6 +462,7 @@ begin
       p.address_line1,
       p.city,
       case
+        when v.photo_lost then 'Photo lost'
         when v.completed_after_cancel then 'Completed after cancel'
         when exists (
           select 1
@@ -477,7 +494,8 @@ begin
         else null
       end as reason,
       case
-        when v.completed_after_cancel
+        when v.photo_lost
+          or v.completed_after_cancel
           or exists (
             select 1
             from public.enhancement_requests e
