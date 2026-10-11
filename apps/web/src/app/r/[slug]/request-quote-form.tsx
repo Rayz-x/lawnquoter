@@ -23,8 +23,6 @@ export type RequestQuoteFormProps = {
   turnstileSiteKey: string | null;
 };
 
-type Suggest = { label: string };
-
 export function RequestQuoteForm({
   slug,
   orgName,
@@ -40,7 +38,6 @@ export function RequestQuoteForm({
 
   const [contactName, setContactName] = useState("");
   const [addressTyped, setAddressTyped] = useState("");
-  const [suggestions, setSuggestions] = useState<Suggest[]>([]);
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -85,26 +82,6 @@ export function RequestQuoteForm({
     script.onload = mount;
     document.head.appendChild(script);
   }, [turnstileSiteKey]);
-
-  useEffect(() => {
-    const query = addressTyped.trim();
-    if (query.length < 3) return;
-    let current = true;
-    const handle = window.setTimeout(() => {
-      void fetch(`/api/public/address-suggest?q=${encodeURIComponent(query)}`)
-        .then((res) => res.json())
-        .then((json: { suggestions?: Suggest[] }) => {
-          if (current) setSuggestions(json.suggestions ?? []);
-        })
-        .catch(() => {
-          if (current) setSuggestions([]);
-        });
-    }, 250);
-    return () => {
-      current = false;
-      window.clearTimeout(handle);
-    };
-  }, [addressTyped]);
 
   function toggleService(service: string) {
     setSelectedServices((prev) =>
@@ -173,38 +150,17 @@ export function RequestQuoteForm({
         <Input
           id="address"
           name="address"
-          role="combobox"
-          aria-autocomplete="list"
-          aria-expanded={suggestions.length > 0}
           autoComplete="street-address"
           value={addressTyped}
-          placeholder="Start typing an address"
+          placeholder="Street, city, ZIP"
           className="h-12"
           required
           onChange={(event) => {
             markFormStarted();
             const next = event.target.value;
             setAddressTyped(next);
-            if (next.trim().length < 3) setSuggestions([]);
           }}
         />
-        <div role="listbox" aria-label="Address suggestions" hidden={suggestions.length === 0}>
-          {suggestions.map((item) => (
-            <Button
-              key={item.label}
-              type="button"
-              role="option"
-              variant="ghost"
-              className="min-h-11 w-full justify-start"
-              onClick={() => {
-                setAddressTyped(item.label);
-                setSuggestions([]);
-              }}
-            >
-              {item.label}
-            </Button>
-          ))}
-        </div>
       </Field>
 
       <Field>
