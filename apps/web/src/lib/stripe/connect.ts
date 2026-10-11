@@ -42,7 +42,11 @@ export async function startConnectOnboarding(deps: {
     const account = await deps.stripe.accounts.create(
       {
         type: "express",
-        capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+          us_bank_account_ach_payments: { requested: true },
+        },
       },
       { idempotencyKey: connectIdempotencyKey(deps.orgId) },
     );

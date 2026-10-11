@@ -80,9 +80,15 @@ describe("startStripeConnect", () => {
       ok: true,
       data: { url: "https://connect.stripe.com/setup/e/acct_1" },
     });
-    expect(harness.accountsCreate).toHaveBeenCalledWith(expect.anything(), {
-      idempotencyKey: `lawnquoter_connect_${ORG}`,
-    });
+    expect(harness.accountsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        capabilities: expect.objectContaining({
+          card_payments: { requested: true },
+          us_bank_account_ach_payments: { requested: true },
+        }),
+      }),
+      { idempotencyKey: `lawnquoter_connect_${ORG}` },
+    );
     expect(harness.adminFrom).toHaveBeenCalledWith("org_stripe_connect");
     expect(harness.upsert).toHaveBeenCalledWith(
       {
