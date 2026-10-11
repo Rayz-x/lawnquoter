@@ -12,3 +12,4 @@ export { priceCatalog } from "./rules/catalog";
 export { priceProgram } from "./rules/program";
 export { priceSnow } from "./rules/snow";
 export { priceIrrigation } from "./rules/irrigation";
+export * from "./catalog/seed";
