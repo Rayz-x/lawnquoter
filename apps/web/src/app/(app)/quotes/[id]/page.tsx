@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { mergeModifiers } from "@lawnquoter/pricing-engine";
-import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
+import { ADMIN_ROLES, SALES_ROLES, hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { QUOTE_CONVERT_ROLES } from "@/lib/auth/office-roles";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -203,8 +203,11 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const quantities = measurementQuantities(features, propertyPricing.lotSqft);
   const turf = (quantities.turf_front_sqft ?? 0) + (quantities.turf_back_sqft ?? 0);
   const basis = turf > 0 ? `Priced from ${Math.round(turf).toLocaleString("en-US")} sq ft` : "Priced from this property";
-  const editable = quote.status === "draft" || quote.status === "changed";
-  const canRevise = quote.status === "sent" || quote.status === "viewed" || quote.status === "declined" || quote.status === "expired";
+  const canEditQuote = hasRole(session.orgRole, SALES_ROLES);
+  const editable = canEditQuote && (quote.status === "draft" || quote.status === "changed");
+  const canRevise =
+    canEditQuote &&
+    (quote.status === "sent" || quote.status === "viewed" || quote.status === "declined" || quote.status === "expired");
   const linkedLead =
     quote.status === "declined" || quote.status === "expired"
       ? await findLeadForQuote(supabase, { orgId: session.orgId, quoteId: quote.id })
@@ -217,7 +220,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
         description={`${quote.accounts?.name ?? ""}${quote.properties?.formatted_address ? ` · ${quote.properties.formatted_address}` : ""}`}
         actions={
           <>
-            <SendQuoteButton quoteId={quote.id} status={quote.status} />
+            {canEditQuote ? <SendQuoteButton quoteId={quote.id} status={quote.status} /> : null}
             {convertedAgreement ? (
               <Button variant="outline" render={<Link href={`/agreements/${convertedAgreement.id}`} />}>
                 View agreement

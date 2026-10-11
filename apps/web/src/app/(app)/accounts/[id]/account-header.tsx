@@ -44,7 +44,15 @@ function ContactValue({ href, value, label }: { href: string; value: string; lab
   );
 }
 
-export function AccountHeader({ account, primaryName }: { account: Tables<"accounts">; primaryName: string | null }) {
+export function AccountHeader({
+  account,
+  primaryName,
+  canEdit = true,
+}: {
+  account: Tables<"accounts">;
+  primaryName: string | null;
+  canEdit?: boolean;
+}) {
   const router = useRouter();
   const contactName =
     primaryName && primaryName.trim().toLowerCase() !== account.name.trim().toLowerCase() ? primaryName : null;
@@ -56,24 +64,26 @@ export function AccountHeader({ account, primaryName }: { account: Tables<"accou
     });
   };
 
-  const items: SectionMenuItem[] = accountStatusMenuItems(account.status).map((item) => {
-    if (item.id === "export") return { ...item, onSelect: () => exportAccount(account) };
-    if (item.id === "archive") {
-      return {
-        ...item,
-        onSelect: () => {
-          void archiveAccount(account.id).then((result) => {
-            if (result.ok) router.refresh();
-            else toast.error(result.error);
-          });
-        },
-      };
-    }
-    if (item.id === "activate" || item.id === "unarchive") {
-      return { ...item, onSelect: () => changeStatus("active") };
-    }
-    return { ...item, onSelect: () => changeStatus("lead") };
-  });
+  const items: SectionMenuItem[] = accountStatusMenuItems(account.status)
+    .filter((item) => canEdit || item.id === "export")
+    .map((item) => {
+      if (item.id === "export") return { ...item, onSelect: () => exportAccount(account) };
+      if (item.id === "archive") {
+        return {
+          ...item,
+          onSelect: () => {
+            void archiveAccount(account.id).then((result) => {
+              if (result.ok) router.refresh();
+              else toast.error(result.error);
+            });
+          },
+        };
+      }
+      if (item.id === "activate" || item.id === "unarchive") {
+        return { ...item, onSelect: () => changeStatus("active") };
+      }
+      return { ...item, onSelect: () => changeStatus("lead") };
+    });
 
   return (
     <header className="flex flex-col gap-3">
@@ -90,19 +100,25 @@ export function AccountHeader({ account, primaryName }: { account: Tables<"accou
         </div>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
-        <Button className="hidden min-h-11 lg:inline-flex" render={<Link href={`/quotes/new?account=${account.id}`} />}>
-          New quote
-        </Button>
-        <Button variant="outline" className="min-h-11 lg:min-h-9" render={<Link href={`/accounts/${account.id}?tab=properties#quick-property`} />}>
-          Add property
-        </Button>
+        {canEdit ? (
+          <>
+            <Button className="hidden min-h-11 lg:inline-flex" render={<Link href={`/quotes/new?account=${account.id}`} />}>
+              New quote
+            </Button>
+            <Button variant="outline" className="min-h-11 lg:min-h-9" render={<Link href={`/accounts/${account.id}?tab=properties#quick-property`} />}>
+              Add property
+            </Button>
+          </>
+        ) : null}
         <SectionMenu label="Account actions" items={items} />
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
-        <Button className="h-12 w-full" render={<Link href={`/quotes/new?account=${account.id}`} />}>
-          New quote
-        </Button>
-      </div>
+      {canEdit ? (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+          <Button className="h-12 w-full" render={<Link href={`/quotes/new?account=${account.id}`} />}>
+            New quote
+          </Button>
+        </div>
+      ) : null}
     </header>
   );
 }

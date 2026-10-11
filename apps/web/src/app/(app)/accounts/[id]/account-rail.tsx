@@ -35,29 +35,42 @@ function termsChoice(days: number): "0" | "15" | "30" | "custom" {
   return "custom";
 }
 
+function termsLabel(days: number) {
+  if (days === 0) return "Due";
+  if (days === 15) return "Net 15";
+  if (days === 30) return "Net 30";
+  return `Net ${days}`;
+}
+
 export function AccountRail({
   account,
   parents,
   ownerName,
   firstProperty = null,
+  canEdit = true,
 }: {
   account: Tables<"accounts">;
   parents: { id: string; name: string }[];
   ownerName: string;
   firstProperty?: PropertyAddress | null;
+  canEdit?: boolean;
 }) {
   const [billingOpen, setBillingOpen] = useState(shouldOpenBillingDetails(account));
   return (
     <div className="flex flex-col gap-4">
-      {billingOpen ? (
-        <BillingCard account={account} parents={parents} firstProperty={firstProperty} />
+      {!canEdit ? (
+        shouldOpenBillingDetails(account) ? (
+          <BillingCard account={account} parents={parents} firstProperty={firstProperty} canEdit={false} />
+        ) : null
+      ) : billingOpen ? (
+        <BillingCard account={account} parents={parents} firstProperty={firstProperty} canEdit />
       ) : (
         <Button type="button" variant="ghost" className="min-h-11 justify-start" onClick={() => setBillingOpen(true)}>
           {BILLING_DETAILS_LABEL}
         </Button>
       )}
-      <SalesCard account={account} ownerName={ownerName} />
-      <NotesCard account={account} />
+      <SalesCard account={account} ownerName={ownerName} canEdit={canEdit} />
+      <NotesCard account={account} canEdit={canEdit} />
     </div>
   );
 }
@@ -66,10 +79,12 @@ function BillingCard({
   account,
   parents,
   firstProperty,
+  canEdit,
 }: {
   account: Tables<"accounts">;
   parents: { id: string; name: string }[];
   firstProperty: PropertyAddress | null;
+  canEdit: boolean;
 }) {
   const router = useRouter();
   const initial = useMemo<BillingDraft>(() => {
@@ -126,6 +141,36 @@ function BillingCard({
       billing_postal_code: draft.billing_postal_code,
     });
   };
+
+  const parentName = parents.find((parent) => parent.id === draft.parent_account_id)?.name;
+  const addressLine = [
+    draft.billing_address_line1,
+    draft.billing_address_line2,
+    [draft.billing_city, draft.billing_region, draft.billing_postal_code].filter(Boolean).join(", "),
+  ]
+    .filter((part) => part.trim())
+    .join(" · ");
+
+  if (!canEdit) {
+    if (!shouldOpenBillingDetails(account) && !draft.company_name && !draft.billing_email) return null;
+    return (
+      <SectionCard
+        title="Billing & terms"
+        heading="h3"
+        mode="view"
+        facts={[
+          { label: "Company", value: draft.company_name || "—" },
+          { label: "Billing email", value: draft.billing_email || "—" },
+          { label: "Billing address", value: addressLine || "—" },
+          { label: "Terms", value: termsLabel(draft.net_terms_days) },
+          { label: "PO required", value: draft.po_required ? "Yes" : "No" },
+          { label: "Tax exempt", value: draft.tax_exempt ? "Yes" : "No" },
+          { label: "Consolidated invoicing", value: draft.consolidated_invoicing ? "Yes" : "No" },
+          ...(account.type === "commercial" ? [{ label: "Parent account", value: parentName || "No parent" }] : []),
+        ]}
+      />
+    );
+  }
 
   return (
     <SectionCard title="Billing & terms" heading="h3" status={status} error={emailError ?? termsError ?? error} onRetry={emailError || termsError ? undefined : retry}>
@@ -287,7 +332,7 @@ function BillingCard({
   );
 }
 
-function SalesCard({ account, ownerName }: { account: Tables<"accounts">; ownerName: string }) {
+function SalesCard({ account, ownerName, canEdit }: { account: Tables<"accounts">; ownerName: string; canEdit: boolean }) {
   const router = useRouter();
   const initial = useMemo<SalesDraft>(
     () => ({
@@ -314,6 +359,21 @@ function SalesCard({ account, ownerName }: { account: Tables<"accounts">; ownerN
       return result;
     },
   });
+
+  if (!canEdit) {
+    return (
+      <SectionCard
+        title="Sales"
+        heading="h3"
+        mode="view"
+        facts={[
+          { label: "Lead source", value: draft.lead_source || "—" },
+          { label: "Tags", value: draft.tags || "—" },
+          { label: "Created by", value: ownerName },
+        ]}
+      />
+    );
+  }
 
   return (
     <SectionCard title="Sales" heading="h3" status={status} error={error} onRetry={retry}>
@@ -381,7 +441,7 @@ function SalesCard({ account, ownerName }: { account: Tables<"accounts">; ownerN
   );
 }
 
-function NotesCard({ account }: { account: Tables<"accounts"> }) {
+function NotesCard({ account, canEdit }: { account: Tables<"accounts">; canEdit: boolean }) {
   const router = useRouter();
   const initial = useMemo<NotesDraft>(() => ({ notes: account.notes ?? "" }), [account.notes]);
   const [notes, setNotes] = useState(initial.notes);
@@ -393,6 +453,18 @@ function NotesCard({ account }: { account: Tables<"accounts"> }) {
       return result;
     },
   });
+
+  if (!canEdit) {
+    return (
+      <SectionCard
+        title="Internal notes"
+        heading="h3"
+        mode="view"
+        weight="internal"
+        facts={[{ label: "Notes", value: notes.trim() || "—" }]}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2">
