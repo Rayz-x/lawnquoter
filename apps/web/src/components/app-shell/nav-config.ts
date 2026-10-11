@@ -9,6 +9,7 @@ import {
   Inbox,
   LayoutDashboard,
   MapPinned,
+  Receipt,
   Repeat,
   Settings,
   Smartphone,
@@ -40,6 +41,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { title: "Leads", href: "/leads", icon: Inbox, roles: OFFICE_ROLES },
       { title: "Quotes", href: "/quotes", icon: FileText, roles: SALES_ROLES },
+      { title: "Invoices", href: "/invoices", icon: Receipt, roles: OFFICE_ROLES },
       { title: "Lead sources", href: "/leads/report", icon: BarChart3, roles: OFFICE_ROLES },
     ],
   },

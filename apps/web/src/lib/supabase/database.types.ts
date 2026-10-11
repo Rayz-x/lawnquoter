@@ -1276,14 +1276,14 @@ isOneToOne: false
                   ]
                 },"visits": {
                   Row: {
-                    "agreement_id": string | null,"billing_held": boolean,"billing_hold_reason": Database["public"]['Enums']["billing_hold_reason"] | null,"budget_minutes": number | null,"cancel_reason": string | null,"client_id": string | null,"completed_after_cancel": boolean,"completed_at": string | null,"created_at": string,"crew_note": string | null,"crew_size": number,"forgot_to_finish": boolean,"id": string,"job_id": string,"occurrence_date": string,"org_id": string,"partly_done_reason": string | null,"photo_lost": boolean,"photo_pending": boolean,"property_id": string,"reopen_until": string | null,"return_of_visit_id": string | null,"route_id": string | null,"scheduled_date": string | null,"skip_reason": Database["public"]['Enums']["visit_skip_reason"] | null,"sort": number,"started_at": string | null,"status": Database["public"]['Enums']["visit_status"],"updated_at": string,"window_end": string | null,"window_start": string | null
+                    "agreement_id": string | null,"billed_invoice_id": string | null,"billing_hold": boolean,"billing_held": boolean,"billing_hold_reason": Database["public"]['Enums']["billing_hold_reason"] | null,"budget_minutes": number | null,"cancel_reason": string | null,"client_id": string | null,"completed_after_cancel": boolean,"completed_at": string | null,"created_at": string,"crew_note": string | null,"crew_size": number,"forgot_to_finish": boolean,"id": string,"job_id": string,"occurrence_date": string,"org_id": string,"partly_done_reason": string | null,"photo_lost": boolean,"photo_pending": boolean,"property_id": string,"reopen_until": string | null,"return_of_visit_id": string | null,"route_id": string | null,"scheduled_date": string | null,"skip_reason": Database["public"]['Enums']["visit_skip_reason"] | null,"sort": number,"started_at": string | null,"status": Database["public"]['Enums']["visit_status"],"updated_at": string,"window_end": string | null,"window_start": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "agreement_id"?: string | null,"billing_held"?: boolean,"billing_hold_reason"?: Database["public"]['Enums']["billing_hold_reason"] | null,"budget_minutes"?: number | null,"cancel_reason"?: string | null,"client_id"?: string | null,"completed_after_cancel"?: boolean,"completed_at"?: string | null,"created_at"?: string,"crew_note"?: string | null,"crew_size"?: number,"forgot_to_finish"?: boolean,"id"?: string,"job_id": string,"occurrence_date": string,"org_id": string,"partly_done_reason"?: string | null,"photo_lost"?: boolean,"photo_pending"?: boolean,"property_id": string,"reopen_until"?: string | null,"return_of_visit_id"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
+                    "agreement_id"?: string | null,"billed_invoice_id"?: string | null,"billing_hold"?: boolean,"billing_held"?: boolean,"billing_hold_reason"?: Database["public"]['Enums']["billing_hold_reason"] | null,"budget_minutes"?: number | null,"cancel_reason"?: string | null,"client_id"?: string | null,"completed_after_cancel"?: boolean,"completed_at"?: string | null,"created_at"?: string,"crew_note"?: string | null,"crew_size"?: number,"forgot_to_finish"?: boolean,"id"?: string,"job_id": string,"occurrence_date": string,"org_id": string,"partly_done_reason"?: string | null,"photo_lost"?: boolean,"photo_pending"?: boolean,"property_id": string,"reopen_until"?: string | null,"return_of_visit_id"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
                   }
                   Update: {
-                    "agreement_id"?: string | null,"billing_held"?: boolean,"billing_hold_reason"?: Database["public"]['Enums']["billing_hold_reason"] | null,"budget_minutes"?: number | null,"cancel_reason"?: string | null,"client_id"?: string | null,"completed_after_cancel"?: boolean,"completed_at"?: string | null,"created_at"?: string,"crew_note"?: string | null,"crew_size"?: number,"forgot_to_finish"?: boolean,"id"?: string,"job_id"?: string,"occurrence_date"?: string,"org_id"?: string,"partly_done_reason"?: string | null,"photo_lost"?: boolean,"photo_pending"?: boolean,"property_id"?: string,"reopen_until"?: string | null,"return_of_visit_id"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
+                    "agreement_id"?: string | null,"billed_invoice_id"?: string | null,"billing_hold"?: boolean,"billing_held"?: boolean,"billing_hold_reason"?: Database["public"]['Enums']["billing_hold_reason"] | null,"budget_minutes"?: number | null,"cancel_reason"?: string | null,"client_id"?: string | null,"completed_after_cancel"?: boolean,"completed_at"?: string | null,"created_at"?: string,"crew_note"?: string | null,"crew_size"?: number,"forgot_to_finish"?: boolean,"id"?: string,"job_id"?: string,"occurrence_date"?: string,"org_id"?: string,"partly_done_reason"?: string | null,"photo_lost"?: boolean,"photo_pending"?: boolean,"property_id"?: string,"reopen_until"?: string | null,"return_of_visit_id"?: string | null,"route_id"?: string | null,"scheduled_date"?: string | null,"skip_reason"?: Database["public"]['Enums']["visit_skip_reason"] | null,"sort"?: number,"started_at"?: string | null,"status"?: Database["public"]['Enums']["visit_status"],"updated_at"?: string,"window_end"?: string | null,"window_start"?: string | null
                   }
                   Relationships: [
                     {
@@ -1291,6 +1291,12 @@ isOneToOne: false
       columns: ["agreement_id"]
 isOneToOne: false
       referencedRelation: "agreements"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "visits_billed_invoice_id_fkey"
+      columns: ["billed_invoice_id"]
+isOneToOne: false
+      referencedRelation: "invoices"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "visits_job_id_fkey"
@@ -1418,6 +1424,9 @@ isOneToOne: false
                            },
 "create_crew":
 { Args: { "p_name": string }; Returns: string
+                           },
+"create_invoices_batch":
+{ Args: { "p_period_end": string,"p_period_start": string }; Returns: Json
                            },
 "create_org":
 { Args: { "p_name": string,"p_slug": string,"p_timezone"?: string }; Returns: string

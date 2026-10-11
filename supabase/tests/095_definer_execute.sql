@@ -68,6 +68,7 @@ select is(
     'create_credit_note',
     'create_crew',
     'create_installment_invoice',
+    'create_invoices_batch',
     'create_org',
     'create_org_invite',
     'crew_ack_day_pack',
