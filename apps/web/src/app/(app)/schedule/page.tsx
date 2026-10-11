@@ -55,6 +55,8 @@ function parseAttentionVisit(item: unknown): AttentionVisit | null {
     reason: asString(row.reason),
     property_id: asString(row.property_id),
     seasonal_warn: row.seasonal_warn === true,
+    enhancement_id: asString(row.enhancement_id),
+    same_day_approved_until: asString(row.same_day_approved_until),
   };
 }
 

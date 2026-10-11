@@ -18,10 +18,17 @@ import {
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
-import { assignVisit, cancelVisit, rescheduleVisit, skipVisit } from "@/lib/actions/scheduling";
+import {
+  approveSameDayExtra,
+  assignVisit,
+  cancelVisit,
+  rescheduleVisit,
+  skipVisit,
+} from "@/lib/actions/scheduling";
 import {
   ATTENTION_BUCKETS,
   TRAY_BUCKET_LIMIT,
+  canApproveSameDay,
   canAssign,
   canReschedule,
   canSkipOrCancel,
@@ -129,7 +136,11 @@ export function AttentionTrayPanel({
                 setExpanded((current) => ({ ...current, [bucket.key]: !current[bucket.key] }))
               }
               canWrite={canWrite}
+              pending={pending}
               onMenuAction={(next) => setDialog(next)}
+              onApproveSameDay={(enhancementId) => {
+                run(() => approveSameDayExtra(enhancementId), "Same-day extra approved until end of day");
+              }}
             />
           ))
         )}
@@ -184,7 +195,9 @@ function BucketSection({
   expanded,
   onToggleExpand,
   canWrite,
+  pending,
   onMenuAction,
+  onApproveSameDay,
 }: {
   bucket: AttentionBucket;
   label: string;
@@ -192,7 +205,9 @@ function BucketSection({
   expanded: boolean;
   onToggleExpand: () => void;
   canWrite: boolean;
+  pending: boolean;
   onMenuAction: (dialog: DialogState) => void;
+  onApproveSameDay: (enhancementId: string) => void;
 }) {
   const shown = visibleBucketVisits(visits, expanded);
   const hidden = visits.length - shown.length;
@@ -207,7 +222,9 @@ function BucketSection({
           bucket={bucket}
           visit={visit}
           canWrite={canWrite}
+          pending={pending}
           onMenuAction={onMenuAction}
+          onApproveSameDay={onApproveSameDay}
         />
       ))}
       {hidden > 0 ? (
@@ -228,12 +245,16 @@ function TrayCard({
   bucket,
   visit,
   canWrite,
+  pending,
   onMenuAction,
+  onApproveSameDay,
 }: {
   bucket: AttentionBucket;
   visit: AttentionVisit;
   canWrite: boolean;
+  pending: boolean;
   onMenuAction: (dialog: DialogState) => void;
+  onApproveSameDay: (enhancementId: string) => void;
 }) {
   const router = useRouter();
   const items: SectionMenuItem[] = [];
@@ -260,6 +281,14 @@ function TrayCard({
       id: "cancel",
       label: "Cancel…",
       onSelect: () => onMenuAction({ kind: "cancel", visit }),
+    });
+  }
+  if (canWrite && bucket === "flags" && canApproveSameDay(visit) && visit.enhancement_id && !pending) {
+    const enhancementId = visit.enhancement_id;
+    items.push({
+      id: "approve-same-day",
+      label: "Approve same day",
+      onSelect: () => onApproveSameDay(enhancementId),
     });
   }
   if (visit.property_id) {

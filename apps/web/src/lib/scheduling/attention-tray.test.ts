@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ATTENTION_BUCKETS,
   TRAY_BUCKET_LIMIT,
+  canApproveSameDay,
   canAssign,
   canReschedule,
   canSkipOrCancel,
@@ -24,6 +25,8 @@ function visit(partial: Partial<AttentionVisit> & Pick<AttentionVisit, "id" | "t
     budget_minutes: null,
     reason: null,
     property_id: null,
+    enhancement_id: null,
+    same_day_approved_until: null,
     ...partial,
   };
 }
@@ -105,5 +108,18 @@ describe("attention tray card copy", () => {
     expect(canReschedule("skipped")).toBe(true);
     expect(canReschedule("cant_complete")).toBe(true);
     expect(canReschedule("scheduled")).toBe(false);
+  });
+
+  it("offers same-day approve only for a new upsell without an active approval", () => {
+    expect(
+      canApproveSameDay({ enhancement_id: "enh-1", same_day_approved_until: null }),
+    ).toBe(true);
+    expect(
+      canApproveSameDay({
+        enhancement_id: "enh-1",
+        same_day_approved_until: "2026-10-11T05:00:00.000Z",
+      }),
+    ).toBe(false);
+    expect(canApproveSameDay({ enhancement_id: null, same_day_approved_until: null })).toBe(false);
   });
 });

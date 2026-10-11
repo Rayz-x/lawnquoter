@@ -13,6 +13,9 @@ export type AttentionVisit = {
   property_id: string | null;
   /** True when a seasonal one-time service is past its warn date and still unscheduled. */
   seasonal_warn?: boolean;
+  /** First new upsell on the visit; used for same-day approve. */
+  enhancement_id: string | null;
+  same_day_approved_until: string | null;
 };
 
 export type AttentionTray = {
@@ -91,4 +94,9 @@ export function canAssign(status: string): boolean {
 
 export function canReschedule(status: string): boolean {
   return status === "skipped" || status === "cant_complete";
+}
+
+/** Same-day approve is offered for a new upsell that is not already active today. */
+export function canApproveSameDay(visit: Pick<AttentionVisit, "enhancement_id" | "same_day_approved_until">): boolean {
+  return !!visit.enhancement_id && !visit.same_day_approved_until;
 }
