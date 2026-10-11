@@ -62,6 +62,7 @@ select is(
     'configure_seasonal_installments',
     'convert_accepted_quote',
     'convert_lead_request',
+    'create_credit_note',
     'create_crew',
     'create_installment_invoice',
     'create_org',
@@ -70,6 +71,7 @@ select is(
     'crew_day_pack',
     'crew_sync',
     'generate_agreement_visits',
+    'invoice_balance_cents',
     'issue_invoice',
     'my_crews',
     'office_attention_tray',
@@ -83,6 +85,7 @@ select is(
     'quote_record_view',
     'quote_revise',
     'quote_send',
+    'record_office_payment',
     'reorder_route_visits',
     'revoke_org_invite',
     'set_active_org',
@@ -95,7 +98,8 @@ select is(
     'site_check_request',
     'skip_visit',
     'true_up_installment_agreement',
-    'update_agreement_schedule'
+    'update_agreement_schedule',
+    'void_invoice'
   ]::text[],
   'anon or authenticated can execute only the intended public security definers'
 );
