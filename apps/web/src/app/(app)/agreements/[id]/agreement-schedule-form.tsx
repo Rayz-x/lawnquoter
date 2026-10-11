@@ -110,10 +110,19 @@ export function AgreementScheduleForm({
           </>
         ) : null}
         <Field>
-          <FieldLabel htmlFor="agreement-start">Start date</FieldLabel>
-          <Input id="agreement-start" type="date" required value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+          <FieldLabel htmlFor="agreement-start">Apply from</FieldLabel>
+          <Input
+            id="agreement-start"
+            type="date"
+            required
+            value={startDate}
+            onChange={(event) => setStartDate(event.target.value)}
+          />
         </Field>
       </FieldGroup>
+      <p className="text-sm text-muted-foreground">
+        Preferred-day changes apply from this date. The change week keeps exactly one visit.
+      </p>
       <Button type="submit" disabled={pending || startDate.length === 0}>
         {pending ? <Spinner data-icon="inline-start" /> : null}
         Save schedule

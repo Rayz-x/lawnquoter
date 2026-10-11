@@ -15,6 +15,7 @@ import { formatOfficeDay } from "@/lib/scheduling/office-date";
 import { DEFAULT_SEASON } from "@/lib/scheduling/season";
 import { createClient } from "@/lib/supabase/server";
 import { AgreementLifecycleForm } from "./agreement-lifecycle-form";
+import { AgreementHoldForm } from "./agreement-hold-form";
 import { AgreementScheduleForm } from "./agreement-schedule-form";
 
 export const metadata: Metadata = { title: "Agreement" };
@@ -80,18 +81,25 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
   }
   if (!agreement) notFound();
 
-  const [{ data: jobs, error: jobsError }, { data: visits, error: visitsError }] = await Promise.all([
-    supabase.from("jobs").select("id, title, status").eq("agreement_id", id).eq("org_id", session.orgId).order("created_at"),
-    supabase
-      .from("visits")
-      .select(
-        "id, scheduled_date, occurrence_date, status, budget_minutes, crew_size, sort, routes(status, crews(name)), visit_tasks(id, label, quantity_text, sort, done_at)",
-      )
-      .eq("agreement_id", id)
-      .eq("org_id", session.orgId)
-      .order("scheduled_date")
-      .order("sort"),
-  ]);
+  const [{ data: jobs, error: jobsError }, { data: visits, error: visitsError }, { data: holds, error: holdsError }] =
+    await Promise.all([
+      supabase.from("jobs").select("id, title, status").eq("agreement_id", id).eq("org_id", session.orgId).order("created_at"),
+      supabase
+        .from("visits")
+        .select(
+          "id, scheduled_date, occurrence_date, status, budget_minutes, crew_size, sort, routes(status, crews(name)), visit_tasks(id, label, quantity_text, sort, done_at)",
+        )
+        .eq("agreement_id", id)
+        .eq("org_id", session.orgId)
+        .order("scheduled_date")
+        .order("sort"),
+      supabase
+        .from("agreement_holds")
+        .select("id, start_date, end_date, note")
+        .eq("agreement_id", id)
+        .eq("org_id", session.orgId)
+        .order("start_date"),
+    ]);
 
   const account = one(agreement.accounts);
   const property = one(agreement.properties);
@@ -114,7 +122,7 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
       .map((visit) => visit.occurrence_date as string)
       .sort()
       .at(-1) ?? null;
-  const loadError = jobsError?.message ?? visitsError?.message ?? null;
+  const loadError = jobsError?.message ?? visitsError?.message ?? holdsError?.message ?? null;
   const weekday =
     agreement.preferred_dow != null && agreement.preferred_dow >= 0 && agreement.preferred_dow <= 6
       ? WEEKDAYS[agreement.preferred_dow]
@@ -275,7 +283,7 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
                       <span className="capitalize">{label(agreement.frequency)}</span>
                     </div>
                     <div className="flex justify-between gap-3">
-                      <span className="text-muted-foreground">Starts</span>
+                      <span className="text-muted-foreground">Apply from</span>
                       <span className="tabular-nums">{agreement.start_date}</span>
                     </div>
                     <div className="flex justify-between gap-3">
@@ -321,6 +329,32 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
                 />
               </CardContent>
             </Card>
+
+            {recurring ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Vacation holds</CardTitle>
+                  <CardDescription>Date ranges stay cancelled and are not made up.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-4 text-sm">
+                  {holdsError ? null : !holds || holds.length === 0 ? (
+                    <p className="text-muted-foreground">No holds yet.</p>
+                  ) : (
+                    <ul className="flex flex-col gap-2">
+                      {holds.map((hold) => (
+                        <li key={hold.id} className="rounded-md border p-3">
+                          <div className="font-medium tabular-nums">
+                            {formatOfficeDay(hold.start_date)} – {formatOfficeDay(hold.end_date)}
+                          </div>
+                          {hold.note ? <p className="mt-1 text-muted-foreground">{hold.note}</p> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {canEditSchedule ? <AgreementHoldForm agreementId={agreement.id} /> : null}
+                </CardContent>
+              </Card>
+            ) : null}
 
             {agreement.notes_office ? (
               <Card>
