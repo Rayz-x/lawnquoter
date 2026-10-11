@@ -1,4 +1,4 @@
-select plan(9);
+select plan(8);
 
 select tests.create_user('connect-owner@example.com', 'Connect Owner') as owner \gset
 select tests.create_user('connect-admin@example.com', 'Connect Admin') as admin \gset
