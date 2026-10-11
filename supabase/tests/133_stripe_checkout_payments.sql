@@ -1,5 +1,5 @@
 -- I07: Stripe Checkout payment fields, processing status, ACH reopen path.
-select plan(10);
+select plan(9);
 
 select tests.create_user('i07-owner@example.com', 'I07 Owner') as owner \gset
 select tests.create_org('I07 Co', 'i07-co', :'owner'::uuid) as org \gset

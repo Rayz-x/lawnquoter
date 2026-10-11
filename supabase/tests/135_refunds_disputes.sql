@@ -29,7 +29,7 @@ insert into public.payments (
 ) values (
   :'org'::uuid, :'acct'::uuid, :'inv'::uuid, 10000, 'usd', 'succeeded',
   'pi_i09_1', 'ch_i09_1'
-) returning id as pay \gset;
+) returning id as pay \gset
 
 update public.invoices
 set

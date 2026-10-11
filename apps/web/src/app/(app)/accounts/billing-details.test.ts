@@ -138,6 +138,9 @@ describe("billing details disclosure", () => {
       stripe_customer_id: null,
       qbo_customer_id: null,
       tax_exempt_certificate: null,
+      collections_flagged_at: null,
+      payment_dispute_open: false,
+      promise_to_pay_until: null,
       created_at: "2026-10-01T00:00:00Z",
       updated_at: "2026-10-01T00:00:00Z",
     };
