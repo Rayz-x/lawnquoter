@@ -25,7 +25,13 @@ vi.mock("@/lib/leads/intake-store", () => ({
     countRecentByIpHash: vi.fn(),
     countRecentByOrg: vi.fn(),
     insertLead: vi.fn(),
+    listOpenLeadsForFold: vi.fn(),
+    listMatchCandidates: vi.fn(),
+    foldIntoLead: vi.fn(),
   }),
+}));
+vi.mock("@/lib/leads/upload-lead-photos", () => ({
+  uploadLeadPhotos: vi.fn(),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createAdminClient: () => ({}),

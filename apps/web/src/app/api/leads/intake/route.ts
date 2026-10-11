@@ -2,11 +2,18 @@ import { NextResponse } from "next/server";
 import { geocodeForLeadIntake } from "@/lib/leads/intake-geocode";
 import { createLeadIntakeStore } from "@/lib/leads/intake-store";
 import {
+  LEAD_PHOTO_MAX_COUNT,
+  isAllowedLeadPhotoMime,
+  type LeadPhotoFile,
+} from "@/lib/leads/lead-photos";
+import {
   LEAD_INTAKE_MAX_BODY_BYTES,
+  LEAD_INTAKE_MAX_MULTIPART_BYTES,
   submitPublicLeadRequest,
   type LeadIntakeInput,
 } from "@/lib/leads/submit-request";
 import { verifyTurnstileToken } from "@/lib/leads/turnstile";
+import { uploadLeadPhotos } from "@/lib/leads/upload-lead-photos";
 import { createAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -44,9 +51,9 @@ function asPreferred(value: unknown): LeadIntakeInput["preferredContact"] {
   return null;
 }
 
-function parseBody(json: unknown): Omit<LeadIntakeInput, "clientIp" | "userAgent"> | null {
-  if (!json || typeof json !== "object") return null;
-  const body = json as Record<string, unknown>;
+function parseFields(
+  body: Record<string, unknown>,
+): Omit<LeadIntakeInput, "clientIp" | "userAgent" | "photos"> | null {
   const formStartedRaw = body.formStartedAtMs ?? body.form_started_at_ms;
   const formStartedAtMs =
     typeof formStartedRaw === "number" && Number.isFinite(formStartedRaw)
@@ -61,7 +68,9 @@ function parseBody(json: unknown): Omit<LeadIntakeInput, "clientIp" | "userAgent
     addressTyped: asString(body.addressTyped ?? body.address_typed ?? body.address, 500) ?? "",
     phone: asString(body.phone, 40),
     email: asString(body.email, 320),
-    turnstileToken: asString(body.turnstileToken ?? body.turnstile_token ?? body["cf-turnstile-response"], 2048) ?? "",
+    turnstileToken:
+      asString(body.turnstileToken ?? body.turnstile_token ?? body["cf-turnstile-response"], 2048) ??
+      "",
     honeypot: asString(body.website ?? body.honeypot, 500) ?? "",
     formStartedAtMs: formStartedAtMs != null && Number.isFinite(formStartedAtMs) ? formStartedAtMs : null,
     smsConsent: asBoolean(body.smsConsent ?? body.sms_consent),
@@ -81,36 +90,109 @@ function parseBody(json: unknown): Omit<LeadIntakeInput, "clientIp" | "userAgent
   };
 }
 
+function parseBody(json: unknown): Omit<LeadIntakeInput, "clientIp" | "userAgent" | "photos"> | null {
+  if (!json || typeof json !== "object") return null;
+  return parseFields(json as Record<string, unknown>);
+}
+
+function formRecord(form: FormData): Record<string, unknown> {
+  const body: Record<string, unknown> = {};
+  for (const [key, value] of form.entries()) {
+    if (typeof value !== "string") continue;
+    if (key === "services") {
+      const existing = body.services;
+      if (Array.isArray(existing)) existing.push(value);
+      else body.services = [value];
+      continue;
+    }
+    body[key] = value;
+  }
+  if (typeof body.services === "string") {
+    try {
+      const parsed = JSON.parse(body.services) as unknown;
+      body.services = Array.isArray(parsed) ? parsed : [body.services];
+    } catch {
+      body.services = [body.services];
+    }
+  }
+  return body;
+}
+
+async function photosFromForm(form: FormData): Promise<LeadPhotoFile[] | null> {
+  const files = form
+    .getAll("photos")
+    .filter((value): value is File => typeof File !== "undefined" && value instanceof File && value.size > 0);
+
+  // More than 3 is rejected by submit validation; still pass them through.
+  if (files.length > LEAD_PHOTO_MAX_COUNT + 8) return null;
+
+  const photos: LeadPhotoFile[] = [];
+  for (const file of files) {
+    const mimeType = (file.type || "").toLowerCase();
+    const buffer = new Uint8Array(await file.arrayBuffer());
+    photos.push({
+      mimeType: isAllowedLeadPhotoMime(mimeType) ? mimeType : mimeType || "application/octet-stream",
+      byteLength: buffer.byteLength,
+      body: buffer,
+    });
+  }
+  return photos;
+}
+
+function isMultipart(request: Request): boolean {
+  const contentType = request.headers.get("content-type") ?? "";
+  return contentType.toLowerCase().includes("multipart/form-data");
+}
+
 export async function POST(request: Request): Promise<Response> {
   const contentLength = Number(request.headers.get("content-length") ?? "0");
-  if (Number.isFinite(contentLength) && contentLength > LEAD_INTAKE_MAX_BODY_BYTES) {
+  const maxBytes = isMultipart(request) ? LEAD_INTAKE_MAX_MULTIPART_BYTES : LEAD_INTAKE_MAX_BODY_BYTES;
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
     return NextResponse.json(GENERIC_FAIL, { status: 413 });
   }
 
-  let raw: string;
-  try {
-    raw = await request.text();
-  } catch {
-    return NextResponse.json(GENERIC_FAIL, { status: 400 });
-  }
-  if (raw.length > LEAD_INTAKE_MAX_BODY_BYTES) {
-    return NextResponse.json(GENERIC_FAIL, { status: 413 });
+  let parsed: Omit<LeadIntakeInput, "clientIp" | "userAgent" | "photos"> | null;
+  let photos: LeadPhotoFile[] = [];
+
+  if (isMultipart(request)) {
+    let form: FormData;
+    try {
+      form = await request.formData();
+    } catch {
+      return NextResponse.json(GENERIC_FAIL, { status: 400 });
+    }
+    parsed = parseFields(formRecord(form));
+    const parsedPhotos = await photosFromForm(form);
+    if (parsedPhotos == null) return NextResponse.json(GENERIC_FAIL, { status: 400 });
+    photos = parsedPhotos;
+  } else {
+    let raw: string;
+    try {
+      raw = await request.text();
+    } catch {
+      return NextResponse.json(GENERIC_FAIL, { status: 400 });
+    }
+    if (raw.length > LEAD_INTAKE_MAX_BODY_BYTES) {
+      return NextResponse.json(GENERIC_FAIL, { status: 413 });
+    }
+
+    let json: unknown;
+    try {
+      json = JSON.parse(raw) as unknown;
+    } catch {
+      return NextResponse.json(GENERIC_FAIL, { status: 400 });
+    }
+    parsed = parseBody(json);
   }
 
-  let json: unknown;
-  try {
-    json = JSON.parse(raw) as unknown;
-  } catch {
-    return NextResponse.json(GENERIC_FAIL, { status: 400 });
-  }
-
-  const parsed = parseBody(json);
   if (!parsed) return NextResponse.json(GENERIC_FAIL, { status: 400 });
 
-  const store = createLeadIntakeStore(createAdminClient());
+  const admin = createAdminClient();
+  const store = createLeadIntakeStore(admin);
   const result = await submitPublicLeadRequest(
     {
       ...parsed,
+      photos,
       clientIp: clientIp(request),
       userAgent: request.headers.get("user-agent"),
     },
@@ -124,6 +206,7 @@ export async function POST(request: Request): Promise<Response> {
       listOpenLeadsForFold: store.listOpenLeadsForFold,
       listMatchCandidates: store.listMatchCandidates,
       foldIntoLead: store.foldIntoLead,
+      uploadLeadPhotos: (args) => uploadLeadPhotos(admin, args),
       nowMs: () => Date.now(),
     },
   );
