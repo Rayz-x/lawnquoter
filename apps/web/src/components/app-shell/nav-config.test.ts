@@ -49,6 +49,12 @@ describe("Crew App nav", () => {
     expect(item("crew", "Lead sources")).toBeUndefined();
     expect(item("crew_lead", "Lead sources")).toBeUndefined();
 
+    expect(item("owner", "Billing review")?.href).toBe("/billing/review");
+    expect(item("dispatcher", "Billing review")?.href).toBe("/billing/review");
+    expect(item("read_only", "Billing review")?.href).toBe("/billing/review");
+    expect(item("crew", "Billing review")).toBeUndefined();
+    expect(item("crew_lead", "Billing review")).toBeUndefined();
+
     expect(item("dispatcher", "Crews")?.href).toBe("/settings/crews");
     expect(item("owner", "Crews")?.href).toBe("/settings/crews");
     expect(item("sales", "Crews")).toBeUndefined();
