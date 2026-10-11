@@ -6,6 +6,10 @@ Company setup, accounts and properties, satellite measurement, the price catalog
 
 ## 2026-10-10
 
+### Accounts
+
+- Every account shows a **+ Billing details** disclosure, including residential. Billing email stays blank until someone enters it. Billing address defaults to the first property. (#102)
+
 ### Crews
 
 - Crew settings include a battery-saver toggle kept on that phone. With it on, the crew map uses an outline basemap with no satellite tiles and animations are reduced. Sun mode stays when the crew picked it; otherwise the dark outdoor theme is used. Office maps are unchanged. (#108)

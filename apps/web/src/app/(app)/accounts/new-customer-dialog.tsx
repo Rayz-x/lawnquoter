@@ -16,6 +16,7 @@ import { parseStreetAddress } from "./[id]/property-quick-add";
 import { LEAD_SOURCES } from "@/lib/leads/lead-source";
 import { suggestPropertyAddresses } from "./address-suggest";
 import { identityError, normalizeIdentity } from "./account-format";
+import { BILLING_DETAILS_LABEL } from "./billing-details";
 import { createAccount, createProperty } from "./actions";
 
 type FieldName = "name" | "phone" | "email" | "billing" | "terms" | "address" | "source";
@@ -113,7 +114,14 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
         fd.set("phone", normalized.phone);
         fd.set("email", normalized.email);
         fd.set("company_name", company);
+        // Billing email stays blank unless entered — never copy account email.
         fd.set("billing_email", billingEmail.trim());
+        if (street) {
+          fd.set("billing_address_line1", street.address_line1);
+          fd.set("billing_city", street.city);
+          fd.set("billing_region", street.region);
+          fd.set("billing_postal_code", street.postal_code);
+        }
         fd.set("net_terms_days", String(days));
         fd.set("lead_source", source);
         fd.set("lead_source_other", source === "Other" ? sourceOther : "");
@@ -207,13 +215,13 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
             {fieldError("address")}
             {savedId && invalid === "address" ? <Link href={`/accounts/${savedId}`} className="text-sm underline">The account was saved. Open it.</Link> : null}
           </Field>
-          {business ? null : <Button type="button" variant="ghost" className="justify-start" onClick={() => setShowBusiness(true)}>+ Business & billing</Button>}
+          {business ? null : <Button type="button" variant="ghost" className="justify-start" onClick={() => setShowBusiness(true)}>{BILLING_DETAILS_LABEL}</Button>}
           {business ? (
             <div className="flex flex-col gap-3">
               <Field><FieldLabel htmlFor="new-company">Company</FieldLabel><Input id="new-company" value={company} onChange={(event) => setCompany(event.target.value)} /></Field>
               <Field data-invalid={invalid === "billing" ? true : undefined}>
                 <FieldLabel htmlFor="new-billing-email">Billing email</FieldLabel>
-                <Input id="new-billing-email" type="email" inputMode="email" value={billingEmail} placeholder={email} aria-invalid={invalid === "billing" ? true : undefined} onChange={(event) => setBillingEmail(event.target.value)} />
+                <Input id="new-billing-email" type="email" inputMode="email" autoComplete="off" value={billingEmail} aria-invalid={invalid === "billing" ? true : undefined} onChange={(event) => setBillingEmail(event.target.value)} />
                 {fieldError("billing")}
               </Field>
               <ChipGroup label="Terms" value={terms} options={[{ value: "0", label: "Due" }, { value: "15", label: "Net 15" }, { value: "30", label: "Net 30" }, { value: "custom", label: "Custom" }]} onValueChange={setTerms} />
