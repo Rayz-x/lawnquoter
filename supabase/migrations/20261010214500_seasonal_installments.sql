@@ -7,8 +7,9 @@
 -- ---------------------------------------------------------------------------
 create type public.agreement_billing_mode as enum ('per_visit', 'seasonal_installment');
 
-alter type public.invoice_source add value if not exists 'installment';
-alter type public.invoice_source add value if not exists 'true_up';
+-- 'installment' and 'true_up' are committed in
+-- 20261010214450_invoice_source_installment_values.sql. A label added by
+-- ALTER TYPE ... ADD VALUE cannot be used in this same file (SQLSTATE 55P04).
 
 alter table public.agreements
   add column billing_mode public.agreement_billing_mode not null default 'per_visit',

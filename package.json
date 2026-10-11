@@ -11,7 +11,7 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "test": "node --test scripts/check-enum-add-value.test.mjs && pnpm -r test",
     "db:test": "bash scripts/db-test.sh",
     "db:types": "bash scripts/db-types.sh"
   },
