@@ -1,3 +1,4 @@
+-- Restacked on main tip (photo_pending/photo_lost from #163).
 -- S17: visit time corrections with audit and flags (#97).
 --
 -- Raw device start/finish times are captured once and never change.
@@ -641,6 +642,7 @@ begin
       p.address_line1,
       p.city,
       case
+        when v.photo_lost then 'Photo lost'
         when v.completed_after_cancel then 'Completed after cancel'
         when v.over_budget then 'Over budget'
         when v.clock_off then 'Clock off'
@@ -662,7 +664,8 @@ begin
         else null
       end as reason,
       case
-        when v.completed_after_cancel
+        when v.photo_lost
+          or v.completed_after_cancel
           or v.over_budget
           or v.clock_off
           or exists (
@@ -722,9 +725,9 @@ begin
       filter (where bucket = 'unassigned'), '[]'::jsonb),
     coalesce(jsonb_agg(item order by (item ->> 'scheduled_date'), item ->> 'title')
       filter (where bucket = 'overdue'), '[]'::jsonb),
-    coalesce(jsonb_agg(item order by (item ->> 'scheduled_date') nulls first, item ->> 'title')
+    coalesce(jsonb_agg(item order by (item ->> 'scheduled_date') nulls last, item ->> 'title')
       filter (where bucket = 'needs_reschedule'), '[]'::jsonb),
-    coalesce(jsonb_agg(item order by (item ->> 'scheduled_date') nulls first, item ->> 'title')
+    coalesce(jsonb_agg(item order by (item ->> 'scheduled_date') nulls last, item ->> 'title')
       filter (where bucket = 'flags'), '[]'::jsonb)
   into v_unassigned, v_overdue, v_reschedule, v_flags
   from items;
@@ -744,7 +747,7 @@ begin
   );
 end;
 $$;
-
 revoke all on function public.office_attention_tray(date) from public, anon;
-grant execute on function public.office_attention_tray(date)
+grant execute on function public.office_attention_tray(date) to authenticated, service_role;
+
   to authenticated, service_role;
