@@ -97,6 +97,14 @@ describe("parseDayPack", () => {
     expect(encoded).not.toMatch(/price|cost|margin|email/i);
     expect(parseDayPack(null)).toBeNull();
   });
+
+  it("labels a zero gate width as No gate without a warning", () => {
+    const view = parseDayPack({
+      ...pack,
+      visits: [visit("v4", "scheduled", 1, { property: property({ gate_width_in: 0 }) })],
+    });
+    expect(view?.stops[0]?.chips).toEqual([{ label: "No gate", warning: false }]);
+  });
 });
 
 describe("day list rows", () => {

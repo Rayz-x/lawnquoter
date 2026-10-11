@@ -3,6 +3,7 @@ export * from "./money";
 export * from "./quantities";
 export * from "./price";
 export * from "./modifiers";
+export * from "./gate-width";
 export * from "./range";
 export * from "./updates";
 export { priceTierMatrix } from "./rules/tier-matrix";

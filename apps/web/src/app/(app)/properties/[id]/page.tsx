@@ -20,7 +20,8 @@ function parseGeom(value: unknown) {
   return parsed.success ? parsed.data : null;
 }
 
-const gateWidthIn = (raw: number | null) => (raw != null && raw > 0 ? raw : null);
+/** Pass through null (unknown) and 0 (no gate); do not coerce 0 to unknown. */
+const gateWidthIn = (raw: number | null) => raw;
 function slopeHint(slope: string | null, raw: unknown) {
   const row = slope ? mergeModifiers(raw).slope?.[slope] : null;
   if (!row?.hoursPct && !row?.pricePct) return slope ? "No price change" : "Set a slope to price it";
