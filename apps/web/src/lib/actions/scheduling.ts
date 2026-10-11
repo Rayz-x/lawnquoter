@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
+import { parseRevokePhoneResult } from "@/lib/scheduling/phone-revoke";
 import { createClient } from "@/lib/supabase/server";
 
 const idSchema = z.string().uuid();
@@ -241,6 +242,34 @@ export async function approveSameDayExtra(
     ok: true,
     data: { enhancementId: body.data.id, approvedUntil: body.data.same_day_approved_until },
   };
+}
+
+export async function revokePhone(profileId: string): Promise<
+  ActionResult<{
+    profileId: string;
+    revokedAt: string;
+    unsynced: { id: string; title: string; address: string | null; status: string; scheduledDate: string | null }[];
+  }>
+> {
+  await requireOrg();
+  const parsed = idSchema.safeParse(profileId);
+  if (!parsed.success) return fail("Invalid phone");
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("office_revoke_phone", { p_profile_id: parsed.data });
+  if (error || data == null) return fail(error?.message ?? "Could not revoke phone");
+  const body = parseRevokePhoneResult(data);
+  if (!body) return fail("Could not revoke phone");
+  return { ok: true, data: body };
+}
+
+export async function clearPhoneRevoke(profileId: string): Promise<ActionResult> {
+  await requireOrg();
+  const parsed = idSchema.safeParse(profileId);
+  if (!parsed.success) return fail("Invalid phone");
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("office_clear_phone_revoke", { p_profile_id: parsed.data });
+  if (error) return fail(error.message);
+  return { ok: true };
 }
 
 export async function reorderVisits(routeId: string, visitIds: string[]): Promise<ActionResult> {

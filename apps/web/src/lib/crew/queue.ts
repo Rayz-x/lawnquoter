@@ -1,5 +1,6 @@
 import type { Json } from "@/lib/supabase/database.types";
 import { crewPackIsPrivate } from "./pack-privacy";
+import { wipePacksOnRevoke } from "./phone-revoke";
 
 export const CREW_MUTATION_KINDS = [
   "visit_start",
@@ -352,6 +353,9 @@ async function flushOutboxOnce(
     try {
       results = await send(ready);
     } catch (error) {
+      if (await wipePacksOnRevoke(store, error)) {
+        return { sent, pending: (await store.listOutbox()).length, revoked: true as const };
+      }
       const row = rows.find((item) => item.client_id === ready[0]?.client_id);
       if (row && !halted) {
         await store.settle([], {
@@ -361,7 +365,7 @@ async function flushOutboxOnce(
           needs_office: false,
         });
       }
-      return { sent, pending: (await store.listOutbox()).length };
+      return { sent, pending: (await store.listOutbox()).length, revoked: false as const };
     }
     const { remove, failed, parked } = applySyncResults(rows, results);
     await store.settle(remove, null);
@@ -370,7 +374,7 @@ async function flushOutboxOnce(
     pending = (await store.listOutbox()).length;
     if (failed || halted || !deferred) break;
   }
-  return { sent, pending };
+  return { sent, pending, revoked: false as const };
 }
 
 export async function saveDayPack(store: CrewStore, date: string, pack: Json, now = new Date()) {

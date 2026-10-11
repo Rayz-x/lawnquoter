@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { VisitScreen } from "../visits/[id]/visit-screen";
 import { liveLeadFromPack, saveLeadForPack } from "../visits/visit";
+import { isPhoneRevokedError, phoneRevokedError, wipePacksOnRevoke } from "@/lib/crew/phone-revoke";
 import { browserCrewStore, flushOutbox, notifyCrewQueue, saveDayPack, scopeKey } from "@/lib/crew/queue";
 import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
 import { orgToday } from "@/lib/scheduling/office-date";
@@ -106,13 +107,27 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
         setDayBanner(null);
       }
       try {
-        await flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto);
+        const flushed = await flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto);
         notifyCrewQueue();
+        if (flushed.revoked) {
+          if (!stop) {
+            setView(null);
+            setDayBanner(null);
+            setError("This phone was revoked. Call the office.");
+          }
+          return;
+        }
         // Prefer the last server calendar day so a fast phone clock does not
         // request an extra day of gate codes.
         const requestDate = packRequestDate(phoneToday, serverTodayRef.current ?? cached?.serverToday ?? null);
         const { data, error: rpcError } = await createClient().rpc("crew_day_pack", { p_date: requestDate });
-        if (rpcError) throw new Error(rpcError.message);
+        if (rpcError) {
+          if (isPhoneRevokedError(rpcError)) {
+            await wipePacksOnRevoke(store, phoneRevokedError(rpcError.message));
+            throw phoneRevokedError(rpcError.message);
+          }
+          throw new Error(rpcError.message);
+        }
         const next = parseDayPack(data);
         if (!next) throw new Error("empty");
         const previousIds = cached?.stops.map((stop) => stop.id) ?? [];
@@ -165,7 +180,12 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
           setNewIds(added);
         }
       } catch (caught) {
-        if (!stop && !cached) setError(packErrorMessage(caught instanceof Error ? caught.message : ""));
+        if (!stop && isPhoneRevokedError(caught)) {
+          setView(null);
+          setError("This phone was revoked. Call the office.");
+        } else if (!stop && !cached) {
+          setError(packErrorMessage(caught instanceof Error ? caught.message : ""));
+        }
       } finally {
         if (!stop) setSending(false);
       }

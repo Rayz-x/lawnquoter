@@ -14,13 +14,17 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   assignVisit,
   cancelVisit,
+  clearPhoneRevoke,
   publishRoute,
   rainDayPush,
   reorderVisits,
+  revokePhone,
   skipVisit,
 } from "@/lib/actions/scheduling";
 import type { AttentionTray } from "@/lib/scheduling/attention-tray";
 import { formatOfficeDay } from "@/lib/scheduling/office-date";
+import type { RevokedUnsyncedVisit } from "@/lib/scheduling/phone-revoke";
+import { unsyncedVisitLabel } from "@/lib/scheduling/phone-revoke";
 import { phoneSyncStatus } from "@/lib/scheduling/phone-sync";
 import { nextWorkday } from "@/lib/scheduling/workday";
 import { AttentionTrayPanel } from "./attention-tray-panel";
@@ -42,6 +46,8 @@ export type PhoneSync = {
   name: string;
   packVersion: number | null;
   lastSyncedAt: string | null;
+  revokedAt: string | null;
+  unsynced: RevokedUnsyncedVisit[];
 };
 
 export type BoardColumn = {
@@ -213,6 +219,14 @@ export function DayBoard({
                   phones={column.phones}
                   routeVersion={column.routeVersion}
                   timeZone={timeZone}
+                  canWrite={canWrite}
+                  pending={pending}
+                  onRevoke={(profileId) =>
+                    run(() => revokePhone(profileId).then((result) => (result.ok ? { ok: true } : result)), "Phone revoked")
+                  }
+                  onClear={(profileId) =>
+                    run(() => clearPhoneRevoke(profileId), "Phone allowed again")
+                  }
                 />
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
@@ -416,10 +430,18 @@ function PhoneSyncLines({
   phones,
   routeVersion,
   timeZone,
+  canWrite,
+  pending,
+  onRevoke,
+  onClear,
 }: {
   phones: PhoneSync[];
   routeVersion: number | null;
   timeZone: string;
+  canWrite: boolean;
+  pending: boolean;
+  onRevoke: (profileId: string) => void;
+  onClear: (profileId: string) => void;
 }) {
   const now = new Date();
   if (phones.length === 0) {
@@ -431,8 +453,42 @@ function PhoneSyncLines({
     );
   }
   return (
-    <ul className="mt-1 flex flex-col gap-1 text-xs">
+    <ul className="mt-1 flex flex-col gap-2 text-xs">
       {phones.map((phone) => {
+        if (phone.revokedAt) {
+          return (
+            <li key={phone.profileId} className="flex flex-col gap-1 text-warning">
+              <div className="inline-flex items-start gap-1">
+                <TriangleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+                <span>
+                  {phone.name} · Revoked · {unsyncedVisitLabel(phone.unsynced.length)}
+                </span>
+              </div>
+              {phone.unsynced.length > 0 ? (
+                <ul className="ml-5 list-disc text-muted-foreground">
+                  {phone.unsynced.map((visit) => (
+                    <li key={visit.id}>
+                      {visit.title}
+                      {visit.address ? ` · ${visit.address}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {canWrite ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={pending}
+                  className="h-7 w-fit px-2 text-xs"
+                  onClick={() => onClear(phone.profileId)}
+                >
+                  Allow phone
+                </Button>
+              ) : null}
+            </li>
+          );
+        }
         const status = phoneSyncStatus({
           phoneName: phone.name,
           packVersion: phone.packVersion,
@@ -453,12 +509,26 @@ function PhoneSyncLines({
             key={phone.profileId}
             className={
               status.attention
-                ? "inline-flex items-center gap-1 text-warning"
-                : "text-muted-foreground"
+                ? "flex flex-col gap-1 text-warning"
+                : "flex flex-col gap-1 text-muted-foreground"
             }
           >
-            {status.attention ? <TriangleAlert aria-hidden className="size-3.5 shrink-0" /> : null}
-            <span>{text}</span>
+            <div className="inline-flex items-center gap-1">
+              {status.attention ? <TriangleAlert aria-hidden className="size-3.5 shrink-0" /> : null}
+              <span>{text}</span>
+            </div>
+            {canWrite ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                className="h-7 w-fit px-2 text-xs"
+                onClick={() => onRevoke(phone.profileId)}
+              >
+                Revoke phone
+              </Button>
+            ) : null}
           </li>
         );
       })}

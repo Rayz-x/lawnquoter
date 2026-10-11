@@ -320,6 +320,38 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"crew_phone_revocations": {
+                  Row: {
+                    "cleared_at": string | null,"created_at": string,"org_id": string,"profile_id": string,"revoked_at": string,"revoked_by": string | null,"unsynced_visits": NonNullable<Json>,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "cleared_at"?: string | null,"created_at"?: string,"org_id": string,"profile_id": string,"revoked_at"?: string,"revoked_by"?: string | null,"unsynced_visits"?: NonNullable<Json>,"updated_at"?: string
+                  }
+                  Update: {
+                    "cleared_at"?: string | null,"created_at"?: string,"org_id"?: string,"profile_id"?: string,"revoked_at"?: string,"revoked_by"?: string | null,"unsynced_visits"?: NonNullable<Json>,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "crew_phone_revocations_org_id_fkey"
+      columns: ["org_id"]
+isOneToOne: false
+      referencedRelation: "orgs"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "crew_phone_revocations_profile_id_fkey"
+      columns: ["profile_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "crew_phone_revocations_revoked_by_fkey"
+      columns: ["revoked_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"crew_mutation_receipts": {
                   Row: {
                     "client_id": string,"created_at": string,"kind": string,"org_id": string,"visit_id": string | null
@@ -1459,11 +1491,17 @@ isOneToOne: false
 "office_attention_tray":
 { Args: { "p_as_of"?: string }; Returns: Json
                            },
+"office_clear_phone_revoke":
+{ Args: { "p_profile_id": string }; Returns: undefined
+                           },
 "office_rain_day_push":
 { Args: { "p_crew_id"?: string,"p_service_date": string,"p_visit_ids"?: string[] }; Returns: Json
                            },
 "office_reschedule_visit":
 { Args: { "p_crew_id": string,"p_service_date": string,"p_visit_id": string }; Returns: string
+                           },
+"office_revoke_phone":
+{ Args: { "p_profile_id": string }; Returns: Json
                            },
 "enhancement_same_day_is_active":
 { Args: { "p_enhancement_id": string }; Returns: boolean
