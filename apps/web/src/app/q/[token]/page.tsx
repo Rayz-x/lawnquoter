@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { brandStyleSheet, deriveBrandTheme } from "@/lib/brand/derive-brand-theme";
+import { Instrument_Serif } from "next/font/google";
+import { brandStyleSheet, deriveBrandTheme, quoteEditorialBrandCss } from "@/lib/brand/derive-brand-theme";
 import { headingFontOf } from "@/lib/brand/public-org";
 import { headingSturdy } from "./heading-font";
 import { loadPublicQuote } from "./load-public-quote";
 import { ProposalView } from "./proposal-view";
+
+const instrument = Instrument_Serif({
+  variable: "--font-instrument",
+  weight: "400",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
   const { token } = await params;
@@ -20,8 +28,12 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
   const theme = deriveBrandTheme(quote.org.brand_color);
 
   return (
-    <div data-tenant-brand data-heading={headingFontOf(quote.org.heading_font)} className={headingSturdy.variable}>
-      <style>{brandStyleSheet(theme)}</style>
+    <div
+      data-tenant-brand
+      data-heading={headingFontOf(quote.org.heading_font)}
+      className={`${headingSturdy.variable} ${instrument.variable} quote-editorial`}
+    >
+      <style>{`${brandStyleSheet(theme)}${quoteEditorialBrandCss(theme)}`}</style>
       <ProposalView token={token} payload={quote} />
     </div>
   );

@@ -1,7 +1,8 @@
 "use client";
 
-import { ChevronsUpDown, LogOut, UserCircle } from "lucide-react";
+import { LogOut, Monitor, Moon, Smartphone, SunMedium, UserCircle } from "lucide-react";
 import Link from "next/link";
+import { useTheme } from "next-themes";
 import type { OrgRole } from "@lawnquoter/shared";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -13,59 +14,85 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
 
 function initials(name: string | null, email: string | null) {
   const source = name?.trim() || email || "?";
   const parts = source.split(/[\s@.]+/).filter(Boolean);
   return parts
     .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? "")
+    .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
 }
 
-export function UserMenu({ email, name, role }: { email: string | null; name: string | null; role: OrgRole }) {
-  const { isMobile } = useSidebar();
+export function UserMenu({
+  email,
+  name,
+  role,
+  showCrew = false,
+}: {
+  email: string | null;
+  name: string | null;
+  role: OrgRole;
+  showCrew?: boolean;
+}) {
+  const { theme, setTheme } = useTheme();
+  const mark = initials(name, email);
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<SidebarMenuButton size="lg" />}>
-            <Avatar className="size-8 rounded-lg">
-              <AvatarFallback className="rounded-lg">{initials(name, email)}</AvatarFallback>
-            </Avatar>
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">{name ?? email ?? "Account"}</span>
-              <span className="truncate text-xs text-muted-foreground capitalize">{role.replace("_", " ")}</span>
-            </div>
-            <ChevronsUpDown className="ml-auto" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="min-w-56 rounded-lg"
-            side={isMobile ? "bottom" : "right"}
-            align="end"
-            sideOffset={4}
-          >
-            <DropdownMenuLabel className="truncate font-normal text-muted-foreground">{email}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem render={<Link href="/settings/profile" />}>
-                <UserCircle />
-                Profile
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <form action="/auth/signout" method="post">
-                <DropdownMenuItem nativeButton render={<button type="submit" className="w-full" />}>
-                  <LogOut />
-                  Sign out
-                </DropdownMenuItem>
-              </form>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className="hit-expand grid size-8 place-items-center rounded-full bg-[var(--lime)] text-xs font-semibold text-[var(--lime-ink)] outline-offset-2"
+        aria-label={`Account menu, ${name ?? email ?? "signed in"}`}
+      >
+        <Avatar className="size-8">
+          <AvatarFallback className="bg-[var(--lime)] text-xs font-semibold text-[var(--lime-ink)]">{mark}</AvatarFallback>
+        </Avatar>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-56">
+        <DropdownMenuLabel className="font-normal">
+          <span className="block truncate">{name ?? "Account"}</span>
+          <span className="block truncate text-xs text-muted-foreground">{email}</span>
+          <span className="block truncate text-xs capitalize text-muted-foreground">{role.replaceAll("_", " ")}</span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem render={<Link href="/settings/profile" />}>
+            <UserCircle />
+            Profile
+          </DropdownMenuItem>
+          {showCrew ? (
+            <DropdownMenuItem render={<Link href="/crew/today" />}>
+              <Smartphone />
+              Open crew app
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Theme</DropdownMenuLabel>
+          <DropdownMenuItem aria-checked={theme === "dark"} onClick={() => setTheme("dark")}>
+            <Moon />
+            Dark
+            <span className="ms-auto font-mono text-[10px] text-muted-foreground">T</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem aria-checked={theme === "light"} onClick={() => setTheme("light")}>
+            <SunMedium />
+            Daylight
+          </DropdownMenuItem>
+          <DropdownMenuItem aria-checked={theme === "system" || theme == null} onClick={() => setTheme("system")}>
+            <Monitor />
+            Auto
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <form action="/auth/signout" method="post">
+            <DropdownMenuItem nativeButton render={<button type="submit" className="w-full" />}>
+              <LogOut />
+              Sign out
+            </DropdownMenuItem>
+          </form>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

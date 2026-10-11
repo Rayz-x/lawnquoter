@@ -240,6 +240,14 @@ export function brandCssVars(t: BrandModeTokens): Record<string, string> {
   };
 }
 
+/** Light brand tokens at higher specificity so the cream quote page stays readable in a dark office session. */
+export function quoteEditorialBrandCss(theme: BrandTheme): string {
+  const body = Object.entries(brandCssVars(theme.light))
+    .map(([key, value]) => `${key}:${value}`)
+    .join(";");
+  return `.quote-editorial[data-tenant-brand]{${body}}`;
+}
+
 /**
  * Server-rendered <style> body for the quote page wrapper. Values are generated hex only,
  * so the string is safe to inline (never interpolate raw user input here).

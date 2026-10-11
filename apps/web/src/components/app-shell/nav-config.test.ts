@@ -20,12 +20,12 @@ describe("Crew App nav", () => {
     }
   });
 
-  it("shows Leads to office roles and read_only, and hides it from crew", () => {
+  it("shows Requests to office roles and read_only, and hides it from crew", () => {
     for (const role of ["owner", "admin", "sales", "dispatcher", "read_only"] as const) {
-      expect(item(role, "Leads")?.href).toBe("/leads");
+      expect(item(role, "Requests")?.href).toBe("/leads");
     }
-    expect(item("crew", "Leads")).toBeUndefined();
-    expect(item("crew_lead", "Leads")).toBeUndefined();
+    expect(item("crew", "Requests")).toBeUndefined();
+    expect(item("crew_lead", "Requests")).toBeUndefined();
   });
 
   it("keeps Agreements, Schedule, Invoices, Lead sources, and Crews as office items", () => {
@@ -49,12 +49,12 @@ describe("Crew App nav", () => {
     expect(item("crew", "Schedule")).toBeUndefined();
     expect(item("crew_lead", "Schedule")).toBeUndefined();
 
-    expect(item("owner", "Lead sources")?.href).toBe("/leads/report");
-    expect(item("sales", "Lead sources")?.href).toBe("/leads/report");
-    expect(item("read_only", "Lead sources")?.href).toBe("/leads/report");
-    expect(item("dispatcher", "Lead sources")?.href).toBe("/leads/report");
-    expect(item("crew", "Lead sources")).toBeUndefined();
-    expect(item("crew_lead", "Lead sources")).toBeUndefined();
+    expect(item("owner", "Reports")?.href).toBe("/leads/report");
+    expect(item("sales", "Reports")?.href).toBe("/leads/report");
+    expect(item("read_only", "Reports")?.href).toBe("/leads/report");
+    expect(item("dispatcher", "Reports")?.href).toBe("/leads/report");
+    expect(item("crew", "Reports")).toBeUndefined();
+    expect(item("crew_lead", "Reports")).toBeUndefined();
 
     expect(item("owner", "Billing review")?.href).toBe("/billing/review");
     expect(item("dispatcher", "Billing review")?.href).toBe("/billing/review");

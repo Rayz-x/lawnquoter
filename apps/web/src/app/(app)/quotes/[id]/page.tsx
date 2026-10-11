@@ -245,8 +245,8 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           </>
         }
       />
-      <div className="page-pad grid gap-4 pb-20 md:pb-0 lg:grid-cols-3">
-        <div className="flex flex-col gap-3 lg:col-span-2">
+      <div className="page-pad grid items-start gap-4 pb-20 md:pb-0 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="flex flex-col gap-3">
           {linkedLead ? (
             <QuoteLostPrompt
               quoteId={quote.id}
@@ -333,7 +333,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             </p>
           ) : null}
         </div>
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 lg:sticky lg:top-[calc(var(--app-header-height)+3.25rem)]">
           {canConvert ? <ConvertToJobForm quoteId={quote.id} defaultStartDate={orgToday(org?.timezone)} /> : null}
           <Card>
             <CardHeader>
@@ -358,7 +358,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               ) : null}
               <div className={`flex justify-between${sectionBreakdown.sections.length > 0 ? " border-t pt-2" : ""}`}>
                 <span>{hasRangeTotal ? "Estimate" : "Price"}</span>
-                <span className="font-heading text-xl font-semibold tabular-nums">
+                <span className="num text-xl font-semibold">
                   {hasRangeTotal
                     ? `${formatMoney(estimateLow, { cents: true })} – ${formatMoney(estimateHigh, { cents: true })}`
                     : formatMoney(total, { cents: true })}
@@ -429,8 +429,8 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           <QuoteMetaForm quote={quote} editable={editable} />
         </div>
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t bg-background px-4 py-2 md:hidden">
-        <span className="font-heading text-lg font-semibold tabular-nums">{formatMoney(total, { cents: true })}</span>
+      <div className="office-dock flex items-center gap-3 border-t bg-background px-4 py-2 md:hidden">
+        <span className="num text-lg font-semibold">{formatMoney(total, { cents: true })}</span>
         <span className="flex h-11 min-h-11 flex-1 [&_button]:h-11 [&_button]:w-full">
           <SendQuoteButton quoteId={quote.id} status={quote.status} />
         </span>

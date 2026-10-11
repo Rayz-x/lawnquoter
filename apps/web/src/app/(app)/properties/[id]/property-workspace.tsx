@@ -100,7 +100,7 @@ export function PropertyWorkspace({ data }: { data: PropertyScreenData }) {
         <p className="text-sm text-muted-foreground"><Link href="/accounts" className="hover:underline">Accounts</Link>{" › "}<Link href={`/accounts/${data.accountId}`} className="hover:underline">{data.accountName}</Link>{" › "}<span>{data.street}</span></p>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="font-serif text-3xl font-semibold tracking-tight [overflow-wrap:anywhere]">{data.street}</h1>
+            <h1 className="font-sans text-3xl font-semibold tracking-tight [overflow-wrap:anywhere]">{data.street}</h1>
             <p className="text-sm text-muted-foreground">{data.place}{label ? ` · ${label}` : ""}</p>
             {renaming ? <Input autoFocus aria-label="Property label" value={label} className="mt-2 max-w-xs" onChange={(event) => setLabel(event.target.value)} onBlur={() => { setRenaming(false); const next = label.trim(); if (next !== (data.label ?? "")) void updatePropertyMeta(data.id, { name: next || null }).then((result) => { if (!result.ok) toast.error(result.error); }); }} onKeyDown={(event) => { if (event.key === "Escape") { setLabel(data.label ?? ""); setRenaming(false); } if (event.key === "Enter") event.currentTarget.blur(); }} /> : null}
           </div>
@@ -120,17 +120,18 @@ export function PropertyWorkspace({ data }: { data: PropertyScreenData }) {
         ) : <Button type="button" variant="outline" className="self-start" onClick={() => setAddressOpen(true)}>Fix address</Button>) : null}
       </header>
 
+      <SectionCard title="Site map" description={`Parcel (${data.parcelSource}) · footprint (${data.footprintSource})`} menu={<SectionMenu label="Map actions" items={[{ id: "measure", label: "Re-measure", onSelect: () => router.push(`/properties/${data.id}/measure`) }, { id: "geocode", label: "Re-geocode", onSelect: () => startTransition(async () => { const result = await regeocodeProperty(data.id); if (result.ok) { result.data.warnings.forEach((warning) => toast.warning(warning)); router.refresh(); } else toast.error(result.error); }) }]} />}>
+        {data.ungeocoded && !(pinning && data.pinCenter) ? (
+          <div className="flex h-[clamp(16rem,42svh,28rem)] w-full flex-col items-center justify-center gap-3 rounded-lg bg-muted px-4 text-center"><p className="text-sm font-medium">We couldn&apos;t place this address</p><div className="flex flex-wrap justify-center gap-2"><Button type="button" variant="outline" onClick={() => setAddressOpen(true)}>Edit address</Button><Button type="button" variant="outline" onClick={startPin}>Drop a pin</Button></div></div>
+        ) : (
+          <PropertyMap location={data.ungeocoded ? null : data.location} parcel={data.ungeocoded ? null : data.parcel} footprint={data.ungeocoded ? null : data.footprint} fallbackCenter={data.pinCenter} hideNavigation={data.ungeocoded} onPick={data.ungeocoded ? placePin : undefined} className="h-[clamp(16rem,42svh,28rem)] w-full overflow-clip rounded-lg" />
+        )}
+      </SectionCard>
+
       <FactStrip facts={[{ label: "Turf", value: data.turf }, { label: "Lot", value: data.lot, hint: data.lotAuto ? "From parcel" : undefined }, { label: "Gate", value: gateFact == null ? <button type="button" className="underline-offset-4 hover:underline" onClick={openGateWidth}>Add gate width</button> : <span className={narrow ? "text-warning" : undefined}>{gateFact}</span>, detail: gateFact == null ? undefined : narrow ? `${cond.gate_width_in} in · push mower only` : cond.gate_width_in === GATE_WIDTH_NO_GATE ? "Open access" : "Fits a rider" }, { label: "Slope", value: titled(cond.slope), detail: data.slopeHint }, { label: "Open quotes", value: data.openQuotes }, { label: "Service", value: data.service }]} />
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22.5rem]">
         <div className="flex min-w-0 flex-col gap-4">
-          <SectionCard title="Site map" description={`Parcel (${data.parcelSource}) · footprint (${data.footprintSource})`} menu={<SectionMenu label="Map actions" items={[{ id: "measure", label: "Re-measure", onSelect: () => router.push(`/properties/${data.id}/measure`) }, { id: "geocode", label: "Re-geocode", onSelect: () => startTransition(async () => { const result = await regeocodeProperty(data.id); if (result.ok) { result.data.warnings.forEach((warning) => toast.warning(warning)); router.refresh(); } else toast.error(result.error); }) }]} />}>
-            {data.ungeocoded && !(pinning && data.pinCenter) ? (
-              <div className="flex h-64 w-full flex-col items-center justify-center gap-3 rounded-lg bg-muted px-4 text-center lg:h-80"><p className="text-sm font-medium">We couldn&apos;t place this address</p><div className="flex flex-wrap justify-center gap-2"><Button type="button" variant="outline" onClick={() => setAddressOpen(true)}>Edit address</Button><Button type="button" variant="outline" onClick={startPin}>Drop a pin</Button></div></div>
-            ) : (
-              <PropertyMap location={data.ungeocoded ? null : data.location} parcel={data.ungeocoded ? null : data.parcel} footprint={data.ungeocoded ? null : data.footprint} fallbackCenter={data.pinCenter} hideNavigation={data.ungeocoded} onPick={data.ungeocoded ? placePin : undefined} className="h-64 w-full overflow-hidden rounded-lg lg:h-80" />
-            )}
-          </SectionCard>
           <SectionCard title="Mowing conditions" description={`These change the price. ${data.slopeHint}`} status={conditions.status} error={conditions.error} onRetry={conditions.retry}>
             <ChipGroup label="Slope" options={SLOPE_CHIPS} value={cond.slope ?? ""} onValueChange={(value) => saveCond({ slope: value ? value as Exclude<Slope, null> : null })} />
             <ChipGroup label="Narrowest gate" options={GATE_WIDTH_CHIPS} value={selectedGateChip} onValueChange={onGateChip} />
@@ -163,7 +164,7 @@ export function PropertyWorkspace({ data }: { data: PropertyScreenData }) {
           </SectionCard>
         </aside>
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-20 flex gap-2 border-t bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden"><Button className="h-11 flex-1" variant="outline" render={<Link href={`/properties/${data.id}/measure`} />}>Measure</Button><Button className="h-11 flex-1" disabled={pending} onClick={newQuote}>New quote</Button></div>
+      <div className="office-dock flex gap-2 border-t bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden"><Button className="h-11 flex-1" variant="outline" render={<Link href={`/properties/${data.id}/measure`} />}>Measure</Button><Button className="h-11 flex-1" disabled={pending} onClick={newQuote}>New quote</Button></div>
     </div>
     </>
   );

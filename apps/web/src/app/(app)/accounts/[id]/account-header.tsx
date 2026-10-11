@@ -113,7 +113,7 @@ export function AccountHeader({
         <SectionMenu label="Account actions" items={items} />
       </div>
       {canEdit ? (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
+        <div className="office-dock border-t bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
           <Button className="h-12 w-full" render={<Link href={`/quotes/new?account=${account.id}`} />}>
             New quote
           </Button>
