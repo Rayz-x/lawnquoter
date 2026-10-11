@@ -55,6 +55,7 @@ select is(
   array[
     'accept_org_invite',
     'account_statement_public',
+    'activate_price_list',
     'add_crew_member',
     'agreement_installment_balance',
     'assign_visit',
@@ -81,6 +82,7 @@ select is(
     'generate_agreement_visits',
     'hold_agreement_visits',
     'hold_visit_for_billing',
+    'install_catalog_services',
     'invoice_balance_cents',
     'invoice_public',
     'issue_invoice',

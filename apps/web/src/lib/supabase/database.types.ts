@@ -2748,6 +2748,7 @@ export type Database = {
       }
       pricing_rules: {
         Row: {
+          starter_price: boolean
           active: boolean
           config: Json
           created_at: string
@@ -2761,6 +2762,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          starter_price?: boolean
           active?: boolean
           config: Json
           created_at?: string
@@ -2774,6 +2776,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          starter_price?: boolean
           active?: boolean
           config?: Json
           created_at?: string
@@ -3428,6 +3431,11 @@ export type Database = {
       }
       services: {
         Row: {
+          catalog_key: string | null
+          catalog_version: string | null
+          crew_task_name: string | null
+          is_material: boolean
+          taxable: boolean
           active: boolean
           created_at: string
           description: string | null
@@ -3443,6 +3451,11 @@ export type Database = {
           window_start: string | null
         }
         Insert: {
+          catalog_key?: string | null
+          catalog_version?: string | null
+          crew_task_name?: string | null
+          is_material?: boolean
+          taxable?: boolean
           active?: boolean
           created_at?: string
           description?: string | null
@@ -3458,6 +3471,11 @@ export type Database = {
           window_start?: string | null
         }
         Update: {
+          catalog_key?: string | null
+          catalog_version?: string | null
+          crew_task_name?: string | null
+          is_material?: boolean
+          taxable?: boolean
           active?: boolean
           created_at?: string
           description?: string | null
@@ -4356,6 +4374,8 @@ export type Database = {
       }
     }
     Functions: {
+      activate_price_list: { Args: { p_id: string }; Returns: Json }
+      install_catalog_services: { Args: { p_entries: Json }; Returns: Json }
       accept_org_invite: { Args: { p_token: string }; Returns: string }
       account_statement_public: {
         Args: { p_from: string; p_to: string; p_token: string }
