@@ -1813,6 +1813,52 @@ export type Database = {
           },
         ]
       }
+      job_quote_lines: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          org_id: string
+          quote_line_item_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          org_id: string
+          quote_line_item_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          org_id?: string
+          quote_line_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_quote_lines_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_quote_lines_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_quote_lines_quote_line_item_id_fkey"
+            columns: ["quote_line_item_id"]
+            isOneToOne: true
+            referencedRelation: "quote_line_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           agreement_id: string | null
@@ -4899,6 +4945,10 @@ export type Database = {
       skip_visit: {
         Args: { p_reason: string; p_visit_id: string }
         Returns: undefined
+      }
+      split_accepted_quote: {
+        Args: { p_groups: Json; p_quote: string }
+        Returns: Json
       }
       true_up_installment_agreement: {
         Args: { p_agreement_id: string; p_as_of: string }

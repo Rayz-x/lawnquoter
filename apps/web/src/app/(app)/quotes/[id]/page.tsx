@@ -26,6 +26,7 @@ import { QuoteLostPrompt } from "@/components/leads/quote-lost-prompt";
 import { findLeadForQuote } from "@/lib/leads/supabase-store";
 import { createClient } from "@/lib/supabase/server";
 import { ConvertToJobForm } from "./convert-to-job-button";
+import { SplitQuoteForm } from "./split-quote-form";
 import { DeleteQuoteButton } from "./delete-quote-button";
 import { QuoteLines } from "./quote-lines";
 import { QuoteMetaForm } from "./quote-meta-form";
@@ -73,6 +74,10 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     .maybeSingle();
   const canConvert =
     quote.status === "accepted" && !convertedAgreement && hasRole(session.orgRole, QUOTE_CONVERT_ROLES);
+  const { data: quoteJobs, error: quoteJobsError } = canConvert
+    ? await supabase.from("jobs").select("id, title").eq("org_id", session.orgId).eq("quote_id", id)
+    : { data: [], error: null };
+  const alreadySplit = (quoteJobs?.length ?? 0) > 0;
   const { data: org, error: orgError } = canConvert
     ? await supabase.from("orgs").select("timezone").eq("id", session.orgId).maybeSingle()
     : { data: null, error: null };
@@ -144,6 +149,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   );
   const loadError =
     agreementError?.message ??
+    quoteJobsError?.message ??
     orgError?.message ??
     versionError?.message ??
     itemsError?.message ??
@@ -363,7 +369,16 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           ) : null}
         </div>
         <div className="flex flex-col gap-4 lg:sticky lg:top-[calc(var(--app-header-height)+3.25rem)]">
-          {canConvert ? <ConvertToJobForm quoteId={quote.id} defaultStartDate={orgToday(org?.timezone)} /> : null}
+          {canConvert && !alreadySplit ? <ConvertToJobForm quoteId={quote.id} defaultStartDate={orgToday(org?.timezone)} /> : null}
+          {canConvert && !alreadySplit ? (
+            <SplitQuoteForm
+              quoteId={quote.id}
+              lines={lines.map((line) => ({ id: line.id, name: line.name, price: Number(line.price) }))}
+            />
+          ) : null}
+          {alreadySplit ? (
+            <p className="text-sm text-muted-foreground">This quote is already split into {(quoteJobs ?? []).map((job) => job.title).join(", ")}.</p>
+          ) : null}
           <Card>
             <CardHeader>
               <CardTitle>Totals</CardTitle>
