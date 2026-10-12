@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DensityMap } from "@/components/analytics/density-map";
 import { loadSalesAnalytics } from "@/lib/analytics/load-sales-analytics";
 import type { FunnelSlice } from "@/lib/analytics/sales-analytics";
 import { OFFICE_ROLES } from "@/lib/auth/office-roles";
@@ -228,21 +229,10 @@ export default async function SalesFunnelPage({
             </section>
             <section className="space-y-2">
               <h2 className="font-heading text-lg">Route density</h2>
-              {report.density.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No leads or visits with a postal code.</p>
+              {report.points.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No visits with a mapped property in this range.</p>
               ) : (
-                <ul className="space-y-2">
-                  {report.density.slice(0, 12).map((row) => (
-                    <li key={row.postalCode} className="grid grid-cols-[5rem_1fr_3rem] items-center gap-2 text-sm">
-                      <span className="tabular-nums">{row.postalCode}</span>
-                      <span
-                        className="h-2 rounded-full bg-primary"
-                        style={{ width: `${Math.max(8, (row.count / (report.density[0]?.count || 1)) * 100)}%` }}
-                      />
-                      <span className="text-right tabular-nums">{row.count}</span>
-                    </li>
-                  ))}
-                </ul>
+                <DensityMap points={report.points} />
               )}
             </section>
           </>

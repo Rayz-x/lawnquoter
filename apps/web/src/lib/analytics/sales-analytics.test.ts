@@ -9,6 +9,7 @@ import {
   pipelineForecast,
   routeDensity,
   widgetStages,
+  densityPoints,
   winLoss,
   type SalesLead,
 } from "./sales-analytics";
@@ -117,5 +118,15 @@ describe("sales analytics", () => {
     expect(routeDensity([{ postalCode: "75201-1234", status: "new" }, { postalCode: "75201", status: "spam" }])).toEqual([
       { postalCode: "75201", count: 1 },
     ]);
+    expect(
+      densityPoints(
+        [
+          { propertyId: "p1", count: 2 },
+          { propertyId: "p1", count: 1 },
+          { propertyId: "missing", count: 4 },
+        ],
+        [{ id: "p1", lng: -89.6, lat: 39.8 }],
+      ),
+    ).toEqual([{ lng: -89.6, lat: 39.8, weight: 3 }]);
   });
 });
