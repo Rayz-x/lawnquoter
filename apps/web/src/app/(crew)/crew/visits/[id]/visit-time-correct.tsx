@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { FieldHint } from "@/components/entry";
+
 import { correctionPayload, fromLocalInputValue, reasonOk, toLocalInputValue } from "@/lib/crew/time-correction";
 import { browserCrewStore, enqueueMutation, flushOutbox, saveDayPack } from "@/lib/crew/queue";
 import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
@@ -89,7 +89,6 @@ export function VisitTimeCorrect({
         >
           Correct times
         </button>
-        <FieldHint>Changes the start or finish the office sees. Device times stay on file.</FieldHint>
       </span>
     );
   }
@@ -100,7 +99,6 @@ export function VisitTimeCorrect({
         <button type="button" className="inline-flex min-h-12 items-center text-[17px] font-semibold" onClick={() => setOpen(false)}>
           Back
         </button>
-        <FieldHint>Closes this without saving the new times.</FieldHint>
       </span>
       <h2 className="mt-2 font-serif text-2xl font-bold">Correct times</h2>
       <p className="mt-2 text-[15px] text-muted-foreground">
@@ -114,7 +112,6 @@ export function VisitTimeCorrect({
           value={start}
           onChange={(event) => setStart(event.target.value)}
         />
-        <FieldHint>When work on this stop actually started.</FieldHint>
       </label>
       <label className="mt-3 flex min-w-0 flex-col gap-1 text-[15px] font-semibold">
         Finish
@@ -124,7 +121,6 @@ export function VisitTimeCorrect({
           value={finish}
           onChange={(event) => setFinish(event.target.value)}
         />
-        <FieldHint>When work on this stop actually finished.</FieldHint>
       </label>
       <label className="mt-3 flex min-w-0 flex-col gap-1 text-[15px] font-semibold">
         Reason
@@ -135,7 +131,6 @@ export function VisitTimeCorrect({
           placeholder="Why are these times different?"
           maxLength={2000}
         />
-        <FieldHint>Why the clock does not match the real start or finish.</FieldHint>
       </label>
       {error ? <p className="mt-3 text-[15px] font-semibold text-destructive">{error}</p> : null}
       <span className="mt-4 flex min-w-0 flex-col gap-1">
@@ -147,7 +142,6 @@ export function VisitTimeCorrect({
         >
           Save correction
         </button>
-        <FieldHint>Saves the new times on the phone and sends them when you have signal.</FieldHint>
       </span>
     </div>
   );

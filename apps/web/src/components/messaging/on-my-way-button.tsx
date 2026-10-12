@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { FieldHint } from "@/components/entry";
+
 import { textOnMyWay } from "@/lib/messaging/send-on-my-way";
 
 export function OnMyWayButton({ visitId }: { visitId: string }) {
@@ -23,7 +23,6 @@ export function OnMyWayButton({ visitId }: { visitId: string }) {
       >
         On my way
       </button>
-      <FieldHint>Texts the customer that you are on the way.</FieldHint>
     </span>
   );
 }

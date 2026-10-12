@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FieldHint } from "@/components/entry";
+
 import { isLowStorage, lowStorageWarning, type StorageEstimate } from "@/lib/crew/photo-pending";
 import {
   browserCrewStore,
@@ -106,7 +106,6 @@ export function OutboxPanel({ userId, orgId }: { userId: string; orgId: string }
         >
           {sending ? "Sending" : "Try sending now"}
         </button>
-        <FieldHint>Sends the work saved on this phone as soon as you have signal.</FieldHint>
       </span>
     </section>
   );

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { FieldHint } from "@/components/entry";
+
+import { HelpTip } from "@/components/help/help-tip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { chemicalLog } from "@/lib/crew/chemical-log";
@@ -25,7 +26,6 @@ export function ChemicalLogForm({ visitId, userId, orgId, startOpen = false }: {
         <Button type="button" variant="outline" size="lg" className="h-12 w-full text-lg" onClick={() => setOpen(true)}>
           Log a chemical application
         </Button>
-        <FieldHint>Records the product, rate, EPA number, and the weather. It sends when you have signal.</FieldHint>
       </span>
     );
   }
@@ -83,36 +83,36 @@ export function ChemicalLogForm({ visitId, userId, orgId, startOpen = false }: {
         })();
       }}
     >
-      <h2 className="font-serif text-xl font-bold">Chemical application</h2>
+      <h2 className="inline-flex items-center gap-1 font-serif text-xl font-bold">
+        Chemical application
+        <HelpTip
+          label="Help for chemical logs"
+          text="Record the product, the rate, the EPA number, and the weather. It sends when the phone has signal."
+          href="/help/chemical-logs#log-an-application"
+        />
+      </h2>
       <label className="flex min-w-0 flex-col gap-1">
         <Input aria-label="Product" placeholder="Product" value={product} onChange={(event) => setProduct(event.target.value)} required className="h-12 text-lg" />
-        <FieldHint>The product you applied.</FieldHint>
       </label>
       <label className="flex min-w-0 flex-col gap-1">
         <Input aria-label="Rate" placeholder="Rate" value={rate} onChange={(event) => setRate(event.target.value)} required className="h-12 text-lg" />
-        <FieldHint>How much you applied, such as ounces per thousand square feet.</FieldHint>
       </label>
       <label className="flex min-w-0 flex-col gap-1">
         <Input aria-label="EPA registration number" placeholder="EPA reg. no." value={epa} onChange={(event) => setEpa(event.target.value)} required className="h-12 text-lg" />
-        <FieldHint>The EPA registration number on the label.</FieldHint>
       </label>
       <label className="flex min-w-0 flex-col gap-1">
         <Input aria-label="Temperature" placeholder="Temperature °F" inputMode="decimal" value={temp} onChange={(event) => setTemp(event.target.value)} required className="h-12 text-lg" />
-        <FieldHint>Air temperature while you sprayed, in degrees Fahrenheit.</FieldHint>
       </label>
       <label className="flex min-w-0 flex-col gap-1">
         <Input aria-label="Wind" placeholder="Wind mph" inputMode="decimal" value={wind} onChange={(event) => setWind(event.target.value)} required className="h-12 text-lg" />
-        <FieldHint>Wind speed while you sprayed, in miles per hour.</FieldHint>
       </label>
       <label className="flex min-w-0 flex-col gap-1">
         <Input aria-label="Weather" placeholder="Weather" value={conditions} onChange={(event) => setConditions(event.target.value)} className="h-12 text-lg" />
-        <FieldHint>Sky and ground conditions, such as clear or wet grass.</FieldHint>
       </label>
       <span className="flex min-w-0 flex-col gap-1">
         <Button type="submit" variant="secondary" size="lg" className="h-12 text-lg" disabled={pending}>
           Save application
         </Button>
-        <FieldHint>Saves the log on the phone and sends it when you have signal.</FieldHint>
       </span>
     </form>
   );

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { FieldHint } from "@/components/entry";
+
 import {
   ENHANCEMENT_TAGS,
   SKIP_REASONS,
@@ -108,23 +108,19 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <button type="button" className="inline-flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" onClick={() => { setSheet("problem"); setError(null); }}>Problem</button>
-          <FieldHint>Skip this stop when you cannot finish it.</FieldHint>
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <button type="button" className="inline-flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" onClick={() => { setSheet("upsell"); setError(null); }}>Upsell</button>
-          <FieldHint>Ask the office about extra work. No prices.</FieldHint>
         </span>
       </div>
       {sheet ? (
         <div className="fixed inset-0 z-40 overflow-y-auto bg-background px-4 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-8">
           <span className="flex min-w-0 flex-col items-start gap-1">
             <button type="button" className="inline-flex min-h-12 items-center text-[17px] font-semibold" onClick={() => setSheet(null)}>Back</button>
-            <FieldHint>Closes this and returns to the stop.</FieldHint>
           </span>
           {sheet === "problem" ? (
             <>
               <h2 className="mt-2 font-serif text-2xl font-bold">Problem</h2>
-              <FieldHint>Pick why you cannot finish this stop.</FieldHint>
               <div className="mt-4 flex flex-col gap-2">
                 {SKIP_REASONS.map(([id, label]) => (
                   <button
@@ -150,7 +146,6 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
                     placeholder="What makes this unsafe?"
                     className="min-h-24 w-full rounded-xl border p-3 text-[17px]"
                   />
-                  <FieldHint>Describe the hazard. A photo is optional.</FieldHint>
                 </span>
               ) : null}
               {needPhoto || optionalPhoto ? (
@@ -162,9 +157,6 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
                   >
                     {issueFile ? "Photo ready" : needPhoto ? "Take after photo" : "Add photo (optional)"}
                   </button>
-                  <FieldHint>
-                    {needPhoto ? "Takes the after photo required to skip this stop." : "Adds a photo of the problem. Optional."}
-                  </FieldHint>
                 </span>
               ) : null}
               <p className="mt-3 text-[15px] text-muted-foreground">
@@ -177,11 +169,9 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
               <div className="mt-4 flex gap-2">
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <button type="button" className="inline-flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" onClick={() => setSheet(null)}>Keep working</button>
-                  <FieldHint>Leaves the stop in progress.</FieldHint>
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   <button type="button" className="inline-flex min-h-14 w-full items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={!canSkip} onClick={() => void confirmSkip()}>Cannot finish</button>
-                  <FieldHint>Skips the stop and tells the office.</FieldHint>
                 </span>
               </div>
             </>
@@ -191,7 +181,6 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
               <p className="mt-2 text-[15px] text-muted-foreground">
                 Tag, note, and photo only. No prices. Same-day work needs office approval.
               </p>
-              <FieldHint>What kind of extra work this is.</FieldHint>
               <div className="mt-4 flex flex-wrap gap-2">
                 {ENHANCEMENT_TAGS.map(([id, label]) => (
                   <button key={id} type="button" className={`inline-flex min-h-12 items-center rounded-xl border px-3 text-[17px] font-semibold ${tag === id ? "border-2 border-primary" : ""}`} onClick={() => setTag(id)}>{label}</button>
@@ -199,15 +188,12 @@ export function VisitActions({ visitId, userId, orgId, onLeave }: { visitId: str
               </div>
               <label className="mt-4 flex min-w-0 flex-col gap-1">
                 <textarea value={note} maxLength={2000} onChange={(event) => setNote(event.target.value)} placeholder="Note for the office" className="min-h-24 w-full rounded-xl border p-3 text-[17px]" />
-                <FieldHint>What the office should know. No prices.</FieldHint>
               </label>
               <span className="mt-3 flex min-w-0 flex-col gap-1">
                 <button type="button" className="flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" onClick={() => upsell.current?.click()}>{upsellFile ? "Photo ready" : "Add photo"}</button>
-                <FieldHint>Adds a photo of the extra work.</FieldHint>
               </span>
               <span className="mt-3 flex min-w-0 flex-col gap-1">
                 <button type="button" className="flex min-h-14 w-full items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={!tag || busy} onClick={() => void saveUpsell()}>Save request</button>
-                <FieldHint>Saves the request on the phone for the office.</FieldHint>
               </span>
             </>
           )}

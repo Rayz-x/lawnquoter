@@ -1,6 +1,6 @@
 "use client";
 
-import { FieldHint } from "@/components/entry";
+
 import { TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -221,7 +221,6 @@ export function DayList({ timeZone, userId, orgId, textsConnected = false, textN
             <button type="button" className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-xl border px-3 text-[15px] font-semibold" onClick={cycleDisplay}>
               {display === "sun" ? "Sun" : display === "dark" ? "Dark" : "Light"}
             </button>
-            <FieldHint>Switches sun, dark, or light on this phone.</FieldHint>
           </span>
         </div>
       </header>
@@ -235,7 +234,6 @@ export function DayList({ timeZone, userId, orgId, textsConnected = false, textN
           {tel ? (
             <span className="flex min-w-0 flex-col gap-1">
               <a href={tel} className="inline-flex min-h-14 items-center justify-center rounded-xl border text-[17px] font-semibold">Call office</a>
-              <FieldHint>Calls the office when this day has no stops.</FieldHint>
             </span>
           ) : null}
         </div>
@@ -255,7 +253,6 @@ export function DayList({ timeZone, userId, orgId, textsConnected = false, textN
                 <button type="button" className="flex min-h-12 items-center text-left text-[17px] font-semibold" onClick={() => setShowDone((open) => !open)}>
                   {rows.done.length} stops done · {showDone ? "Hide" : "Show"}
                 </button>
-                <FieldHint>{showDone ? "Hides finished stops." : "Shows the stops already finished today."}</FieldHint>
               </span>
             ) : null}
             {showDone ? rows.done.map((stop) => <StopCard key={stop.id} stop={stop} fresh={newIds.includes(stop.id)} onOpen={setOpenId} />) : null}
@@ -278,7 +275,6 @@ export function DayList({ timeZone, userId, orgId, textsConnected = false, textN
             >
               Drive to stop {drive.number}
             </a>
-            <FieldHint>Opens directions to the next stop.</FieldHint>
           </span>
         </div>
       ) : null}
@@ -310,7 +306,6 @@ function StopCard({ stop, fresh, next = false, onOpen }: { stop: DayStop; fresh:
         {stop.lastName ? <p className="text-[17px]">{stop.lastName}</p> : null}
         {stop.title ? <p className="text-[15px] text-muted-foreground">{stop.title}</p> : null}
         {stop.skipReason ? <p className="mt-1 text-[15px]">{stop.skipReason}</p> : null}
-        <FieldHint>Opens this stop.</FieldHint>
         {stop.chips.length > 0 ? (
           <ul className="mt-2 flex flex-wrap gap-2">
             {stop.chips.map((chip) => (
