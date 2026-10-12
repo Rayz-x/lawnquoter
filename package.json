@@ -10,6 +10,7 @@
     "dev": "pnpm --filter web dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
+    "lint:ui": "pnpm --filter web lint:ui",
     "typecheck": "pnpm -r typecheck",
     "test": "node --test scripts/check-enum-add-value.test.mjs && pnpm -r test",
     "db:test": "bash scripts/db-test.sh",

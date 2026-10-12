@@ -1,0 +1,55 @@
+{
+  "fonts": [
+    "Geist",
+    "Geist Mono",
+    "Instrument Serif",
+    "Source Serif 4",
+    "Source Sans 3",
+    "headingSturdy"
+  ],
+  "fontSizes": [
+    10.4,
+    11.2,
+    12,
+    14,
+    16,
+    18,
+    20,
+    24,
+    30,
+    36,
+    48,
+    60,
+    72,
+    96,
+    128
+  ],
+  "typeRules": [],
+  "minControlSize": 15,
+  "controlSizeRules": [],
+  "minControlGap": 8,
+  "minControlInset": 8,
+  "controlContainers": [
+    "[data-ui-container]"
+  ],
+  "minLayoutGap": 8,
+  "bannedCopy": [
+    "unlock your potential",
+    "seamlessly",
+    "game-changing"
+  ],
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844
+    },
+    {
+      "width": 1440,
+      "height": 900
+    }
+  ],
+  "colorSchemes": [
+    "light"
+  ],
+  "exceptions": []
+}
