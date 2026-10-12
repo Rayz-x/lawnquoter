@@ -11,6 +11,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
+import { optimizeRoute } from "@/lib/actions/routing";
 import {
   assignVisit,
   cancelVisit,
@@ -41,6 +42,7 @@ export type BoardVisit = {
   scheduledDate: string | null;
   overdue: boolean;
   budgetMinutes: number | null;
+  driveMinutes: number | null;
   windowLabel: string | null;
 };
 
@@ -101,6 +103,7 @@ export function DayBoard({
   canWrite,
   timeZone,
   saturdayWorkday,
+  paidRouting,
   tray,
   columns,
 }: {
@@ -108,6 +111,7 @@ export function DayBoard({
   canWrite: boolean;
   timeZone: string;
   saturdayWorkday: boolean;
+  paidRouting: boolean;
   tray: AttentionTray;
   columns: BoardColumn[];
 }) {
@@ -256,15 +260,47 @@ export function DayBoard({
                   {presenceLabel(presence, column.crewId)}
                 </CardDescription>
                 {canWrite && scheduledIds(column.visits).length > 0 ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={pending}
-                    onClick={() => runRain(() => rainDayPush({ date, crewId: column.crewId }))}
-                  >
-                    Rain day → {targetLabel}
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={pending}
+                      onClick={() => runRain(() => rainDayPush({ date, crewId: column.crewId }))}
+                    >
+                      Rain day → {targetLabel}
+                    </Button>
+                    {column.routeId && scheduledIds(column.visits).length >= 2 ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={pending}
+                        onClick={() => {
+                          const routeId = column.routeId;
+                          if (!routeId) return;
+                          run(() => optimizeRoute(routeId, "heuristic"), "Drive times estimated");
+                        }}
+                      >
+                        Estimate drive times
+                      </Button>
+                    ) : null}
+                    {paidRouting && column.routeId && scheduledIds(column.visits).length >= 2 ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={pending}
+                        onClick={() => {
+                          const routeId = column.routeId;
+                          if (!routeId) return;
+                          run(() => optimizeRoute(routeId, "api"), "Route ordered by the routing service");
+                        }}
+                      >
+                        Use paid routing
+                      </Button>
+                    ) : null}
+                  </div>
                 ) : null}
                 <PhoneSyncLines
                   phones={column.phones}
@@ -437,11 +473,14 @@ function VisitCard({
         </div>
       </div>
       <p className="text-xs text-muted-foreground tabular-nums">{visit.scheduledDate ?? "Unscheduled"}</p>
-      {visit.budgetMinutes != null || visit.windowLabel ? (
+      {visit.budgetMinutes != null || visit.windowLabel || (visit.driveMinutes != null && visit.driveMinutes > 0) ? (
         <p className="text-xs text-muted-foreground tabular-nums">
           {visit.windowLabel ? visit.windowLabel : null}
           {visit.windowLabel && visit.budgetMinutes != null ? " · " : null}
           {visit.budgetMinutes != null ? `${visit.budgetMinutes} min` : null}
+          {visit.driveMinutes != null && visit.driveMinutes > 0
+            ? `${visit.windowLabel || visit.budgetMinutes != null ? " · " : ""}${visit.driveMinutes} min drive`
+            : null}
         </p>
       ) : null}
       {children}

@@ -74,6 +74,7 @@ Optional:
 - Lead connectors stay off until their keys are set. The settings page says which key. `GOOGLE_LSA_WEBHOOK_SECRET`, `THUMBTACK_WEBHOOK_SECRET`, `YELP_WEBHOOK_SECRET`, `ANGI_WEBHOOK_SECRET`, and `INBOUND_LEAD_WEBHOOK_SECRET` (Zapier) authorize `POST /api/public/leads/inbound/{connector}` with `Authorization: Bearer`. Facebook Lead Ads also needs `FACEBOOK_LEAD_ADS_VERIFY_TOKEN`, `FACEBOOK_APP_SECRET`, `FACEBOOK_PAGE_ACCESS_TOKEN`, and `INBOUND_LEAD_ORG_SLUG`. Leave them unset and those routes refuse the request.
 - `NEARMAP_API_KEY`, `VEXCEL_API_KEY`, and `SEGMENTATION_API_KEY` — HD imagery and one-click segmentation on the measure screen. Leave them unset. The screen then says to add that key. Tracing on Esri does not need them, and this build does not call those services.
 - `SITEONE_API_KEY` and `HOME_DEPOT_API_KEY` — supplier price lookup on Services & Pricing. Leave both unset. The materials sheet then says to add that key. Spreadsheet import does not need them, and this build does not call either catalog.
+- `ROUTING_API_URL` and `ROUTING_API_KEY` — paid driving directions on the schedule. Leave both unset and each crew day uses the free drive-time estimate. The schedule says paid routing is not connected until both are set.
 
 ## Connecting a Supabase project
 
