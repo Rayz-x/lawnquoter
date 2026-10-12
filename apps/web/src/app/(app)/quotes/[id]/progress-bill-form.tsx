@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { formatMoney } from "@/lib/money";
@@ -43,9 +43,7 @@ export function ProgressBillForm({
         });
       }}
     >
-      <p className="text-sm text-muted-foreground">
-        Pick the lines in this draw. The percent is how far those lines should be billed, and anything already billed is left off.
-      </p>
+      <FieldHint>Check the lines included in this draw.</FieldHint>
       <ul className="flex flex-col gap-2">
         {lines.map((line) => (
           <li key={line.id}>
@@ -59,7 +57,8 @@ export function ProgressBillForm({
       </ul>
       <Field>
         <FieldLabel htmlFor="progress-percent">Percent complete</FieldLabel>
-        <Input id="progress-percent" name="percent" type="number" min={1} max={100} required defaultValue={100} />
+        <Input id="progress-percent" name="percent" aria-describedby="progress-percent-hint" type="number" min={1} max={100} required defaultValue={100} className="w-full" />
+        <FieldHint id="progress-percent-hint">How much of the checked lines to bill now.</FieldHint>
       </Field>
       <Button type="submit" disabled={pending}>
         {pending ? <Spinner /> : null}
