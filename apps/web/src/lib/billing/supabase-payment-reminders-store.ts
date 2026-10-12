@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/server";
-import type { PaymentReminderStage, ReminderInvoice } from "./payment-reminders";
+import type { ReminderInvoice } from "./payment-reminders";
 import type { PaymentReminderStore, ReminderOrg } from "./run-payment-reminders";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -54,13 +54,14 @@ export function createSupabasePaymentRemindersStore(
 
   return {
     async listOrgs(): Promise<ReminderOrg[]> {
-      const { data, error } = await admin.from("orgs").select("id, name, timezone, email");
+      const { data, error } = await admin.from("orgs").select("id, name, timezone, email, sms_number");
       if (error) throw new Error(error.message);
       return (data ?? []).map((row) => ({
         id: row.id,
         name: row.name,
         timezone: row.timezone,
         email: row.email,
+        smsNumber: row.sms_number,
       }));
     },
 
@@ -68,7 +69,7 @@ export function createSupabasePaymentRemindersStore(
       const { data, error } = await client
         .from("invoices")
         .select(
-          "id, org_id, account_id, due_on, status, number_label, total_cents, public_token, accounts(name, email, billing_email, payment_dispute_open, promise_to_pay_until, collections_flagged_at)",
+          "id, org_id, account_id, due_on, status, number_label, total_cents, public_token, accounts(name, email, billing_email, payment_dispute_open, promise_to_pay_until, collections_flagged_at, contacts(phone, sms_opt_in))",
         )
         .eq("org_id", orgId)
         .eq("status", "issued");
@@ -122,6 +123,7 @@ function mapInvoiceRow(row: Record<string, unknown>, legacy: boolean): ReminderI
     (account?.billing_email as string | null | undefined)?.trim() ||
     (account?.email as string | null | undefined)?.trim() ||
     null;
+  const phone = optedInPhone(account);
   return {
     id: String(row.id),
     orgId: String(row.org_id),
@@ -144,5 +146,17 @@ function mapInvoiceRow(row: Record<string, unknown>, legacy: boolean): ReminderI
       : account?.collections_flagged_at
         ? String(account.collections_flagged_at)
         : null,
+    smsPhone: phone,
+    smsOptIn: Boolean(phone),
   };
+}
+
+function optedInPhone(account: Record<string, unknown> | null): string | null {
+  const contacts = account?.contacts;
+  if (!Array.isArray(contacts)) return null;
+  const match = contacts.find((contact) => {
+    const row = contact as { phone?: string | null; sms_opt_in?: boolean };
+    return Boolean(row.sms_opt_in) && Boolean(row.phone?.trim());
+  }) as { phone?: string | null } | undefined;
+  return match?.phone?.trim() || null;
 }

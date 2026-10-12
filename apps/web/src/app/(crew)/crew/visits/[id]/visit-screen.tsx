@@ -17,6 +17,7 @@ import {
 } from "../visit";
 import { canSubmitPartlyDone, partlyDoneFinishPayload } from "@/lib/crew/partly-done";
 import { PartlyDoneSheet } from "./partly-done-sheet";
+import { OnMyWayButton } from "@/components/messaging/on-my-way-button";
 import { ChemicalLogForm } from "./chemical-log-form";
 import { IrrigationZoneForm } from "./irrigation-zone-form";
 import { SnowEventForm } from "./snow-event-form";
@@ -27,7 +28,7 @@ import { VisitTimeCorrect } from "./visit-time-correct";
 
 const ACTIONS = new Set(["visit_start", "visit_pause", "visit_resume", "visit_finish", "visit_stop", "visit_set_crew_size"]);
 
-export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visitId: string; timeZone: string; userId: string; orgId: string; onBack?: () => void }) {
+export function VisitScreen({ visitId, timeZone, userId, orgId, onBack, textsConnected = false, textNotice = null }: { visitId: string; timeZone: string; userId: string; orgId: string; onBack?: () => void; textsConnected?: boolean; textNotice?: string | null }) {
   const router = useRouter();
   const scope = scopeKey(userId, orgId);
   const revision = useRef(0);
@@ -320,6 +321,11 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
       <SnowEventForm visitId={visitId} userId={userId} orgId={orgId} />
       <IrrigationZoneForm visitId={visitId} userId={userId} orgId={orgId} />
       <CrewStatusForm visitId={visitId} />
+      {lead && clock.status === "scheduled" && !closed && !midCancel ? (
+        <div className="px-4 pb-2">
+          {textsConnected ? <OnMyWayButton visitId={visitId} /> : textNotice ? <p className="text-sm text-muted-foreground">{textNotice}</p> : null}
+        </div>
+      ) : null}
       <div className="fixed inset-x-0 bottom-0 z-10 flex gap-2 bg-background px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
         {lead && clock.status === "scheduled" && !closed && !midCancel ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={saving || Boolean(blocked)} onClick={() => void act("visit_start")}>Start job</button> : null}
         {lead && clock.status === "in_progress" && !midCancel ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_pause")}>Pause</button> : null}
