@@ -447,6 +447,55 @@ export type Database = {
           },
         ]
       }
+      agreement_enhancements: {
+        Row: {
+          agreement_id: string
+          created_at: string
+          id: string
+          org_id: string
+          quote_id: string
+          title: string
+        }
+        Insert: {
+          agreement_id: string
+          created_at?: string
+          id?: string
+          org_id: string
+          quote_id: string
+          title: string
+        }
+        Update: {
+          agreement_id?: string
+          created_at?: string
+          id?: string
+          org_id?: string
+          quote_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreement_enhancements_agreement_id_fkey"
+            columns: ["agreement_id"]
+            isOneToOne: false
+            referencedRelation: "agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agreement_enhancements_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agreement_enhancements_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: true
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agreement_price_terms: {
         Row: {
           agreement_id: string
@@ -4695,6 +4744,7 @@ export type Database = {
         Args: { p_account?: string; p_force_fail?: boolean; p_lead: string }
         Returns: Json
       }
+      create_agreement_enhancement: { Args: { p_agreement: string; p_title: string }; Returns: string }
       create_credit_note: {
         Args: { p_amount_cents: number; p_invoice_id: string; p_reason: string }
         Returns: Json

@@ -66,6 +66,7 @@ select is(
     'configure_seasonal_installments',
     'convert_accepted_quote',
     'convert_lead_request',
+    'create_agreement_enhancement',
     'create_credit_note',
     'create_crew',
     'create_installment_invoice',
