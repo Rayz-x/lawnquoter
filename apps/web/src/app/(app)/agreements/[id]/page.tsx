@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { OFFICE_ROLES, QUOTE_CONVERT_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
+import { irrigationVisit } from "@/lib/agreements/irrigation-plan";
 import { isSnowContract, parseSnowTiers, snowPushPrice } from "@/lib/agreements/snow-contract";
 import { formatOfficeDay } from "@/lib/scheduling/office-date";
 import { DEFAULT_SEASON } from "@/lib/scheduling/season";
@@ -20,6 +21,7 @@ import { EnhancementForm } from "./enhancement-form";
 import { AgreementHoldForm } from "./agreement-hold-form";
 import { AgreementScheduleForm } from "./agreement-schedule-form";
 import { FixedRouteDayForm } from "./fixed-route-day-form";
+import { IrrigationPlanForm } from "./irrigation-plan-form";
 import { LevelBillingForm } from "./level-billing-form";
 import { SnowContractForm } from "./snow-contract-form";
 
@@ -59,7 +61,7 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
     supabase
       .from("agreements")
       .select(
-        "id, kind, frequency, status, start_date, end_date, preferred_dow, fixed_route_day, service_kind, snow_contract, trigger_depth_in, snow_price, snow_tiers, notes_office, quote_id, account_id, property_id, resume_on, season_start_month, season_start_day, season_end_month, season_end_day, billing_mode, billing_months, accounts(name), properties(formatted_address, address_line1, city)",
+        "id, kind, frequency, status, start_date, end_date, preferred_dow, fixed_route_day, service_kind, snow_contract, trigger_depth_in, snow_price, snow_tiers, zone_count, minutes_per_zone, price_per_zone, notes_office, quote_id, account_id, property_id, resume_on, season_start_month, season_start_day, season_end_month, season_end_day, billing_mode, billing_months, accounts(name), properties(formatted_address, address_line1, city)",
       )
       .eq("id", id)
       .eq("org_id", session.orgId)
@@ -162,6 +164,10 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
           },
           sampleInches,
         )}`
+      : null;
+  const irrigation =
+    agreement.zone_count != null && agreement.minutes_per_zone != null && agreement.price_per_zone != null
+      ? irrigationVisit(agreement.zone_count, Number(agreement.price_per_zone), agreement.minutes_per_zone)
       : null;
 
   return (
@@ -372,6 +378,30 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
                   />
                 ) : (
                   <p className="text-muted-foreground">{agreement.snow_contract ? label(agreement.snow_contract) : "No snow contract"}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Irrigation plan</CardTitle>
+                <CardDescription>Zone count sets the price and how long the visit should take.</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3 text-sm">
+                {irrigation ? (
+                  <p className="tabular-nums">
+                    {agreement.zone_count} zones · ${irrigation.price} · {irrigation.minutes} min
+                  </p>
+                ) : null}
+                {canEditSchedule ? (
+                  <IrrigationPlanForm
+                    agreementId={agreement.id}
+                    zones={agreement.zone_count}
+                    minutesPerZone={agreement.minutes_per_zone}
+                    pricePerZone={agreement.price_per_zone}
+                  />
+                ) : (
+                  <p className="text-muted-foreground">{irrigation ? "Plan saved" : "No irrigation plan"}</p>
                 )}
               </CardContent>
             </Card>

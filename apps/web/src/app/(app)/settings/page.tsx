@@ -9,9 +9,11 @@ import { headingSturdy } from "@/app/q/[token]/heading-font";
 import { usageFromRpc } from "@/lib/billing/usage";
 import { leadFormSlugFromOrg } from "@/lib/leads/embed-snippets";
 import { BrandingForm } from "./branding-form";
+import { LateFeeCard } from "./late-fee-card";
 import { LeadConnectorsCard } from "./lead-connectors-card";
 import { LeadFormEmbedCard } from "./lead-form-embed-card";
 import { OrgSettingsForm } from "./org-settings-form";
+import { QboCard } from "./qbo-card";
 import { StripeConnectCard } from "./stripe-connect-card";
 import { UsageCard } from "./usage-card";
 import { WisetackCard } from "./wisetack-card";
@@ -89,6 +91,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 payoutsEnabled={payoutsEnabled}
               />
               <WisetackCard />
+              <QboCard />
+              <LateFeeCard
+                flatCents={org.late_fee_flat_cents}
+                feeBps={org.late_fee_bps}
+                graceDays={org.late_fee_grace_days}
+                canEdit={canEdit}
+              />
             </>
           }
           leadForm={

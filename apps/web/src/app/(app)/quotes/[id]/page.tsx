@@ -34,6 +34,7 @@ import { QuoteLines } from "./quote-lines";
 import { QuoteMetaForm } from "./quote-meta-form";
 import { QuoteTermsForm } from "./quote-terms-form";
 import { SendQuoteButton } from "./send-quote-button";
+import { SignWellCard } from "./signwell-card";
 import { SiteCheckPanel } from "./site-check-panel";
 import { SiteCheckRequestActions } from "./site-check-request-actions";
 import { QuoteTemplateCard } from "./quote-template-card";
@@ -49,7 +50,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .select(
-      "id, number, title, status, site_check_status, created_at, current_version, intro, notes_customer, notes_internal, deposit_amount, public_token, expires_at, property_id, accounts(name), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs, drive_minutes, drive_miles)",
+      "id, number, title, status, site_check_status, created_at, current_version, intro, notes_customer, notes_internal, deposit_amount, public_token, expires_at, property_id, signwell_document_id, accounts(name, type), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs, drive_minutes, drive_miles)",
     )
     .eq("id", id)
     .eq("org_id", session.orgId)
@@ -393,6 +394,21 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           ) : null}
         </div>
         <div className="flex flex-col gap-4 lg:sticky lg:top-[calc(var(--app-header-height)+3.25rem)]">
+          {quote.accounts?.type === "commercial" ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Commercial contract</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SignWellCard
+                  quoteId={quote.id}
+                  connected={Boolean(process.env.SIGNWELL_API_KEY?.trim())}
+                  sent={Boolean(quote.signwell_document_id)}
+                  canEdit={hasRole(session.orgRole, QUOTE_CONVERT_ROLES)}
+                />
+              </CardContent>
+            </Card>
+          ) : null}
           {canConvert && !alreadySplit ? <ConvertToJobForm quoteId={quote.id} defaultStartDate={orgToday(org?.timezone)} /> : null}
           {canConvert && !alreadySplit ? (
             <SplitQuoteForm
