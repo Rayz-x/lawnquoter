@@ -402,7 +402,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               <CardContent>
                 <SignWellCard
                   quoteId={quote.id}
-                  connected={Boolean(process.env.SIGNWELL_API_KEY?.trim())}
+                  connected={Boolean(process.env.SIGNWELL_API_KEY?.trim() && process.env.SIGNWELL_WEBHOOK_ID?.trim())}
                   sent={Boolean(quote.signwell_document_id)}
                   canEdit={hasRole(session.orgRole, QUOTE_CONVERT_ROLES)}
                 />

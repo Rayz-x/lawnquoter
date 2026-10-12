@@ -5733,6 +5733,10 @@ export type Database = {
       }
       publish_route: { Args: { p_route_id: string }; Returns: string }
       purge_expired_leads: { Args: never; Returns: number }
+      record_signwell_completion: {
+        Args: { p_document_id: string; p_signer_email: string; p_signer_name: string }
+        Returns: Json
+      }
       resolve_qbo_conflict: { Args: { p_choice: string; p_id: string }; Returns: undefined }
       quote_accept: {
         Args: {
