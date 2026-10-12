@@ -12,6 +12,8 @@ import { CUSTOMER_EDIT_ROLES, OFFICE_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
 import { LeadAgeBadge } from "@/lib/leads/age-badge-view";
 import { formatLeadSource, LEAD_SOURCES, WEBSITE_FORM_SOURCE } from "@/lib/leads/lead-source";
+import { PipelineBoard } from "@/lib/leads/pipeline-board";
+import { pipelineColumns, toPipelineCards } from "@/lib/leads/pipeline";
 import { leadDisplayName, listLeadRequests } from "@/lib/leads/queries";
 import { responseTargetMinutes } from "@/lib/leads/response-target";
 import { LEAD_STATUSES } from "@/lib/leads/types";
@@ -27,7 +29,7 @@ function statusLabel(status: string): string {
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; source?: string; assignee?: string }>;
+  searchParams: Promise<{ status?: string; source?: string; assignee?: string; view?: string }>;
 }) {
   const session = await requireOrg();
   if (!hasRole(session.orgRole, OFFICE_ROLES)) {
@@ -44,11 +46,12 @@ export default async function LeadsPage({
     );
   }
 
-  const { status, source, assignee } = await searchParams;
+  const { status, source, assignee, view } = await searchParams;
+  const board = view === "board";
   const supabase = await createClient();
   const [{ data: org }, list, { data: members }] = await Promise.all([
     supabase.from("orgs").select("settings").eq("id", session.orgId).maybeSingle(),
-    listLeadRequests(supabase, session.orgId, { status, source, assignee }),
+    listLeadRequests(supabase, session.orgId, board ? { source, assignee } : { status, source, assignee }),
     supabase
       .from("memberships")
       .select("user_id, profiles(full_name)")
@@ -65,20 +68,32 @@ export default async function LeadsPage({
     <>
       <PageHeader
         title="Leads"
-        description="Inbound requests waiting for a response"
-        actions={canAdd ? <ManualLeadDialog /> : null}
+        description={board ? "Pipeline by stage. Rotting means the lead has sat too long." : "Inbound requests waiting for a response"}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant={board ? "outline" : "secondary"} render={<Link href="/leads" />}>
+              List
+            </Button>
+            <Button variant={board ? "secondary" : "outline"} render={<Link href="/leads?view=board" />}>
+              Board
+            </Button>
+            {canAdd ? <ManualLeadDialog /> : null}
+          </div>
+        }
       />
       <div className="page-body">
         <form className="flex flex-wrap items-center gap-2">
-          <NativeSelect name="status" defaultValue={status ?? ""} className="w-auto" aria-label="Status">
-            <option value="">Active (hide spam)</option>
-            <option value="all">All statuses</option>
-            {LEAD_STATUSES.map((item) => (
-              <option key={item} value={item}>
-                {statusLabel(item)}
-              </option>
-            ))}
-          </NativeSelect>
+          {board ? <input type="hidden" name="view" value="board" /> : (
+            <NativeSelect name="status" defaultValue={status ?? ""} className="w-auto" aria-label="Status">
+              <option value="">Active (hide spam)</option>
+              <option value="all">All statuses</option>
+              {LEAD_STATUSES.map((item) => (
+                <option key={item} value={item}>
+                  {statusLabel(item)}
+                </option>
+              ))}
+            </NativeSelect>
+          )}
           <NativeSelect name="source" defaultValue={source ?? ""} className="w-auto" aria-label="Source">
             <option value="">All sources</option>
             {[...LEAD_SOURCES, WEBSITE_FORM_SOURCE].map((item) => (
@@ -110,6 +125,8 @@ export default async function LeadsPage({
             <AlertTitle>Could not load leads</AlertTitle>
             <AlertDescription>{list.error}</AlertDescription>
           </Alert>
+        ) : board ? (
+          <PipelineBoard columns={pipelineColumns(toPipelineCards(list.leads, now, targetMinutes))} />
         ) : list.leads.length === 0 ? (
           <Empty>
             <EmptyHeader>
