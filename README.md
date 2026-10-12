@@ -67,6 +67,7 @@ Optional:
 - `E2E_MODE` — set to `1` only for the Playwright fixture at `/e2e`. It is ignored when `VERCEL_ENV=production`. Leave it unset in every deployed environment.
 - `WISETACK_PREQUAL_URL` — public financing link. Leave unset and Settings says it is not connected. When set, a proposal of $500 or more shows "See financing options". No Wisetack API call is made.
 - Lead connectors stay off until their keys are set. The settings page says which key. `GOOGLE_LSA_WEBHOOK_SECRET`, `THUMBTACK_WEBHOOK_SECRET`, `YELP_WEBHOOK_SECRET`, `ANGI_WEBHOOK_SECRET`, and `INBOUND_LEAD_WEBHOOK_SECRET` (Zapier) authorize `POST /api/public/leads/inbound/{connector}` with `Authorization: Bearer`. Facebook Lead Ads also needs `FACEBOOK_LEAD_ADS_VERIFY_TOKEN`, `FACEBOOK_APP_SECRET`, `FACEBOOK_PAGE_ACCESS_TOKEN`, and `INBOUND_LEAD_ORG_SLUG`. Leave them unset and those routes refuse the request.
+- `NEARMAP_API_KEY`, `VEXCEL_API_KEY`, and `SEGMENTATION_API_KEY` — HD imagery and one-click segmentation on the measure screen. Leave them unset. The screen then says to add that key. Tracing on Esri does not need them, and this build does not call those services.
 
 ## Connecting a Supabase project
 
