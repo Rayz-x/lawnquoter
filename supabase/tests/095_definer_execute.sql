@@ -121,6 +121,7 @@ select is(
     'revoke_org_invite',
     'set_active_org',
     'set_agreement_fixed_route_day',
+    'set_agreement_irrigation_plan',
     'set_agreement_season_price',
     'set_agreement_snow_contract',
     'set_crew_lead',
