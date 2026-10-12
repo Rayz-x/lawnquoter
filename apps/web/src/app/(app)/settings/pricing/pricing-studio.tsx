@@ -384,7 +384,7 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
                 fd.set("minimum_price", raw);
                 void updateService(fd).then((result) => { if (!result.ok) toast.error(result.error); else router.refresh(); });
               }} />
-              <FieldHint id="svc-minimum-hint">Raises only this service's price floor, and it cannot go below the company minimum.</FieldHint>
+              <FieldHint id="svc-minimum-hint">Raises only this service&apos;s price floor, and it cannot go below the company minimum.</FieldHint>
             </Field>
             <Field>
               <FieldLabel htmlFor="svc-desc">Description</FieldLabel>
