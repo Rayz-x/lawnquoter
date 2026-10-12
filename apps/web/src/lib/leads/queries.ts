@@ -11,7 +11,7 @@ export type LeadListResult =
   | { ok: false; error: string };
 
 const LIST_COLUMNS =
-  "id, org_id, status, contact_name, phone, email, source, source_other, assignee_id, lost_reason, stage_entered_at, next_follow_up_on, created_at, updated_at";
+  "id, org_id, status, contact_name, phone, email, source, source_other, services, out_of_area, assignee_id, lost_reason, stage_entered_at, next_follow_up_on, created_at, updated_at";
 
 export async function listLeadRequests(
   supabase: SupabaseClient<Database>,

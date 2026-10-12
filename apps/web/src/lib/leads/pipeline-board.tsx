@@ -22,6 +22,9 @@ export function PipelineBoard({ columns }: { columns: readonly PipelineColumn[] 
                     {card.name}
                   </Link>
                   <div className="mt-1 text-xs text-muted-foreground">{card.ownerName}</div>
+                  {card.scoreLabel ? (
+                    <div className="mt-1 text-xs font-medium">{card.scoreLabel}</div>
+                  ) : null}
                   {card.openTasks > 0 ? (
                     <div className="mt-1 text-xs">{card.openTasks === 1 ? "1 open task" : `${card.openTasks} open tasks`}</div>
                   ) : null}

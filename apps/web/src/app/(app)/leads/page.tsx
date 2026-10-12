@@ -14,6 +14,13 @@ import { LeadAgeBadge } from "@/lib/leads/age-badge-view";
 import { formatLeadSource, LEAD_SOURCES, WEBSITE_FORM_SOURCE } from "@/lib/leads/lead-source";
 import { PipelineBoard } from "@/lib/leads/pipeline-board";
 import { pipelineColumns, toPipelineCards } from "@/lib/leads/pipeline";
+import {
+  DEFAULT_MINIMUM_LOT_SQFT,
+  LEAD_SCORE_LABEL,
+  leadIsEngaged,
+  offeredServicesFromSettings,
+  scoreLead,
+} from "@/lib/leads/score";
 import { leadDisplayName, listLeadRequests } from "@/lib/leads/queries";
 import { responseTargetMinutes } from "@/lib/leads/response-target";
 import { LEAD_STATUSES } from "@/lib/leads/types";
@@ -140,7 +147,22 @@ export default async function LeadsPage({
           <PipelineBoard
             columns={pipelineColumns(
               toPipelineCards(
-                list.leads.map((lead) => ({ ...lead, open_tasks: openTasks.get(lead.id) ?? 0 })),
+                list.leads.map((lead) => {
+                  const scored = scoreLead({
+                    lotSqft: null,
+                    minimumLotSqft: DEFAULT_MINIMUM_LOT_SQFT,
+                    requestedServices: lead.services ?? [],
+                    offeredServices: offeredServicesFromSettings(org?.settings),
+                    outOfArea: lead.out_of_area === true,
+                    sourceWinRate: null,
+                    engaged: leadIsEngaged(lead.status),
+                  });
+                  return {
+                    ...lead,
+                    open_tasks: openTasks.get(lead.id) ?? 0,
+                    score_label: LEAD_SCORE_LABEL[scored.recommendation],
+                  };
+                }),
                 now,
                 targetMinutes,
               ),

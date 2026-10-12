@@ -25,6 +25,8 @@ export type LeadRequestRow = {
   /** Present once the pipeline stage clock migration is applied. */
   stage_entered_at?: string | null;
   lost_reason?: string | null;
+  services?: string[];
+  out_of_area?: boolean;
 };
 
 export type LeadRequestListItem = LeadRequestRow & {
