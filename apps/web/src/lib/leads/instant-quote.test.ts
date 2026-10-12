@@ -66,13 +66,15 @@ describe("instant quote session", () => {
     expect(instantQuoteConfigFromSettings({})).toEqual({
       serviceAreaZips: [],
       statedMinimum: 50,
+      depositCents: null,
     });
     expect(
       instantQuoteConfigFromSettings({
         lead_service_area_zips: ["37064"],
         instant_quote_minimum: 75,
+        instant_quote_deposit_cents: 2500,
       }),
-    ).toEqual({ serviceAreaZips: ["37064"], statedMinimum: 75 });
+    ).toEqual({ serviceAreaZips: ["37064"], statedMinimum: 75, depositCents: 2500 });
   });
 
   it("stores the contact and UTM on the lead and leaves the price off the row", () => {

@@ -22,6 +22,7 @@ import {
 } from "@/lib/leads/instant-quote-measure";
 import { loadInstantQuoteMap } from "./load-map";
 import { revealInstantQuote } from "./reveal-quote";
+import { startInstantQuoteDeposit } from "./start-deposit";
 
 function dollars(amount: number) {
   return amount.toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -30,11 +31,18 @@ function dollars(amount: number) {
 export function InstantQuoteSummary({
   offer,
   depositConnected,
+  leadId,
+  onDeposit,
+  depositFailed,
 }: {
   offer: InstantQuoteOffer | null;
   depositConnected: boolean;
+  leadId?: string | null;
+  onDeposit?: () => void;
+  depositFailed?: boolean;
 }) {
   if (!offer) return null;
+  const canPay = depositConnected && Boolean(leadId) && Boolean(onDeposit);
   return (
     <section className="grid gap-2 rounded-lg border p-4">
       <p className="text-2xl font-semibold tracking-tight">
@@ -42,7 +50,14 @@ export function InstantQuoteSummary({
       </p>
       <p>Stated minimum {dollars(offer.statedMinimum)}</p>
       <p>{offer.confirm}</p>
-      <p>{depositLockCopy(depositConnected)}</p>
+      {canPay ? (
+        <Button type="button" onClick={onDeposit}>
+          {depositLockCopy(true)}
+        </Button>
+      ) : (
+        <p>{depositLockCopy(false)}</p>
+      )}
+      {depositFailed ? <p>We couldn&apos;t start the deposit.</p> : null}
     </section>
   );
 }
@@ -154,6 +169,7 @@ export function InstantQuoteWidget({
   serviceAreaZips,
   initialUtm,
   depositConnected,
+  depositPaid = false,
   turnstileSiteKey = null,
 }: {
   slug: string;
@@ -161,6 +177,7 @@ export function InstantQuoteWidget({
   serviceAreaZips: string[];
   initialUtm: Pick<InstantQuoteDraft, "utmSource" | "utmMedium" | "utmCampaign" | "utmTerm" | "utmContent">;
   depositConnected: boolean;
+  depositPaid?: boolean;
   turnstileSiteKey?: string | null;
 }) {
   const [draft, setDraft] = useState(() => emptyInstantQuote(initialUtm));
@@ -172,8 +189,10 @@ export function InstantQuoteWidget({
   const [turnstileToken, setTurnstileToken] = useState("");
   const turnstileRef = useRef<HTMLDivElement>(null);
   const [offer, setOffer] = useState<InstantQuoteOffer | null>(null);
+  const [leadId, setLeadId] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [depositFailed, setDepositFailed] = useState(false);
   const step = instantQuoteStep(draft, serviceAreaZips);
   const patch = (partial: Partial<InstantQuoteDraft>) => setDraft((current) => ({ ...current, ...partial }));
 
@@ -238,10 +257,35 @@ export function InstantQuoteWidget({
       return;
     }
     setOffer(result);
+    setLeadId(result.leadId);
   }
 
+  async function lockDeposit() {
+    if (!leadId) return;
+    setPending(true);
+    setDepositFailed(false);
+    const result = await startInstantQuoteDeposit(slug, leadId, draft);
+    setPending(false);
+    if (!result.ok) {
+      setDepositFailed(true);
+      return;
+    }
+    window.location.assign(result.url);
+  }
+
+  if (depositPaid) return <p>Deposit received. We&apos;ll confirm within 24 hours.</p>;
   if (step === "outside") return <p>This address is outside our service area, so we can&apos;t price it here.</p>;
-  if (offer) return <InstantQuoteSummary offer={offer} depositConnected={depositConnected} />;
+  if (offer) {
+    return (
+      <InstantQuoteSummary
+        offer={offer}
+        depositConnected={depositConnected}
+        leadId={leadId}
+        onDeposit={() => void lockDeposit()}
+        depositFailed={depositFailed}
+      />
+    );
+  }
 
   return (
     <div className="grid gap-3">
