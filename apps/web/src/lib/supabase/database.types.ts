@@ -3,6 +3,7 @@
 // stage_entered_at added for 20261014090000.
 // usage_meters added for 20261017003000.
 // auto_charge added for 20261016001800.
+// irrigation plan columns and set_agreement_irrigation_plan added for 20261016000800.
 // snow_events and activate_snow_event added for 20261016000400.
 
 export type Json =
@@ -604,9 +605,11 @@ export type Database = {
           frequency: Database["public"]["Enums"]["agreement_frequency"] | null
           id: string
           kind: Database["public"]["Enums"]["agreement_kind"]
+          minutes_per_zone: number | null
           notes_office: string | null
           org_id: string
           preferred_dow: number | null
+          price_per_zone: number | null
           property_id: string
           quote_id: string | null
           quote_version_id: string | null
@@ -624,6 +627,7 @@ export type Database = {
           trigger_depth_in: number | null
           status: Database["public"]["Enums"]["agreement_status"]
           updated_at: string
+          zone_count: number | null
         }
         Insert: {
           account_id: string
@@ -636,9 +640,11 @@ export type Database = {
           frequency?: Database["public"]["Enums"]["agreement_frequency"] | null
           id?: string
           kind: Database["public"]["Enums"]["agreement_kind"]
+          minutes_per_zone?: number | null
           notes_office?: string | null
           org_id: string
           preferred_dow?: number | null
+          price_per_zone?: number | null
           property_id: string
           quote_id?: string | null
           quote_version_id?: string | null
@@ -656,6 +662,7 @@ export type Database = {
           trigger_depth_in?: number | null
           status?: Database["public"]["Enums"]["agreement_status"]
           updated_at?: string
+          zone_count?: number | null
         }
         Update: {
           account_id?: string
@@ -668,9 +675,11 @@ export type Database = {
           frequency?: Database["public"]["Enums"]["agreement_frequency"] | null
           id?: string
           kind?: Database["public"]["Enums"]["agreement_kind"]
+          minutes_per_zone?: number | null
           notes_office?: string | null
           org_id?: string
           preferred_dow?: number | null
+          price_per_zone?: number | null
           property_id?: string
           quote_id?: string | null
           quote_version_id?: string | null
@@ -688,6 +697,7 @@ export type Database = {
           trigger_depth_in?: number | null
           status?: Database["public"]["Enums"]["agreement_status"]
           updated_at?: string
+          zone_count?: number | null
         }
         Relationships: [
           {
@@ -5643,6 +5653,15 @@ export type Database = {
       set_active_org: { Args: { p_org: string }; Returns: undefined }
       set_agreement_fixed_route_day: {
         Args: { p_agreement_id: string; p_fixed: boolean }
+        Returns: undefined
+      }
+      set_agreement_irrigation_plan: {
+        Args: {
+          p_agreement_id: string
+          p_minutes_per_zone: number
+          p_price_per_zone: number
+          p_zones: number
+        }
         Returns: undefined
       }
       set_agreement_season_price: {
