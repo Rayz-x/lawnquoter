@@ -6,6 +6,7 @@ import { pricingRuleSchema, type Modifiers, type TierMatrixRule, type TierRow } 
 import { Lock, Search } from "lucide-react";
 import { toast } from "sonner";
 import { SectionCard, SectionMenu, TabBox, useSectionAutosave, type SectionAutosaveStatus } from "@/components/entry";
+import { HelpTip } from "@/components/help/help-tip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -326,7 +327,14 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
           <>
             <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-muted-foreground">Measured quantity</span>
+              <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                Measured quantity
+                <HelpTip
+                  label="Help for price list units"
+                  text="Tiers count the unit you pick, such as square feet, feet, or hours. The column heading shows that unit."
+                  href="/help/pricing#units-on-the-price-list"
+                />
+              </span>
               <ToggleGroup value={[current.quantityKey]} disabled={!canEdit} onValueChange={(next) => { const key = next[0]; if (canEdit && key && key !== current.quantityKey) commit({ ...current, quantityKey: key }, true); }} className="flex-wrap">
                 {chips.map((item) => <ToggleGroupItem key={item.key} value={item.key} className="h-8 rounded-full border px-3 aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground max-md:h-11">{item.label}</ToggleGroupItem>)}
               </ToggleGroup>
@@ -370,7 +378,14 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
         { value: "details", label: "Details", content: (
           <div className="grid gap-4">
             <Field>
-              <FieldLabel htmlFor="svc-minimum">Minimum for this service</FieldLabel>
+              <div className="flex items-center gap-1">
+                <FieldLabel htmlFor="svc-minimum">Minimum for this service</FieldLabel>
+                <HelpTip
+                  label="Help for the service minimum"
+                  text="This service will not price below this amount. Leave it blank to use the company minimum."
+                  href="/help/pricing#minimum-and-the-first-cut"
+                />
+              </div>
               <Input id="svc-minimum" inputMode="decimal" className="max-w-full sm:max-w-40" placeholder="Use the company minimum" readOnly={!canEdit} defaultValue={service.minimumPrice ?? ""} onBlur={(event) => {
                 if (!canEdit) return;
                 const raw = event.target.value.trim();
