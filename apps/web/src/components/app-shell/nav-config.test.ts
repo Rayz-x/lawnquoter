@@ -90,6 +90,7 @@ describe("office nav categories", () => {
     expect(item("sales", "Import customers")).toBeUndefined();
     expect(owner.find((category) => category.label === "Sales")?.items.map((entry) => entry.href)).toEqual([
       "/quotes",
+      "/bids",
       "/settings/pricing",
     ]);
     expect(owner.find((category) => category.label === "Money")?.items.map((entry) => entry.title)).toEqual([
