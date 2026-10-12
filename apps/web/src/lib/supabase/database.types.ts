@@ -3065,6 +3065,65 @@ export type Database = {
           },
         ]
       }
+      org_sms_registrations: {
+        Row: {
+          brand_sid: string | null
+          brand_status: string
+          campaign_sid: string | null
+          campaign_status: string
+          contact_email: string | null
+          created_at: string
+          ein: string | null
+          last_error: string | null
+          legal_name: string | null
+          messaging_service_sid: string | null
+          org_id: string
+          sample_message: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          brand_sid?: string | null
+          brand_status?: string
+          campaign_sid?: string | null
+          campaign_status?: string
+          contact_email?: string | null
+          created_at?: string
+          ein?: string | null
+          last_error?: string | null
+          legal_name?: string | null
+          messaging_service_sid?: string | null
+          org_id: string
+          sample_message?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          brand_sid?: string | null
+          brand_status?: string
+          campaign_sid?: string | null
+          campaign_status?: string
+          contact_email?: string | null
+          created_at?: string
+          ein?: string | null
+          last_error?: string | null
+          legal_name?: string | null
+          messaging_service_sid?: string | null
+          org_id?: string
+          sample_message?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_sms_registrations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_invites: {
         Row: {
           accepted_at: string | null
