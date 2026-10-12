@@ -22,6 +22,7 @@ import { isCrewStatus, type CrewStatus } from "@/lib/scheduling/crew-status";
 import { isWeatherAction, isWeatherCondition, type WeatherRule } from "@/lib/scheduling/weather-rules";
 import { DayBoard, type BoardColumn, type BoardVisit, type PhoneSync } from "./day-board";
 import { DispatchGrid, type GridVisit } from "./dispatch-grid";
+import { SnowActivationCard } from "./snow-activation-card";
 import { WeatherCard } from "./weather-card";
 
 export const metadata: Metadata = { title: "Schedule" };
@@ -433,14 +434,17 @@ export default async function SchedulePage({
             <AlertDescription>{loadError}</AlertDescription>
           </Alert>
         ) : view === "day" ? (
-          <DayBoard
-            date={date}
-            canWrite={canWrite}
-            timeZone={org?.timezone ?? "UTC"}
-            saturdayWorkday={saturdayWorkday}
-            tray={tray}
-            columns={columns}
-          />
+          <>
+            {canWrite ? <SnowActivationCard date={date} /> : null}
+            <DayBoard
+              date={date}
+              canWrite={canWrite}
+              timeZone={org?.timezone ?? "UTC"}
+              saturdayWorkday={saturdayWorkday}
+              tray={tray}
+              columns={columns}
+            />
+          </>
         ) : (
           <DispatchGrid dates={span} crews={gridCrews} visits={gridVisits} canWrite={canWrite} />
         )}
