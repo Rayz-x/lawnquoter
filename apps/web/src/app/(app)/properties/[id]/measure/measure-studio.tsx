@@ -14,6 +14,7 @@ import {
 } from "@lawnquoter/shared";
 import { toast } from "sonner";
 import { Eraser, MousePointer2, Pentagon, Pencil, Minus, Save, Sparkles, Trash2 } from "lucide-react";
+import { IMAGERY_CHOICES, imageryChoiceForDate } from "@/components/map/imagery-dates";
 import { MeasureMap, type DrawMode } from "@/components/map/measure-map";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import type { ConfidenceResult } from "@/lib/geo/confidence";
+import { scoreMeasurementConfidence } from "@/lib/geo/confidence";
 import { liveSize, newFeature, summarize, type StudioFeature } from "@/lib/geo/features";
 import { prefillTurf } from "@/lib/geo/prefill";
 import { saveMeasurement } from "./actions";
@@ -33,7 +34,9 @@ export function MeasureStudio({
   parcel,
   footprint,
   location,
-  confidence,
+  parcelSource,
+  footprintSource,
+  imageryDate,
 }: {
   propertyId: string;
   measurementId: string;
@@ -41,15 +44,29 @@ export function MeasureStudio({
   parcel: Geometry | null;
   footprint: Geometry | null;
   location: Geometry | null;
-  confidence: ConfidenceResult;
+  parcelSource: string | null;
+  footprintSource: string | null;
+  imageryDate: string | null;
 }) {
   const router = useRouter();
   const [features, setFeatures] = useState<StudioFeature[]>(initialFeatures);
+  const [imagery, setImagery] = useState(() => imageryChoiceForDate(imageryDate));
+  const [imageryTouched, setImageryTouched] = useState(false);
   const [mode, setMode] = useState<DrawMode>("select");
   const [category, setCategory] = useState<FeatureCategory>("turf_front");
   const [pending, startTransition] = useTransition();
 
   const totals = useMemo(() => summarize(features), [features]);
+  const confidence = useMemo(
+    () =>
+      scoreMeasurementConfidence({
+        parcelSource,
+        footprintSource,
+        imageryDate: imagery.date,
+        hasManualFallback: features.some((feature) => feature.source === "manual"),
+      }),
+    [parcelSource, footprintSource, imagery.date, features],
+  );
   const band = confidence.band;
 
   const onDrawn = (geometry: Geometry) => {
@@ -132,7 +149,8 @@ export function MeasureStudio({
           length_ft: liveSize(f).length_ft,
           label: f.label ?? null,
           notes: f.notes ?? null,
-        })),
+          })),
+        imageryTouched ? imagery.date : undefined,
       );
       if (r.ok) {
         toast.success(`Measurement saved · ${Math.round(r.data.confidence * 100)}% confidence`);
@@ -161,17 +179,36 @@ export function MeasureStudio({
           </div>
         </div>
         <MeasureMap
+          key={imagery.id}
           location={location}
           parcel={parcel}
           footprint={footprint}
           features={features}
           mode={mode}
+          imageryRelease={imagery.release}
           onDrawn={onDrawn}
           className="h-[min(70vh,40rem)] w-full overflow-hidden rounded-lg"
         />
-        <p className="text-xs text-muted-foreground">
-          Imagery: Esri World Imagery (tracing permitted). Yellow dashed = parcel. Red = building. Draw on top, or enter a size by hand if the photo is wrong.
-        </p>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          <label className="flex items-center gap-2">
+            Imagery date
+            <select
+              className="native-control"
+              value={imagery.id}
+              onChange={(event) => {
+                const next = IMAGERY_CHOICES.find((choice) => choice.id === event.target.value);
+                if (!next) return;
+                setImageryTouched(true);
+                setImagery(next);
+              }}
+            >
+              {IMAGERY_CHOICES.map((choice) => (
+                <option key={choice.id} value={choice.id}>{choice.label}</option>
+              ))}
+            </select>
+          </label>
+          <p>Esri World Imagery (tracing permitted). Yellow dashed = parcel. Red = building. An older photo helps when the latest view is trees or construction.</p>
+        </div>
       </div>
 
       <div className="flex flex-col gap-4">
