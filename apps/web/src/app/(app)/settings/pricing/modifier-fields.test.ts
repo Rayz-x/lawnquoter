@@ -55,6 +55,22 @@ describe("modifier fields", () => {
     expect(modifierFieldsSchema.safeParse(base).success).toBe(true);
   });
 
+  it("prices a far drive, a dense route, and summer from the same fields the form saves", () => {
+    const fields = {
+      ...modifiersToFields(defaultModifiers()),
+      travelOn: true,
+      farPrice: 25,
+      densityOn: true,
+      densityPct: 10,
+      seasonOn: true,
+      summerPct: 10,
+    };
+    const examples = modifierExamples(fieldsToModifiers(fields), 55);
+    expect(examples.farDrive).toBe(80);
+    expect(examples.denseRoute).toBe(49.5);
+    expect(examples.summer).toBe(60.5);
+  });
+
   it("explains each modifier with a worked example from the engine", () => {
     const examples = modifierExamples(defaultModifiers(), 55);
     expect(examples.steep).toBe(68.75);

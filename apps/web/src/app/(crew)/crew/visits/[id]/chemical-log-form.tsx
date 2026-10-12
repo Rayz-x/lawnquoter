@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { logChemicalApplication } from "@/lib/actions/chemical-log";
+import { chemicalLog } from "@/lib/crew/chemical-log";
+import { browserCrewStore, enqueueMutation, flushOutbox } from "@/lib/crew/queue";
+import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
 
-export function ChemicalLogForm({ visitId }: { visitId: string }) {
+export function ChemicalLogForm({ visitId, userId, orgId }: { visitId: string; userId: string; orgId: string }) {
   const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
   const [product, setProduct] = useState("");
   const [rate, setRate] = useState("");
   const [epa, setEpa] = useState("");
@@ -29,18 +31,39 @@ export function ChemicalLogForm({ visitId }: { visitId: string }) {
       className="mt-4 flex flex-col gap-2 rounded-xl border p-4"
       onSubmit={(event) => {
         event.preventDefault();
-        startTransition(async () => {
-          const result = await logChemicalApplication({
-            visitId,
-            product,
-            rate,
-            epaRegNo: epa,
-            tempF: Number(temp),
-            windMph: Number(wind),
-            conditions,
-          });
-          if (result.ok) {
-            toast.success("Chemical application logged");
+        const parsed = chemicalLog({
+          product,
+          rate,
+          epaRegNo: epa,
+          tempF: Number(temp),
+          windMph: Number(wind),
+          conditions,
+        });
+        if (!parsed.ok) {
+          toast.error(parsed.error);
+          return;
+        }
+        const log = parsed.log;
+        setPending(true);
+        void (async () => {
+          try {
+            const store = browserCrewStore();
+            await enqueueMutation(store, {
+              kind: "visit_log_chemical",
+              visit_id: visitId,
+              user_id: userId,
+              org_id: orgId,
+              payload: {
+                product: log.product,
+                rate: log.rate,
+                epa_reg_no: log.epaRegNo,
+                temp_f: log.tempF,
+                wind_mph: log.windMph,
+                conditions: log.conditions || null,
+              },
+            });
+            void flushOutbox(store, sendCrewSync, { userId, orgId }, new Date(), uploadVisitPhoto);
+            toast("Chemical application saved. It sends when you have signal.");
             setProduct("");
             setRate("");
             setEpa("");
@@ -48,10 +71,12 @@ export function ChemicalLogForm({ visitId }: { visitId: string }) {
             setWind("");
             setConditions("");
             setOpen(false);
-          } else {
-            toast.error(result.error);
+          } catch {
+            toast.error("Could not save that chemical application.");
+          } finally {
+            setPending(false);
           }
-        });
+        })();
       }}
     >
       <h2 className="font-serif text-xl font-bold">Chemical application</h2>

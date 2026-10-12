@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { CUSTOMER_EDIT_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
 import { AccountDuplicateNotice } from "@/components/accounts/duplicate-notice";
 import type { AccountDuplicate } from "@/lib/accounts/duplicates";
@@ -21,6 +22,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AccountHeader } from "./account-header";
 import { AccountRail } from "./account-rail";
 import { AccountTabBox } from "./account-tab-box";
+import { ConsolidatedInvoiceForm } from "./consolidated-invoice-form";
 import { ContactsPanel } from "./contacts-panel";
 import { IdentityCard } from "./identity-card";
 import { PropertyQuickAdd } from "./property-quick-add";
@@ -336,6 +338,20 @@ export default async function AccountDetailPage({
         </div>
         <div className="flex flex-col gap-4">
         <CardOnFilePanel accountId={account.id} orgId={session.orgId} role={session.orgRole} returnSessionId={cardSessionId ?? null} />
+        {account.consolidated_invoicing ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Consolidated invoice</CardTitle>
+              <CardDescription>One invoice for this account and its child sites.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ConsolidatedInvoiceForm
+                accountId={account.id}
+                canEdit={hasRole(session.orgRole, CUSTOMER_EDIT_ROLES)}
+              />
+            </CardContent>
+          </Card>
+        ) : null}
         <AccountRail
           account={account}
           parents={parents ?? []}

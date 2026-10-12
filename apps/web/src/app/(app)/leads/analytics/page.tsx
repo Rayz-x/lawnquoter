@@ -11,6 +11,7 @@ import type { FunnelSlice } from "@/lib/analytics/sales-analytics";
 import { OFFICE_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
 import { formatCents } from "@/lib/billing/review-queue";
+import { formatMoney } from "@/lib/money";
 import { addDays } from "@/lib/scheduling/recurrence";
 import { isIsoDate, orgToday } from "@/lib/scheduling/office-date";
 import { createClient } from "@/lib/supabase/server";
@@ -87,7 +88,7 @@ export default async function SalesFunnelPage({
 
   return (
     <>
-      <PageHeader title="Sales funnel" description="Leads to quoted to accepted, with pipeline value and lost reasons" />
+      <PageHeader title="Sales funnel" description="Leads to accepted work, pipeline value, job hours, and where visits sit" />
       <div className="page-body space-y-8">
         <form className="flex flex-wrap items-end gap-2">
           <label className="grid gap-1 text-sm">
@@ -179,9 +180,110 @@ export default async function SalesFunnelPage({
                 </Table>
               )}
             </section>
+            <section className="space-y-2">
+              <h2 className="font-heading text-lg">Widget funnel</h2>
+              <Table>
+                <TableBody>
+                  {report.widget.map((stage) => (
+                    <TableRow key={stage.stage}>
+                      <TableCell>{stage.stage}</TableCell>
+                      <TableCell className="text-right tabular-nums">{stage.count}</TableCell>
+                      <TableCell className="text-right tabular-nums">{stage.fromStart}%</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </section>
+            <section className="space-y-2">
+              <h2 className="font-heading text-lg">Estimated vs actual</h2>
+              {report.variance.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No completed job time in this range.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Crew</TableHead>
+                      <TableHead className="text-right">Estimated</TableHead>
+                      <TableHead className="text-right">Actual</TableHead>
+                      <TableHead className="text-right">Variance</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {report.variance.map((row) => (
+                      <TableRow key={row.crew}>
+                        <TableCell>{row.crew}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.estimatedHours} h</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.actualHours} h</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.varianceHours} h</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </section>
+            <section className="space-y-2">
+              <h2 className="font-heading text-lg">Margin</h2>
+              <OutcomeTable rows={report.marginByService} empty="No invoiced labor in this range." />
+              <OutcomeTable rows={report.marginByCrew} empty="No crew labor in this range." />
+            </section>
+            <section className="space-y-2">
+              <h2 className="font-heading text-lg">Route density</h2>
+              {report.density.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No leads or visits with a postal code.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {report.density.slice(0, 12).map((row) => (
+                    <li key={row.postalCode} className="grid grid-cols-[5rem_1fr_3rem] items-center gap-2 text-sm">
+                      <span className="tabular-nums">{row.postalCode}</span>
+                      <span
+                        className="h-2 rounded-full bg-primary"
+                        style={{ width: `${Math.max(8, (row.count / (report.density[0]?.count || 1)) * 100)}%` }}
+                      />
+                      <span className="text-right tabular-nums">{row.count}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           </>
         ) : null}
       </div>
     </>
+  );
+}
+
+function OutcomeTable({
+  rows,
+  empty,
+}: {
+  rows: { key: string; revenueCents: number; dollarsPerManHour: number | null; marginPercent: number | null }[];
+  empty: string;
+}) {
+  if (rows.length === 0) return <p className="text-sm text-muted-foreground">{empty}</p>;
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Group</TableHead>
+          <TableHead className="text-right">Revenue</TableHead>
+          <TableHead className="text-right">$/man-hour</TableHead>
+          <TableHead className="text-right">Margin</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((row) => (
+          <TableRow key={row.key}>
+            <TableCell>{row.key}</TableCell>
+            <TableCell className="text-right tabular-nums">{formatCents(row.revenueCents)}</TableCell>
+            <TableCell className="text-right tabular-nums">
+              {row.dollarsPerManHour == null ? "—" : formatMoney(row.dollarsPerManHour, { cents: true })}
+            </TableCell>
+            <TableCell className="text-right tabular-nums">
+              {row.marginPercent == null ? "—" : `${row.marginPercent}%`}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }

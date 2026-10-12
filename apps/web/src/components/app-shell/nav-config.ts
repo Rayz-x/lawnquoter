@@ -85,6 +85,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     place: "bar",
     items: [
       { title: "Agreements", href: "/agreements", icon: Repeat, roles: OFFICE_ROLES },
+      { title: "Renewals", href: "/renewals", icon: CalendarDays, roles: OFFICE_ROLES },
       { title: "Crews", href: "/settings/crews", icon: HardHat, roles: DISPATCH_ROLES },
     ],
   },
@@ -105,6 +106,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     items: [
       { title: "Reports", href: "/leads/report", icon: BarChart3, roles: OFFICE_ROLES },
       { title: "Funnel", href: "/leads/analytics", icon: BarChart3, roles: OFFICE_ROLES },
+      { title: "Job costing", href: "/reports/job-costing", icon: BarChart3, roles: OFFICE_ROLES },
     ],
   },
   {
