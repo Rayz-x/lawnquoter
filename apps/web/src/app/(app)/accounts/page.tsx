@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { FieldHint } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -66,20 +67,32 @@ export default async function AccountsPage({
             </Link>
           ))}
         </nav>
-        <form className="flex flex-wrap items-center gap-2">
-          <Input name="q" placeholder="Search by name" defaultValue={q ?? ""} className="max-w-xs" />
-          <NativeSelect name="type" defaultValue={type ?? ""} className="w-auto">
-            <option value="">All types</option>
-            <option value="residential">Residential</option>
-            <option value="commercial">Commercial</option>
-          </NativeSelect>
-          <NativeSelect name="status" defaultValue={status ?? ""} className="w-auto">
-            <option value="">All statuses</option>
-            <option value="lead">Lead</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </NativeSelect>
-          <Button type="submit" variant="outline">
+        <form className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="flex min-w-0 flex-col gap-1">
+            <label htmlFor="account-search" className="text-sm">Search</label>
+            <Input id="account-search" name="q" aria-describedby="account-search-hint" placeholder="Search by name" defaultValue={q ?? ""} className="w-full" />
+            <FieldHint id="account-search-hint">Finds a customer by name.</FieldHint>
+          </div>
+          <div className="flex min-w-0 flex-col gap-1">
+            <label htmlFor="account-type" className="text-sm">Type</label>
+            <NativeSelect id="account-type" name="type" aria-describedby="account-type-hint" defaultValue={type ?? ""} className="w-full">
+              <option value="">All types</option>
+              <option value="residential">Residential</option>
+              <option value="commercial">Commercial</option>
+            </NativeSelect>
+            <FieldHint id="account-type-hint">Shows homes, businesses, or both.</FieldHint>
+          </div>
+          <div className="flex min-w-0 flex-col gap-1">
+            <label htmlFor="account-status" className="text-sm">Status</label>
+            <NativeSelect id="account-status" name="status" aria-describedby="account-status-hint" defaultValue={status ?? ""} className="w-full">
+              <option value="">All statuses</option>
+              <option value="lead">Lead</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </NativeSelect>
+            <FieldHint id="account-status-hint">Shows leads, active customers, or inactive ones.</FieldHint>
+          </div>
+          <Button type="submit" variant="outline" className="sm:self-end">
             Filter
           </Button>
         </form>
