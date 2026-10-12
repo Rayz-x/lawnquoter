@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { FieldHint } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { createInvoicesBatch } from "@/lib/actions/invoices";
 
@@ -20,7 +21,7 @@ export function CreateBatchForm({
 
   return (
     <form
-      className="flex flex-wrap items-end gap-2"
+      className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
       onSubmit={(event) => {
         event.preventDefault();
         const fd = new FormData(event.currentTarget);
@@ -43,19 +44,21 @@ export function CreateBatchForm({
         });
       }}
     >
-      <label className="grid gap-1 text-xs">
-        <span className="text-muted-foreground">From</span>
-        <Input type="date" name="period_start" defaultValue={defaultStart} required className="w-auto" />
-      </label>
-      <label className="grid gap-1 text-xs">
-        <span className="text-muted-foreground">To</span>
-        <Input type="date" name="period_end" defaultValue={defaultEnd} required className="w-auto" />
-      </label>
+      <div className="flex min-w-0 flex-col gap-1 text-sm">
+        <label htmlFor="batch-start">From</label>
+        <Input id="batch-start" type="date" name="period_start" aria-describedby="batch-start-hint" defaultValue={defaultStart} required className="w-full" />
+        <FieldHint id="batch-start-hint">The first day of visits to put on these invoices.</FieldHint>
+      </div>
+      <div className="flex min-w-0 flex-col gap-1 text-sm">
+        <label htmlFor="batch-end">To</label>
+        <Input id="batch-end" type="date" name="period_end" aria-describedby="batch-end-hint" defaultValue={defaultEnd} required className="w-full" />
+        <FieldHint id="batch-end-hint">The last day of visits to put on these invoices.</FieldHint>
+      </div>
       <Button type="submit" disabled={pending}>
         {pending ? "Creating…" : "Create invoices"}
       </Button>
-      {error ? <p className="basis-full text-sm text-destructive">{error}</p> : null}
-      {message ? <p className="basis-full text-sm text-muted-foreground">{message}</p> : null}
+      {error ? <p className="text-sm text-destructive sm:col-span-3">{error}</p> : null}
+      {message ? <p className="text-sm text-muted-foreground sm:col-span-3">{message}</p> : null}
     </form>
   );
 }
