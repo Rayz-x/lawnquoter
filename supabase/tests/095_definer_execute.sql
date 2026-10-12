@@ -72,6 +72,7 @@ select is(
     'create_invoices_batch',
     'create_org',
     'create_org_invite',
+    'create_progress_invoice',
     'crew_ack_day_pack',
     'crew_day_pack',
     'crew_pin_is_set',
