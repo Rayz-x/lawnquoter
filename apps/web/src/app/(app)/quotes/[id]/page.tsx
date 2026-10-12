@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireOrg } from "@/lib/auth/session";
+import { TextDocumentOffer } from "@/components/messaging/text-document-offer";
 import { formatMoney } from "@/lib/money";
 import { catalogPickerRules, measurementQuantities, priceCatalogLine, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
 import { defaultSelectedIds } from "@/lib/quotes/selection";
@@ -230,6 +231,12 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
         actions={
           <>
             {canEditQuote ? <SendQuoteButton quoteId={quote.id} status={quote.status} /> : null}
+            <TextDocumentOffer
+              purpose="quote"
+              id={quote.id}
+              label="Text proposal"
+              allowed={canEditQuote && ["draft", "changed", "sent", "viewed"].includes(quote.status)}
+            />
             {convertedAgreement ? (
               <Button variant="outline" render={<Link href={`/agreements/${convertedAgreement.id}`} />}>
                 View agreement
