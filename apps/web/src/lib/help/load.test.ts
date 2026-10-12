@@ -23,5 +23,7 @@ describe("loadHelpArticle", () => {
     expect(loadHelpArticle("snow")?.headings.map((heading) => heading.id)).toEqual(["activate-a-snow-day"]);
     expect(loadHelpArticle("crew-app")?.headings.map((heading) => heading.id)).toContain("when-the-phone-is-offline");
     expect(loadHelpArticle("chemical-logs")?.headings.map((heading) => heading.id)).toEqual(["log-an-application"]);
+    expect(loadHelpArticle("late-fees")?.headings.map((heading) => heading.id)).toEqual(["set-the-fee", "add-the-month"]);
+    expect(loadHelpArticle("payments")?.headings.map((heading) => heading.id)).toContain("charge-after-a-visit");
   });
 });
