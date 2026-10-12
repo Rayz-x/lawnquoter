@@ -25,11 +25,13 @@ const frac = (p: number) => Math.round(p * 100) / 10000;
 
 /** Plain editor for every non-tier rule. Saves validated engine config; no JSON is shown. */
 export function OtherRuleEditor({
+  serviceName,
   config,
   modifiers,
   canEdit,
   onSave,
 }: {
+  serviceName: string;
   config: NonTier;
   modifiers: Modifiers;
   canEdit: boolean;
@@ -46,8 +48,8 @@ export function OtherRuleEditor({
 
   return (
     <SectionCard
-      title={RULE_TITLES[rule.type]}
-      description="Changes apply to new quotes. Open quotes keep their price."
+      title={serviceName}
+      description={`${RULE_TITLES[rule.type]} · changes apply to new quotes, open quotes keep their price`}
       error={error ?? (valid.success ? null : (valid.error.issues[0]?.message ?? null))}
       actions={
         canEdit ? (

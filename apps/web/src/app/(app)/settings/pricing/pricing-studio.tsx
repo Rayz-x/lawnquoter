@@ -144,7 +144,7 @@ export function PricingStudio({ priceListId, services, rules, modifiers, canEdit
         {service && rule && tier ? (
           <ServiceEditor key={service.id} service={service} rule={rule} tier={tier} rules={serviceRules} modifiers={modifiers} priceListId={priceListId} canEdit={canEdit} tab={tab} onTab={(value) => { setTab(value); visit(service.id, value); }} onPickRule={setPickedRuleId} />
         ) : service && rule && !tier && nonTier(rule.config) && priceListId ? (
-          <OtherRuleEditor key={rule.id} config={nonTier(rule.config)!} modifiers={modifiers} canEdit={canEdit} onSave={async (config) => { const fd = new FormData(); fd.set("id", rule.id); fd.set("price_list_id", priceListId); fd.set("service_id", rule.serviceId); fd.set("name", rule.name); fd.set("config", JSON.stringify(config)); const result = await saveRule(fd); if (result.ok) { router.refresh(); return { ok: true }; } return result; }} />
+          <OtherRuleEditor key={rule.id} serviceName={service.name} config={nonTier(rule.config)!} modifiers={modifiers} canEdit={canEdit} onSave={async (config) => { const fd = new FormData(); fd.set("id", rule.id); fd.set("price_list_id", priceListId); fd.set("service_id", rule.serviceId); fd.set("name", rule.name); fd.set("config", JSON.stringify(config)); const result = await saveRule(fd); if (result.ok) { router.refresh(); return { ok: true }; } return result; }} />
         ) : (
           <SectionCard title={service?.name ?? "Services"} description={service ? `${service.name} has no tier price yet.` : "Add a service to set prices."}>
             {canEdit && service && priceListId && !rule ? <Button variant="outline" className="w-fit" onClick={createTiers}>Add price tiers</Button> : null}
