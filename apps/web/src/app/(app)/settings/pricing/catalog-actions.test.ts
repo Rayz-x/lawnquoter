@@ -25,12 +25,12 @@ describe("catalog actions", () => {
   });
 
   it("builds validated rules from the seed at the chosen price", async () => {
-    rpc.mockResolvedValue({ data: { ok: true, installed: 2, skipped: 0 }, error: null });
+    rpc.mockResolvedValue({ data: { ok: true, installed: 2, skipped: 0, price_list_id: "33333333-3333-4333-8333-333333333333" }, error: null });
     const result = await installCatalogServices([
       { key: "core-aeration", price: 20 },
       { key: "mulch-installation", price: 85.5 },
     ]);
-    expect(result).toEqual({ ok: true, data: { installed: 2, skipped: 0 } });
+    expect(result).toEqual({ ok: true, data: { installed: 2, skipped: 0, priceListId: "33333333-3333-4333-8333-333333333333" } });
     const entries = rpc.mock.calls[0]![1].p_entries;
     expect(rpc.mock.calls[0]![0]).toBe("install_catalog_services");
     expect(entries[0]).toMatchObject({
