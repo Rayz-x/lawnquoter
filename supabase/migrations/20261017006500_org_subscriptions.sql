@@ -1,3 +1,4 @@
+-- Renumbered ahead of hosted.
 -- Flat LawnQuoter plan per company. Authenticated users can read their own
 -- company's row (owner and admin). Writes stay on the service role.
 
