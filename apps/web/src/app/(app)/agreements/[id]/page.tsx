@@ -19,6 +19,7 @@ import { AgreementLifecycleForm } from "./agreement-lifecycle-form";
 import { AgreementHoldForm } from "./agreement-hold-form";
 import { AgreementScheduleForm } from "./agreement-schedule-form";
 import { FixedRouteDayForm } from "./fixed-route-day-form";
+import { LevelBillingForm } from "./level-billing-form";
 import { SnowContractForm } from "./snow-contract-form";
 
 export const metadata: Metadata = { title: "Agreement" };
@@ -57,7 +58,7 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
     supabase
       .from("agreements")
       .select(
-        "id, kind, frequency, status, start_date, end_date, preferred_dow, fixed_route_day, service_kind, snow_contract, trigger_depth_in, snow_price, snow_tiers, notes_office, quote_id, account_id, property_id, resume_on, season_start_month, season_start_day, season_end_month, season_end_day, accounts(name), properties(formatted_address, address_line1, city)",
+        "id, kind, frequency, status, start_date, end_date, preferred_dow, fixed_route_day, service_kind, snow_contract, trigger_depth_in, snow_price, snow_tiers, notes_office, quote_id, account_id, property_id, resume_on, season_start_month, season_start_day, season_end_month, season_end_day, billing_mode, billing_months, accounts(name), properties(formatted_address, address_line1, city)",
       )
       .eq("id", id)
       .eq("org_id", session.orgId)
@@ -84,8 +85,12 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
   }
   if (!agreement) notFound();
 
-  const [{ data: jobs, error: jobsError }, { data: visits, error: visitsError }, { data: holds, error: holdsError }] =
-    await Promise.all([
+  const [
+    { data: jobs, error: jobsError },
+    { data: visits, error: visitsError },
+    { data: holds, error: holdsError },
+    { data: priceTerms },
+  ] = await Promise.all([
       supabase.from("jobs").select("id, title, status").eq("agreement_id", id).eq("org_id", session.orgId).order("created_at"),
       supabase
         .from("visits")
@@ -102,6 +107,11 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
         .eq("agreement_id", id)
         .eq("org_id", session.orgId)
         .order("start_date"),
+      supabase
+        .from("agreement_price_terms")
+        .select("season_price_cents, effective_from")
+        .eq("agreement_id", id)
+        .eq("org_id", session.orgId),
     ]);
 
   const account = one(agreement.accounts);
@@ -113,6 +123,10 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
   const canEditSchedule = agreement.status !== "ended" && hasRole(session.orgRole, QUOTE_CONVERT_ROLES);
   const canManageLifecycle = agreement.status !== "ended" && hasRole(session.orgRole, ["owner", "admin", "dispatcher"]);
   const recurring = agreement.kind === "recurring" && agreement.frequency != null && agreement.status === "active";
+  const seasonPriceCents =
+    priceTerms
+      ?.filter((term) => term.effective_from <= agreement.start_date)
+      .sort((left, right) => (left.effective_from < right.effective_from ? 1 : -1))[0]?.season_price_cents ?? null;
   const orgSeason = {
     startMonth: org?.season_start_month ?? DEFAULT_SEASON.startMonth,
     startDay: org?.season_start_day ?? DEFAULT_SEASON.startDay,
@@ -380,6 +394,23 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
                 />
               </CardContent>
             </Card>
+
+            {agreement.kind === "recurring" ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Level billing</CardTitle>
+                  <CardDescription>Same amount each month for the season.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <LevelBillingForm
+                    agreementId={agreement.id}
+                    billingMonths={agreement.billing_months}
+                    seasonPriceCents={seasonPriceCents}
+                    canEdit={canEditSchedule}
+                  />
+                </CardContent>
+              </Card>
+            ) : null}
 
             {recurring ? (
               <Card>
