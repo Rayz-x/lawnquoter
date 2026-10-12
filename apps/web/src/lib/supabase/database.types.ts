@@ -4480,6 +4480,7 @@ export type Database = {
           template_id: string | null
           title: string
           updated_at: string
+          abandoned_at: string | null
           gone_quiet_at: string | null
           viewed_at: string | null
         }
@@ -4507,6 +4508,7 @@ export type Database = {
           template_id?: string | null
           title?: string
           updated_at?: string
+          abandoned_at?: string | null
           gone_quiet_at?: string | null
           viewed_at?: string | null
         }
@@ -4534,6 +4536,7 @@ export type Database = {
           template_id?: string | null
           title?: string
           updated_at?: string
+          abandoned_at?: string | null
           gone_quiet_at?: string | null
           viewed_at?: string | null
         }

@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/quote-quiet",
       "schedule": "20 * * * *"
+    },
+    {
+      "path": "/api/cron/abandoned-quotes",
+      "schedule": "25 * * * *"
     }
   ]
 }
