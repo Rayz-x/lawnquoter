@@ -20,15 +20,10 @@ export async function POST(request: Request): Promise<Response> {
   if (!decision.ok) return Response.json({ error: decision.error }, { status: decision.status });
 
   const admin = createAdminClient();
-  const [{ data: claimed, error: claimError }, { data: prior, error: priorError }] = await Promise.all([
-    admin.from("orgs").select("id").eq("sms_number", decision.to).maybeSingle(),
-    admin.from("messages").select("org_id").eq("channel", "sms").eq("direction", "out").eq("from_address", decision.to).eq("to_address", decision.from).order("occurred_at", { ascending: false }).limit(1).maybeSingle(),
-  ]);
-  if (priorError) return Response.json({ error: priorError.message }, { status: 500 });
+  const { data: claimed, error: claimError } = await admin.from("orgs").select("id").eq("sms_number", decision.to).maybeSingle();
   const orgId = resolveInboundOrg({
     claimedOrgId: claimed?.id ?? null,
     claimedAmbiguous: Boolean(claimError),
-    priorSenderOrgId: prior?.org_id ?? null,
   });
   if (!orgId) return Response.json({ error: "unknown_number" }, { status: 404 });
 

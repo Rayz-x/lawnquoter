@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deliverSms, inboundSms, mayText, readTwilioConfig, resolveInboundOrg, toE164 } from "./sms";
+import { claimedSmsFrom, deliverSms, inboundSms, mayText, readTwilioConfig, resolveInboundOrg, toE164 } from "./sms";
 
 const url = "https://app.example.com/api/webhooks/twilio/sms";
 const params = { Body: "On my way", From: "+15551110000", MessageSid: "SM123", To: "+15552220000" };
@@ -37,6 +37,7 @@ describe("Twilio SMS", () => {
     const result = await deliverSms({
       config: { accountSid: "AC1", authToken: "secret", fromNumber: "+15552220000" },
       to: "(555) 111-0000",
+      from: "5553330000",
       body: "Quote is ready",
       fetch: async (target, init) => {
         sent = { url: String(target), auth: new Headers(init?.headers).get("authorization") ?? "", body: String(init?.body) };
@@ -47,7 +48,27 @@ describe("Twilio SMS", () => {
     expect(sent.url).toBe("https://api.twilio.com/2010-04-01/Accounts/AC1/Messages.json");
     expect(sent.auth).toBe(`Basic ${Buffer.from("AC1:secret").toString("base64")}`);
     expect(sent.body).toContain("To=%2B15551110000");
+    expect(sent.body).toContain("From=%2B15553330000");
+    expect(sent.body).not.toContain("From=%2B15552220000");
     expect(sent.body).toContain("Body=Quote+is+ready");
+  });
+
+  it("does not send from the shared Twilio number when the company has not claimed one", async () => {
+    const calls: string[] = [];
+    const result = await deliverSms({
+      config: { accountSid: "AC1", authToken: "secret", fromNumber: "+15552220000" },
+      to: "5551110000",
+      body: "Hello",
+      fetch: async (target) => {
+        calls.push(String(target));
+        return new Response("{}", { status: 200 });
+      },
+    });
+    expect(result).toEqual({ sent: false, reason: "rejected" });
+    expect(calls).toEqual([]);
+    expect(claimedSmsFrom(null)).toBeNull();
+    expect(claimedSmsFrom("  ")).toBeNull();
+    expect(claimedSmsFrom("(555) 333-0000")).toBe("+15553330000");
   });
 
   it("accepts a signed inbound text and rejects a missing signature", () => {
@@ -64,10 +85,9 @@ describe("Twilio SMS", () => {
     expect(toE164("5551110000")).toBe("+15551110000");
   });
 
-  it("gives a reply to the company that sent it, not a company that claimed the number", () => {
-    expect(resolveInboundOrg({ claimedOrgId: "org-b", claimedAmbiguous: false, priorSenderOrgId: "org-a" })).toBe("org-a");
-    expect(resolveInboundOrg({ claimedOrgId: "org-a", claimedAmbiguous: false, priorSenderOrgId: null })).toBe("org-a");
-    expect(resolveInboundOrg({ claimedOrgId: null, claimedAmbiguous: true, priorSenderOrgId: null })).toBeNull();
-    expect(resolveInboundOrg({ claimedOrgId: null, claimedAmbiguous: false, priorSenderOrgId: null })).toBeNull();
+  it("gives an inbound text only to the company that claimed the number", () => {
+    expect(resolveInboundOrg({ claimedOrgId: "org-a", claimedAmbiguous: false })).toBe("org-a");
+    expect(resolveInboundOrg({ claimedOrgId: "org-a", claimedAmbiguous: true })).toBeNull();
+    expect(resolveInboundOrg({ claimedOrgId: null, claimedAmbiguous: false })).toBeNull();
   });
 });

@@ -7,7 +7,7 @@ import { CUSTOMER_EDIT_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { crewMayTextOnMyWay, onMyWayText } from "./on-my-way";
-import { deliverSms, readTwilioConfig, toE164, TWILIO_NOT_CONNECTED } from "./sms";
+import { claimedSmsFrom, deliverSms, readTwilioConfig, toE164, TWILIO_NOT_CONNECTED } from "./sms";
 
 const CREW = ["crew", "crew_lead"] as const;
 
@@ -92,7 +92,8 @@ export async function textOnMyWay(visitId: string): Promise<ActionResult> {
   if (!composed.ok) return composed;
   if (!config) return fail(TWILIO_NOT_CONNECTED);
 
-  const from = org?.sms_number ? (toE164(org.sms_number) ?? config.fromNumber) : config.fromNumber;
+  const from = claimedSmsFrom(org?.sms_number);
+  if (!from) return fail("Set the company's texting number in Texts before sending.");
   const delivery = await deliverSms({ config, to: composed.to, from, body: composed.body, fetch: (url, init) => fetch(url, init) });
   const { data: activity, error: activityError } = await admin
     .from("activities")

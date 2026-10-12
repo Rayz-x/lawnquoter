@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { hasRole, ADMIN_ROLES } from "@lawnquoter/shared";
 import { CUSTOMER_EDIT_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
-import { deliverSms, mayText, readTwilioConfig, toE164, TWILIO_NOT_CONNECTED } from "@/lib/messaging/sms";
+import { claimedSmsFrom, deliverSms, mayText, readTwilioConfig, toE164, TWILIO_NOT_CONNECTED } from "@/lib/messaging/sms";
 import { createClient } from "@/lib/supabase/server";
 
 export async function saveSmsNumber(fd: FormData): Promise<void> {
@@ -43,7 +43,8 @@ export async function sendText(fd: FormData): Promise<void> {
   const allowed = mayText({ optedIn: Boolean(contact?.sms_opt_in), inbound: Boolean(inbound?.length) });
   if (!allowed.ok) return back(allowed.error);
 
-  const from = org?.sms_number ? toE164(org.sms_number) ?? config.fromNumber : config.fromNumber;
+  const from = claimedSmsFrom(org?.sms_number);
+  if (!from) return back("Set the company's texting number in Texts before sending.");
   const delivery = await deliverSms({ config, to, from, body, fetch: (url, init) => fetch(url, init) });
   const { data: activity, error: activityError } = await supabase.from("activities").insert({
     org_id: session.orgId,

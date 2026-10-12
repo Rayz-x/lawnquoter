@@ -1,7 +1,7 @@
 import { createEmailProvider } from "@/lib/email/provider";
 import { runPaymentRemindersJob } from "@/lib/billing/run-payment-reminders";
 import { createSupabasePaymentRemindersStore } from "@/lib/billing/supabase-payment-reminders-store";
-import { deliverSms, readTwilioConfig } from "@/lib/messaging/sms";
+import { claimedSmsFrom, deliverSms, readTwilioConfig } from "@/lib/messaging/sms";
 import { createAdminClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -28,7 +28,8 @@ export async function GET(request: Request): Promise<Response> {
       send: (message) => provider.send(message),
       sendText: config
         ? async (message) => {
-            const from = message.from?.trim() || config.fromNumber;
+            const from = claimedSmsFrom(message.from);
+            if (!from) return { sent: false };
             const delivery = await deliverSms({
               config,
               to: message.to,

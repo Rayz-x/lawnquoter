@@ -10,7 +10,7 @@ import { formatMoney } from "@/lib/money";
 import { defaultSelectedIds } from "@/lib/quotes/selection";
 import { createClient } from "@/lib/supabase/server";
 import { documentSms, pickSmsContact, type TextRecipient } from "./document-sms";
-import { deliverSms, readTwilioConfig, toE164, TWILIO_NOT_CONNECTED } from "./sms";
+import { claimedSmsFrom, deliverSms, readTwilioConfig, toE164, TWILIO_NOT_CONNECTED } from "./sms";
 
 type Purpose = "quote" | "invoice";
 
@@ -84,7 +84,8 @@ export async function textDocument(input: { purpose: Purpose; id: string }): Pro
   if (!composed.ok) return composed;
   if (!config) return fail(TWILIO_NOT_CONNECTED);
 
-  const from = loaded.data.smsNumber ? (toE164(loaded.data.smsNumber) ?? config.fromNumber) : config.fromNumber;
+  const from = claimedSmsFrom(loaded.data.smsNumber);
+  if (!from) return fail("Set the company's texting number in Texts before sending.");
   const delivery = await deliverSms({ config, to: composed.to, from, body: composed.body, fetch: (url, init) => fetch(url, init) });
   const { data: activity, error: activityError } = await supabase
     .from("activities")

@@ -42,7 +42,7 @@ export async function deliverSms(input: {
 }): Promise<SmsDelivery> {
   if (!input.config) return { sent: false, reason: "not_connected" };
   const to = toE164(input.to);
-  const from = toE164(input.from ?? input.config.fromNumber);
+  const from = toE164(input.from ?? "");
   if (!to || !from || !input.body.trim()) return { sent: false, reason: "rejected" };
   const response = await input.fetch(`https://api.twilio.com/2010-04-01/Accounts/${input.config.accountSid}/Messages.json`, {
     method: "POST",
@@ -80,10 +80,15 @@ export function mayText(input: { optedIn: boolean; inbound: boolean }): { ok: tr
   return { ok: false, error: "This person has not agreed to texts." };
 }
 
-/** Reply goes to whoever sent the last text. A first text goes to the one company that claimed the number. */
-export function resolveInboundOrg(input: { claimedOrgId: string | null; claimedAmbiguous: boolean; priorSenderOrgId: string | null }): string | null {
-  if (input.priorSenderOrgId) return input.priorSenderOrgId;
-  if (input.claimedAmbiguous) return null;
+/** The company's own texting number. The shared Twilio sender is not a tenant From. */
+export function claimedSmsFrom(smsNumber: string | null | undefined): string | null {
+  if (!smsNumber?.trim()) return null;
+  return toE164(smsNumber);
+}
+
+/** An inbound text belongs only to the company that claimed that number. */
+export function resolveInboundOrg(input: { claimedOrgId: string | null; claimedAmbiguous: boolean }): string | null {
+  if (input.claimedAmbiguous || !input.claimedOrgId) return null;
   return input.claimedOrgId;
 }
 
