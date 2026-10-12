@@ -14,15 +14,13 @@ export function parseTakeoff(filename: string, bytes: Uint8Array): TakeoffParse 
     const files = unzip(Buffer.from(bytes));
     const sheet = files.get("xl/worksheets/sheet1.xml");
     if (!sheet) return { ok: false, error: "That workbook has no first sheet." };
-    return csvTakeoff(filename, sheetToCsv(sheet, files.get("xl/sharedStrings.xml") ?? ""));
+    return rowsTakeoff(sheetRows(sheet, files.get("xl/sharedStrings.xml") ?? ""));
   }
   const text = new TextDecoder().decode(bytes).replace(/^\uFEFF/, "");
   const trimmed = text.trim();
   if (trimmed.startsWith("{") || trimmed.startsWith("[")) return geojsonTakeoff(trimmed);
-  if (trimmed.includes("<Workbook") || trimmed.includes("<worksheet")) {
-    return csvTakeoff(filename, sheetToCsv(trimmed, ""));
-  }
-  return csvTakeoff(filename, trimmed);
+  if (trimmed.includes("<Workbook") || trimmed.includes("<worksheet")) return rowsTakeoff(sheetRows(trimmed, ""));
+  return rowsTakeoff(trimmed.split(/\r?\n/).map(splitCsvLine).filter((row) => row.some((cell) => cell.length > 0)));
 }
 
 function geojsonTakeoff(text: string): TakeoffParse {
@@ -48,23 +46,25 @@ function geojsonTakeoff(text: string): TakeoffParse {
   return { ok: true, kind: "geojson", featureCount: lines.length, areaSqft, lines };
 }
 
-function csvTakeoff(filename: string, text: string): TakeoffParse {
-  const rows = text
-    .split(/\r?\n/)
-    .map((row) => row.split(/,|\t/).map((cell) => cell.trim().replace(/^"|"$/g, "")))
-    .filter((row) => row.some((cell) => cell.length > 0));
+function rowsTakeoff(rows: string[][]): TakeoffParse {
   if (rows.length < 2) return { ok: false, error: "The spreadsheet needs a header and at least one row." };
   const header = rows[0]?.map((cell) => cell.toLowerCase()) ?? [];
   const nameAt = header.findIndex((cell) => cell === "name" || cell === "item" || cell === "description");
   const qtyAt = header.findIndex((cell) => cell === "qty" || cell === "quantity" || cell === "sqft" || cell === "area");
   const unitAt = header.findIndex((cell) => cell === "unit");
   if (nameAt < 0) return { ok: false, error: "The spreadsheet needs a name column." };
+  const qtyHeader = qtyAt >= 0 ? header[qtyAt] ?? "" : "";
   const lines: TakeoffLine[] = [];
   for (const row of rows.slice(1)) {
     const name = row[nameAt]?.trim();
     if (!name) continue;
-    const qty = qtyAt >= 0 ? Number(row[qtyAt]) : 1;
-    lines.push({ name, qty: Number.isFinite(qty) ? qty : 1, unit: (unitAt >= 0 ? row[unitAt] : "") || "each" });
+    const rawQty = qtyAt >= 0 ? row[qtyAt]?.trim() ?? "" : "";
+    const qty = rawQty === "" ? 1 : Number(rawQty);
+    lines.push({
+      name,
+      qty: Number.isFinite(qty) ? qty : 1,
+      unit: normalizeUnit(unitAt >= 0 ? row[unitAt] ?? "" : "", qtyHeader),
+    });
   }
   if (lines.length === 0) return { ok: false, error: "No takeoff rows were found." };
   return {
@@ -74,6 +74,32 @@ function csvTakeoff(filename: string, text: string): TakeoffParse {
     areaSqft: lines.reduce((sum, line) => sum + (line.unit === "sq ft" ? line.qty : 0), 0),
     lines,
   };
+}
+
+function normalizeUnit(raw: string, qtyHeader: string): string {
+  const compact = raw.trim().toLowerCase().replace(/\./g, "").replace(/\s+/g, " ");
+  if (compact === "sq ft" || compact === "sqft" || compact === "square feet" || compact === "square foot") return "sq ft";
+  if (!compact && (qtyHeader === "sqft" || qtyHeader === "area")) return "sq ft";
+  return raw.trim() || "each";
+}
+
+function splitCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i] ?? "";
+    if (quoted && ch === '"' && line[i + 1] === '"') {
+      cur += '"';
+      i += 1;
+    } else if (ch === '"') quoted = !quoted;
+    else if ((ch === "," || ch === "\t") && !quoted) {
+      out.push(cur.trim());
+      cur = "";
+    } else cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
 }
 
 function featuresOf(value: unknown): { geometry?: { type: string }; properties?: { name?: string } }[] | null {
@@ -102,15 +128,34 @@ function unzip(buffer: Buffer): Map<string, string> {
   return files;
 }
 
-function sheetToCsv(sheetXml: string, sharedXml: string): string {
-  const shared = [...sharedXml.matchAll(/<t[^>]*>([^<]*)<\/t>/g)].map((match) => match[1] ?? "");
-  const rows = [...sheetXml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)].map((row) => {
-    const cells = [...row[1].matchAll(/<c\b([^>]*)>([\s\S]*?)<\/c>/g)].map((cell) => {
+function sheetRows(sheetXml: string, sharedXml: string): string[][] {
+  const shared = [...sharedXml.matchAll(/<t[^>]*>([^<]*)<\/t>/g)].map((match) => decodeXml(match[1] ?? ""));
+  return [...sheetXml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)].map((row) => {
+    const placed: string[] = [];
+    for (const cell of row[1].matchAll(/<c\b([^>]*)>([\s\S]*?)<\/c>/g)) {
       const type = /t="([^"]+)"/.exec(cell[1])?.[1];
-      const value = /<v>([^<]*)<\/v>/.exec(cell[2])?.[1] ?? /<t[^>]*>([^<]*)<\/t>/.exec(cell[2])?.[1] ?? "";
-      return type === "s" ? shared[Number(value)] ?? "" : value;
-    });
-    return cells.join(",");
+      const raw = /<v>([^<]*)<\/v>/.exec(cell[2])?.[1] ?? /<t[^>]*>([^<]*)<\/t>/.exec(cell[2])?.[1] ?? "";
+      const value = decodeXml(type === "s" ? shared[Number(raw)] ?? "" : raw);
+      const ref = /\br="([A-Z]+)\d+"/.exec(cell[1])?.[1];
+      const index = ref ? columnIndex(ref) : placed.length;
+      while (placed.length < index) placed.push("");
+      placed[index] = value;
+    }
+    return placed;
   });
-  return rows.join("\n");
+}
+
+function columnIndex(letters: string): number {
+  let index = 0;
+  for (const letter of letters) index = index * 26 + (letter.charCodeAt(0) - 64);
+  return index - 1;
+}
+
+function decodeXml(text: string): string {
+  return text
+    .replaceAll("&amp;", "&")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&apos;", "'");
 }

@@ -63,4 +63,21 @@ describe("takeoff import", () => {
     const xlsx = parseTakeoff("takeoff.xlsx", bytes);
     expect(xlsx).toMatchObject({ ok: true, lines: [{ name: "Edging", qty: 12, unit: "each" }] });
   });
+
+  it("keeps quoted commas, blank spreadsheet cells, and square-foot labels", () => {
+    const csv = parseTakeoff("spec.csv", Buffer.from('name,qty,unit\n"Oak, North",15,sqft\n'));
+    expect(csv).toMatchObject({
+      ok: true,
+      areaSqft: 15,
+      lines: [{ name: "Oak, North", qty: 15, unit: "sq ft" }],
+    });
+
+    const sheet = `<worksheet><sheetData><row><c r="A1" t="inlineStr"><is><t>name</t></is></c><c r="B1" t="inlineStr"><is><t>qty</t></is></c><c r="C1" t="inlineStr"><is><t>unit</t></is></c></row><row><c r="A2" t="inlineStr"><is><t>Bed &amp; hedge</t></is></c><c r="C2" t="inlineStr"><is><t>Sq Ft</t></is></c></row></sheetData></worksheet>`;
+    const xlsx = parseTakeoff("takeoff.xlsx", Buffer.concat([zipStored("xl/worksheets/sheet1.xml", sheet), zipStored("xl/sharedStrings.xml", "")]));
+    expect(xlsx).toMatchObject({
+      ok: true,
+      areaSqft: 1,
+      lines: [{ name: "Bed & hedge", qty: 1, unit: "sq ft" }],
+    });
+  });
 });
