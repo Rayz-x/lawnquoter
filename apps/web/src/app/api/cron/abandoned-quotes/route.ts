@@ -1,6 +1,6 @@
 import { createEmailProvider } from "@/lib/email/provider";
 import { isAbandonedQuote } from "@/lib/quotes/abandoned";
-import { deliverSms, readTwilioConfig, toE164 } from "@/lib/messaging/sms";
+import { claimedSmsFrom, deliverSms, readTwilioConfig, toE164 } from "@/lib/messaging/sms";
 import { renderTemplate, suggestedTemplate } from "@/lib/messaging/template";
 import { createAdminClient } from "@/lib/supabase/server";
 
@@ -37,8 +37,8 @@ export async function GET(request: Request): Promise<Response> {
     const phone = contact ? toE164(contact.phone ?? "") : null;
     const emailTo = account?.billing_email?.trim() || account?.email?.trim() || "";
     let delivered = false;
-    if (config && phone) {
-      const from = org?.sms_number ? toE164(org.sms_number) ?? config.fromNumber : config.fromNumber;
+    const from = claimedSmsFrom(org?.sms_number);
+    if (config && phone && from) {
       const delivery = await deliverSms({ config, to: phone, from, body: text, fetch: (url, init) => fetch(url, init) });
       delivered = delivery.sent;
       if (delivered) {
