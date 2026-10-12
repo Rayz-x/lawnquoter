@@ -34,7 +34,7 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
       className={`${headingSturdy.variable} ${instrument.variable} quote-editorial`}
     >
       <style>{`${brandStyleSheet(theme)}${quoteEditorialBrandCss(theme)}`}</style>
-      <ProposalView token={token} payload={quote} />
+      <ProposalView token={token} payload={quote} wisetackUrl={process.env.WISETACK_PREQUAL_URL ?? null} />
     </div>
   );
 }

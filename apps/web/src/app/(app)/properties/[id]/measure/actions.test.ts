@@ -9,6 +9,8 @@ type Measurement = {
   property_id: string;
   org_id: string;
   status: string;
+  imagery_date?: string | null;
+  confidence?: number;
 };
 
 type Filter = { op: "eq" | "neq"; column: string; value: unknown };
@@ -136,5 +138,15 @@ describe("saveMeasurement", () => {
     expect(result).toEqual({ ok: false, error: "could not archive the current measurement" });
     expect(db.measurements.find((row) => row.id === PREVIOUS_ID)?.status).toBe("current");
     expect(db.measurements.find((row) => row.id === DRAFT_ID)?.status).toBe("draft");
+  });
+
+  it("stores a Wayback date on the measurement and rejects a date that is not in the list", async () => {
+    const saved = await saveMeasurement(PROPERTY_ID, DRAFT_ID, features, "2014-02-20");
+    expect(saved).toEqual({ ok: true, data: { confidence: 0 } });
+    expect(db.measurements.find((row) => row.id === DRAFT_ID)?.imagery_date).toBe("2014-02-20");
+    expect(await saveMeasurement(PROPERTY_ID, DRAFT_ID, features, "1999-01-01")).toEqual({
+      ok: false,
+      error: "Choose an imagery date from the list.",
+    });
   });
 });

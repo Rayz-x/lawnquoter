@@ -6,7 +6,6 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { requireOrg } from "@/lib/auth/session";
-import { scoreMeasurementConfidence } from "@/lib/geo/confidence";
 import type { StudioFeature } from "@/lib/geo/features";
 import { createClient } from "@/lib/supabase/server";
 import { MeasureStudio } from "./measure-studio";
@@ -81,12 +80,7 @@ export default async function MeasurePage({ params }: { params: Promise<{ id: st
   }
 
   const g = (geo ?? {}) as Record<string, unknown>;
-  const confidence = scoreMeasurementConfidence({
-    parcelSource: property.parcel_source,
-    footprintSource: property.footprint_source,
-    imageryDate: property.imagery_date,
-    hasManualFallback: features.some((f) => f.source === "manual"),
-  });
+  const { data: measurementRow } = await supabase.from("measurements").select("imagery_date").eq("id", measurementId).eq("org_id", session.orgId).maybeSingle();
 
   return (
     <>
@@ -106,7 +100,9 @@ export default async function MeasurePage({ params }: { params: Promise<{ id: st
         parcel={parseGeom(g.parcel)}
         footprint={parseGeom(g.footprint)}
         location={parseGeom(g.location)}
-        confidence={confidence}
+        parcelSource={property.parcel_source}
+        footprintSource={property.footprint_source}
+        imageryDate={measurementRow?.imagery_date ?? property.imagery_date}
       />
     </>
   );
