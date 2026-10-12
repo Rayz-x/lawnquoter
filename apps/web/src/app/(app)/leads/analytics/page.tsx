@@ -88,7 +88,7 @@ export default async function SalesFunnelPage({
 
   return (
     <>
-      <PageHeader title="Sales funnel" description="Leads to quoted to accepted, with pipeline value and lost reasons" />
+      <PageHeader title="Sales funnel" description="Leads to accepted work, pipeline value, job hours, and where visits sit" />
       <div className="page-body space-y-8">
         <form className="flex flex-wrap items-end gap-2">
           <label className="grid gap-1 text-sm">
