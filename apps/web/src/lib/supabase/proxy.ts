@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { e2eEnabled } from "@/lib/e2e/gate";
 import { supabasePublishableKey, supabaseUrl } from "./env";
 
 const PUBLIC_PREFIXES = [
@@ -19,7 +20,8 @@ const PUBLIC_PREFIXES = [
   "/offline.html",
 ];
 
-export function isPublicPath(pathname: string) {
+export function isPublicPath(pathname: string, allowE2e = false) {
+  if (allowE2e && (pathname === "/e2e" || pathname.startsWith("/e2e/"))) return true;
   if (pathname === "/") return true;
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));
 }
@@ -46,7 +48,7 @@ export async function updateSession(request: NextRequest) {
   const claims = data?.claims;
   const { pathname } = request.nextUrl;
 
-  if (!claims && !isPublicPath(pathname)) {
+  if (!claims && !isPublicPath(pathname, e2eEnabled())) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
