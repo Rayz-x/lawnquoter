@@ -591,6 +591,7 @@ export type Database = {
         Row: {
           account_id: string
           billing_mode: Database["public"]["Enums"]["agreement_billing_mode"]
+          billing_months: number | null
           created_at: string
           end_date: string | null
           expected_visits: number | null
@@ -622,6 +623,7 @@ export type Database = {
         Insert: {
           account_id: string
           billing_mode?: Database["public"]["Enums"]["agreement_billing_mode"]
+          billing_months?: number | null
           created_at?: string
           end_date?: string | null
           expected_visits?: number | null
@@ -653,6 +655,7 @@ export type Database = {
         Update: {
           account_id?: string
           billing_mode?: Database["public"]["Enums"]["agreement_billing_mode"]
+          billing_months?: number | null
           created_at?: string
           end_date?: string | null
           expected_visits?: number | null
@@ -5009,6 +5012,14 @@ export type Database = {
         Args: { p_crew_id: string; p_date: string }
         Returns: undefined
       }
+      configure_level_billing: {
+        Args: {
+          p_agreement_id: string
+          p_billing_months: number
+          p_season_price_cents: number
+        }
+        Returns: undefined
+      }
       configure_seasonal_installments: {
         Args: {
           p_agreement_id: string
@@ -5041,6 +5052,10 @@ export type Database = {
       create_crew: { Args: { p_name: string }; Returns: string }
       create_deposit_invoice: { Args: { p_quote_id: string }; Returns: string | null }
       create_installment_invoice: {
+        Args: { p_agreement_id: string; p_month: number; p_year: number }
+        Returns: string
+      }
+      create_level_invoice: {
         Args: { p_agreement_id: string; p_month: number; p_year: number }
         Returns: string
       }
@@ -5361,7 +5376,7 @@ export type Database = {
       acceptance_method: "click" | "signwell" | "wet"
       account_status: "lead" | "active" | "inactive"
       account_type: "residential" | "commercial"
-      agreement_billing_mode: "per_visit" | "seasonal_installment"
+      agreement_billing_mode: "per_visit" | "seasonal_installment" | "level"
       agreement_frequency: "weekly" | "biweekly" | "monthly"
       agreement_kind: "one_time" | "recurring"
       agreement_status: "active" | "paused" | "ended"
@@ -5409,6 +5424,7 @@ export type Database = {
         | "deposit"
         | "installment"
         | "true_up"
+        | "level"
       invoice_status: "draft" | "issued" | "paid" | "void"
       item_state: "included" | "recommended" | "optional"
       job_status:
@@ -5652,7 +5668,7 @@ export const Constants = {
       acceptance_method: ["click", "signwell", "wet"],
       account_status: ["lead", "active", "inactive"],
       account_type: ["residential", "commercial"],
-      agreement_billing_mode: ["per_visit", "seasonal_installment"],
+      agreement_billing_mode: ["per_visit", "seasonal_installment", "level"],
       agreement_frequency: ["weekly", "biweekly", "monthly"],
       agreement_kind: ["one_time", "recurring"],
       agreement_status: ["active", "paused", "ended"],
@@ -5704,6 +5720,7 @@ export const Constants = {
         "deposit",
         "installment",
         "true_up",
+        "level",
       ],
       invoice_status: ["draft", "issued", "paid", "void"],
       item_state: ["included", "recommended", "optional"],
