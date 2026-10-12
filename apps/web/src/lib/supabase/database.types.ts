@@ -3,6 +3,7 @@
 // stage_entered_at added for 20261014090000.
 // usage_meters added for 20261017003000.
 // auto_charge added for 20261016001800.
+// snow_events and activate_snow_event added for 20261016000400.
 
 export type Json =
   | string
@@ -4316,6 +4317,48 @@ export type Database = {
           },
         ]
       }
+      snow_events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_date: string
+          id: string
+          inches: number
+          org_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_date: string
+          id?: string
+          inches: number
+          org_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_date?: string
+          id?: string
+          inches?: number
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snow_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "snow_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stripe_events: {
         Row: {
           created_at: string
@@ -5121,6 +5164,7 @@ export type Database = {
     }
     Functions: {
       activate_price_list: { Args: { p_id: string }; Returns: Json }
+      activate_snow_event: { Args: { p_event_date: string; p_inches: number }; Returns: number }
       install_catalog_services: { Args: { p_entries: Json }; Returns: Json }
       accept_org_invite: { Args: { p_token: string }; Returns: string }
       account_statement_public: {

@@ -56,6 +56,7 @@ select is(
     'accept_org_invite',
     'account_statement_public',
     'activate_price_list',
+    'activate_snow_event',
     'add_crew_member',
     'agreement_installment_balance',
     'assign_visit',
