@@ -11,6 +11,7 @@ const PUBLIC_PREFIXES = [
   "/i/",
   "/s/",
   "/r/",
+  "/w/",
   "/api/leads/intake",
   "/api/public",
   // Linked from every page. A login redirect is HTML, which the browser reports as a manifest syntax error.

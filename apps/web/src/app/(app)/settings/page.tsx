@@ -13,6 +13,7 @@ import { LateFeeCard } from "./late-fee-card";
 import { LeadConnectorsCard } from "./lead-connectors-card";
 import { LeadFormEmbedCard } from "./lead-form-embed-card";
 import { OrgSettingsForm } from "./org-settings-form";
+import { QboCard } from "./qbo-card";
 import { StripeConnectCard } from "./stripe-connect-card";
 import { UsageCard } from "./usage-card";
 import { WisetackCard } from "./wisetack-card";
@@ -90,6 +91,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 payoutsEnabled={payoutsEnabled}
               />
               <WisetackCard />
+              <QboCard />
               <LateFeeCard
                 flatCents={org.late_fee_flat_cents}
                 feeBps={org.late_fee_bps}

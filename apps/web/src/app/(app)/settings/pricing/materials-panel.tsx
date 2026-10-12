@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/money";
+import type { VendorPriceStatus } from "@/lib/pricing/vendor-prices";
 import { addMaterial, importMaterialsCsv } from "./actions";
 
 const MATERIAL_UNITS = [
@@ -26,8 +27,10 @@ const MATERIAL_UNITS = [
 
 export function MaterialsPanel({
   materials,
+  vendorPrices,
 }: {
   materials: { id: string; sku: string | null; name: string; unit: string; unit_cost: number; vendor: string | null }[];
+  vendorPrices: VendorPriceStatus;
 }) {
   const [pending, startTransition] = useTransition();
   return (
@@ -136,6 +139,16 @@ export function MaterialsPanel({
                 Import materials
               </Button>
             </form>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Supplier price lookup</CardTitle>
+            <CardDescription>Spreadsheet import works without these. Live SiteOne and Home Depot prices stay off.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 text-sm">
+            <p>{vendorPrices.siteone.message}</p>
+            <p>{vendorPrices.homeDepot.message}</p>
           </CardContent>
         </Card>
       </div>
