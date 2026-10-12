@@ -151,3 +151,93 @@ export function pipelineValue(quotes: OpenQuote[]): { cents: number; quotes: num
     quotes: quotes.length,
   };
 }
+
+export type JobVariance = { crew: string; estimatedMinutes: number; actualMinutes: number };
+
+export function estimatedVsActual(rows: JobVariance[]) {
+  const crews = new Map<string, { estimated: number; actual: number }>();
+  for (const row of rows) {
+    const crew = row.crew.trim() || "Unassigned";
+    const current = crews.get(crew) ?? { estimated: 0, actual: 0 };
+    current.estimated += row.estimatedMinutes;
+    current.actual += row.actualMinutes;
+    crews.set(crew, current);
+  }
+  return [...crews.entries()]
+    .map(([crew, totals]) => ({
+      crew,
+      estimatedHours: Math.round((totals.estimated / 60) * 10) / 10,
+      actualHours: Math.round((totals.actual / 60) * 10) / 10,
+      varianceHours: Math.round(((totals.actual - totals.estimated) / 60) * 10) / 10,
+    }))
+    .sort((a, b) => b.actualHours - a.actualHours || a.crew.localeCompare(b.crew));
+}
+
+export function routeDensity(rows: { postalCode: string | null; status?: string }[]) {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    if (row.status === "spam" || !row.postalCode?.trim()) continue;
+    const code = row.postalCode.trim().slice(0, 5);
+    counts.set(code, (counts.get(code) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([postalCode, count]) => ({ postalCode, count }))
+    .sort((a, b) => b.count - a.count || a.postalCode.localeCompare(b.postalCode));
+}
+
+export type WidgetEvent = {
+  addressEntered: boolean;
+  qualified: boolean;
+  contactCaptured: boolean;
+  quoteViewed: boolean;
+  depositPaid: boolean;
+};
+
+const WIDGET_STAGES: { stage: string; pick: (event: WidgetEvent) => boolean }[] = [
+  { stage: "Address entered", pick: (event) => event.addressEntered },
+  { stage: "Qualified", pick: (event) => event.qualified },
+  { stage: "Contact captured", pick: (event) => event.contactCaptured },
+  { stage: "Quote viewed", pick: (event) => event.quoteViewed },
+  { stage: "Deposit", pick: (event) => event.depositPaid },
+];
+
+export function widgetStages(events: WidgetEvent[]) {
+  const start = events.filter((event) => event.addressEntered).length;
+  return WIDGET_STAGES.map(({ stage, pick }) => {
+    const count = events.filter(pick).length;
+    return { stage, count, fromStart: rate(count, start) };
+  });
+}
+
+export type LaborOutcome = {
+  service: string;
+  crew: string;
+  revenueCents: number;
+  laborMinutes: number;
+  laborCostCents: number | null;
+};
+
+export function marginBy(rows: LaborOutcome[], keyOf: (row: LaborOutcome) => string) {
+  const buckets = new Map<string, { revenue: number; minutes: number; cost: number | null }>();
+  for (const row of rows) {
+    const key = keyOf(row).trim() || "Unspecified";
+    const current = buckets.get(key) ?? { revenue: 0, minutes: 0, cost: 0 };
+    current.revenue += row.revenueCents;
+    current.minutes += row.laborMinutes;
+    if (row.laborCostCents == null) current.cost = null;
+    else if (current.cost != null) current.cost += row.laborCostCents;
+    buckets.set(key, current);
+  }
+  return [...buckets.entries()]
+    .map(([key, totals]) => ({
+      key,
+      revenueCents: totals.revenue,
+      dollarsPerManHour:
+        totals.minutes <= 0 ? null : Math.round((totals.revenue / 100 / (totals.minutes / 60)) * 100) / 100,
+      marginPercent:
+        totals.cost == null || totals.revenue <= 0
+          ? null
+          : Math.round(((totals.revenue - totals.cost) / totals.revenue) * 100),
+    }))
+    .sort((a, b) => b.revenueCents - a.revenueCents || a.key.localeCompare(b.key));
+}
