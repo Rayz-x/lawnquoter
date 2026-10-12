@@ -108,6 +108,7 @@ select is(
     'quote_revise',
     'quote_send',
     'record_office_payment',
+    'record_usage',
     'reorder_route_visits',
     'resume_agreement',
     'revoke_org_invite',
@@ -128,6 +129,7 @@ select is(
     'update_agreement_schedule',
     'update_agreement_season',
     'update_org_season',
+    'usage_totals',
     'verify_crew_pin',
     'void_invoice'
   ]::text[],

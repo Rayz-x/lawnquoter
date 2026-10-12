@@ -82,6 +82,7 @@ export default async function MeasurePage({ params }: { params: Promise<{ id: st
 
   const g = (geo ?? {}) as Record<string, unknown>;
   const { data: measurementRow } = await supabase.from("measurements").select("imagery_date").eq("id", measurementId).eq("org_id", session.orgId).maybeSingle();
+  await supabase.rpc("record_usage", { p_kind: "imagery_session" });
 
   return (
     <>
