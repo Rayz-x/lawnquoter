@@ -4,6 +4,8 @@ import { Instrument_Serif } from "next/font/google";
 import { brandStyleSheet, deriveBrandTheme, quoteEditorialBrandCss } from "@/lib/brand/derive-brand-theme";
 import { headingFontOf } from "@/lib/brand/public-org";
 import { headingSturdy } from "./heading-font";
+import { depositCents } from "@/lib/billing/deposit";
+import { createAdminClient } from "@/lib/supabase/server";
 import { loadPublicQuote } from "./load-public-quote";
 import { ProposalView } from "./proposal-view";
 
@@ -25,6 +27,12 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
   const loaded = await loadPublicQuote(token);
   if (!loaded) notFound();
   const { quote } = loaded;
+  const admin = createAdminClient();
+  const { data: depositRow } = await admin
+    .from("quotes")
+    .select("deposit_amount")
+    .eq("public_token", token)
+    .maybeSingle();
   const theme = deriveBrandTheme(quote.org.brand_color);
 
   return (
@@ -34,7 +42,13 @@ export default async function PublicQuotePage({ params }: { params: Promise<{ to
       className={`${headingSturdy.variable} ${instrument.variable} quote-editorial`}
     >
       <style>{`${brandStyleSheet(theme)}${quoteEditorialBrandCss(theme)}`}</style>
-      <ProposalView token={token} payload={quote} wisetackUrl={process.env.WISETACK_PREQUAL_URL ?? null} />
+      <ProposalView
+        token={token}
+        payload={quote}
+        wisetackUrl={process.env.WISETACK_PREQUAL_URL ?? null}
+        depositCents={depositCents(depositRow?.deposit_amount)}
+        stripeReady={Boolean(process.env.STRIPE_SECRET_KEY)}
+      />
     </div>
   );
 }
