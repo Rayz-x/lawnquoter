@@ -7,7 +7,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { OFFICE_ROLES } from "@/lib/auth/office-roles";
+import { TextDocumentOffer } from "@/components/messaging/text-document-offer";
+import { CUSTOMER_EDIT_ROLES, OFFICE_ROLES } from "@/lib/auth/office-roles";
 import { IssueInvoiceButton } from "./issue-invoice-button";
 import { requireOrg } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/money";
@@ -85,9 +86,17 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         title={title}
         description={account?.name ? `${account.name} · ${invoice.status}` : invoice.status}
         actions={
-          <Link href="/invoices" className="text-sm text-muted-foreground hover:underline">
-            All invoices
-          </Link>
+          <>
+            <TextDocumentOffer
+              purpose="invoice"
+              id={invoice.id}
+              label="Text invoice"
+              allowed={hasRole(session.orgRole, CUSTOMER_EDIT_ROLES) && (invoice.status === "issued" || invoice.status === "paid")}
+            />
+            <Link href="/invoices" className="text-sm text-muted-foreground hover:underline">
+              All invoices
+            </Link>
+          </>
         }
       />
       <div className="page-body space-y-6">
