@@ -3,8 +3,9 @@
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { SectionCard } from "@/components/entry";
+import { HelpTip } from "@/components/help/help-tip";
 import { Button } from "@/components/ui/button";
-import { FieldHint } from "@/components/ui/field";
+
 import { Textarea } from "@/components/ui/textarea";
 import {
   hostedQuoteFormUrl,
@@ -13,18 +14,12 @@ import {
   quoteIframeEmbed,
 } from "@/lib/leads/embed-snippets";
 
-function hintId(label: string) {
-  return `${label.toLowerCase().replaceAll(" ", "-")}-hint`;
-}
-
 function CopyField({
   label,
-  hint,
   value,
   rows = 3,
 }: {
   label: string;
-  hint: string;
   value: string;
   rows?: number;
 }) {
@@ -49,10 +44,8 @@ function CopyField({
         rows={rows}
         value={value}
         aria-label={label}
-        aria-describedby={hintId(label)}
         className="min-h-11 w-full font-mono text-xs"
       />
-      <FieldHint id={hintId(label)}>{hint}</FieldHint>
     </div>
   );
 }
@@ -85,10 +78,15 @@ export function LeadFormEmbedCard({
       className="w-full min-w-0"
     >
       <div className="flex w-full min-w-0 flex-col gap-4">
-        <CopyField label="Hosted link" hint="A page you can send when you do not want to embed the form." value={hosted} rows={2} />
-        <CopyField label="Button snippet" hint="Paste this on your website to add a button that opens the request form." value={button} rows={3} />
-        <CopyField label="Embed snippet" hint="Paste this on your website to show the request form on the page." value={embed} rows={4} />
-        <CopyField label="Instant quote embed" hint="Paste this on your website so a visitor can get a price on the page." value={widget} rows={4} />
+        <HelpTip
+          label="Help for embeds"
+          text="Paste the button, the form, or the instant-quote embed on your site. Each stays off until you add it."
+          href="/help/instant-quote#paste-it-on-your-site"
+        />
+        <CopyField label="Hosted link" value={hosted} rows={2} />
+        <CopyField label="Button snippet" value={button} rows={3} />
+        <CopyField label="Embed snippet" value={embed} rows={4} />
+        <CopyField label="Instant quote embed" value={widget} rows={4} />
       </div>
     </SectionCard>
   );

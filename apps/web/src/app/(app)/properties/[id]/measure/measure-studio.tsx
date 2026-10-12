@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { HelpTip } from "@/components/help/help-tip";
 import { useRouter } from "next/navigation";
 import difference from "@turf/difference";
 import { feature, featureCollection } from "@turf/helpers";
@@ -19,7 +20,7 @@ import { MeasureMap, type DrawMode } from "@/components/map/measure-map";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldGroup, FieldHint, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { scoreMeasurementConfidence } from "@/lib/geo/confidence";
@@ -227,7 +228,7 @@ export function MeasureStudio({
             Imagery date
             <select
               id="imagery-date"
-              aria-describedby="imagery-date-hint"
+             
               className="native-control w-full"
               value={imagery.id}
               onChange={(event) => {
@@ -242,13 +243,19 @@ export function MeasureStudio({
               ))}
             </select>
           </label>
-          <FieldHint id="imagery-date-hint">Which photo you trace, when a newer one is blocked by trees or construction.</FieldHint>
           </div>
           <p>Esri World Imagery (tracing permitted). Yellow dashed = parcel. Red = building. An older photo helps when the latest view is trees or construction. Import takeoff reads GeoJSON, or a CSV saved from Excel with columns category and area_sqft.</p>
         </div>
         <Card>
           <CardHeader>
-            <CardTitle>HD imagery and segmentation</CardTitle>
+            <CardTitle className="flex items-center gap-1">
+              HD imagery and segmentation
+              <HelpTip
+                label="Help for imagery"
+                text="Nearmap, Vexcel, and segmentation stay off until that key is saved. A saved key does not call them on its own."
+                href="/help/integrations#imagery"
+              />
+            </CardTitle>
             <CardDescription>These stay off. Tracing on Esri does not need them.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2 text-sm">
@@ -357,19 +364,17 @@ export function MeasureStudio({
               <FieldGroup>
                 <Field>
                   <FieldLabel htmlFor="manual_cat">Category</FieldLabel>
-                  <select id="manual_cat" name="category" aria-describedby="manual-cat-hint" className="native-control w-full" defaultValue="turf_front">
+                  <select id="manual_cat" name="category" className="native-control w-full" defaultValue="turf_front">
                     {FEATURE_CATEGORIES.map((c) => (
                       <option key={c} value={c}>
                         {FEATURE_LABELS[c]}
                       </option>
                     ))}
                   </select>
-                  <FieldHint id="manual-cat-hint">The kind of area you are adding by hand.</FieldHint>
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="manual_size">Square feet or linear feet</FieldLabel>
-                  <Input id="manual_size" name="size" aria-describedby="manual-size-hint" type="number" min={1} step={1} required className="w-full" />
-                  <FieldHint id="manual-size-hint">How big that area is, in square feet or linear feet.</FieldHint>
+                  <Input id="manual_size" name="size" type="number" min={1} step={1} required className="w-full" />
                 </Field>
               </FieldGroup>
               <Button type="submit" variant="outline">

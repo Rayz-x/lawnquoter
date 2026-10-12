@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldGroup, FieldHint, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -84,26 +84,22 @@ export function MaterialsPanel({
               <FieldGroup>
                 <Field>
                   <FieldLabel htmlFor="mat_name">Name</FieldLabel>
-                  <Input id="mat_name" name="name" aria-describedby="mat-name-hint" required />
-                  <FieldHint id="mat-name-hint">The material name your crew and quotes will use.</FieldHint>
+                  <Input id="mat_name" name="name" required />
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="mat_sku">Item number (optional)</FieldLabel>
-                  <Input id="mat_sku" name="sku" aria-describedby="mat-sku-hint" />
-                  <FieldHint id="mat-sku-hint">The supplier item number, so a spreadsheet can match it.</FieldHint>
+                  <Input id="mat_sku" name="sku" />
                 </Field>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <Field>
                     <FieldLabel htmlFor="mat_unit">Sold by the</FieldLabel>
-                    <select id="mat_unit" name="unit" aria-describedby="mat-unit-hint" className="native-control" defaultValue="each">
+                    <select id="mat_unit" name="unit" className="native-control" defaultValue="each">
                       {MATERIAL_UNITS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                     </select>
-                    <FieldHint id="mat-unit-hint">How you buy this material, such as each or a cubic yard.</FieldHint>
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="mat_cost">Your cost ($)</FieldLabel>
-                    <Input id="mat_cost" name="unit_cost" aria-describedby="mat-cost-hint" type="number" inputMode="decimal" step="0.01" min={0} placeholder="0.00" required />
-                    <FieldHint id="mat-cost-hint">What one unit costs you, before markup.</FieldHint>
+                    <Input id="mat_cost" name="unit_cost" type="number" inputMode="decimal" step="0.01" min={0} placeholder="0.00" required />
                   </Field>
                 </div>
               </FieldGroup>
@@ -136,8 +132,7 @@ export function MaterialsPanel({
             >
               <Field>
                 <FieldLabel htmlFor="sheet">Spreadsheet file (.csv)</FieldLabel>
-                <Input id="sheet" name="sheet" type="file" accept=".csv,text/csv" aria-describedby="mat-sheet-hint" required />
-                <FieldHint id="mat-sheet-hint">A CSV whose first row is Item number, Name, Unit, and Cost.</FieldHint>
+                <Input id="sheet" name="sheet" type="file" accept=".csv,text/csv" required />
               </Field>
               <Button type="submit" variant="outline" disabled={pending}>
                 Import materials

@@ -3,6 +3,7 @@
 import { useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import { SectionCard } from "@/components/entry";
+import { HelpTip } from "@/components/help/help-tip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -76,6 +77,11 @@ export function StripeConnectCard({
       className="w-full min-w-0"
     >
       <div className="flex w-full min-w-0 flex-col gap-4">
+        <HelpTip
+          label="Help for Stripe payments"
+          text="Card payments stay off until Stripe Connect is ready. Money goes to your Stripe account."
+          href="/help/integrations#stripe"
+        />
         {status === "pending" ? (
           <p className="text-sm text-muted-foreground">
             Stripe needs a few more details before you can take payments.

@@ -1,4 +1,5 @@
 import { SectionCard } from "@/components/entry";
+import { HelpTip } from "@/components/help/help-tip";
 import { leadConnectorStates, type LeadConnectorState } from "@/lib/leads/inbound";
 
 export function LeadConnectorsCard({
@@ -16,6 +17,11 @@ export function LeadConnectorsCard({
       description="Each source stays off until its key is set. Nothing is fetched or charged before then."
       className="w-full min-w-0"
     >
+      <HelpTip
+        label="Help for lead connectors"
+        text="Each source stays off until its key is set. Nothing is fetched or charged before then."
+        href="/help/integrations#lead-connectors"
+      />
       <ul className="grid gap-2">
         {states.map((state) => (
           <li key={state.id} className="flex items-center justify-between gap-3 text-sm">
