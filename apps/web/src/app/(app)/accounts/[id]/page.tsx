@@ -20,6 +20,7 @@ import { formatLeadSource } from "@/lib/leads/lead-source";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { AccountHeader } from "./account-header";
+import { PortalLink } from "./portal-link";
 import { AccountRail } from "./account-rail";
 import { AccountTabBox } from "./account-tab-box";
 import { ConsolidatedInvoiceForm } from "./consolidated-invoice-form";
@@ -214,6 +215,7 @@ export default async function AccountDetailPage({
             },
           ]}
         />
+        <PortalLink accountId={account.id} email={account.billing_email ?? account.email} canEdit={canEdit} />
         <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
         <div className="flex min-w-0 flex-col gap-4">
         <IdentityCard account={account} canEdit={canEdit} />
