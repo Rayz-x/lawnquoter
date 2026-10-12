@@ -8,6 +8,7 @@ import {
   Landmark,
   HardHat,
   Inbox,
+  MessageSquare,
   LayoutDashboard,
   Mail,
   MapPinned,
@@ -69,6 +70,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       { title: "Properties", href: "/properties", icon: MapPinned },
       { title: "Import customers", href: "/accounts/import", icon: Upload, roles: ["owner"] },
       { title: "Requests", href: "/leads", icon: Inbox, roles: OFFICE_ROLES },
+      { title: "Texts", href: "/inbox", icon: MessageSquare, roles: OFFICE_ROLES },
     ],
   },
   {

@@ -21,6 +21,7 @@ describe("isPublicPath", () => {
     expect(isPublicPath("/r/acme-lawn")).toBe(true);
     expect(isPublicPath("/w/acme-lawn")).toBe(true);
     expect(isPublicPath("/api/leads/intake")).toBe(true);
+    expect(isPublicPath("/api/webhooks/twilio/sms")).toBe(true);
     expect(isPublicPath("/api/public/anything")).toBe(true);
   });
 });
