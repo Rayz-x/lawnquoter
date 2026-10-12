@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { createService } from "./actions";
@@ -30,11 +30,12 @@ export function ServiceForm({ onCreated }: { onCreated?: (id: string) => void })
       <FieldGroup>
         <Field>
           <FieldLabel htmlFor="svc_name">Name</FieldLabel>
-          <Input id="svc_name" name="name" required placeholder="Weekly mow" />
+          <Input id="svc_name" name="name" aria-describedby="svc-name-hint" required placeholder="Weekly mow" />
+          <FieldHint id="svc-name-hint">The service name customers see on a quote.</FieldHint>
         </Field>
         <Field>
           <FieldLabel htmlFor="svc_kind">Category</FieldLabel>
-          <select id="svc_kind" name="kind" className="native-control" defaultValue="mowing">
+          <select id="svc_kind" name="kind" aria-describedby="svc-kind-hint" className="native-control" defaultValue="mowing">
             <option value="mowing">Mowing</option>
             <option value="fert">Fert / weed</option>
             <option value="cleanup">Cleanup</option>
@@ -43,6 +44,7 @@ export function ServiceForm({ onCreated }: { onCreated?: (id: string) => void })
             <option value="install">Install / design-build</option>
             <option value="other">Other</option>
           </select>
+          <FieldHint id="svc-kind-hint">Groups this service with similar work on quotes.</FieldHint>
         </Field>
       </FieldGroup>
       <Button type="submit" disabled={pending}>

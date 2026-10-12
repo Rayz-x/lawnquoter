@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -123,7 +123,7 @@ function RaisePricesButton({ priceListId }: { priceListId: string | null }) {
           <DialogDescription>Every dollar on this price list moves by this percent, including the minimum and other property charges. Hours and percents stay the same. A negative percent lowers prices.</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col items-start gap-3">
-          <NumberBox label="Percent" value={percent} onChange={setPercent} suffix="%" min={-50} max={100} step={0.5} />
+          <NumberBox label="Percent" hint="Raises or lowers every dollar on this price list by this percent." value={percent} onChange={setPercent} suffix="%" min={-50} max={100} step={0.5} />
           <Button disabled={pending || percent === 0} onClick={apply}>{pending ? "Updating…" : "Apply to this price list"}</Button>
         </div>
       </DialogContent>
@@ -167,7 +167,8 @@ export function PricingStudio({ priceListId, services, rules, modifiers, canEdit
       <Card className="hidden p-3 lg:block">
         <div className="relative">
           <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search services" className="pl-8" aria-label="Search services" />
+          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search services" className="pl-8" aria-label="Search services" aria-describedby="service-search-hint" />
+          <FieldHint id="service-search-hint">Finds a service on this price list by name.</FieldHint>
         </div>
         {KINDS.map(([kind, label]) => {
           const rows = visible.filter((item) => item.kind === kind);
@@ -367,7 +368,7 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
           <div className="grid gap-4">
             <Field>
               <FieldLabel htmlFor="svc-minimum">Minimum for this service</FieldLabel>
-              <Input id="svc-minimum" inputMode="decimal" className="max-w-40" placeholder="Use the company minimum" readOnly={!canEdit} defaultValue={service.minimumPrice ?? ""} onBlur={(event) => {
+              <Input id="svc-minimum" aria-describedby="svc-minimum-hint" inputMode="decimal" className="max-w-full sm:max-w-40" placeholder="Use the company minimum" readOnly={!canEdit} defaultValue={service.minimumPrice ?? ""} onBlur={(event) => {
                 if (!canEdit) return;
                 const raw = event.target.value.trim();
                 const fd = new FormData();
@@ -375,11 +376,12 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
                 fd.set("minimum_price", raw);
                 void updateService(fd).then((result) => { if (!result.ok) toast.error(result.error); else router.refresh(); });
               }} />
-              <p className="text-sm text-muted-foreground">Raises the company minimum for this service only. It cannot go below it.</p>
+              <FieldHint id="svc-minimum-hint">Raises only this service's price floor, and it cannot go below the company minimum.</FieldHint>
             </Field>
             <Field>
               <FieldLabel htmlFor="svc-desc">Description</FieldLabel>
-              <Textarea id="svc-desc" key={service.id} rows={3} readOnly={!canEdit} defaultValue={service.description ?? ""} onBlur={(event) => { if (canEdit && event.target.value !== (service.description ?? "")) descSave.save(event.target.value); }} />
+              <Textarea id="svc-desc" aria-describedby="svc-desc-hint" key={service.id} rows={3} readOnly={!canEdit} defaultValue={service.description ?? ""} onBlur={(event) => { if (canEdit && event.target.value !== (service.description ?? "")) descSave.save(event.target.value); }} />
+              <FieldHint id="svc-desc-hint">The sentence customers read under this service on a quote.</FieldHint>
             </Field>
             <div className="grid gap-3" data-testid="seasonal-service-window">
               <p className="text-sm text-muted-foreground">
@@ -390,6 +392,7 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
                   <FieldLabel htmlFor="svc-window-start">Window start</FieldLabel>
                   <Input
                     id="svc-window-start"
+                    aria-describedby="svc-window-start-hint"
                     type="date"
                     readOnly={!canEdit}
                     value={windowStart}
@@ -399,11 +402,13 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
                       saveWindow({ windowStart, windowEnd, warnDate });
                     }}
                   />
+                  <FieldHint id="svc-window-start-hint">The first day this seasonal service can be scheduled.</FieldHint>
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="svc-warn-date">Warn date</FieldLabel>
                   <Input
                     id="svc-warn-date"
+                    aria-describedby="svc-warn-date-hint"
                     type="date"
                     readOnly={!canEdit}
                     value={warnDate}
@@ -413,11 +418,13 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
                       saveWindow({ windowStart, windowEnd, warnDate });
                     }}
                   />
+                  <FieldHint id="svc-warn-date-hint">Unscheduled jobs turn red after this date.</FieldHint>
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="svc-window-end">Window end</FieldLabel>
                   <Input
                     id="svc-window-end"
+                    aria-describedby="svc-window-end-hint"
                     type="date"
                     readOnly={!canEdit}
                     value={windowEnd}
@@ -427,10 +434,11 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
                       saveWindow({ windowStart, windowEnd, warnDate });
                     }}
                   />
+                  <FieldHint id="svc-window-end-hint">The last day this seasonal service can be scheduled.</FieldHint>
                 </Field>
               </div>
             </div>
-            {rules.length > 1 ? <NativeSelect aria-label="Price rule" value={rule.id} onChange={(event) => onPickRule(event.target.value)}>{rules.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</NativeSelect> : <p className="text-sm text-muted-foreground">Rule · {rule.name}</p>}
+            {rules.length > 1 ? <div className="grid gap-1"><NativeSelect aria-label="Price rule" aria-describedby="price-rule-hint" value={rule.id} onChange={(event) => onPickRule(event.target.value)}>{rules.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</NativeSelect><FieldHint id="price-rule-hint">Which saved price rule this service uses.</FieldHint></div> : <p className="text-sm text-muted-foreground">Rule · {rule.name}</p>}
           </div>
         ) },
       ]} />
