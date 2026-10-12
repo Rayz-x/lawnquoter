@@ -36,7 +36,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
         {portal.quotes.map((quote) => (
           <p key={quote.id} className="text-sm">
             <Link className="underline" href={quote.href}>{quote.label}</Link>
-            <span className="text-muted-foreground"> · {quote.status === "accepted" ? "Signed" : "Sign"}</span>
+            <span className="text-muted-foreground"> · {quote.status === "accepted" ? "Signed" : quote.status === "sent" || quote.status === "viewed" || quote.status === "changed" ? "Sign" : quote.status}</span>
           </p>
         ))}
       </section>
