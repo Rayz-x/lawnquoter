@@ -15,7 +15,7 @@ export async function saveTrackingNumber(fd: FormData): Promise<void> {
   if (raw && !number) redirect("/calls?error=Enter%20a%2010-digit%20tracking%20number.");
   const supabase = await createClient();
   const { error } = await supabase.from("orgs").update({ call_tracking_number: number }).eq("id", session.orgId);
-  if (error) redirect(`/calls?error=${encodeURIComponent(error.message)}`);
+  if (error) redirect(`/calls?error=${encodeURIComponent(error.code === "23505" ? "That tracking number is already used by another company." : error.message)}`);
   revalidatePath("/calls");
   redirect("/calls");
 }
