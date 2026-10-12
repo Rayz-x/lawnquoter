@@ -73,6 +73,36 @@ export async function exchangeQboAuthorizationCode(input: {
   return { accessToken: body.access_token, refreshToken: body.refresh_token, expiresIn: body.expires_in };
 }
 
+/** Refresh when the access token is inside a minute of expiry. Does not call Intuit while the token is still fresh. */
+export async function ensureQboAccessToken(input: {
+  clientId: string;
+  clientSecret: string;
+  accessToken: string;
+  refreshToken: string;
+  accessExpiresAt: string;
+  now: Date;
+  fetchImpl: typeof fetch;
+}): Promise<{ accessToken: string; refreshToken: string; expiresIn: number; refreshed: boolean } | { error: string }> {
+  if (new Date(input.accessExpiresAt).getTime() - input.now.getTime() > 60_000) {
+    return { accessToken: input.accessToken, refreshToken: input.refreshToken, expiresIn: 0, refreshed: false };
+  }
+  const response = await input.fetchImpl(TOKEN_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${input.clientId}:${input.clientSecret}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: input.refreshToken }).toString(),
+  });
+  if (!response.ok) return { error: "QuickBooks did not sync." };
+  const body = (await response.json()) as { access_token?: unknown; refresh_token?: unknown; expires_in?: unknown };
+  if (typeof body.access_token !== "string" || typeof body.refresh_token !== "string" || typeof body.expires_in !== "number") {
+    return { error: "QuickBooks did not sync." };
+  }
+  return { accessToken: body.access_token, refreshToken: body.refresh_token, expiresIn: body.expires_in, refreshed: true };
+}
+
 export async function completeQboOAuth(input: {
   code: string | null;
   state: string | null;

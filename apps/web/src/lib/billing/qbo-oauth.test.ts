@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { QBO_NOT_CONNECTED } from "./qbo";
-import { beginQboOAuth, completeQboOAuth, qboOAuthStateOrg } from "./qbo-oauth";
+import { beginQboOAuth, completeQboOAuth, ensureQboAccessToken, qboOAuthStateOrg } from "./qbo-oauth";
 
 const SECRET = "csecret";
 const STATE = "org-1.9f271902824da584158b6e86042d9f6e2a2841337e6021feed9c2678736d8d29";
@@ -73,5 +73,34 @@ describe("QuickBooks OAuth", () => {
       refreshToken: "refresh-1",
       expiresIn: 3600,
     });
+  });
+
+  it("refreshes an expired access token and leaves a fresh one alone", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ access_token: "access-2", refresh_token: "refresh-2", expires_in: 3600 }), { status: 200 }));
+    const fresh = await ensureQboAccessToken({
+      clientId: "cid",
+      clientSecret: SECRET,
+      accessToken: "access-1",
+      refreshToken: "refresh-1",
+      accessExpiresAt: "2026-10-12T00:00:00.000Z",
+      now: new Date("2026-10-11T00:00:00.000Z"),
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(fresh).toEqual({ accessToken: "access-1", refreshToken: "refresh-1", expiresIn: 0, refreshed: false });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    const refreshed = await ensureQboAccessToken({
+      clientId: "cid",
+      clientSecret: SECRET,
+      accessToken: "access-1",
+      refreshToken: "refresh-1",
+      accessExpiresAt: "2026-10-01T00:00:00.000Z",
+      now: new Date("2026-10-12T00:00:00.000Z"),
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    expect(refreshed).toEqual({ accessToken: "access-2", refreshToken: "refresh-2", expiresIn: 3600, refreshed: true });
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer",
+      expect.objectContaining({ body: "grant_type=refresh_token&refresh_token=refresh-1" }),
+    );
   });
 });
