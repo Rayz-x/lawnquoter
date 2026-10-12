@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { FEATURE_CATEGORIES, FEATURE_SOURCES, geometrySchema } from "@lawnquoter/shared";
 import { z } from "zod";
+import { listedImageryDate } from "@/components/map/imagery-dates";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
 import { scoreMeasurementConfidence } from "@/lib/geo/confidence";
@@ -24,6 +25,7 @@ export async function saveMeasurement(
   propertyId: string,
   measurementId: string,
   features: SaveFeature[],
+  imageryDate?: string | null,
 ): Promise<ActionResult<{ confidence: number }>> {
   const session = await requireOrg();
   const parsed = z.array(featurePayload).safeParse(features);
@@ -47,6 +49,10 @@ export async function saveMeasurement(
     .maybeSingle();
   if (!measurement) return fail("Measurement not found");
 
+  const chosen = imageryDate === undefined ? property.imagery_date : listedImageryDate(imageryDate);
+  if (chosen === undefined) return fail("Choose an imagery date from the list.");
+  const imageryDateToStore = chosen;
+
   const { error: replaceError } = await supabase.rpc("measurement_replace_features", {
     p_measurement: measurementId,
     p_features: parsed.data,
@@ -56,7 +62,7 @@ export async function saveMeasurement(
   const confidence = scoreMeasurementConfidence({
     parcelSource: property.parcel_source,
     footprintSource: property.footprint_source,
-    imageryDate: property.imagery_date,
+    imageryDate: imageryDateToStore,
     hasManualFallback: parsed.data.some((f) => f.source === "manual"),
   });
 
@@ -74,11 +80,15 @@ export async function saveMeasurement(
       status: "current",
       confidence: confidence.score,
       confidence_reasons: confidence.reasons,
-      imagery_date: property.imagery_date,
+      imagery_date: imageryDateToStore,
     })
     .eq("id", measurementId)
     .eq("org_id", session.orgId);
   if (updateError) return fail(updateError.message);
+
+  if (imageryDate !== undefined) {
+    await supabase.from("properties").update({ imagery_date: imageryDateToStore }).eq("id", propertyId).eq("org_id", session.orgId);
+  }
 
   await supabase.from("activities").insert({
     org_id: session.orgId,

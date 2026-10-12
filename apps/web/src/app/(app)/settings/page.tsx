@@ -11,6 +11,7 @@ import { BrandingForm } from "./branding-form";
 import { LeadFormEmbedCard } from "./lead-form-embed-card";
 import { OrgSettingsForm } from "./org-settings-form";
 import { StripeConnectCard } from "./stripe-connect-card";
+import { WisetackCard } from "./wisetack-card";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -71,12 +72,15 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           tab={tab}
           branding={<BrandingForm org={org} canEdit={canEdit} />}
           payments={
-            <StripeConnectCard
-              isOwner={isOwner}
-              status={connectStatus}
-              accountLast4={accountLast4(stripeAccountId)}
-              payoutsEnabled={payoutsEnabled}
-            />
+            <>
+              <StripeConnectCard
+                isOwner={isOwner}
+                status={connectStatus}
+                accountLast4={accountLast4(stripeAccountId)}
+                payoutsEnabled={payoutsEnabled}
+              />
+              <WisetackCard />
+            </>
           }
           leadForm={<LeadFormEmbedCard isOwner={isOwner} origin={appOrigin} slug={formSlug} />}
         />

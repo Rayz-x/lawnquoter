@@ -12,6 +12,7 @@ import {
   type LeadPhotoFile,
 } from "./lead-photos";
 import { WEBSITE_FORM_SOURCE } from "./lead-source";
+import { isOutsideLeadServiceArea, normalizeLeadZip } from "./lead-zip";
 import { normalizeEmail, normalizePhoneE164 } from "./normalize-contact";
 
 export const LEAD_INTAKE_MAX_BODY_BYTES = 32_768;
@@ -171,11 +172,7 @@ export type LeadIntakeResult =
   | { ok: true; status: "new" | "spam"; message?: string }
   | { ok: false; reason: "validation" | "turnstile" | "rate_limit" | "not_found" | "store" };
 
-export function normalizeLeadZip(value: string | null | undefined): string | null {
-  if (value == null) return null;
-  const match = value.trim().match(/\d{5}/);
-  return match?.[0] ?? null;
-}
+export { isOutsideLeadServiceArea, normalizeLeadZip };
 
 export function passesLeadGeocodeGate(geocode: LeadIntakeGeocode | null): boolean {
   if (!geocode) return false;
@@ -183,20 +180,6 @@ export function passesLeadGeocodeGate(geocode: LeadIntakeGeocode | null): boolea
   const type = geocode.addressType?.trim();
   if (!type || !LEAD_INTAKE_ALLOWED_ADDRESS_TYPES.has(type)) return false;
   return true;
-}
-
-export function isOutsideLeadServiceArea(
-  postalCode: string | null,
-  serviceAreaZips: string[],
-): boolean {
-  if (serviceAreaZips.length === 0) return false;
-  const zip = normalizeLeadZip(postalCode);
-  if (!zip) return false;
-  const allowed = new Set(
-    serviceAreaZips.map((entry) => normalizeLeadZip(entry)).filter((entry): entry is string => Boolean(entry)),
-  );
-  if (allowed.size === 0) return false;
-  return !allowed.has(zip);
 }
 
 export function hashClientIp(ip: string | null): string {
