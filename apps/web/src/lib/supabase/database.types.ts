@@ -544,6 +544,7 @@ export type Database = {
           created_at: string
           end_date: string | null
           expected_visits: number | null
+          fixed_route_day: boolean
           frequency: Database["public"]["Enums"]["agreement_frequency"] | null
           id: string
           kind: Database["public"]["Enums"]["agreement_kind"]
@@ -570,6 +571,7 @@ export type Database = {
           created_at?: string
           end_date?: string | null
           expected_visits?: number | null
+          fixed_route_day?: boolean
           frequency?: Database["public"]["Enums"]["agreement_frequency"] | null
           id?: string
           kind: Database["public"]["Enums"]["agreement_kind"]
@@ -596,6 +598,7 @@ export type Database = {
           created_at?: string
           end_date?: string | null
           expected_visits?: number | null
+          fixed_route_day?: boolean
           frequency?: Database["public"]["Enums"]["agreement_frequency"] | null
           id?: string
           kind?: Database["public"]["Enums"]["agreement_kind"]
@@ -4790,6 +4793,10 @@ export type Database = {
       resume_agreement: { Args: { p_agreement_id: string }; Returns: undefined }
       revoke_org_invite: { Args: { p_id: string }; Returns: undefined }
       set_active_org: { Args: { p_org: string }; Returns: undefined }
+      set_agreement_fixed_route_day: {
+        Args: { p_agreement_id: string; p_fixed: boolean }
+        Returns: undefined
+      }
       set_agreement_season_price: {
         Args: {
           p_agreement_id: string

@@ -112,6 +112,7 @@ select is(
     'resume_agreement',
     'revoke_org_invite',
     'set_active_org',
+    'set_agreement_fixed_route_day',
     'set_agreement_season_price',
     'set_crew_lead',
     'set_crew_pin',
