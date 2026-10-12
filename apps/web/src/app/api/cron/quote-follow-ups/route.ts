@@ -1,6 +1,6 @@
 import { createEmailProvider } from "@/lib/email/provider";
 import { planFollowUps, type FollowUpQuote } from "@/lib/messaging/follow-up";
-import { deliverSms, readTwilioConfig, toE164 } from "@/lib/messaging/sms";
+import { claimedSmsFrom, deliverSms, readTwilioConfig, toE164 } from "@/lib/messaging/sms";
 import { renderTemplate, suggestedTemplate } from "@/lib/messaging/template";
 import { createAdminClient } from "@/lib/supabase/server";
 
@@ -81,8 +81,9 @@ async function applyFollowUp(admin: ReturnType<typeof createAdminClient>, orgId:
   if (action.channel === "sms") {
     const contact = (contacts ?? []).find((row) => row.sms_opt_in && toE164(row.phone ?? ""));
     const to = contact ? toE164(contact.phone ?? "") : null;
-    if (!to || !config) return false;
-    const delivery = await deliverSms({ config, to, from: org?.sms_number ? toE164(org.sms_number) ?? config.fromNumber : config.fromNumber, body, fetch: (url, init) => fetch(url, init) });
+    const from = claimedSmsFrom(org?.sms_number);
+    if (!to || !from || !config) return false;
+    const delivery = await deliverSms({ config, to, from, body, fetch: (url, init) => fetch(url, init) });
     if (!delivery.sent) return false;
   } else {
     const to = account?.billing_email?.trim() || account?.email?.trim();
