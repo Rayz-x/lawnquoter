@@ -56,9 +56,9 @@ export function PricingHeaderActions({ priceListId, modifiers, materials }: { pr
   return (
     <>
       <Sheet>
-        <SheetTrigger render={<Button variant="outline" />}>Property modifiers</SheetTrigger>
+        <SheetTrigger render={<Button variant="outline" />}>Property adjustments</SheetTrigger>
         <SheetContent className="overflow-y-auto sm:max-w-xl">
-          <SheetHeader><SheetTitle>Property modifiers</SheetTitle><SheetDescription>Slope, gate, obstacles, and the rest.</SheetDescription></SheetHeader>
+          <SheetHeader><SheetTitle>Property adjustments</SheetTitle><SheetDescription>Slope, narrow gates, first cut, and minimum charge.</SheetDescription></SheetHeader>
           <div className="px-4 pb-4">{priceListId ? <ModifiersForm priceListId={priceListId} modifiers={modifiers} /> : <p className="text-sm text-muted-foreground">No price list yet.</p>}</div>
         </SheetContent>
       </Sheet>
@@ -311,7 +311,7 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
           </>
         ) },
         { value: "modifiers", label: "Modifiers that apply", content: MODS.filter(([key]) => modifiers[key] != null).length === 0
-          ? <p className="text-sm text-muted-foreground">No property modifiers yet. Set slope, gate, and obstacles under Property modifiers.</p>
+          ? <p className="text-sm text-muted-foreground">No property modifiers yet. Set slope, gate, and obstacles under Property adjustments.</p>
           : MODS.filter(([key]) => modifiers[key] != null).map(([key, label]) => (
             <label key={key} className="flex min-h-11 items-center justify-between gap-3 border-b py-2 last:border-0">
               <span className="font-medium">{label}</span>

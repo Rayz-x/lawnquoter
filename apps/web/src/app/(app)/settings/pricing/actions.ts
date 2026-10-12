@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { modifiersSchema, modifiersWithDefaults, parseMaterialsCsv, pricingRuleSchema } from "@lawnquoter/pricing-engine";
+import { modifiersSchema, parseMaterialsCsv, pricingRuleSchema } from "@lawnquoter/pricing-engine";
 import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { z } from "zod";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
 import { slugify } from "@/lib/slug";
+import { fieldsToModifiers, modifierFieldsSchema } from "./modifier-fields";
 import { createClient } from "@/lib/supabase/server";
 
 const SERVICE_KINDS = ["mowing", "fert", "cleanup", "snow", "irrigation", "install", "other"] as const;
@@ -200,23 +201,21 @@ export async function deleteRule(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
-export async function saveModifiers(fd: FormData): Promise<ActionResult> {
+/** Owners edit plain dollars, percents and minutes. The server maps them to the engine's modifiers. */
+export async function saveModifiers(priceListId: string, fields: unknown): Promise<ActionResult> {
   const session = await requireOrg();
   if (!hasRole(session.orgRole, ADMIN_ROLES)) return denyPricing();
-  let raw: unknown;
-  try {
-    raw = JSON.parse(String(fd.get("modifiers") ?? "{}"));
-  } catch {
-    return fail("Modifiers must be valid JSON");
-  }
-  const parsed = modifiersSchema.safeParse(modifiersWithDefaults(raw));
+  const parsedFields = modifierFieldsSchema.safeParse(fields);
+  if (!parsedFields.success) return fail(parsedFields.error.issues[0]?.message ?? "Check the highlighted values");
+  const parsed = modifiersSchema.safeParse(fieldsToModifiers(parsedFields.data));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid modifiers");
-  const listId = String(fd.get("price_list_id") ?? "");
+  const listId = z.string().uuid().safeParse(priceListId);
+  if (!listId.success) return fail("Invalid price list");
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("price_lists")
     .update({ modifiers: parsed.data })
-    .eq("id", listId)
+    .eq("id", listId.data)
     .eq("org_id", session.orgId)
     .select("id");
   if (error) return fail(error.message);

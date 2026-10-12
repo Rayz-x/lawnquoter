@@ -1,109 +1,151 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { modifiersSchema, modifiersWithDefaults, type Modifiers } from "@lawnquoter/pricing-engine";
-import { SectionCard } from "@/components/entry";
+import type { Modifiers } from "@lawnquoter/pricing-engine";
+import { MoreDisclosure, SectionCard, ToggleRow } from "@/components/entry";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
-import { Textarea } from "@/components/ui/textarea";
+import { formatMoney } from "@/lib/money";
 import { saveModifiers } from "./actions";
+import { fieldsToModifiers, modifierExamples, modifierFieldsSchema, modifiersToFields, type ModifierFields } from "./modifier-fields";
+import { NumberBox } from "./number-box";
 
-const DEAD_MODIFIER_KEYS = ["bagging", "travel", "routeDensityDiscount"] as const;
+const SAMPLE_VISIT = 55;
 
-function modifiersForEditor(modifiers: Modifiers): string {
-  const live: Record<string, unknown> = { ...modifiers };
-  for (const key of DEAD_MODIFIER_KEYS) delete live[key];
-  return JSON.stringify(live, null, 2);
+function Example({ children }: { children: React.ReactNode }) {
+  return <p className="text-xs text-muted-foreground">Example: {children}</p>;
 }
 
-function jsonIssues(text: string): string[] {
-  let json: unknown;
-  try {
-    json = JSON.parse(text);
-  } catch (error) {
-    const pos = Number(/position (\d+)/.exec(String(error))?.[1] ?? 0);
-    return [`Line ${text.slice(0, pos).split("\n").length}: Modifiers must be valid JSON`];
-  }
-  if (!json || typeof json !== "object" || Array.isArray(json)) return ["Line 1: Modifiers must be a JSON object"];
-  const parsed = modifiersSchema.safeParse(modifiersWithDefaults(json));
-  if (parsed.success) return [];
-  return parsed.error.issues.map((issue) => {
-    const key = [...issue.path].reverse().find((part) => typeof part === "string");
-    let line = 1;
-    if (typeof key === "string") {
-      text.split("\n").some((source, index) => {
-        if (!source.includes(`"${key}"`)) return false;
-        line = index + 1;
-        return true;
-      });
-    }
-    return `Line ${line}: ${issue.message}`;
-  });
-}
-
-export function ModifiersForm({ priceListId, modifiers }: { priceListId: string; modifiers: Modifiers }) {
+export function ModifiersForm({ priceListId, modifiers, canEdit = true }: { priceListId: string; modifiers: Modifiers; canEdit?: boolean }) {
   const router = useRouter();
-  const saved = modifiersForEditor(modifiers);
-  const [text, setText] = useState(saved);
+  const saved = useMemo(() => modifiersToFields(modifiers), [modifiers]);
+  const [fields, setFields] = useState<ModifierFields>(saved);
   const [seen, setSeen] = useState(saved);
-  const [issues, setIssues] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   if (saved !== seen) {
     setSeen(saved);
-    setText(saved);
-    setIssues([]);
+    setFields(saved);
+    setError(null);
   }
+  const set = <K extends keyof ModifierFields>(key: K, value: ModifierFields[K]) => setFields((prev) => ({ ...prev, [key]: value }));
+  const valid = modifierFieldsSchema.safeParse(fields);
+  const ex = valid.success ? modifierExamples(fieldsToModifiers(valid.data), SAMPLE_VISIT) : null;
+  const dirty = JSON.stringify(fields) !== JSON.stringify(saved);
+  const off = !canEdit || pending;
 
   return (
     <SectionCard
-      title="Property modifiers"
-      description="Slope, gate width, first-cut, obstacles, and service minimums."
+      title="Property adjustments"
+      description="Automatic price changes for tricky yards. They apply on top of every service's price."
+      error={error}
       actions={
-        <>
-          <Button
-            type="button"
-            disabled={pending}
-            onClick={() => {
-              const found = jsonIssues(text);
-              setIssues(found);
-              if (found.length) return;
-              const fd = new FormData();
-              fd.set("price_list_id", priceListId);
-              fd.set("modifiers", text);
-              startTransition(async () => {
-                const result = await saveModifiers(fd);
-                if (result.ok) {
-                  setIssues([]);
-                  router.refresh();
-                } else setIssues([result.error]);
-              });
-            }}
-          >
-            {pending ? <Spinner data-icon="inline-start" /> : null}
-            Save
-          </Button>
-          <Button type="button" variant="outline" disabled={pending || text === saved} onClick={() => { setText(saved); setIssues([]); }}>
-            Cancel
-          </Button>
-        </>
+        canEdit ? (
+          <>
+            <Button
+              type="button"
+              disabled={pending || !dirty || !valid.success}
+              onClick={() =>
+                startTransition(async () => {
+                  const result = await saveModifiers(priceListId, fields);
+                  if (result.ok) {
+                    setError(null);
+                    router.refresh();
+                  } else setError(result.error);
+                })
+              }
+            >
+              {pending ? <Spinner data-icon="inline-start" /> : null}
+              Save
+            </Button>
+            <Button type="button" variant="outline" disabled={pending || !dirty} onClick={() => { setFields(saved); setError(null); }}>
+              Cancel
+            </Button>
+          </>
+        ) : undefined
       }
     >
-      <Field data-invalid={issues.length > 0 || undefined}>
-        <FieldLabel htmlFor="modifiers">Modifiers JSON</FieldLabel>
-        <Textarea id="modifiers" rows={18} className="font-mono text-xs" value={text} aria-invalid={issues.length > 0 || undefined} onChange={(event) => setText(event.target.value)} />
-        <FieldDescription>Applied after each rule. Nothing is stored until you save.</FieldDescription>
-        {issues.length ? (
-          <FieldError>
-            <ul>
-              {issues.map((issue) => (
-                <li key={issue}>{issue}</li>
-              ))}
-            </ul>
-          </FieldError>
-        ) : null}
-      </Field>
+      <div className="grid gap-5">
+        <div className="grid gap-1">
+          <NumberBox label="Minimum charge per visit" prefix="$" value={fields.minimumPrice} onChange={(v) => set("minimumPrice", v)} disabled={off} />
+          {ex ? <Example>a {formatMoney(10)} job is billed {formatMoney(ex.small)}.</Example> : null}
+        </div>
+
+        <div className="grid gap-2 border-t pt-4">
+          <ToggleRow label="Hilly yards cost more" description="Add a percentage for sloped yards." checked={fields.slopeOn} disabled={off} onCheckedChange={(v) => set("slopeOn", v)} />
+          {fields.slopeOn ? (
+            <>
+              <div className="flex flex-wrap gap-3">
+                {(["gentle", "moderate", "steep"] as const).map((level) => (
+                  <NumberBox key={level} label={`${level[0]!.toUpperCase()}${level.slice(1)} slope: add`} suffix="%" max={200} value={fields.slopePct[level]} onChange={(v) => set("slopePct", { ...fields.slopePct, [level]: v })} disabled={off} />
+                ))}
+              </div>
+              {ex ? <Example>steep yard: a {formatMoney(SAMPLE_VISIT)} visit becomes {formatMoney(ex.steep)}.</Example> : null}
+            </>
+          ) : null}
+        </div>
+
+        <div className="grid gap-2 border-t pt-4">
+          <ToggleRow label="Narrow gate charge" description="For gates too narrow for a riding mower." checked={fields.gateOn} disabled={off} onCheckedChange={(v) => set("gateOn", v)} />
+          {fields.gateOn ? (
+            <>
+              <div className="flex flex-wrap gap-3">
+                <NumberBox label="Gates narrower than" suffix="in" min={1} max={240} value={fields.gateInches} onChange={(v) => set("gateInches", v)} disabled={off} />
+                <NumberBox label="Add" prefix="$" value={fields.gatePrice} onChange={(v) => set("gatePrice", v)} disabled={off} />
+              </div>
+              {ex ? <Example>a {formatMoney(SAMPLE_VISIT)} visit behind a narrow gate becomes {formatMoney(ex.narrowGate)}.</Example> : null}
+            </>
+          ) : null}
+        </div>
+
+        <div className="grid gap-2 border-t pt-4">
+          <ToggleRow label="First cut of the season costs more" description="For overgrown grass on the first visit." checked={fields.firstCutOn} disabled={off} onCheckedChange={(v) => set("firstCutOn", v)} />
+          {fields.firstCutOn ? (
+            <>
+              <NumberBox label="Add" suffix="%" max={200} value={fields.firstCutPct} onChange={(v) => set("firstCutPct", v)} disabled={off} />
+              {ex ? <Example>a {formatMoney(SAMPLE_VISIT)} first cut becomes {formatMoney(ex.firstCut)}.</Example> : null}
+            </>
+          ) : null}
+        </div>
+
+        <MoreDisclosure label="More options">
+          <div className="grid gap-5 pt-2">
+            <div className="grid gap-2">
+              <ToggleRow label="Charge for obstacles" description="Trampolines, play sets, flower beds to mow around." checked={fields.obstacleOn} disabled={off} onCheckedChange={(v) => set("obstacleOn", v)} />
+              {fields.obstacleOn ? (
+                <div className="flex flex-wrap gap-3">
+                  <NumberBox label="Add per obstacle" prefix="$" value={fields.obstaclePrice} onChange={(v) => set("obstaclePrice", v)} disabled={off} />
+                  <NumberBox label="Extra time per obstacle" suffix="min" max={600} value={fields.obstacleMinutes} onChange={(v) => set("obstacleMinutes", v)} disabled={off} />
+                </div>
+              ) : null}
+              {fields.obstacleOn && ex ? <Example>3 obstacles turn a {formatMoney(SAMPLE_VISIT)} visit into {formatMoney(ex.obstacles)}.</Example> : null}
+            </div>
+            <div className="grid gap-2">
+              <ToggleRow label="Charge for stairs" description="Carrying equipment up steps." checked={fields.stairsOn} disabled={off} onCheckedChange={(v) => set("stairsOn", v)} />
+              {fields.stairsOn ? (
+                <div className="flex flex-wrap gap-3">
+                  <NumberBox label="Add" prefix="$" value={fields.stairsPrice} onChange={(v) => set("stairsPrice", v)} disabled={off} />
+                  <NumberBox label="Extra time" suffix="min" max={600} value={fields.stairsMinutes} onChange={(v) => set("stairsMinutes", v)} disabled={off} />
+                </div>
+              ) : null}
+            </div>
+            <div className="grid gap-2">
+              <p className="text-sm font-medium">Extra crew time (used for scheduling, not shown to customers)</p>
+              <div className="flex flex-wrap gap-3">
+                <NumberBox label="Minimum visit length" suffix="min" max={600} value={fields.minimumMinutes} onChange={(v) => set("minimumMinutes", v)} disabled={off} />
+                {fields.gateOn ? <NumberBox label="Narrow gate adds" suffix="min" max={600} value={fields.gateMinutes} onChange={(v) => set("gateMinutes", v)} disabled={off} /> : null}
+                {fields.slopeOn
+                  ? (["gentle", "moderate", "steep"] as const).map((level) => (
+                      <NumberBox key={level} label={`${level[0]!.toUpperCase()}${level.slice(1)} slope: more time`} suffix="%" max={200} value={fields.slopeTimePct[level]} onChange={(v) => set("slopeTimePct", { ...fields.slopeTimePct, [level]: v })} disabled={off} />
+                    ))
+                  : null}
+              </div>
+            </div>
+          </div>
+        </MoreDisclosure>
+        {!valid.success ? <p className="text-sm text-destructive">{valid.error.issues[0]?.message}</p> : null}
+      </div>
     </SectionCard>
   );
 }
