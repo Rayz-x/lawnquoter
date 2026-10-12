@@ -15,23 +15,17 @@ describe("schedule settings", () => {
     );
     expect(closed).toContain("Schedule settings");
     expect(closed).toContain("Open weather rules and snow events.");
-    expect(closed).not.toContain("Which kind of weather this rule watches.");
     expect(closed).not.toContain("Activate snow");
+    expect(closed).not.toContain("Help for weather rules");
 
     const html = renderToStaticMarkup(
       createElement(ScheduleSettingsPanel, { date: "2026-12-01", rules: [] }),
     );
-    expect(html).toContain("Which kind of weather this rule watches.");
-    expect(html).toContain("Skip takes the stops off this day.");
-    expect(html).toContain("How much has to happen before the rule runs.");
-    expect(html).toContain("Stores this rule. It does not change today’s stops.");
-    expect(html).toContain("Rainfall to check, in inches.");
-    expect(html).toContain("Snowfall to check, in inches.");
-    expect(html).toContain("Wind to check, in miles per hour.");
-    expect(html).toContain("Temperature to check, in degrees Fahrenheit.");
-    expect(html).toContain("Runs the matching rule on this day’s stops.");
-    expect(html).toContain("How much snow fell. Agreements at or under this depth get a visit.");
-    expect(html).toContain("Schedules one visit for each snow agreement that is not already on this day.");
-    expect(html).toContain("The crew logs materials and times on the visit.");
+    expect(html).toContain("Help for weather rules");
+    expect(html).toContain("Help for the weather threshold");
+    expect(html).toContain("Help for snow events");
+    expect(html).toContain("Help for snow depth");
+    expect(html).not.toContain("Which kind of weather this rule watches.");
+    expect(html).not.toContain("Rainfall to check, in inches.");
   });
 });
