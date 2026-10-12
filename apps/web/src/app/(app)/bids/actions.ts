@@ -1,10 +1,12 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { hasRole, SALES_ROLES } from "@lawnquoter/shared";
 import { bulkMeasuredSqft, isBidFrequency, isBidStatus } from "@/lib/bids/package";
 import { parseTakeoff } from "@/lib/bids/takeoff";
+import { SITE_WALK_PHOTO_BUCKET, SITE_WALK_PHOTO_MAX_BYTES, walkCoordinate, walkPhotoPath } from "@/lib/bids/walk";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
@@ -162,15 +164,29 @@ export async function addSiteWalkNote(formData: FormData): Promise<void> {
   const body = String(formData.get("body") ?? "").trim();
   if (!body) throw new Error("Write a note.");
   const packageId = String(formData.get("package_id") ?? "");
-  const lat = Number(formData.get("lat") ?? "");
-  const lng = Number(formData.get("lng") ?? "");
+  const lat = walkCoordinate(String(formData.get("lat") ?? ""), "lat");
+  const lng = walkCoordinate(String(formData.get("lng") ?? ""), "lng");
+  const photo = formData.get("photo");
+  let photoPath: string | null = null;
+  if (photo instanceof File && photo.size > 0) {
+    if (lat == null || lng == null) throw new Error("Drop a pin so the photo is on the map.");
+    if (photo.size > SITE_WALK_PHOTO_MAX_BYTES) throw new Error("Use a photo under 2 MB.");
+    photoPath = walkPhotoPath(session.orgId, randomUUID(), photo.type);
+    if (!photoPath) throw new Error("Use a JPEG, PNG, or WebP photo.");
+    const { error: uploadError } = await supabase.storage.from(SITE_WALK_PHOTO_BUCKET).upload(photoPath, photo, {
+      contentType: photo.type,
+      upsert: false,
+    });
+    if (uploadError) throw new Error(uploadError.message);
+  }
   const { error } = await supabase.from("site_walk_notes").insert({
     org_id: session.orgId,
     package_id: packageId,
     property_id: String(formData.get("property_id") ?? "") || null,
     body,
-    lat: Number.isFinite(lat) ? lat : null,
-    lng: Number.isFinite(lng) ? lng : null,
+    lat,
+    lng,
+    photo_path: photoPath,
     created_by: session.userId,
   });
   if (error) throw new Error(error.message);
