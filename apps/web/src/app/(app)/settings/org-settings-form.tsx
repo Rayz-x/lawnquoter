@@ -268,7 +268,7 @@ function RegionCard({ org, canEdit, editing, onEdit, onDone }: Edit & { org: Tab
     </SectionCard>
   );
 }
-const NAV = [{ label: "Identity", tab: "identity" }, { label: "Company", tab: "company" }, { label: "Branding", tab: "branding" }, { label: "Payments", tab: "payments" }, { label: "Lead form", tab: "lead-form", ownerOnly: true }, { label: "Messages", href: "/settings/messages" }, { label: "Team", href: "/settings/team" }, { label: "Crews", href: "/settings/crews" }, { label: "Services & Pricing", href: "/settings/pricing" }] as const;
+const NAV = [{ label: "Identity", tab: "identity" }, { label: "Company", tab: "company" }, { label: "Branding", tab: "branding" }, { label: "Payments", tab: "payments" }, { label: "Lead form", tab: "lead-form", ownerOnly: true }, { label: "Messages", href: "/settings/messages" }, { label: "Texting", href: "/settings/texting" }, { label: "Team", href: "/settings/team" }, { label: "Crews", href: "/settings/crews" }, { label: "Services & Pricing", href: "/settings/pricing" }] as const;
 export function OrgSettingsForm({ org, canEdit, tab, branding, payments, leadForm, isOwner = false }: { org: Tables<"orgs">; canEdit: boolean; tab?: string; branding: ReactNode; payments: ReactNode; leadForm?: ReactNode; isOwner?: boolean }) {
   const tabs = isOwner ? TABS : TABS.filter((name) => name !== "lead-form");
   const [current, setCurrent] = useState(() => resolveEntryTab(tab, tabs, "company"));
