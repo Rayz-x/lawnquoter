@@ -214,7 +214,7 @@ function BillingCard({
             save({ billing_email });
           }}
         />
-        <FieldHint id="billing-email-hint">Where invoices go when it differs from the customer's email.</FieldHint>
+        <FieldHint id="billing-email-hint">Where invoices go when it differs from the customer&apos;s email.</FieldHint>
       </Field>
       <Field>
         <FieldLabel htmlFor="billing_address_line1">Billing address</FieldLabel>
@@ -265,7 +265,7 @@ function BillingCard({
             onBlur={saveAddress}
           />
         </div>
-        <FieldHint id="billing-address-hint">The street, city, state, and ZIP printed on this customer's invoices.</FieldHint>
+        <FieldHint id="billing-address-hint">The street, city, state, and ZIP printed on this customer&apos;s invoices.</FieldHint>
         {addressDefaulted ? <FieldDescription>Starts as the first property until you change it.</FieldDescription> : null}
       </Field>
       <Field data-invalid={termsError ? true : undefined}>

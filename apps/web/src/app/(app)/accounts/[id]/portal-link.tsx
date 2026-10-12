@@ -44,7 +44,7 @@ export async function PortalLink({
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <label htmlFor="portal-email" className="text-sm">Email</label>
             <Input id="portal-email" name="email" type="email" required aria-describedby="portal-email-hint" defaultValue={email ?? ""} placeholder="customer@example.com" className="w-full" />
-            <FieldHint id="portal-email-hint">The address that receives this customer's portal link.</FieldHint>
+            <FieldHint id="portal-email-hint">The address that receives this customer&apos;s portal link.</FieldHint>
           </div>
           <Button type="submit">Create portal link</Button>
         </form>
