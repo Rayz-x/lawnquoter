@@ -36,7 +36,12 @@ export async function GET() {
       allRows((from, to) => supabase.from("invoices").select(EXPORT_COLUMNS.invoices.join(",")).eq("org_id", session.orgId).range(from, to)),
     ]);
     const tables = { accounts, properties, quotes, invoices };
-    const pdf = await renderToBuffer(ExportPdf({ lines: exportPdfLines(tables) }));
+    const lines = exportPdfLines(tables);
+    if (accounts.length >= MAX) lines.push("Accounts stopped at 20000 rows.");
+    if (properties.length >= MAX) lines.push("Properties stopped at 20000 rows.");
+    if (quotes.length >= MAX) lines.push("Quotes stopped at 20000 rows.");
+    if (invoices.length >= MAX) lines.push("Invoices stopped at 20000 rows.");
+    const pdf = await renderToBuffer(ExportPdf({ lines }));
     const encoder = new TextEncoder();
     const zip = storedZip([
       { name: "accounts.csv", bytes: encoder.encode(tableCsv(EXPORT_COLUMNS.accounts, accounts)) },
