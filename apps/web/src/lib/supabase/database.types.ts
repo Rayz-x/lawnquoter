@@ -3,6 +3,7 @@
 // stage_entered_at added for 20261014090000.
 // usage_meters added for 20261017003000.
 // auto_charge added for 20261016001800.
+// crew_status added for 20261016001100.
 // irrigation plan columns and set_agreement_irrigation_plan added for 20261016000800.
 // snow_events and activate_snow_event added for 20261016000400.
 
@@ -1410,6 +1411,68 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crew_status: {
+        Row: {
+          created_at: string
+          crew_id: string
+          id: string
+          org_id: string
+          profile_id: string | null
+          state: string
+          updated_at: string
+          visit_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          crew_id: string
+          id?: string
+          org_id: string
+          profile_id?: string | null
+          state: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          crew_id?: string
+          id?: string
+          org_id?: string
+          profile_id?: string | null
+          state?: string
+          updated_at?: string
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crew_status_crew_id_fkey"
+            columns: ["crew_id"]
+            isOneToOne: false
+            referencedRelation: "crews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crew_status_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crew_status_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crew_status_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
             referencedColumns: ["id"]
           },
         ]

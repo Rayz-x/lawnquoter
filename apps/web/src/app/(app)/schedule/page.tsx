@@ -18,6 +18,7 @@ import {
 import { parseRevokePhoneResult, type RevokedUnsyncedVisit } from "@/lib/scheduling/phone-revoke";
 import { boardPhonesForCrew } from "@/lib/scheduling/phone-sync";
 import { createClient } from "@/lib/supabase/server";
+import { isCrewStatus, type CrewStatus } from "@/lib/scheduling/crew-status";
 import { isWeatherAction, isWeatherCondition, type WeatherRule } from "@/lib/scheduling/weather-rules";
 import { DayBoard, type BoardColumn, type BoardVisit, type PhoneSync } from "./day-board";
 import { DispatchGrid, type GridVisit } from "./dispatch-grid";
@@ -168,6 +169,7 @@ export default async function SchedulePage({
     { data: phoneRows, error: phoneError },
     { data: revokeRows, error: revokeError },
     { data: ruleRows, error: ruleError },
+    { data: statusRows, error: statusError },
   ] = await Promise.all([
       supabase.from("crews").select("id, name, active").eq("org_id", session.orgId).order("name"),
       supabase.from("routes").select("id, crew_id, status, revision").eq("org_id", session.orgId).eq("date", date),
@@ -188,6 +190,7 @@ export default async function SchedulePage({
         .eq("org_id", session.orgId)
         .is("cleared_at", null),
       supabase.from("weather_skip_rules").select("condition, threshold, action, enabled").eq("org_id", session.orgId),
+      supabase.from("crew_status").select("crew_id, state").eq("org_id", session.orgId),
     ]);
   const error =
     crewsError?.message ??
@@ -198,6 +201,7 @@ export default async function SchedulePage({
     phoneError?.message ??
     revokeError?.message ??
     ruleError?.message ??
+    statusError?.message ??
     null;
   const tray = parseAttentionTray(trayData, today);
   const weatherRules: WeatherRule[] = (ruleRows ?? []).flatMap((row) =>
@@ -323,6 +327,11 @@ export default async function SchedulePage({
     });
   }
 
+  const statusByCrew = new Map<string, CrewStatus>();
+  for (const row of statusRows ?? []) {
+    if (isCrewStatus(row.state)) statusByCrew.set(row.crew_id, row.state);
+  }
+
   const columns: BoardColumn[] = visibleCrews.map((crew) => {
     const route = routeByCrew.get(crew.id);
     const phones: PhoneSync[] = boardPhonesForCrew({
@@ -338,6 +347,7 @@ export default async function SchedulePage({
       routeVersion: route?.revision ?? null,
       phones,
       visits: route ? (visitsByRoute.get(route.id) ?? []) : [],
+      presence: statusByCrew.get(crew.id) ?? null,
     };
   });
 

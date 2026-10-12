@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type ReactNode } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
@@ -22,8 +22,10 @@ import {
   skipVisit,
 } from "@/lib/actions/scheduling";
 import type { AttentionTray } from "@/lib/scheduling/attention-tray";
+import { applyCrewPresence, crewStatusLabel, presenceFromChange, type CrewPresence, type CrewStatus } from "@/lib/scheduling/crew-status";
 import { shouldMoveVisit } from "@/lib/scheduling/dispatch-view";
 import { formatOfficeDay } from "@/lib/scheduling/office-date";
+import { createClient } from "@/lib/supabase/client";
 import type { RevokedUnsyncedVisit } from "@/lib/scheduling/phone-revoke";
 import { unsyncedVisitLabel } from "@/lib/scheduling/phone-revoke";
 import { phoneSyncStatus } from "@/lib/scheduling/phone-sync";
@@ -59,6 +61,7 @@ export type BoardColumn = {
   routeVersion: number | null;
   phones: PhoneSync[];
   visits: BoardVisit[];
+  presence: CrewStatus | null;
 };
 
 const SKIP_REASONS = [
@@ -70,6 +73,11 @@ const SKIP_REASONS = [
   ["unsafe", "Unsafe"],
   ["other", "Other"],
 ] as const;
+
+function presenceLabel(rows: CrewPresence[], crewId: string): string {
+  const row = rows.find((item) => item.crewId === crewId);
+  return row ? ` · ${crewStatusLabel(row.state)}` : "";
+}
 
 function scheduledIds(visits: BoardVisit[]): string[] {
   return visits.filter((visit) => visit.status === "scheduled").map((visit) => visit.id);
@@ -105,6 +113,22 @@ export function DayBoard({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [presence, setPresence] = useState<CrewPresence[]>(
+    columns.flatMap((column) => (column.presence ? [{ crewId: column.crewId, state: column.presence, visitId: null }] : [])),
+  );
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel("crew-status")
+      .on("postgres_changes", { event: "*", schema: "public", table: "crew_status" }, (payload) => {
+        const next = presenceFromChange(payload.new);
+        if (next) setPresence((current) => applyCrewPresence(current, next));
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, []);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [overCrew, setOverCrew] = useState<string | null>(null);
   const crews = columns.map((column) => ({ id: column.crewId, name: column.crewName }));
@@ -229,6 +253,7 @@ export function DayBoard({
                 </CardTitle>
                 <CardDescription>
                   {column.visits.length === 0 ? "No stops this day." : `${column.visits.length} stops`}
+                  {presenceLabel(presence, column.crewId)}
                 </CardDescription>
                 {canWrite && scheduledIds(column.visits).length > 0 ? (
                   <Button

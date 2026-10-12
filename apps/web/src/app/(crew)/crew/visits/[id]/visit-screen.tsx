@@ -22,6 +22,7 @@ import { IrrigationZoneForm } from "./irrigation-zone-form";
 import { SnowEventForm } from "./snow-event-form";
 import { VisitActions } from "./visit-actions";
 import { VisitPhotos, type VisitPhotosHandle } from "./visit-photos";
+import { CrewStatusForm } from "./crew-status-form";
 import { VisitTimeCorrect } from "./visit-time-correct";
 
 const ACTIONS = new Set(["visit_start", "visit_pause", "visit_resume", "visit_finish", "visit_stop", "visit_set_crew_size"]);
@@ -318,6 +319,7 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack }: { visi
       <ChemicalLogForm visitId={visitId} userId={userId} orgId={orgId} />
       <SnowEventForm visitId={visitId} userId={userId} orgId={orgId} />
       <IrrigationZoneForm visitId={visitId} userId={userId} orgId={orgId} />
+      <CrewStatusForm visitId={visitId} />
       <div className="fixed inset-x-0 bottom-0 z-10 flex gap-2 bg-background px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
         {lead && clock.status === "scheduled" && !closed && !midCancel ? <button type="button" className="flex min-h-14 flex-1 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={saving || Boolean(blocked)} onClick={() => void act("visit_start")}>Start job</button> : null}
         {lead && clock.status === "in_progress" && !midCancel ? <button type="button" className="inline-flex min-h-16 min-w-16 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_pause")}>Pause</button> : null}
