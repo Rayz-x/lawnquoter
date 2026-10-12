@@ -188,9 +188,12 @@ export function PricingStudio({ priceListId, services, rules, modifiers, canEdit
         {visible.length === 0 ? <p className="px-2 py-6 text-sm text-muted-foreground">No matching services.</p> : null}
       </Card>
       <div className="flex min-w-0 flex-col gap-4">
-        <NativeSelect className="lg:hidden" aria-label="Service" value={serviceId} onChange={(event) => pick(event.target.value)}>
-          {services.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </NativeSelect>
+        <div className="flex min-w-0 flex-col gap-1 lg:hidden">
+          <NativeSelect className="w-full" aria-label="Service" aria-describedby="mobile-service-hint" value={serviceId} onChange={(event) => pick(event.target.value)}>
+            {services.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </NativeSelect>
+          <FieldHint id="mobile-service-hint">The service whose prices you are editing.</FieldHint>
+        </div>
         {service && rule && tier ? (
           <ServiceEditor key={service.id} service={service} rule={rule} tier={tier} rules={serviceRules} modifiers={modifiers} priceListId={priceListId} canEdit={canEdit} tab={tab} onTab={(value) => { setTab(value); visit(service.id, value); }} onPickRule={setPickedRuleId} />
         ) : service && rule && !tier && nonTier(rule.config) && priceListId ? (
@@ -323,12 +326,16 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
       <TabBox label="Service" value={tab} onValueChange={onTab} tabs={[
         { value: "tiers", label: "Price tiers", content: (
           <>
+            <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-muted-foreground">Measured quantity</span>
               <ToggleGroup value={[current.quantityKey]} disabled={!canEdit} onValueChange={(next) => { const key = next[0]; if (canEdit && key && key !== current.quantityKey) commit({ ...current, quantityKey: key }, true); }} className="flex-wrap">
                 {chips.map((item) => <ToggleGroupItem key={item.key} value={item.key} className="h-8 rounded-full border px-3 aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground max-md:h-11">{item.label}</ToggleGroupItem>)}
               </ToggleGroup>
             </div>
+            <FieldHint>The measurement this price uses, such as square feet.</FieldHint>
+            </div>
+            <FieldHint>Each row is a size band, with the top of the band, the price, and optional crew hours and cost.</FieldHint>
             <div className={`hidden gap-2 text-xs font-medium text-muted-foreground md:grid ${showCost ? "grid-cols-[minmax(8rem,1.4fr)_7rem_5.5rem_6.5rem_2rem]" : "grid-cols-[minmax(8rem,1.4fr)_7rem_2rem]"}`}><span>{qtyOf(current.quantityKey).label} ({unit})</span><span>Price</span>{showCost ? <><span className="inline-flex items-center gap-1"><Lock className="size-3" /> Crew hours</span><span className="inline-flex items-center gap-1"><Lock className="size-3" /> Your cost</span></> : null}<span /></div>
             {current.rows.map((row, index) => {
               const prev = index === 0 ? 0 : current.rows[index - 1]?.upTo;
@@ -351,6 +358,7 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
                 {showCost ? <span className="text-muted-foreground">· {current.tail.addHours} h crew time · {formatMoney(current.tail.addCost)} your cost</span> : null}
               </> : canEdit ? <Button type="button" variant="outline" size="sm" onClick={() => commit({ ...current, tail: { every: 1000, over: [...current.rows].reverse().find((row) => row.upTo != null)?.upTo ?? 0, addPrice: 0, addHours: 0, addCost: 0 } }, true)}>Add a price for bigger jobs</Button> : <span className="text-muted-foreground">No over-range tail.</span>}
             </div>
+            {current.tail ? <FieldHint>How much to add for each extra step past the last size band.</FieldHint> : null}
             <p className="text-sm" data-testid="rule-example">Example: {ruleExample(current, modifiers).text} costs <b>{formatMoney(ruleExample(current, modifiers).price)}</b>.</p>
             <label className="flex min-h-11 items-center gap-2 text-sm text-muted-foreground"><Switch checked={showCost} onCheckedChange={setShowCost} />More options: crew time and your cost</label>
             {priceNote && service.openQuotes > 0 ? <p className="text-sm text-muted-foreground">Open quotes keep their price. New quotes use this.</p> : null}

@@ -115,9 +115,11 @@ export function OtherRuleEditor({
 
         {rule.type === "snow" ? (
           <>
-            <label className="grid max-w-sm gap-1 text-sm">
-              <span className="text-muted-foreground">How you charge</span>
+            <div className="grid min-w-0 max-w-full gap-1 text-sm sm:max-w-sm">
+              <label htmlFor="snow-contract" className="text-muted-foreground">How you charge</label>
               <NativeSelect
+                id="snow-contract"
+                aria-describedby="snow-contract-hint"
                 value={rule.contract}
                 disabled={off}
                 onChange={(e) => {
@@ -135,7 +137,8 @@ export function OtherRuleEditor({
                 <option value="per_inch">By snow depth</option>
                 <option value="seasonal_flat">One price for the season</option>
               </NativeSelect>
-            </label>
+              <FieldHint id="snow-contract-hint">Charge each visit, by snow depth, or one price for the season.</FieldHint>
+            </div>
             {rule.contract === "per_push" ? <NumberBox label="Price per visit" hint="What the customer pays each time the crew comes out." prefix="$" value={rule.perPush?.price ?? 0} onChange={(v) => patch({ perPush: { hours: 0, cost: 0, ...rule.perPush, price: v } })} disabled={off} /> : null}
             {rule.contract === "seasonal_flat" ? <NumberBox label="Season price" hint="One price that covers the whole snow season." prefix="$" value={rule.seasonal?.price ?? 0} onChange={(v) => patch({ seasonal: { hours: 0, cost: 0, ...rule.seasonal, price: v } })} disabled={off} /> : null}
             {rule.contract === "per_inch" ? (
