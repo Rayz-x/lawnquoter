@@ -3795,6 +3795,117 @@ export type Database = {
           },
         ]
       }
+      qbo_conflicts: {
+        Row: {
+          created_at: string
+          id: string
+          link_id: string | null
+          local_name: string
+          org_id: string
+          remote_name: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          link_id?: string | null
+          local_name: string
+          org_id: string
+          remote_name: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          link_id?: string | null
+          local_name?: string
+          org_id?: string
+          remote_name?: string
+          status?: string
+        }
+        Relationships: []
+      },
+      qbo_connections: {
+        Row: { connected_at: string | null; org_id: string; realm_id: string | null }
+        Insert: { connected_at?: string | null; org_id: string; realm_id?: string | null }
+        Update: { connected_at?: string | null; org_id?: string; realm_id?: string | null }
+        Relationships: []
+      },
+      qbo_entity_links: {
+        Row: {
+          id: string
+          last_synced_at: string | null
+          local_id: string
+          local_table: string
+          org_id: string
+          parent_qbo_id: string | null
+          qbo_entity: string
+          qbo_id: string
+          remote_updated_at: string | null
+          sync_token: string | null
+        }
+        Insert: {
+          id?: string
+          last_synced_at?: string | null
+          local_id: string
+          local_table: string
+          org_id: string
+          parent_qbo_id?: string | null
+          qbo_entity: string
+          qbo_id: string
+          remote_updated_at?: string | null
+          sync_token?: string | null
+        }
+        Update: {
+          id?: string
+          last_synced_at?: string | null
+          local_id?: string
+          local_table?: string
+          org_id?: string
+          parent_qbo_id?: string | null
+          qbo_entity?: string
+          qbo_id?: string
+          remote_updated_at?: string | null
+          sync_token?: string | null
+        }
+        Relationships: []
+      },
+      qbo_sync_log: {
+        Row: {
+          created_at: string
+          detail: string | null
+          direction: string
+          entity: string
+          id: string
+          local_id: string | null
+          org_id: string
+          outcome: string
+          qbo_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          direction: string
+          entity: string
+          id?: string
+          local_id?: string | null
+          org_id: string
+          outcome: string
+          qbo_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          direction?: string
+          entity?: string
+          id?: string
+          local_id?: string | null
+          org_id?: string
+          outcome?: string
+          qbo_id?: string | null
+        }
+        Relationships: []
+      },
       quotes: {
         Row: {
           account_id: string
@@ -5426,6 +5537,7 @@ export type Database = {
       }
       publish_route: { Args: { p_route_id: string }; Returns: string }
       purge_expired_leads: { Args: never; Returns: number }
+      resolve_qbo_conflict: { Args: { p_choice: string; p_id: string }; Returns: undefined }
       quote_accept: {
         Args: {
           p_disclosure?: boolean
