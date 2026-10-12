@@ -1,4 +1,5 @@
 export { ChipGroup, type ChipOption } from "./chip-group";
+export { FieldHint, Hinted } from "./field-hint";
 export { FactStrip, type FactStripItem } from "./fact-strip";
 export { InternalNote } from "./internal-note";
 export { MoneyBlurInput } from "./money-blur-input";

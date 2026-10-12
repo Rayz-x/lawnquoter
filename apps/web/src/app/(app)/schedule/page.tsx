@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { DISPATCH_ROLES, hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { FieldHint, Hinted } from "@/components/entry";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +25,7 @@ import { isWeatherAction, isWeatherCondition, type WeatherRule } from "@/lib/sch
 import { DayBoard, type BoardColumn, type BoardVisit, type PhoneSync } from "./day-board";
 import { DispatchGrid, type GridVisit } from "./dispatch-grid";
 import { PaidRoutingNotice } from "./paid-routing-notice";
-import { SnowActivationCard } from "./snow-activation-card";
-import { WeatherCard } from "./weather-card";
+import { ScheduleSettings } from "./schedule-settings";
 
 export const metadata: Metadata = { title: "Schedule" };
 
@@ -380,58 +380,78 @@ export default async function SchedulePage({
         }
         actions={
           <>
-            <Button variant="outline" render={<Link href={scheduleHref(previous, view, selectedCrew)} />}>
-              {view === "day" ? "Previous day" : "Previous week"}
-            </Button>
-            <Button variant="outline" render={<Link href={scheduleHref(next, view, selectedCrew)} />}>
-              {view === "day" ? "Next day" : "Next week"}
-            </Button>
-            {date !== today ? (
-              <Button variant="outline" render={<Link href={scheduleHref(today, view, selectedCrew)} />}>
-                Today
+            {canWrite ? <ScheduleSettings date={date} rules={weatherRules} /> : null}
+            <Hinted hint={view === "day" ? "Goes back one day." : "Goes back one week."}>
+              <Button variant="outline" render={<Link href={scheduleHref(previous, view, selectedCrew)} />}>
+                {view === "day" ? "Previous day" : "Previous week"}
               </Button>
+            </Hinted>
+            <Hinted hint={view === "day" ? "Goes forward one day." : "Goes forward one week."}>
+              <Button variant="outline" render={<Link href={scheduleHref(next, view, selectedCrew)} />}>
+                {view === "day" ? "Next day" : "Next week"}
+              </Button>
+            </Hinted>
+            {date !== today ? (
+              <Hinted hint="Jumps to today’s schedule.">
+                <Button variant="outline" render={<Link href={scheduleHref(today, view, selectedCrew)} />}>
+                  Today
+                </Button>
+              </Hinted>
             ) : null}
           </>
         }
       />
       <div className="page-body">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-start gap-2">
           {views.map(([value, label]) => (
-            <Button
+            <Hinted
               key={value}
-              variant={view === value ? "default" : "outline"}
-              render={<Link href={scheduleHref(date, value, selectedCrew)} />}
+              hint={
+                value === "day"
+                  ? "Shows one day, with a column for each crew."
+                  : value === "week"
+                    ? "Shows the week so you can move stops between days."
+                    : "Shows one crew across the week."
+              }
             >
-              {label}
-            </Button>
+              <Button
+                variant={view === value ? "default" : "outline"}
+                render={<Link href={scheduleHref(date, value, selectedCrew)} />}
+              >
+                {label}
+              </Button>
+            </Hinted>
           ))}
         </div>
-        <form className="flex flex-wrap items-center gap-2" action="/schedule">
-          <label htmlFor="schedule-date" className="text-sm text-muted-foreground">
+        <form className="flex flex-wrap items-end gap-2" action="/schedule">
+          <label htmlFor="schedule-date" className="flex min-w-0 flex-col gap-1 text-sm">
             {view === "day" ? "Day" : "Starting"}
+            <Input id="schedule-date" type="date" name="date" defaultValue={date} required className="w-auto max-w-full" />
+            <FieldHint>{view === "day" ? "The day to dispatch." : "The first day of the week to show."}</FieldHint>
           </label>
-          <Input id="schedule-date" type="date" name="date" defaultValue={date} required className="w-auto" />
           {view !== "day" ? <input type="hidden" name="view" value={view} /> : null}
           {view === "crew" && selectedCrew ? <input type="hidden" name="crew" value={selectedCrew} /> : null}
-          <Button type="submit" variant="outline">
-            Show
-          </Button>
+          <Hinted hint="Loads the schedule for the date you picked.">
+            <Button type="submit" variant="outline">
+              Show
+            </Button>
+          </Hinted>
         </form>
         {view === "crew" && visibleCrews.length > 1 ? (
           <div className="flex flex-wrap gap-2">
             {visibleCrews.map((crew) => (
-              <Button
-                key={crew.id}
-                size="sm"
-                variant={crew.id === selectedCrew ? "default" : "outline"}
-                render={<Link href={scheduleHref(date, "crew", crew.id)} />}
-              >
-                {crew.name}
-              </Button>
+              <Hinted key={crew.id} hint="Shows this crew’s week.">
+                <Button
+                  size="sm"
+                  variant={crew.id === selectedCrew ? "default" : "outline"}
+                  render={<Link href={scheduleHref(date, "crew", crew.id)} />}
+                >
+                  {crew.name}
+                </Button>
+              </Hinted>
             ))}
           </div>
         ) : null}
-        {canWrite ? <WeatherCard date={date} rules={weatherRules} /> : null}
         {loadError ? (
           <Alert variant="destructive">
             <AlertTitle>Could not load this schedule</AlertTitle>
@@ -440,7 +460,6 @@ export default async function SchedulePage({
         ) : view === "day" ? (
           <>
             <PaidRoutingNotice connected={paidRouting} />
-            {canWrite ? <SnowActivationCard date={date} /> : null}
             <DayBoard
               date={date}
               canWrite={canWrite}
