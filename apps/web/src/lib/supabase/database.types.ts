@@ -6,6 +6,7 @@
 // crew_status added for 20261016001100.
 // irrigation plan columns and set_agreement_irrigation_plan added for 20261016000800.
 // snow_events and activate_snow_event added for 20261016000400.
+// instant_quote_events added for 20261014110000.
 
 export type Json =
   | string
@@ -1643,6 +1644,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "equipment_rates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      instant_quote_events: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          kind: string
+          lot_sqft: number | null
+          org_id: string
+          postal_code: string | null
+          service: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          id?: string
+          kind?: string
+          lot_sqft?: number | null
+          org_id: string
+          postal_code?: string | null
+          service?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          lot_sqft?: number | null
+          org_id?: string
+          postal_code?: string | null
+          service?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instant_quote_events_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "orgs"
