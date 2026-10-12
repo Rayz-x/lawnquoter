@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OFFICE_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
-import { a2pStep } from "@/lib/messaging/a2p";
+import { A2P_ALREADY_SUBMITTED, a2pCanSubmit, a2pStep } from "@/lib/messaging/a2p";
 import { readTwilioConfig, TWILIO_NOT_CONNECTED } from "@/lib/messaging/sms";
 import { createClient } from "@/lib/supabase/server";
 import { saveA2p, submitA2pForm } from "./actions";
@@ -27,8 +27,15 @@ export default async function TextingSetupPage({ searchParams }: { searchParams:
     );
   }
   const supabase = await createClient();
-  const { data: row } = await supabase.from("org_sms_registrations").select("legal_name, ein, website, contact_email, sample_message, brand_status, campaign_status, last_error").eq("org_id", session.orgId).maybeSingle();
-  const step = a2pStep({ brandStatus: row?.brand_status ?? "draft", campaignStatus: row?.campaign_status ?? "draft" });
+  const { data: row } = await supabase.from("org_sms_registrations").select("legal_name, ein, website, contact_email, sample_message, brand_status, campaign_status, brand_sid, campaign_sid, last_error").eq("org_id", session.orgId).maybeSingle();
+  const registration = {
+    brandStatus: row?.brand_status ?? "draft",
+    campaignStatus: row?.campaign_status ?? "draft",
+    brandSid: row?.brand_sid,
+    campaignSid: row?.campaign_sid,
+  };
+  const step = a2pStep(registration);
+  const canSubmit = a2pCanSubmit(registration);
   const connected = readTwilioConfig(process.env) !== null;
   const canEdit = hasRole(session.orgRole, ADMIN_ROLES);
   return (
@@ -56,8 +63,11 @@ export default async function TextingSetupPage({ searchParams }: { searchParams:
             </div>
           </form>
         ) : <p className="text-sm text-muted-foreground">An owner or admin submits this registration.</p>}
-        {canEdit && connected ? (
+        {canEdit && connected && canSubmit ? (
           <form action={submitA2pForm}><Button type="submit" variant="outline">Submit to carriers</Button></form>
+        ) : null}
+        {canEdit && connected && !canSubmit ? (
+          <p className="text-sm text-muted-foreground">{A2P_ALREADY_SUBMITTED}</p>
         ) : null}
       </div>
     </>

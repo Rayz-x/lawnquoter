@@ -26,6 +26,22 @@ export function a2pStep(row: { brandStatus: string; campaignStatus: string }): 0
   return 0;
 }
 
+const SUBMITTED_STATUSES = new Set(["pending", "approved", "failed"]);
+
+export const A2P_ALREADY_SUBMITTED = "This registration was already submitted to the carriers.";
+
+export type A2pRegistration = {
+  brandStatus: string;
+  campaignStatus: string;
+  brandSid?: string | null;
+  campaignSid?: string | null;
+};
+
+export function a2pCanSubmit(row: A2pRegistration): boolean {
+  if (row.brandSid?.trim() || row.campaignSid?.trim()) return false;
+  return !SUBMITTED_STATUSES.has(row.brandStatus) && !SUBMITTED_STATUSES.has(row.campaignStatus);
+}
+
 async function postForm(
   config: TwilioConfig,
   url: string,
@@ -47,9 +63,11 @@ async function postForm(
 export async function submitA2p(input: {
   config: TwilioConfig | null;
   draft: A2pDraft;
+  registration?: A2pRegistration | null;
   fetch: (url: string, init?: RequestInit) => Promise<Response>;
 }): Promise<{ ok: true; brandSid: string; campaignSid: string; messagingServiceSid: string } | { ok: false; error: string }> {
   if (!input.config) return { ok: false, error: TWILIO_NOT_CONNECTED };
+  if (!input.registration || !a2pCanSubmit(input.registration)) return { ok: false, error: A2P_ALREADY_SUBMITTED };
   const parsed = parseA2pDraft(input.draft);
   if (!parsed.ok) return parsed;
   const config = input.config;
