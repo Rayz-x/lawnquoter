@@ -85,6 +85,19 @@ function FieldDescription({ className, ...props }: React.ComponentProps<"p">) {
   )
 }
 
+/** One short sentence under a field. Import this name from every screen, including schedule and crew. */
+function FieldHint({ children, id }: { children: string; id?: string }) {
+  return (
+    <FieldDescription
+      id={id}
+      data-slot="field-hint"
+      className="block w-full max-w-full break-words text-pretty"
+    >
+      {children}
+    </FieldDescription>
+  )
+}
+
 function FieldError({
   className,
   children,
@@ -142,4 +155,5 @@ export {
   FieldDescription,
   FieldError,
   FieldGroup,
+  FieldHint,
 }
