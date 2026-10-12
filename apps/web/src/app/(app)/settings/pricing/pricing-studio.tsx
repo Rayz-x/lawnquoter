@@ -18,7 +18,8 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatMoney } from "@/lib/money";
-import { deleteRule, saveRule, toggleService, updateService } from "./actions";
+import { deleteRule, raiseAllPrices, saveRule, toggleService, updateService } from "./actions";
+import { NumberBox } from "./number-box";
 import { allowClick, tierSaveOptions } from "./pricing-entry";
 import { MaterialsPanel } from "./materials-panel";
 import { ModifiersForm } from "./modifiers-form";
@@ -64,6 +65,7 @@ export function PricingHeaderActions({ priceListId, modifiers, materials }: { pr
           <div className="px-4 pb-4">{priceListId ? <ModifiersForm priceListId={priceListId} modifiers={modifiers} /> : <p className="text-sm text-muted-foreground">No price list yet.</p>}</div>
         </SheetContent>
       </Sheet>
+      <RaisePricesButton priceListId={priceListId} />
       <Sheet>
         <SheetTrigger render={<Button variant="outline" />}>Materials</SheetTrigger>
         <SheetContent className="overflow-y-auto sm:max-w-3xl">
@@ -79,6 +81,51 @@ export function PricingHeaderActions({ priceListId, modifiers, materials }: { pr
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function RaisePricesButton({ priceListId }: { priceListId: string | null }) {
+  const router = useRouter();
+  const busy = useRef(false);
+  const [open, setOpen] = useState(false);
+  const [percent, setPercent] = useState(10);
+  const [pending, setPending] = useState(false);
+  if (!priceListId) return null;
+  const apply = () => {
+    if (busy.current || percent === 0) return;
+    busy.current = true;
+    setPending(true);
+    void raiseAllPrices(priceListId, percent)
+      .then((result) => {
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        const label = result.data.count === 1 ? "1 price" : `${result.data.count} prices`;
+        toast.success(`Updated property adjustments and ${label} by ${percent}%.`);
+        setOpen(false);
+        router.refresh();
+      })
+      .catch(() => toast.error("Could not update prices."))
+      .finally(() => {
+        busy.current = false;
+        setPending(false);
+      });
+  };
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button variant="outline" />}>Raise prices</DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Raise prices</DialogTitle>
+          <DialogDescription>Every dollar on this price list moves by this percent, including the minimum and other property charges. Hours and percents stay the same. A negative percent lowers prices.</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col items-start gap-3">
+          <NumberBox label="Percent" value={percent} onChange={setPercent} suffix="%" min={-50} max={100} step={0.5} />
+          <Button disabled={pending || percent === 0} onClick={apply}>{pending ? "Updating…" : "Apply to this price list"}</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

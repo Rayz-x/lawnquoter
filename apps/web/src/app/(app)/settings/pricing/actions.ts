@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { modifiersSchema, parseMaterialsCsv, pricingRuleSchema } from "@lawnquoter/pricing-engine";
+import { mergeModifiers, modifiersSchema, parseMaterialsCsv, pricingRuleSchema, scaleModifiers, scaleRule } from "@lawnquoter/pricing-engine";
 import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { z } from "zod";
 import { fail, type ActionResult } from "@/lib/actions/result";
@@ -188,6 +188,58 @@ export async function saveRule(fd: FormData): Promise<ActionResult<{ id: string 
   if (error || !data) return fail(error?.message ?? "Could not save rule");
   path();
   return { ok: true, data: { id: data.id } };
+}
+
+const RAISE_PERCENT_ERROR = "Enter a percent from -50 to 100, other than zero.";
+const PARTIAL_SAVE = "Prices were partly updated, then a save failed. Check this list before trying again.";
+
+/** Move every dollar on one price list by a percent. Hours and percents stay put. Nothing is written if a rule cannot be read. */
+export async function raiseAllPrices(priceListId: string, percent: number): Promise<ActionResult<{ count: number }>> {
+  const session = await requireOrg();
+  if (!hasRole(session.orgRole, ADMIN_ROLES)) return denyPricing();
+  const listId = z.string().uuid().safeParse(priceListId);
+  if (!listId.success) return fail("Invalid price list");
+  if (!Number.isFinite(percent) || percent === 0 || percent < -50 || percent > 100) return fail(RAISE_PERCENT_ERROR);
+  const factor = 1 + percent / 100;
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("pricing_rules").select("id, config").eq("price_list_id", listId.data).eq("org_id", session.orgId);
+  if (error) return fail(error.message);
+  const scaled = [];
+  for (const row of data ?? []) {
+    const rule = pricingRuleSchema.safeParse(row.config);
+    if (!rule.success) return fail("One price could not be read, so nothing was changed.");
+    scaled.push({ id: row.id, config: scaleRule(rule.data, factor) });
+  }
+  const { data: list, error: listError } = await supabase
+    .from("price_lists")
+    .select("modifiers")
+    .eq("id", listId.data)
+    .eq("org_id", session.orgId)
+    .maybeSingle();
+  if (listError) return fail(listError.message);
+  if (!list) return fail(NO_ROWS);
+  const modifiers = modifiersSchema.safeParse(scaleModifiers(mergeModifiers(list.modifiers), factor));
+  if (!modifiers.success) return fail("Property adjustments could not be read, so nothing was changed.");
+
+  const { data: savedList, error: listUpdateError } = await supabase
+    .from("price_lists")
+    .update({ modifiers: modifiers.data })
+    .eq("id", listId.data)
+    .eq("org_id", session.orgId)
+    .select("id");
+  if (listUpdateError) return fail(listUpdateError.message);
+  if (!savedList?.length) return fail(NO_ROWS);
+  for (const row of scaled) {
+    const { data: saved, error: updateError } = await supabase
+      .from("pricing_rules")
+      .update({ rule_type: row.config.type, config: row.config })
+      .eq("id", row.id)
+      .eq("org_id", session.orgId)
+      .select("id");
+    if (updateError || !saved?.length) return fail(PARTIAL_SAVE);
+  }
+  path();
+  return { ok: true, data: { count: scaled.length } };
 }
 
 export async function deleteRule(id: string): Promise<ActionResult> {

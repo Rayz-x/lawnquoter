@@ -62,7 +62,7 @@ Optional:
 - `REGRID_API_TOKEN` — parcel lookup while measuring. Without it, the lot is traced by hand.
 - `RESEND_API_KEY` and `EMAIL_FROM` — email the sealed acceptance copy, and the morning follow-up list. Leave both unset to skip sending.
 - `CRON_SECRET` — shared secret for the hourly follow-up job (`Authorization: Bearer`). Leave unset and that job refuses the request. The job still needs the email keys above before it sends.
-- `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `STRIPE_WEBHOOK_SECRET` — Stripe Connect. The company owner connects an Express account from the Payments section of Settings. Click-to-accept does not charge a card, and it works with these unset.
+- `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `STRIPE_WEBHOOK_SECRET` — Stripe Connect. The company owner connects an Express account from the Payments section of Settings. Owners and admins can save a card on file from an account once Connect is ready. Leave the keys unset and that screen says to add a Stripe key. Click-to-accept does not charge a card, and it works with these unset.
 - `SIGNWELL_API_KEY` — listed for a later formal-contract step. Accepting a quote does not use it.
 
 ## Connecting a Supabase project

@@ -8,6 +8,7 @@ import {
   Landmark,
   HardHat,
   Inbox,
+  Mail,
   LayoutDashboard,
   MapPinned,
   Receipt,
@@ -113,6 +114,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     items: [
       { title: "Profile", href: "/settings/profile", icon: UserCircle },
       { title: "Settings", href: "/settings", icon: Settings },
+      { title: "Messages", href: "/settings/messages", icon: Mail, roles: OFFICE_ROLES },
       { title: "Team", href: "/settings/team", icon: Users, roles: ADMIN_ROLES },
       { title: "Crew App", href: "/crew/today", icon: Smartphone, roles: FIELD_ROLES },
     ],

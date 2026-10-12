@@ -86,7 +86,22 @@ export function OtherRuleEditor({
                 <option value="prepay">Prepay for the whole season</option>
               </NativeSelect>
             </label>
-            {rule.billing === "prepay" ? <NumberBox label="Prepay discount" suffix="%" max={50} value={pct(rule.prepayDiscountPct)} onChange={(v) => patch({ prepayDiscountPct: frac(v) })} disabled={off} /> : null}
+            {rule.billing === "prepay" ? (
+              <>
+                <NumberBox label="Prepay discount" suffix="%" max={50} value={pct(rule.prepayDiscountPct)} onChange={(v) => patch({ prepayDiscountPct: frac(v) })} disabled={off} />
+                <p className="text-sm text-muted-foreground">The highest application count this program meets replaces the discount above.</p>
+                {(rule.prepayTiers ?? []).map((tier, index) => (
+                  <div key={index} className="flex flex-wrap items-end gap-3">
+                    <NumberBox label="At least" suffix="apps" min={1} max={24} value={tier.minApps} onChange={(v) => patch({ prepayTiers: (rule.prepayTiers ?? []).map((row, i) => (i === index ? { ...row, minApps: Math.max(1, Math.round(v)) } : row)) })} disabled={off} />
+                    <NumberBox label="Off" suffix="%" max={50} value={pct(tier.discountPct)} onChange={(v) => patch({ prepayTiers: (rule.prepayTiers ?? []).map((row, i) => (i === index ? { ...row, discountPct: frac(v) } : row)) })} disabled={off} />
+                    <Button type="button" variant="ghost" disabled={off} onClick={() => patch({ prepayTiers: (rule.prepayTiers ?? []).filter((_, i) => i !== index) })}>Remove</Button>
+                  </div>
+                ))}
+                {(rule.prepayTiers ?? []).length < 6 && (rule.prepayTiers?.at(-1)?.minApps ?? 0) < 24 ? (
+                  <Button type="button" variant="outline" className="w-fit" disabled={off} onClick={() => patch({ prepayTiers: [...(rule.prepayTiers ?? []), { minApps: Math.min(24, (rule.prepayTiers?.at(-1)?.minApps ?? 2) + 2), discountPct: 0.05 }] })}>Add application discount</Button>
+                ) : null}
+              </>
+            ) : null}
             <MoreDisclosure label="More options">
               <div className="flex flex-wrap gap-3 pt-2">
                 <NumberBox label="Crew hours per application" suffix="h" value={rule.perApp.hours} onChange={(v) => patch({ perApp: { ...rule.perApp, hours: v } })} disabled={off} />
