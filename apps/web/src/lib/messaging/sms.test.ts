@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { claimedSmsFrom, deliverSms, inboundSms, mayText, readTwilioConfig, resolveInboundOrg, toE164 } from "./sms";
+import { claimedSmsFrom, deliverSms, inboundSms, mayText, readTwilioConfig, resolveInboundOrg, smsNumberAssignedToOrg, toE164 } from "./sms";
 
 const url = "https://app.example.com/api/webhooks/twilio/sms";
 const params = { Body: "On my way", From: "+15551110000", MessageSid: "SM123", To: "+15552220000" };
@@ -83,6 +83,51 @@ describe("Twilio SMS", () => {
     expect(mayText({ optedIn: false, inbound: true })).toEqual({ ok: true });
     expect(mayText({ optedIn: false, inbound: false })).toEqual({ ok: false, error: "This person has not agreed to texts." });
     expect(toE164("5551110000")).toBe("+15551110000");
+  });
+
+  it("accepts only a Twilio number assigned to this company", async () => {
+    const config = { accountSid: "AC1", authToken: "secret", fromNumber: "+15552220000" };
+    const calls: string[] = [];
+    const disconnected = await smsNumberAssignedToOrg({
+      config: null,
+      orgId: "org-a",
+      smsNumber: "+15553330000",
+      fetch: async (target) => {
+        calls.push(String(target));
+        return new Response("{}", { status: 200 });
+      },
+    });
+    expect(disconnected).toEqual({ ok: false, error: "Not connected - add Twilio keys to enable" });
+    expect(calls).toEqual([]);
+
+    const listed = async (numbers: { phone_number?: string; friendly_name?: string }[], status = 200) => {
+      const seen: { url?: string; auth?: string } = {};
+      const result = await smsNumberAssignedToOrg({
+        config,
+        orgId: "org-a",
+        smsNumber: "(555) 333-0000",
+        fetch: async (target, init) => {
+          seen.url = String(target);
+          seen.auth = new Headers(init?.headers).get("authorization") ?? "";
+          return new Response(JSON.stringify({ incoming_phone_numbers: numbers }), { status });
+        },
+      });
+      return { result, seen };
+    };
+
+    const assigned = await listed([{ phone_number: "+15553330000", friendly_name: "org-a" }]);
+    expect(assigned.result).toEqual({ ok: true, smsNumber: "+15553330000" });
+    expect(assigned.seen.url).toBe("https://api.twilio.com/2010-04-01/Accounts/AC1/IncomingPhoneNumbers.json?PhoneNumber=%2B15553330000");
+    expect(assigned.seen.auth).toBe(`Basic ${Buffer.from("AC1:secret").toString("base64")}`);
+
+    const otherCompany = await listed([{ phone_number: "+15553330000", friendly_name: "org-b" }]);
+    expect(otherCompany.result).toEqual({ ok: false, error: "That number is not assigned to this company." });
+
+    const missing = await listed([]);
+    expect(missing.result).toEqual({ ok: false, error: "That number is not assigned to this company." });
+
+    const rejected = await listed([{ phone_number: "+15553330000", friendly_name: "org-a" }], 401);
+    expect(rejected.result).toEqual({ ok: false, error: "Twilio could not confirm that number." });
   });
 
   it("gives an inbound text only to the company that claimed the number", () => {

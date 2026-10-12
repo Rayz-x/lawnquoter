@@ -80,6 +80,39 @@ export function mayText(input: { optedIn: boolean; inbound: boolean }): { ok: tr
   return { ok: false, error: "This person has not agreed to texts." };
 }
 
+export const SMS_NUMBER_NOT_ASSIGNED = "That number is not assigned to this company.";
+export const SMS_NUMBER_UNCONFIRMED = "Twilio could not confirm that number.";
+
+/**
+ * The Twilio account is shared by every company. Presence on that account is not ownership.
+ * A number is this company's only when Twilio lists it and its name is the company id.
+ */
+export async function smsNumberAssignedToOrg(input: {
+  config: TwilioConfig | null;
+  orgId: string;
+  smsNumber: string;
+  fetch: (url: string, init?: RequestInit) => Promise<Response>;
+}): Promise<{ ok: true; smsNumber: string } | { ok: false; error: string }> {
+  if (!input.config) return { ok: false, error: TWILIO_NOT_CONNECTED };
+  const smsNumber = toE164(input.smsNumber);
+  const orgId = input.orgId.trim();
+  if (!smsNumber || !orgId) return { ok: false, error: SMS_NUMBER_NOT_ASSIGNED };
+  const response = await input.fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${input.config.accountSid}/IncomingPhoneNumbers.json?PhoneNumber=${encodeURIComponent(smsNumber)}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${input.config.accountSid}:${input.config.authToken}`).toString("base64")}`,
+      },
+    },
+  );
+  if (!response.ok) return { ok: false, error: SMS_NUMBER_UNCONFIRMED };
+  const payload = (await response.json()) as { incoming_phone_numbers?: { phone_number?: string; friendly_name?: string }[] };
+  const match = (payload.incoming_phone_numbers ?? []).find((row) => toE164(row.phone_number ?? "") === smsNumber);
+  if (!match || match.friendly_name?.trim() !== orgId) return { ok: false, error: SMS_NUMBER_NOT_ASSIGNED };
+  return { ok: true, smsNumber };
+}
+
 /** The company's own texting number. The shared Twilio sender is not a tenant From. */
 export function claimedSmsFrom(smsNumber: string | null | undefined): string | null {
   if (!smsNumber?.trim()) return null;

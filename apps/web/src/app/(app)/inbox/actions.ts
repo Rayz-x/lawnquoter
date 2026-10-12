@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { hasRole, ADMIN_ROLES } from "@lawnquoter/shared";
 import { CUSTOMER_EDIT_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
-import { claimedSmsFrom, deliverSms, mayText, readTwilioConfig, toE164, TWILIO_NOT_CONNECTED } from "@/lib/messaging/sms";
+import { claimedSmsFrom, deliverSms, mayText, readTwilioConfig, smsNumberAssignedToOrg, toE164, TWILIO_NOT_CONNECTED } from "@/lib/messaging/sms";
 import { createClient } from "@/lib/supabase/server";
 
 export async function saveSmsNumber(fd: FormData): Promise<void> {
@@ -14,6 +14,15 @@ export async function saveSmsNumber(fd: FormData): Promise<void> {
   const raw = String(fd.get("sms_number") ?? "").trim();
   const smsNumber = raw ? toE164(raw) : null;
   if (raw && !smsNumber) redirect("/inbox?error=Enter%20a%2010-digit%20texting%20number.");
+  if (smsNumber) {
+    const assigned = await smsNumberAssignedToOrg({
+      config: readTwilioConfig(process.env),
+      orgId: session.orgId,
+      smsNumber,
+      fetch: (url, init) => fetch(url, init),
+    });
+    if (!assigned.ok) redirect(`/inbox?error=${encodeURIComponent(assigned.error)}`);
+  }
   const supabase = await createClient();
   const { error } = await supabase.from("orgs").update({ sms_number: smsNumber }).eq("id", session.orgId);
   if (error) redirect(`/inbox?error=${encodeURIComponent(error.code === "23505" ? "That texting number is already used by another company." : error.message)}`);
