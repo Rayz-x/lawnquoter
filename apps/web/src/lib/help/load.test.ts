@@ -25,7 +25,15 @@ describe("loadHelpArticle", () => {
     expect(loadHelpArticle("chemical-logs")?.headings.map((heading) => heading.id)).toEqual(["log-an-application"]);
     expect(loadHelpArticle("late-fees")?.headings.map((heading) => heading.id)).toEqual(["set-the-fee", "add-the-month"]);
     expect(loadHelpArticle("payments")?.headings.map((heading) => heading.id)).toContain("charge-after-a-visit");
-    expect(loadHelpArticle("integrations")?.headings.map((heading) => heading.id)).toContain("imagery");
+    expect(loadHelpArticle("integrations")?.headings.map((heading) => heading.id)).toEqual(
+      expect.arrayContaining(["imagery", "lead-connectors"]),
+    );
+    expect(loadHelpArticle("irrigation")?.headings.map((heading) => heading.id)).toContain("on-the-agreement");
+    expect(loadHelpArticle("schedule")?.headings.map((heading) => heading.id)).toContain("stop-order");
+    expect(loadHelpArticle("messages")?.headings.map((heading) => heading.id)).toEqual(
+      expect.arrayContaining(["texting-registration", "follow-ups"]),
+    );
+    expect(loadHelpArticle("invoices")?.headings.map((heading) => heading.id)).toContain("create-a-batch");
     expect(loadHelpArticle("instant-quote")?.headings.map((heading) => heading.id)).toContain("paste-it-on-your-site");
   });
 });

@@ -14,7 +14,7 @@ The portal link from the customer page lasts 14 days. The customer sees your com
 - Invoices. An empty list says "No invoices to pay." An open invoice says Pay.
 - Upcoming visits, or "No upcoming visits."
 - Visit photos, or "No visit photos yet."
-- Card on file. Update card opens Stripe when a card can be saved.
+- Card on file. Update card opens Stripe when a card can be saved. If it cannot, the page says "A card can be updated after the first payment." or "Card updates open once payments are connected."
 
 ## Request service
 
