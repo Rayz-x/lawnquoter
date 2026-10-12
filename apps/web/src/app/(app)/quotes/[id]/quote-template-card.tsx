@@ -98,7 +98,7 @@ export function QuoteTemplateCard({
                   </option>
                 ))}
               </NativeSelect>
-              <FieldHint id="quote-template-apply-hint">Adds that template's lines onto this quote.</FieldHint>
+              <FieldHint id="quote-template-apply-hint">Adds that template&apos;s lines onto this quote.</FieldHint>
             </Field>
             <Button type="submit" disabled={pending} className="min-h-11 w-fit">Add lines</Button>
           </form>
