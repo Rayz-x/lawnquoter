@@ -64,6 +64,7 @@ Optional:
 - `CRON_SECRET` — shared secret for the hourly follow-up job (`Authorization: Bearer`). Leave unset and that job refuses the request. The job still needs the email keys above before it sends.
 - `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `STRIPE_WEBHOOK_SECRET` — Stripe Connect. The company owner connects an Express account from the Payments section of Settings. Click-to-accept does not charge a card, and it works with these unset.
 - `SIGNWELL_API_KEY` — listed for a later formal-contract step. Accepting a quote does not use it.
+- `WISETACK_PREQUAL_URL` — public financing link. Leave unset and Settings says it is not connected. When set, a proposal of $500 or more shows "See financing options". No Wisetack API call is made.
 
 ## Connecting a Supabase project
 
