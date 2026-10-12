@@ -1885,58 +1885,6 @@ export type Database = {
           },
         ]
       }
-      irrigation_zone_notes: {
-        Row: {
-          created_at: string
-          id: string
-          note: string
-          org_id: string
-          recorded_by: string | null
-          visit_id: string
-          zone_number: number
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          note: string
-          org_id: string
-          recorded_by?: string | null
-          visit_id: string
-          zone_number: number
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          note?: string
-          org_id?: string
-          recorded_by?: string | null
-          visit_id?: string
-          zone_number?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "irrigation_zone_notes_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "orgs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "irrigation_zone_notes_recorded_by_fkey"
-            columns: ["recorded_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "irrigation_zone_notes_visit_id_fkey"
-            columns: ["visit_id"]
-            isOneToOne: false
-            referencedRelation: "visits"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       job_quote_lines: {
         Row: {
           created_at: string
