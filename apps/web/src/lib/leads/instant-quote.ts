@@ -13,6 +13,7 @@ export type InstantQuoteDraft = {
   hasGate: boolean | null;
   hasDogs: boolean | null;
   lotSqft: number | null;
+  measurementConfidence: number | null;
   contactName: string;
   phone: string;
   email: string;
@@ -63,6 +64,7 @@ export function emptyInstantQuote(
     hasGate: null,
     hasDogs: null,
     lotSqft: null,
+    measurementConfidence: null,
     contactName: "",
     phone: "",
     email: "",

@@ -23,6 +23,7 @@ function asDraft(value: unknown): InstantQuoteDraft | null {
     hasGate: row.hasGate === true ? true : row.hasGate === false ? false : null,
     hasDogs: row.hasDogs === true ? true : row.hasDogs === false ? false : null,
     lotSqft: typeof row.lotSqft === "number" ? row.lotSqft : null,
+    measurementConfidence: typeof row.measurementConfidence === "number" ? row.measurementConfidence : null,
     contactName: text(row, "contactName"),
     phone: text(row, "phone"),
     email: text(row, "email"),

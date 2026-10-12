@@ -1,10 +1,15 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import type { Polygon } from "@lawnquoter/shared";
 
 vi.mock("./reveal-quote", () => ({ revealInstantQuote: vi.fn(async () => null) }));
+vi.mock("./load-map", () => ({ loadInstantQuoteMap: vi.fn(async () => null) }));
+vi.mock("@/components/map/measure-map", () => ({
+  MeasureMap: (props: { mode: string }) => createElement("div", { "data-mode": props.mode }),
+}));
 
-import { InstantQuoteSummary, InstantQuoteWidget } from "./instant-quote-widget";
+import { InstantQuoteMeasureStep, InstantQuoteSummary, InstantQuoteWidget } from "./instant-quote-widget";
 
 const utm = {
   utmSource: null,
@@ -46,5 +51,49 @@ describe("InstantQuoteWidget", () => {
     expect(html).toContain("$50.00");
     expect(html).toContain("confirm within 24 hours");
     expect(html).toContain("Not connected — add a STRIPE_SECRET_KEY to enable");
+  });
+
+  it("starts from the lot on the map and offers length times width only when the lot is missing", () => {
+    const lot: Polygon = {
+      type: "Polygon",
+      coordinates: [
+        [
+          [-86.8, 36.1],
+          [-86.8, 36.101],
+          [-86.799, 36.101],
+          [-86.799, 36.1],
+          [-86.8, 36.1],
+        ],
+      ],
+    };
+    const blank = {
+      trace: null,
+      lengthFt: "",
+      widthFt: "",
+      onTrace: () => undefined,
+      onLength: () => undefined,
+      onWidth: () => undefined,
+      onUse: () => undefined,
+    };
+    const prefill = renderToStaticMarkup(
+      createElement(InstantQuoteMeasureStep, {
+        ...blank,
+        map: { location: null, parcel: lot, parcelSource: "regrid", footprint: null, footprintSource: null },
+      }),
+    );
+    expect(prefill).toContain('data-mode="polygon"');
+    expect(prefill).toContain("Lot minus the house");
+    expect(prefill).toContain("107,534");
+    expect(prefill).not.toContain("Length (ft)");
+
+    const fallback = renderToStaticMarkup(
+      createElement(InstantQuoteMeasureStep, {
+        ...blank,
+        map: { location: null, parcel: null, parcelSource: null, footprint: null, footprintSource: null },
+      }),
+    );
+    expect(fallback).toContain('data-mode="polygon"');
+    expect(fallback).toContain("Length (ft)");
+    expect(fallback).toContain("Width (ft)");
   });
 });

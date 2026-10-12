@@ -8,6 +8,8 @@ const notFound = vi.hoisted(() => vi.fn(() => { throw new Error("NEXT_NOT_FOUND"
 vi.mock("@/lib/leads/load-public-form", () => ({ loadInstantQuotePage }));
 vi.mock("next/navigation", () => ({ notFound }));
 vi.mock("./reveal-quote", () => ({ revealInstantQuote: vi.fn(async () => null) }));
+vi.mock("./load-map", () => ({ loadInstantQuoteMap: vi.fn(async () => null) }));
+vi.mock("@/components/map/measure-map", () => ({ MeasureMap: () => null }));
 
 import InstantQuotePage from "./page";
 

@@ -64,7 +64,7 @@ export async function revealInstantQuote(
     statedMinimum: org.config.statedMinimum,
     rules: catalog.rules,
     modifiers: catalog.modifiers,
-    confidence: 0.4,
+    confidence: draft.measurementConfidence ?? 0.4,
   });
   if (!offer) return null;
 
