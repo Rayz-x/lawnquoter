@@ -78,7 +78,7 @@ describe("pipelineColumns", () => {
     const columns = pipelineColumns(cards);
     expect(columns.map((column) => column.label)).toEqual(["New", "Contacted", "Quoted", "Won", "Lost"]);
     expect(columns[0]?.cards).toEqual([
-      { id: "a", name: "Ada", status: "new", ownerName: "Sam", lostReasonLabel: null, rotting: true },
+      { id: "a", name: "Ada", status: "new", ownerName: "Sam", lostReasonLabel: null, rotting: true, openTasks: 0 },
     ]);
     expect(columns[4]?.cards[0]?.lostReasonLabel).toBe("Price");
     expect(cards.some((card) => card.name === "Bot")).toBe(false);

@@ -59,6 +59,7 @@ export type PipelineCard = {
   ownerName: string;
   lostReasonLabel: string | null;
   rotting: boolean;
+  openTasks: number;
 };
 
 export type PipelineColumn = {
@@ -75,6 +76,7 @@ type PipelineLeadInput = {
   lost_reason?: string | null;
   stage_entered_at?: string | null;
   created_at: string;
+  open_tasks?: number;
 };
 
 export function toPipelineCards(
@@ -94,6 +96,7 @@ export function toPipelineCards(
       status,
       ownerName: lead.assignee_name?.trim() || "Unassigned",
       lostReasonLabel: status === "lost" && reason ? LEAD_LOST_REASON_LABELS[reason] : null,
+      openTasks: lead.open_tasks ?? 0,
       rotting: leadIsRotting({
         status,
         stageEnteredAt: entered,

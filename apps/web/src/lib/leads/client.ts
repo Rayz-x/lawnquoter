@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
-type LeadTable = "lead_requests" | "lead_activities" | "org_lead_settings";
+type LeadTable = "lead_requests" | "lead_activities" | "org_lead_settings" | "lead_tasks";
 
 /** Chainable stub until L01 regenerates `database.types`. */
 type LeadQuery = {
@@ -9,6 +9,7 @@ type LeadQuery = {
   insert: (values: unknown) => LeadQuery;
   update: (values: unknown) => LeadQuery;
   eq: (...args: unknown[]) => LeadQuery;
+  is: (...args: unknown[]) => LeadQuery;
   order: (...args: unknown[]) => LeadQuery;
   limit: (...args: unknown[]) => LeadQuery;
   maybeSingle: () => Promise<{ data: unknown; error: { message: string } | null }>;

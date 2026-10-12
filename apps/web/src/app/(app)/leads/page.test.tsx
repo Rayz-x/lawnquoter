@@ -42,6 +42,7 @@ vi.mock("@/lib/supabase/server", () => ({
             order: async () => ({ data: [], error: null }),
           }),
           order: async () => ({ data: [], error: null }),
+          is: async () => ({ data: [{ lead_request_id: "rotting" }], error: null }),
         }),
       }),
     }),
@@ -193,6 +194,7 @@ describe("LeadsPage access", () => {
     expect(html).toContain("Rotting");
     expect(html).toContain("Bea Lost");
     expect(html).toContain("Lost: Price");
+    expect(html).toContain("1 open task");
     expect(html).toContain("Quoted");
     expect(html).not.toContain("Next follow-up");
   });

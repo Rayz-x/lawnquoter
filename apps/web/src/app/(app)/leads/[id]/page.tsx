@@ -8,6 +8,8 @@ import { canEditLeads, canViewLeads, leadDisplayName, type LeadActivity, type Le
 import { loadPossibleMatchesForLead } from "@/lib/leads/match-candidates";
 import { createClient } from "@/lib/supabase/server";
 import { LeadDetail } from "./lead-detail";
+import { LeadTaskList } from "./lead-task-list";
+import type { LeadTaskRecord } from "@/lib/leads/tasks";
 
 export const metadata: Metadata = { title: "Lead" };
 
@@ -38,9 +40,16 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     .eq("org_id", session.orgId)
     .order("occurred_at", { ascending: false })
     .limit(100);
-  const [leadResult, activityResult, membersResult] = await Promise.all([
+  const taskQuery = db
+    .from("lead_tasks")
+    .select("id, title, due_on, completed_at")
+    .eq("lead_request_id", id)
+    .eq("org_id", session.orgId)
+    .order("created_at", { ascending: true });
+  const [leadResult, activityResult, taskResult, membersResult] = await Promise.all([
     db.from("lead_requests").select("*").eq("id", id).eq("org_id", session.orgId).maybeSingle(),
     Promise.resolve(activityQuery) as Promise<{ data: unknown; error: { message: string } | null }>,
+    Promise.resolve(taskQuery) as Promise<{ data: unknown; error: { message: string } | null }>,
     supabase
       .from("memberships")
       .select("user_id, role, profiles(full_name)")
@@ -51,8 +60,9 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const { data: lead, error: leadError } = leadResult;
   const { data: activities, error: activityError } = activityResult;
   const { data: members, error: membersError } = membersResult;
+  const { data: taskRows, error: taskError } = taskResult;
 
-  const loadError = leadError?.message ?? activityError?.message ?? membersError?.message ?? null;
+  const loadError = leadError?.message ?? activityError?.message ?? membersError?.message ?? taskError?.message ?? null;
   if (loadError) {
     return (
       <>
@@ -111,6 +121,19 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     <>
       <PageHeader title={leadDisplayName(typedLead)} description="Lead detail" />
       <div className="page-body">
+        <LeadTaskList
+          leadId={typedLead.id}
+          today={new Date().toISOString().slice(0, 10)}
+          canEdit={canEditLeads(session.orgRole)}
+          tasks={((taskRows ?? []) as { id: string; title: string; due_on: string | null; completed_at: string | null }[]).map(
+            (row): LeadTaskRecord => ({
+              id: row.id,
+              title: row.title,
+              dueOn: row.due_on,
+              completedAt: row.completed_at,
+            }),
+          )}
+        />
         <LeadDetail
           lead={{ ...typedLead, assigned_to: assigneeId }}
           activities={typedActivities}

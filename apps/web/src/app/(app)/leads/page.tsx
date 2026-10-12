@@ -63,6 +63,17 @@ export default async function LeadsPage({
   const targetMinutes = responseTargetMinutes(org?.settings);
   const canAdd = hasRole(session.orgRole, CUSTOMER_EDIT_ROLES);
   const now = new Date();
+  const openTasks = new Map<string, number>();
+  if (board && list.ok) {
+    const { data: taskRows } = await supabase
+      .from("lead_tasks")
+      .select("lead_request_id")
+      .eq("org_id", session.orgId)
+      .is("completed_at", null);
+    for (const row of taskRows ?? []) {
+      openTasks.set(row.lead_request_id, (openTasks.get(row.lead_request_id) ?? 0) + 1);
+    }
+  }
 
   return (
     <>
@@ -126,7 +137,15 @@ export default async function LeadsPage({
             <AlertDescription>{list.error}</AlertDescription>
           </Alert>
         ) : board ? (
-          <PipelineBoard columns={pipelineColumns(toPipelineCards(list.leads, now, targetMinutes))} />
+          <PipelineBoard
+            columns={pipelineColumns(
+              toPipelineCards(
+                list.leads.map((lead) => ({ ...lead, open_tasks: openTasks.get(lead.id) ?? 0 })),
+                now,
+                targetMinutes,
+              ),
+            )}
+          />
         ) : list.leads.length === 0 ? (
           <Empty>
             <EmptyHeader>
