@@ -40,7 +40,12 @@ export default async function AccountsPage({
         title="Accounts"
         description="Customers and prospects, residential and commercial"
         actions={
-          <NewCustomerDialog />
+          <>
+            <Button variant="outline" render={<Link href="/accounts/import" />}>
+              Import
+            </Button>
+            <NewCustomerDialog />
+          </>
         }
       />
       <div className="page-body">
