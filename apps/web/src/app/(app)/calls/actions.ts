@@ -6,7 +6,7 @@ import { hasRole, ADMIN_ROLES } from "@lawnquoter/shared";
 import { requireOrg } from "@/lib/auth/session";
 import { trackingNumberAssignedToOrg } from "@/lib/messaging/calls";
 import { readTwilioConfig, toE164 } from "@/lib/messaging/sms";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export async function saveTrackingNumber(fd: FormData): Promise<void> {
   const session = await requireOrg();
@@ -23,8 +23,8 @@ export async function saveTrackingNumber(fd: FormData): Promise<void> {
     });
     if (!assigned.ok) redirect(`/calls?error=${encodeURIComponent(assigned.error)}`);
   }
-  const supabase = await createClient();
-  const { error } = await supabase.from("orgs").update({ call_tracking_number: number }).eq("id", session.orgId);
+  const admin = createAdminClient();
+  const { error } = await admin.from("orgs").update({ call_tracking_number: number }).eq("id", session.orgId);
   if (error) redirect(`/calls?error=${encodeURIComponent(error.code === "23505" ? "That tracking number is already used by another company." : error.message)}`);
   revalidatePath("/calls");
   redirect("/calls");

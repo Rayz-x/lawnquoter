@@ -6,7 +6,7 @@ import { hasRole, ADMIN_ROLES } from "@lawnquoter/shared";
 import { CUSTOMER_EDIT_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
 import { claimedSmsFrom, deliverSms, mayText, readTwilioConfig, smsNumberAssignedToOrg, toE164, TWILIO_NOT_CONNECTED } from "@/lib/messaging/sms";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 export async function saveSmsNumber(fd: FormData): Promise<void> {
   const session = await requireOrg();
@@ -23,8 +23,8 @@ export async function saveSmsNumber(fd: FormData): Promise<void> {
     });
     if (!assigned.ok) redirect(`/inbox?error=${encodeURIComponent(assigned.error)}`);
   }
-  const supabase = await createClient();
-  const { error } = await supabase.from("orgs").update({ sms_number: smsNumber }).eq("id", session.orgId);
+  const admin = createAdminClient();
+  const { error } = await admin.from("orgs").update({ sms_number: smsNumber }).eq("id", session.orgId);
   if (error) redirect(`/inbox?error=${encodeURIComponent(error.code === "23505" ? "That texting number is already used by another company." : error.message)}`);
   revalidatePath("/inbox");
   redirect("/inbox");

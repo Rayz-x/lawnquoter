@@ -1,6 +1,6 @@
 -- Calls: office can read the log, nobody in the app can insert, crew and other companies cannot see it.
 
-select plan(9);
+select plan(10);
 
 select has_table('public', 'calls', 'calls exists');
 select has_column('public', 'orgs', 'call_tracking_number', 'orgs.call_tracking_number exists');
@@ -35,8 +35,14 @@ select throws_ok(
   '42501', null, 'another company cannot write a call');
 
 select tests.authenticate_as(:'owner1'::uuid, :'org1'::uuid, 'owner');
+select throws_ok(
+  format($$ update public.orgs set call_tracking_number = '+15552220000' where id = %L $$, :'org1'),
+  '42501', null, 'an owner cannot set the tracking number directly');
+
+select tests.clear_auth();
+select set_config('role', 'service_role', true) as ignored_role \gset
 update public.orgs set call_tracking_number = '+15552220000' where id = :'org1'::uuid;
 select is(
   (select call_tracking_number from public.orgs where id = :'org1'::uuid),
   '+15552220000',
-  'owner can save the tracking number');
+  'the server can save the tracking number');
