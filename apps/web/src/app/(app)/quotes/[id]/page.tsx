@@ -14,6 +14,7 @@ import { formatMoney } from "@/lib/money";
 import { catalogPickerRules, measurementQuantities, priceCatalogLine, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
 import { defaultSelectedIds } from "@/lib/quotes/selection";
 import { quoteSectionTotals } from "@/lib/quotes/section-totals";
+import { diffQuoteVersions, quoteDiffLines, type QuoteVersionChange } from "@/lib/quotes/version-diff";
 import {
   SITE_CHECK_REQUESTED_BADGE,
   hasSiteCheck,
@@ -33,6 +34,7 @@ import { SendQuoteButton } from "./send-quote-button";
 import { SiteCheckPanel } from "./site-check-panel";
 import { SiteCheckRequestActions } from "./site-check-request-actions";
 import { ReviseQuoteButton } from "./revise-quote-button";
+import { QuoteVersionDiffCard } from "@/components/quotes/version-diff";
 
 export const metadata: Metadata = { title: "Quote" };
 
@@ -88,7 +90,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
       ? supabase
           .from("quote_line_items")
           .select(
-            "id, name, description, state, section_id, option_group, option_tier, selected, price, hours, cost, sort, range_low, range_high, site_check_reasons",
+            "id, name, description, state, section_id, option_group, option_tier, qty, unit, selected, price, hours, cost, sort, range_low, range_high, site_check_reasons",
           )
           .eq("version_id", versionId)
           .order("sort")
@@ -101,6 +103,8 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             section_id: string | null;
             option_group: string | null;
             option_tier: string;
+            qty: number;
+            unit: string;
             selected: boolean;
             price: number;
             hours: number;
@@ -161,6 +165,30 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
         </div>
       </>
     );
+  }
+
+  let versionChanges: QuoteVersionChange[] | null = null;
+  if (quote.current_version > 1) {
+    const { data: previous, error: previousError } = await supabase
+      .from("quote_versions")
+      .select("id, version")
+      .eq("quote_id", id)
+      .eq("org_id", session.orgId)
+      .eq("version", quote.current_version - 1)
+      .maybeSingle();
+    if (!previousError && previous) {
+      const [{ data: previousSections, error: previousSectionError }, { data: previousItems, error: previousItemError }] =
+        await Promise.all([
+          supabase.from("quote_sections").select("id, title").eq("version_id", previous.id),
+          supabase.from("quote_line_items").select("section_id, name, qty, unit, price, state, sort").eq("version_id", previous.id),
+        ]);
+      if (!previousSectionError && !previousItemError) {
+        versionChanges = diffQuoteVersions(
+          quoteDiffLines({ sections: previousSections ?? [], items: previousItems ?? [] }),
+          quoteDiffLines({ sections: sections ?? [], items: items ?? [] }),
+        );
+      }
+    }
   }
 
   const lines = (items ?? []).map((line) => ({
@@ -282,6 +310,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               </Badge>
             ) : null}
           </div>
+          {versionChanges ? <QuoteVersionDiffCard fromVersion={quote.current_version - 1} changes={versionChanges} /> : null}
           <QuoteLines
             quoteId={quote.id}
             versionId={versionId}
