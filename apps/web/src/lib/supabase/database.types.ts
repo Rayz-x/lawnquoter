@@ -1859,6 +1859,58 @@ export type Database = {
           },
         ]
       }
+      irrigation_zone_notes: {
+        Row: {
+          created_at: string
+          id: string
+          note: string
+          org_id: string
+          recorded_by: string | null
+          visit_id: string
+          zone_number: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note: string
+          org_id: string
+          recorded_by?: string | null
+          visit_id: string
+          zone_number: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note?: string
+          org_id?: string
+          recorded_by?: string | null
+          visit_id?: string
+          zone_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "irrigation_zone_notes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irrigation_zone_notes_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "irrigation_zone_notes_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           agreement_id: string | null
@@ -3866,6 +3918,64 @@ export type Database = {
           },
           {
             foreignKeyName: "site_checks_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      snow_event_logs: {
+        Row: {
+          created_at: string
+          ended_at: string
+          id: string
+          materials: string
+          org_id: string
+          recorded_by: string | null
+          started_at: string
+          trigger_depth_in: number
+          visit_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at: string
+          id?: string
+          materials: string
+          org_id: string
+          recorded_by?: string | null
+          started_at: string
+          trigger_depth_in: number
+          visit_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string
+          id?: string
+          materials?: string
+          org_id?: string
+          recorded_by?: string | null
+          started_at?: string
+          trigger_depth_in?: number
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snow_event_logs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "snow_event_logs_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "snow_event_logs_visit_id_fkey"
             columns: ["visit_id"]
             isOneToOne: false
             referencedRelation: "visits"
