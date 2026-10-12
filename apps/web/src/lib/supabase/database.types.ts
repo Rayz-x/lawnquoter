@@ -855,6 +855,73 @@ export type Database = {
           },
         ]
       }
+      chemical_applications: {
+        Row: {
+          applied_at: string
+          conditions: string | null
+          created_at: string
+          epa_reg_no: string
+          id: string
+          org_id: string
+          product: string
+          rate: string
+          recorded_by: string | null
+          temp_f: number
+          visit_id: string
+          wind_mph: number
+        }
+        Insert: {
+          applied_at?: string
+          conditions?: string | null
+          created_at?: string
+          epa_reg_no: string
+          id?: string
+          org_id: string
+          product: string
+          rate: string
+          recorded_by?: string | null
+          temp_f: number
+          visit_id: string
+          wind_mph: number
+        }
+        Update: {
+          applied_at?: string
+          conditions?: string | null
+          created_at?: string
+          epa_reg_no?: string
+          id?: string
+          org_id?: string
+          product?: string
+          rate?: string
+          recorded_by?: string | null
+          temp_f?: number
+          visit_id?: string
+          wind_mph?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chemical_applications_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chemical_applications_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chemical_applications_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           account_id: string
