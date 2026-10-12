@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireOrg } from "@/lib/auth/session";
+import { ActivityTimeline } from "@/components/messaging/activity-timeline";
 import { TextDocumentOffer } from "@/components/messaging/text-document-offer";
+import { loadContactTimeline } from "@/lib/messaging/load-timeline";
 import { formatMoney } from "@/lib/money";
 import { catalogPickerRules, measurementQuantities, monthInTimeZone, priceCatalogLine, serviceMinimumPrice, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
 import { defaultSelectedIds } from "@/lib/quotes/selection";
@@ -51,7 +53,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .select(
-      "id, number, title, status, site_check_status, created_at, current_version, intro, notes_customer, notes_internal, deposit_amount, public_token, expires_at, gone_quiet_at, abandoned_at, property_id, signwell_document_id, accounts(name, type), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs, drive_minutes, drive_miles)",
+      "id, account_id, number, title, status, site_check_status, created_at, current_version, intro, notes_customer, notes_internal, deposit_amount, public_token, expires_at, gone_quiet_at, abandoned_at, property_id, signwell_document_id, accounts(name, type), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs, drive_minutes, drive_miles)",
     )
     .eq("id", id)
     .eq("org_id", session.orgId)
@@ -70,6 +72,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     );
   }
   if (!quote) notFound();
+  const timeline = await loadContactTimeline(supabase, { accountId: quote.account_id, quoteId: quote.id, contactOnly: true });
 
   const { data: convertedAgreement, error: agreementError } = await supabase
     .from("agreements")
@@ -496,6 +499,14 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
                 <span>Margin</span>
                 <span>{total > 0 ? `${Math.round(((total - cost) / total) * 100)}%` : "—"}</span>
               </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Email, text, and calls</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ActivityTimeline entries={timeline} emptyLabel="No email, text, or call yet." />
             </CardContent>
           </Card>
           {siteCheckCount > 0 || openSiteCheck ? (

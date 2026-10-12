@@ -108,6 +108,35 @@ export async function notifyIssuedInvoice(options: {
       pdf: Buffer.from(pdf),
     }),
   );
+  if (result.sent) {
+    const writer = options.supabase as unknown as {
+      from: (table: string) => {
+        insert: (row: Record<string, unknown>) => {
+          select: (cols: string) => { single: () => Promise<{ data: { id: string } | null }> };
+        } & Promise<unknown>;
+      };
+    };
+    const { data: activity } = await writer.from("activities").insert({
+      org_id: options.orgId,
+      account_id: String(invoice.account_id),
+      kind: "email.out",
+      summary: `Email to ${to}`,
+      meta: { invoice_id: options.invoiceId },
+    }).select("id").single();
+    await writer.from("messages").insert({
+      org_id: options.orgId,
+      channel: "email",
+      direction: "out",
+      status: "sent",
+      from_address: process.env.EMAIL_FROM?.trim() || "email",
+      to_address: to,
+      body: `Invoice ${payload.number_label ?? payload.number ?? ""}`.trim(),
+      provider: "resend",
+      account_id: String(invoice.account_id),
+      invoice_id: options.invoiceId,
+      activity_id: activity?.id ?? null,
+    });
+  }
 
   return { emailed: result.sent, publicToken: invoice.public_token };
 }

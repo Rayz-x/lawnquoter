@@ -60,6 +60,16 @@ describe("notifyIssuedInvoice", () => {
             }),
           };
         }
+        if (table === "activities" || table === "messages") {
+          return {
+            insert: () => {
+              const result = { data: { id: "row-1" }, error: null };
+              return Object.assign(Promise.resolve(result), {
+                select: () => ({ single: async () => result }),
+              });
+            },
+          };
+        }
         throw new Error(`unexpected table ${table}`);
       },
       rpc: async (name: string) => {
