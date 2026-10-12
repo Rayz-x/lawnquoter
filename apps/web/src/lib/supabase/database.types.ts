@@ -2058,6 +2058,177 @@ export type Database = {
           },
         ]
       }
+      bid_lines: {
+        Row: {
+          frequency: Database["public"]["Enums"]["bid_frequency"]
+          id: string
+          name: string
+          org_id: string
+          package_id: string
+          qty: number
+          sort: number
+          unit: string
+          unit_price: number
+        }
+        Insert: {
+          frequency?: Database["public"]["Enums"]["bid_frequency"]
+          id?: string
+          name: string
+          org_id: string
+          package_id: string
+          qty?: number
+          sort?: number
+          unit?: string
+          unit_price?: number
+        }
+        Update: {
+          frequency?: Database["public"]["Enums"]["bid_frequency"]
+          id?: string
+          name?: string
+          org_id?: string
+          package_id?: string
+          qty?: number
+          sort?: number
+          unit?: string
+          unit_price?: number
+        }
+        Relationships: []
+      }
+      bid_packages: {
+        Row: {
+          account_id: string
+          created_at: string
+          due_on: string | null
+          id: string
+          org_id: string
+          status: Database["public"]["Enums"]["bid_status"]
+          title: string
+          updated_at: string
+          walk_on: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          due_on?: string | null
+          id?: string
+          org_id: string
+          status?: Database["public"]["Enums"]["bid_status"]
+          title: string
+          updated_at?: string
+          walk_on?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          due_on?: string | null
+          id?: string
+          org_id?: string
+          status?: Database["public"]["Enums"]["bid_status"]
+          title?: string
+          updated_at?: string
+          walk_on?: string | null
+        }
+        Relationships: []
+      }
+      bid_sites: {
+        Row: {
+          id: string
+          measured_sqft: number | null
+          org_id: string
+          package_id: string
+          property_id: string
+        }
+        Insert: {
+          id?: string
+          measured_sqft?: number | null
+          org_id: string
+          package_id: string
+          property_id: string
+        }
+        Update: {
+          id?: string
+          measured_sqft?: number | null
+          org_id?: string
+          package_id?: string
+          property_id?: string
+        }
+        Relationships: []
+      }
+      site_walk_notes: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          lat: number | null
+          lng: number | null
+          org_id: string
+          package_id: string
+          photo_path: string | null
+          property_id: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          org_id: string
+          package_id: string
+          photo_path?: string | null
+          property_id?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          org_id?: string
+          package_id?: string
+          photo_path?: string | null
+          property_id?: string | null
+        }
+        Relationships: []
+      }
+      takeoff_imports: {
+        Row: {
+          area_sqft: number | null
+          created_at: string
+          feature_count: number
+          filename: string
+          id: string
+          kind: string
+          org_id: string
+          package_id: string
+          property_id: string | null
+        }
+        Insert: {
+          area_sqft?: number | null
+          created_at?: string
+          feature_count?: number
+          filename: string
+          id?: string
+          kind: string
+          org_id: string
+          package_id: string
+          property_id?: string | null
+        }
+        Update: {
+          area_sqft?: number | null
+          created_at?: string
+          feature_count?: number
+          filename?: string
+          id?: string
+          kind?: string
+          org_id?: string
+          package_id?: string
+          property_id?: string | null
+        }
+        Relationships: []
+      }
       labor_rates: {
         Row: {
           burden_pct: number
@@ -5399,6 +5570,8 @@ export type Database = {
     Enums: {
       acceptance_method: "click" | "signwell" | "wet"
       account_status: "lead" | "active" | "inactive"
+      bid_frequency: "once" | "weekly" | "biweekly" | "monthly" | "seasonal"
+      bid_status: "pre_bid" | "bidding" | "submitted" | "awarded" | "lost"
       account_type: "residential" | "commercial"
       agreement_billing_mode: "per_visit" | "seasonal_installment" | "level"
       agreement_frequency: "weekly" | "biweekly" | "monthly"
@@ -5691,6 +5864,8 @@ export const Constants = {
     Enums: {
       acceptance_method: ["click", "signwell", "wet"],
       account_status: ["lead", "active", "inactive"],
+      bid_frequency: ["once", "weekly", "biweekly", "monthly", "seasonal"],
+      bid_status: ["pre_bid", "bidding", "submitted", "awarded", "lost"],
       account_type: ["residential", "commercial"],
       agreement_billing_mode: ["per_visit", "seasonal_installment", "level"],
       agreement_frequency: ["weekly", "biweekly", "monthly"],
