@@ -50,6 +50,10 @@ export function callrailCall(input: {
   };
 }
 
+export function trackedCallActivityMeta(providerId: string): { provider_id: string } {
+  return { provider_id: providerId };
+}
+
 function signatureFor(authToken: string, url: string, params: Record<string, string>): string {
   const payload = Object.keys(params).sort().reduce((acc, key) => acc + key + (params[key] ?? ""), url);
   return createHmac("sha1", authToken).update(payload).digest("base64");

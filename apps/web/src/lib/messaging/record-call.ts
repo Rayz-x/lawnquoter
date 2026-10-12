@@ -1,4 +1,5 @@
 import type { createAdminClient } from "@/lib/supabase/server";
+import { trackedCallActivityMeta } from "./calls";
 import { toE164 } from "./sms";
 import type { TrackedCall } from "./calls";
 
@@ -14,7 +15,7 @@ export async function recordTrackedCall(admin: Admin, call: TrackedCall, provide
     account_id: contact?.account_id ?? null,
     kind: call.direction === "out" ? "call.out" : "call.in",
     summary: call.direction === "out" ? `Call to ${call.from}` : `Call from ${call.from}`,
-    meta: { provider_id: call.providerId, recording_url: call.recordingUrl },
+    meta: trackedCallActivityMeta(call.providerId),
   }).select("id").single();
   if (activityError || !activity) return { ok: false, status: 500, error: activityError?.message ?? "activity" };
   const { error } = await admin.from("calls").insert({

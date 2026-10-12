@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { callrailCall, readCallrailSecret, twilioRecording } from "./calls";
+import { callrailCall, readCallrailSecret, trackedCallActivityMeta, twilioRecording } from "./calls";
 import { CALLRAIL_NOT_CONNECTED } from "./calls";
 
 const voiceUrl = "https://app.example.com/api/webhooks/twilio/voice";
@@ -65,5 +65,10 @@ describe("call tracking", () => {
       error: "not_connected",
     });
     expect(twilioRecording({ config, url: voiceUrl, params: voiceParams, signature: "nope" }).ok).toBe(false);
+  });
+
+  it("keeps the recording on the call, not on the activity the whole company can read", () => {
+    expect(trackedCallActivityMeta("CA123")).toEqual({ provider_id: "CA123" });
+    expect(trackedCallActivityMeta("CA123")).not.toHaveProperty("recording_url");
   });
 });
