@@ -65,6 +65,7 @@ Optional:
 - `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `STRIPE_WEBHOOK_SECRET` — Stripe Connect. The company owner connects an Express account from the Payments section of Settings. Owners and admins can save a card on file from an account once Connect is ready. Leave the keys unset and that screen says to add a Stripe key. Click-to-accept does not charge a card, and it works with these unset.
 - `SIGNWELL_API_KEY` — listed for a later formal-contract step. Accepting a quote does not use it.
 - `WISETACK_PREQUAL_URL` — public financing link. Leave unset and Settings says it is not connected. When set, a proposal of $500 or more shows "See financing options". No Wisetack API call is made.
+- `AI_QUOTE_API_KEY` and `AI_QUOTE_API_URL` — optional AI draft on a quote. Both must be set before any request is sent. With either one missing, the quote still drafts from similar accepted quotes nearby and the page says the provider is not connected.
 
 ## Connecting a Supabase project
 

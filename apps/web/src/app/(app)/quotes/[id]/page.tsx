@@ -28,6 +28,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ConvertToJobForm } from "./convert-to-job-button";
 import { SplitQuoteForm } from "./split-quote-form";
 import { DeleteQuoteButton } from "./delete-quote-button";
+import { AiDraftCard } from "./ai-draft-card";
 import { QuoteLines } from "./quote-lines";
 import { QuoteMetaForm } from "./quote-meta-form";
 import { QuoteTermsForm } from "./quote-terms-form";
@@ -320,6 +321,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               </Badge>
             ) : null}
           </div>
+          {editable && quote.property_id ? (
+            <AiDraftCard quoteId={quote.id} connected={Boolean(process.env.AI_QUOTE_API_KEY?.trim() && process.env.AI_QUOTE_API_URL?.trim())} />
+          ) : null}
           {editable ? <QuoteTemplateCard quoteId={quote.id} templates={templates ?? []} /> : null}
           {versionChanges ? <QuoteVersionDiffCard fromVersion={quote.current_version - 1} changes={versionChanges} /> : null}
           <QuoteLines
