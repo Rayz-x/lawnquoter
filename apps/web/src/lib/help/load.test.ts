@@ -18,5 +18,6 @@ describe("loadHelpArticle", () => {
     expect(loadHelpArticle("properties")?.headings.map((heading) => heading.id)).toContain("what-changes-the-price");
     expect(loadHelpArticle("quotes")?.headings.map((heading) => heading.id)).toContain("send-the-proposal");
     expect(loadHelpArticle("quote-builder")?.headings.map((heading) => heading.id)).toContain("good-better-and-best");
+    expect(loadHelpArticle("pricing")?.headings.map((heading) => heading.id)).toContain("drive-and-a-dense-route");
   });
 });
