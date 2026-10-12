@@ -4,8 +4,11 @@ import { headers } from "next/headers";
 import { createLeadIntakeStore } from "@/lib/leads/intake-store";
 import { instantQuoteWriteAllowed } from "@/lib/leads/instant-quote-guard";
 import {
+  instantQuoteFromCatalog,
+  type CatalogRuleInput,
+} from "@/lib/leads/instant-quote-price";
+import {
   instantQuoteLeadRow,
-  instantQuoteOffer,
   type InstantQuoteDraft,
   type InstantQuoteOffer,
 } from "@/lib/leads/instant-quote";
@@ -23,7 +26,7 @@ function clientIp(headerList: Headers): string | null {
   return headerList.get("x-real-ip")?.trim() || null;
 }
 
-/** Save the contact, then return the range. The rate never leaves the server. */
+/** Save the contact, then return the catalog range. Rules stay on the server. */
 export async function revealInstantQuote(
   slug: string,
   draft: InstantQuoteDraft,
@@ -31,9 +34,8 @@ export async function revealInstantQuote(
 ): Promise<InstantQuoteOffer | null> {
   const org = await loadInstantQuotePage(slug);
   if (!org) return null;
-  const offer = instantQuoteOffer(draft, org.config);
   const row = instantQuoteLeadRow(org.orgId, draft);
-  if (!offer || !row) return null;
+  if (!row) return null;
 
   const headerList = await headers();
   const ip = clientIp(headerList);
@@ -55,7 +57,39 @@ export async function revealInstantQuote(
   );
   if (allowed !== "ok") return null;
 
+  const catalog = await loadInstantQuoteCatalog(org.orgId, admin);
+  const offer = instantQuoteFromCatalog({
+    draft,
+    serviceAreaZips: org.config.serviceAreaZips,
+    statedMinimum: org.config.statedMinimum,
+    rules: catalog.rules,
+    modifiers: catalog.modifiers,
+    confidence: 0.4,
+  });
+  if (!offer) return null;
+
   const { error } = await admin.from("lead_requests").insert({ ...row, ip_hash: hashClientIp(ip) });
   if (error) return null;
   return offer;
+}
+
+async function loadInstantQuoteCatalog(
+  orgId: string,
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<{ rules: CatalogRuleInput[]; modifiers: unknown }> {
+  const { data: list } = await admin
+    .from("price_lists")
+    .select("id, modifiers")
+    .eq("org_id", orgId)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+  if (!list) return { rules: [], modifiers: {} };
+  const { data: rules } = await admin
+    .from("pricing_rules")
+    .select("name, config")
+    .eq("org_id", orgId)
+    .eq("price_list_id", list.id)
+    .eq("active", true);
+  return { rules: rules ?? [], modifiers: list.modifiers };
 }

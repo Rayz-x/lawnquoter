@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const insert = vi.hoisted(() => vi.fn(async () => ({ error: null })));
 const loadInstantQuotePage = vi.hoisted(() =>
-  vi.fn(async () => ({ orgId: "org-1", orgName: "Acme", slug: "acme", services: [], consentText: "", responseTargetMinutes: 60, config: { serviceAreaZips: [], ratePerSqft: 0.01, statedMinimum: 50 } })),
+  vi.fn(async () => ({ orgId: "org-1", orgName: "Acme", slug: "acme", services: [], consentText: "", responseTargetMinutes: 60, config: { serviceAreaZips: [], statedMinimum: 50 } })),
 );
 
 vi.mock("@/lib/supabase/server", () => ({
