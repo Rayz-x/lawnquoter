@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ChipGroup, SectionCard, ToggleRow } from "@/components/entry";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,21 +57,32 @@ export function TemplateEditor({ initial, canEdit }: { initial: TemplateEditorVa
   return (
     <SectionCard title={initial?.name ?? "New template"} heading="h2" description="Placeholders fill in when the message is sent." mode={canEdit ? "edit" : "view"}>
       <div className="flex flex-col gap-4">
-        <ChipGroup label="Channel" value={channel} disabled={locked} options={MESSAGE_CHANNELS.map((value) => ({ value, label: value === "sms" ? "Text" : "Email" }))} onValueChange={(value) => { if (value !== "sms" && value !== "email") return; setChannel(value); if (value === "sms") setSubject(""); }} />
-        <ChipGroup label="Purpose" value={purpose} disabled={locked} options={MESSAGE_PURPOSES.map((value) => ({ value, label: PURPOSE_LABELS[value] }))} onValueChange={(value) => { if ((MESSAGE_PURPOSES as readonly string[]).includes(value)) setPurpose(value as MessagePurpose); }} />
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className="text-sm font-medium">Channel</p>
+          <ChipGroup label="Channel" describedBy="template-channel-hint" value={channel} disabled={locked} options={MESSAGE_CHANNELS.map((value) => ({ value, label: value === "sms" ? "Text" : "Email" }))} onValueChange={(value) => { if (value !== "sms" && value !== "email") return; setChannel(value); if (value === "sms") setSubject(""); }} />
+          <FieldHint id="template-channel-hint">Choose text for a short message, or email for a subject and a longer note.</FieldHint>
+        </div>
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className="text-sm font-medium">Purpose</p>
+          <ChipGroup label="Purpose" describedBy="template-purpose-hint" value={purpose} disabled={locked} options={MESSAGE_PURPOSES.map((value) => ({ value, label: PURPOSE_LABELS[value] }))} onValueChange={(value) => { if ((MESSAGE_PURPOSES as readonly string[]).includes(value)) setPurpose(value as MessagePurpose); }} />
+          <FieldHint id="template-purpose-hint">Choose when this message is sent, such as a quote, a reminder, or an invoice.</FieldHint>
+        </div>
         <Field>
           <FieldLabel htmlFor="template-name">Name</FieldLabel>
-          <Input id="template-name" value={name} disabled={locked} onChange={(event) => setName(event.target.value)} />
+          <Input id="template-name" aria-describedby="template-name-hint" value={name} disabled={locked} onChange={(event) => setName(event.target.value)} />
+          <FieldHint id="template-name-hint">The name you see when you pick this template later.</FieldHint>
         </Field>
         {channel === "email" ? (
           <Field>
             <FieldLabel htmlFor="template-subject">Subject</FieldLabel>
-            <Input id="template-subject" value={subject} disabled={locked} onChange={(event) => setSubject(event.target.value)} />
+            <Input id="template-subject" aria-describedby="template-subject-hint" value={subject} disabled={locked} onChange={(event) => setSubject(event.target.value)} />
+            <FieldHint id="template-subject-hint">The subject line the customer sees in their inbox.</FieldHint>
           </Field>
         ) : null}
         <Field>
           <FieldLabel htmlFor="template-body">Message</FieldLabel>
-          <Textarea id="template-body" value={body} disabled={locked} onChange={(event) => setBody(event.target.value)} />
+          <Textarea id="template-body" aria-describedby="template-body-hint" value={body} disabled={locked} onChange={(event) => setBody(event.target.value)} />
+          <FieldHint id="template-body-hint">The note the customer receives, with names filled in when it sends.</FieldHint>
         </Field>
         {canEdit ? (
           <div className="flex flex-wrap gap-2">
@@ -83,7 +94,10 @@ export function TemplateEditor({ initial, canEdit }: { initial: TemplateEditorVa
             </Button>
           </div>
         ) : null}
-        <ToggleRow label="Default for this channel and purpose" checked={isDefault} onCheckedChange={setIsDefault} disabled={locked} />
+        <div className="flex min-w-0 flex-col gap-1">
+          <ToggleRow label="Default for this channel and purpose" describedBy="template-default-hint" checked={isDefault} onCheckedChange={setIsDefault} disabled={locked} />
+          <FieldHint id="template-default-hint">New messages of this kind use this template unless you pick another.</FieldHint>
+        </div>
         <p className="text-sm text-muted-foreground">
           {channel === "email" && subject.trim() ? <span className="block font-medium text-foreground">{renderTemplate(subject, PREVIEW)}</span> : null}
           {renderTemplate(body, PREVIEW) || "The preview shows up here."}

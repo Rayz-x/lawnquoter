@@ -3,6 +3,7 @@ import { hasRole, ADMIN_ROLES } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FieldHint } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { OFFICE_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
@@ -55,7 +56,7 @@ export default async function SendingDomainPage({ searchParams }: { searchParams
         ))}
         {key && canEdit ? (
           <form action={addSendingDomain} className="flex flex-col gap-2">
-            <label className="flex flex-col gap-1 text-sm">Domain<Input name="domain" placeholder="mail.example.com" required /></label>
+            <div className="flex min-w-0 flex-col gap-1 text-sm"><label htmlFor="sending-domain">Domain</label><Input id="sending-domain" name="domain" aria-describedby="sending-domain-hint" placeholder="mail.example.com" required /><FieldHint id="sending-domain-hint">The domain your quote and invoice emails send from.</FieldHint></div>
             <Button type="submit" className="w-fit">Add domain</Button>
           </form>
         ) : null}

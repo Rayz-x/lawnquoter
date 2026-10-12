@@ -14,16 +14,19 @@ export function ChipGroup({
   value,
   onValueChange,
   disabled,
+  describedBy,
 }: {
   label: string;
   options: readonly ChipOption[];
   value?: string;
   onValueChange?: (value: string) => void;
   disabled?: boolean;
+  describedBy?: string;
 }) {
   return (
     <ToggleGroup
       aria-label={label}
+      aria-describedby={describedBy}
       data-entry="chip-group"
       disabled={disabled}
       multiple={false}
