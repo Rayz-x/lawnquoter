@@ -3,9 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CATALOG_SEED_V1 } from "@lawnquoter/pricing-engine";
+import { HelpTip } from "@/components/help/help-tip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Field, FieldGroup, FieldHint, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { createClient } from "@/lib/supabase/client";
@@ -163,13 +164,11 @@ export function OnboardingWizard({ initialStep }: { initialStep: WizardStep }) {
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="name">Company name</FieldLabel>
-              <Input id="name" required aria-describedby="onboard-name-hint" className="w-full" value={name} onChange={(event) => { setName(event.target.value); if (!slugTouched) setSlug(slugify(event.target.value)); }} />
-              <FieldHint id="onboard-name-hint">The name customers see on quotes and invoices.</FieldHint>
+              <Input id="name" required className="w-full" value={name} onChange={(event) => { setName(event.target.value); if (!slugTouched) setSlug(slugify(event.target.value)); }} />
             </Field>
             <Field>
               <FieldLabel htmlFor="slug">URL handle</FieldLabel>
-              <Input id="slug" required aria-describedby="onboard-slug-hint" pattern="[a-z0-9][a-z0-9-]{1,62}" className="w-full" value={slug} onChange={(event) => { setSlugTouched(true); setSlug(slugify(event.target.value)); }} />
-              <FieldHint id="onboard-slug-hint">The short name in your public quote pages and instant-quote link.</FieldHint>
+              <Input id="slug" required pattern="[a-z0-9][a-z0-9-]{1,62}" placeholder="acme-lawn" className="w-full" value={slug} onChange={(event) => { setSlugTouched(true); setSlug(slugify(event.target.value)); }} />
             </Field>
           </FieldGroup>
           <Button type="submit" disabled={pending || !name || slug.length < 2}>{pending ? <Spinner data-icon="inline-start" /> : null}Create company</Button>
@@ -179,16 +178,14 @@ export function OnboardingWizard({ initialStep }: { initialStep: WizardStep }) {
         <form className="flex flex-col gap-6" onSubmit={(event) => { event.preventDefault(); saveBrand(); }}>
           <Field>
             <FieldLabel htmlFor="brand">Brand color</FieldLabel>
-            <Input id="brand" aria-describedby="onboard-brand-hint" className="w-full" value={color} onChange={(event) => setColor(event.target.value)} />
-            <FieldHint id="onboard-brand-hint">Buttons and headings on quotes use this color, such as #1E5235.</FieldHint>
+            <Input id="brand" placeholder="#1E5235" className="w-full" value={color} onChange={(event) => setColor(event.target.value)} />
           </Field>
           <Button type="submit" disabled={pending}>{pending ? <Spinner data-icon="inline-start" /> : null}Save color</Button>
         </form>
       ) : null}
       {step === "services" ? (
         <form className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); saveServices(false); }}>
-          <FieldHint id="onboard-services-hint">Uncheck any starter service you do not sell.</FieldHint>
-          <div className="flex max-h-64 flex-col gap-2 overflow-y-auto" role="group" aria-describedby="onboard-services-hint">
+          <div className="flex max-h-64 flex-col gap-2 overflow-y-auto" role="group">
             {CATALOG_SEED_V1.map((entry) => (
               <label key={entry.key} className="flex items-center justify-between gap-3 text-sm">
                 <span className="flex items-center gap-2">
@@ -214,16 +211,14 @@ export function OnboardingWizard({ initialStep }: { initialStep: WizardStep }) {
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="invite-email">Email</FieldLabel>
-              <Input id="invite-email" type="email" aria-describedby="onboard-email-hint" className="w-full" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Optional" />
-              <FieldHint id="onboard-email-hint">We email this person a link to join the company.</FieldHint>
+              <Input id="invite-email" type="email" className="w-full" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Optional" />
             </Field>
             <Field>
               <FieldLabel htmlFor="invite-role">Role</FieldLabel>
-              <select id="invite-role" aria-describedby="onboard-role-hint" className="native-control w-full" value={role} onChange={(event) => setRole(event.target.value === "sales" ? "sales" : "crew")}>
+              <select id="invite-role" className="native-control w-full" value={role} onChange={(event) => setRole(event.target.value === "sales" ? "sales" : "crew")}>
                 <option value="crew">Crew</option>
                 <option value="sales">Sales</option>
               </select>
-              <FieldHint id="onboard-role-hint">Crew sees visits, and sales can write quotes.</FieldHint>
             </Field>
           </FieldGroup>
           <div className="flex gap-2">
@@ -235,9 +230,15 @@ export function OnboardingWizard({ initialStep }: { initialStep: WizardStep }) {
       {step === "area" ? (
         <form className="flex flex-col gap-6" onSubmit={(event) => { event.preventDefault(); finish(); }}>
           <Field>
-            <FieldLabel htmlFor="zips">ZIP codes you serve</FieldLabel>
-            <textarea id="zips" aria-describedby="onboard-zips-hint" className="native-control min-h-24 w-full" value={zips} onChange={(event) => setZips(event.target.value)} placeholder="37064, 37067" />
-            <FieldHint id="onboard-zips-hint">Leave this blank if you are not ready to limit the lead form.</FieldHint>
+            <FieldLabel htmlFor="zips" className="inline-flex items-center gap-1">
+              ZIP codes you serve
+              <HelpTip
+                label="Help for the service area"
+                text="Leave this blank if you are not ready to limit the lead form."
+                href="/help/getting-started#service-area"
+              />
+            </FieldLabel>
+            <textarea id="zips" className="native-control min-h-24 w-full" value={zips} onChange={(event) => setZips(event.target.value)} placeholder="37064, 37067" />
           </Field>
           <Button type="submit" disabled={pending}>{pending ? <Spinner data-icon="inline-start" /> : null}Finish setup</Button>
         </form>

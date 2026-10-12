@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ComponentProps } from "react";
 import type { Geometry } from "@lawnquoter/shared";
 import { MeasureMap } from "@/components/map/measure-map";
 import { Button } from "@/components/ui/button";
-import { FieldHint } from "@/components/ui/field";
+
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
@@ -65,11 +65,10 @@ export function InstantQuoteSummary({
 
 function TextField({
   label,
-  hint,
   value,
   onChange,
   ...rest
-}: { label: string; hint: string; value: string; onChange: (value: string) => void } & Pick<
+}: { label: string; value: string; onChange: (value: string) => void } & Pick<
   ComponentProps<typeof Input>,
   "inputMode" | "type"
 >) {
@@ -77,8 +76,7 @@ function TextField({
   return (
     <div className="grid min-w-0 gap-1 text-sm">
       <label htmlFor={id} className="font-medium">{label}</label>
-      <Input id={id} aria-describedby={`${id}-hint`} className="w-full" value={value} onChange={(event) => onChange(event.target.value)} {...rest} />
-      <FieldHint id={`${id}-hint`}>{hint}</FieldHint>
+      <Input id={id} className="w-full" value={value} onChange={(event) => onChange(event.target.value)} {...rest} />
     </div>
   );
 }
@@ -141,8 +139,8 @@ export function InstantQuoteMeasureStep({
       ) : (
         <>
           <p className="text-sm text-muted-foreground">Enter length and width.</p>
-          <TextField label="Length (ft)" hint="How long the lawn is, in feet, if you do not trace it." inputMode="decimal" value={lengthFt} onChange={onLength} />
-          <TextField label="Width (ft)" hint="How wide the lawn is, in feet, if you do not trace it." inputMode="decimal" value={widthFt} onChange={onWidth} />
+          <TextField label="Length (ft)" inputMode="decimal" value={lengthFt} onChange={onLength} />
+          <TextField label="Width (ft)" inputMode="decimal" value={widthFt} onChange={onWidth} />
           <Button type="button" disabled={choice == null} onClick={() => choice && onUse(choice)}>
             Use this size
           </Button>
@@ -152,7 +150,7 @@ export function InstantQuoteMeasureStep({
   );
 }
 
-function YesNo({ label, hint, value, onChange }: { label: string; hint: string; value: boolean | null; onChange: (value: boolean) => void }) {
+function YesNo({ label, value, onChange }: { label: string; value: boolean | null; onChange: (value: boolean) => void }) {
   return (
     <div className="grid min-w-0 gap-1">
       <p className="text-sm font-medium">{label}</p>
@@ -163,7 +161,6 @@ function YesNo({ label, hint, value, onChange }: { label: string; hint: string; 
           </Button>
         ))}
       </div>
-      <FieldHint>{hint}</FieldHint>
     </div>
   );
 }
@@ -296,24 +293,23 @@ export function InstantQuoteWidget({
     <div className="grid gap-3">
       {step === "address" ? (
         <>
-          <TextField label="Address" hint="The street we use to find the lawn." value={draft.address} onChange={(address) => patch({ address })} />
-          <TextField label="ZIP code" hint="The ZIP we check against the area we serve." inputMode="numeric" value={draft.postalCode} onChange={(postalCode) => patch({ postalCode })} />
+          <TextField label="Address" value={draft.address} onChange={(address) => patch({ address })} />
+          <TextField label="ZIP code" inputMode="numeric" value={draft.postalCode} onChange={(postalCode) => patch({ postalCode })} />
         </>
       ) : null}
       {step === "qualify" ? (
         <>
           <div className="grid min-w-0 gap-1 text-sm">
             <label htmlFor="instant-service" className="font-medium">Service</label>
-            <NativeSelect id="instant-service" aria-describedby="instant-service-hint" value={draft.service} onChange={(event) => patch({ service: event.target.value })}>
+            <NativeSelect id="instant-service" value={draft.service} onChange={(event) => patch({ service: event.target.value })}>
               <option value="">Choose a service</option>
               {services.map((service) => (
                 <option key={service} value={service}>{service}</option>
               ))}
             </NativeSelect>
-            <FieldHint id="instant-service-hint">The work you want a range for.</FieldHint>
           </div>
-          <YesNo label="Is there a gate?" hint="A gate can change which mower fits." value={draft.hasGate} onChange={(hasGate) => patch({ hasGate })} />
-          <YesNo label="Are there dogs in the yard?" hint="We need to know if a dog is in the yard." value={draft.hasDogs} onChange={(hasDogs) => patch({ hasDogs })} />
+          <YesNo label="Is there a gate?" value={draft.hasGate} onChange={(hasGate) => patch({ hasGate })} />
+          <YesNo label="Are there dogs in the yard?" value={draft.hasDogs} onChange={(hasDogs) => patch({ hasDogs })} />
         </>
       ) : null}
       {step === "measure" ? (
@@ -335,9 +331,9 @@ export function InstantQuoteWidget({
       {step === "contact" || step === "confirm" ? (
         <>
           <p className="text-sm text-muted-foreground">Add your name and a phone or email to see the range.</p>
-          <TextField label="Name" hint="The name we use when we reply." value={draft.contactName} onChange={(contactName) => patch({ contactName })} />
-          <TextField label="Phone" hint="A number we can call or text about this range." value={draft.phone} onChange={(phone) => patch({ phone })} />
-          <TextField label="Email" hint="Where we email this range." type="email" value={draft.email} onChange={(email) => patch({ email })} />
+          <TextField label="Name" value={draft.contactName} onChange={(contactName) => patch({ contactName })} />
+          <TextField label="Phone" value={draft.phone} onChange={(phone) => patch({ phone })} />
+          <TextField label="Email" type="email" value={draft.email} onChange={(email) => patch({ email })} />
           <div className="absolute left-[-10000px] h-px w-px overflow-hidden" aria-hidden="true">
             <label>
               Website
