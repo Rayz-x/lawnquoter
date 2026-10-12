@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
@@ -153,7 +153,8 @@ export function RequestQuoteForm({
           autoComplete="street-address"
           value={addressTyped}
           placeholder="Street, city, ZIP"
-          className="h-12"
+          aria-describedby="request-address-hint"
+          className="h-12 w-full"
           required
           onChange={(event) => {
             markFormStarted();
@@ -161,11 +162,12 @@ export function RequestQuoteForm({
             setAddressTyped(next);
           }}
         />
+        <FieldHint id="request-address-hint">The lawn you want us to look at.</FieldHint>
       </Field>
 
       <Field>
         <FieldLabel>Services</FieldLabel>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Services">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Services" aria-describedby="request-services-hint">
           {services.map((service) => {
             const on = selectedServices.includes(service);
             return (
@@ -182,11 +184,13 @@ export function RequestQuoteForm({
             );
           })}
         </div>
+        <FieldHint id="request-services-hint">The work you want done.</FieldHint>
       </Field>
 
       <Field>
         <FieldLabel htmlFor="note">Note (optional)</FieldLabel>
-        <Textarea id="note" name="note" value={note} onChange={(event) => setNote(event.target.value)} rows={3} />
+        <Textarea id="note" name="note" aria-describedby="request-note-hint" className="w-full" value={note} onChange={(event) => setNote(event.target.value)} rows={3} />
+        <FieldHint id="request-note-hint">Anything else we should know before we visit.</FieldHint>
       </Field>
 
       <Field>
@@ -195,11 +199,13 @@ export function RequestQuoteForm({
           id="contact_name"
           name="contact_name"
           autoComplete="name"
-          className="h-12"
+          aria-describedby="request-name-hint"
+          className="h-12 w-full"
           required
           value={contactName}
           onChange={(event) => setContactName(event.target.value)}
         />
+        <FieldHint id="request-name-hint">The name we use when we reply.</FieldHint>
       </Field>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -210,10 +216,12 @@ export function RequestQuoteForm({
             name="phone"
             type="tel"
             autoComplete="tel"
-            className="h-12"
+            aria-describedby="request-phone-hint"
+            className="h-12 w-full"
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
           />
+          <FieldHint id="request-phone-hint">A number we can call or text.</FieldHint>
         </Field>
         <Field>
           <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -222,10 +230,12 @@ export function RequestQuoteForm({
             name="email"
             type="email"
             autoComplete="email"
-            className="h-12"
+            aria-describedby="request-email-hint"
+            className="h-12 w-full"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
           />
+          <FieldHint id="request-email-hint">Where we email the reply.</FieldHint>
         </Field>
       </div>
 
@@ -233,6 +243,7 @@ export function RequestQuoteForm({
         <FieldLabel htmlFor="preferred_contact">Preferred contact</FieldLabel>
         <NativeSelect
           id="preferred_contact"
+          aria-describedby="request-contact-hint"
           name="preferred_contact"
           value={preferredContact}
           onChange={(event) =>
@@ -244,22 +255,29 @@ export function RequestQuoteForm({
           <option value="email">Email</option>
           <option value="either">Either</option>
         </NativeSelect>
+        <FieldHint id="request-contact-hint">How you want us to reply.</FieldHint>
       </Field>
 
-      <label className="flex items-center gap-2 text-sm">
+      <div className="flex min-w-0 flex-col gap-1">
+      <label className="flex items-start gap-2 text-sm">
         <input
           type="checkbox"
           name="is_business"
+          className="mt-1"
+          aria-describedby="request-business-hint"
           checked={isBusiness}
           onChange={(event) => setIsBusiness(event.target.checked)}
         />
         This is for a business or HOA
       </label>
+      <FieldHint id="request-business-hint">Marks this request as a business or HOA.</FieldHint>
+      </div>
 
       <Field>
         <FieldLabel htmlFor="heard_about">How did you hear about us?</FieldLabel>
         <NativeSelect
           id="heard_about"
+          aria-describedby="request-heard-hint"
           name="heard_about"
           value={heardAbout}
           onChange={(event) => {
@@ -275,14 +293,19 @@ export function RequestQuoteForm({
             </option>
           ))}
         </NativeSelect>
+        <FieldHint id="request-heard-hint">How you found us.</FieldHint>
         {heardAbout === "Other" ? (
+          <>
           <Input
-            className="mt-2 h-12"
+            className="mt-2 h-12 w-full"
             name="heard_about_other"
             aria-label="Other source details"
+            aria-describedby="request-heard-other-hint"
             value={heardAboutOther}
             onChange={(event) => setHeardAboutOther(event.target.value)}
           />
+          <FieldHint id="request-heard-other-hint">The source name when it is not in the list.</FieldHint>
+          </>
         ) : null}
       </Field>
 
@@ -291,11 +314,13 @@ export function RequestQuoteForm({
           type="checkbox"
           name="sms_consent"
           className="mt-1"
+          aria-describedby="request-sms-hint"
           checked={smsConsent}
           onChange={(event) => setSmsConsent(event.target.checked)}
         />
         <span>{consentText}</span>
       </label>
+      <FieldHint id="request-sms-hint">Lets us text you about this request.</FieldHint>
 
       <p className="text-sm text-muted-foreground">
         <a href="#privacy-notice" className="underline underline-offset-2">

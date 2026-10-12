@@ -20,6 +20,7 @@ vi.mock("@/components/ui/field", () => ({
   Field: ({ children }: { children?: ReactNode }) => createElement("div", null, children),
   FieldLabel: ({ children, htmlFor }: { children?: ReactNode; htmlFor?: string }) =>
     createElement("label", { htmlFor }, children),
+  FieldHint: ({ children }: { children?: ReactNode }) => createElement("p", null, children),
 }));
 
 vi.mock("@/components/ui/input", () => ({

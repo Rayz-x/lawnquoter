@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { FieldHint } from "@/components/ui/field";
 import { loadPortal } from "@/lib/portal/load";
 import { requestService } from "./actions";
 
@@ -81,14 +82,22 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
       </section>
       <section className="space-y-2">
         <h2 className="font-heading text-lg">Request service</h2>
-        <form action={requestService.bind(null, token)} className="grid gap-2">
-          <select name="property_id" className="h-9 rounded-md border bg-background px-2">
-            <option value="">Any site</option>
-            {portal.properties.map((property) => (
-              <option key={property.id} value={property.id}>{property.label}</option>
-            ))}
-          </select>
-          <textarea name="body" required maxLength={2000} placeholder="What should we do?" className="min-h-24 rounded-md border p-2" />
+        <form action={requestService.bind(null, token)} className="grid gap-3">
+          <div className="grid min-w-0 gap-1">
+            <label htmlFor="portal-property" className="text-sm">Property</label>
+            <select id="portal-property" name="property_id" aria-describedby="portal-property-hint" className="h-11 w-full rounded-md border bg-background px-2">
+              <option value="">Any site</option>
+              {portal.properties.map((property) => (
+                <option key={property.id} value={property.id}>{property.label}</option>
+              ))}
+            </select>
+            <FieldHint id="portal-property-hint">Which lawn this request is about, or any site.</FieldHint>
+          </div>
+          <div className="grid min-w-0 gap-1">
+            <label htmlFor="portal-request" className="text-sm">Request</label>
+            <textarea id="portal-request" name="body" required maxLength={2000} aria-describedby="portal-request-hint" placeholder="What should we do?" className="min-h-24 w-full rounded-md border p-2" />
+            <FieldHint id="portal-request-hint">What you want done on the next visit.</FieldHint>
+          </div>
           <Button type="submit" className="w-fit">Send request</Button>
         </form>
         {portal.requests.map((request) => (
