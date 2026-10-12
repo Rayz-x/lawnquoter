@@ -47,6 +47,10 @@ function score(probe: DraftProbe, quote: MemoryQuote): number {
   return size + place;
 }
 
+export function draftLineSort(highest: number | null, index: number): number {
+  return (highest ?? -1) + 1 + index;
+}
+
 export function nearestSimilarQuotes(probe: DraftProbe, quotes: MemoryQuote[], limit = 3): MemoryQuote[] {
   return [...quotes].sort((left, right) => score(probe, left) - score(probe, right) || left.id.localeCompare(right.id)).slice(0, limit);
 }

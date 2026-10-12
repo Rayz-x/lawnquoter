@@ -22,7 +22,12 @@ export async function requestAiQuoteDraft(input: {
     return null;
   }
   if (!response.ok) return null;
-  const body = (await response.json()) as { lines?: MemoryLine[] };
-  const lines = draftFromSimilarQuotes([{ id: "provider", postalCode: "", lotSqft: null, lat: null, lng: null, lines: body.lines ?? [] }]);
-  return lines.length ? lines : null;
+  try {
+    const body = (await response.json()) as { lines?: MemoryLine[] } | null;
+    const provided = body && Array.isArray(body.lines) ? body.lines : [];
+    const lines = draftFromSimilarQuotes([{ id: "provider", postalCode: "", lotSqft: null, lat: null, lng: null, lines: provided }]);
+    return lines.length ? lines : null;
+  } catch {
+    return null;
+  }
 }

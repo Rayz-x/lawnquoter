@@ -71,6 +71,7 @@ export function AiDraftCard({ quoteId, connected }: { quoteId: string; connected
                     return;
                   }
                   toast.success(`Added ${added.data.count} lines`);
+                  setLines(null);
                   router.refresh();
                 })
               }

@@ -6,7 +6,7 @@ import { SALES_ROLES, hasRole } from "@lawnquoter/shared";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
 import { aiQuoteDraftConfig, requestAiQuoteDraft } from "@/lib/quotes/ai-draft-provider";
-import { draftFromSimilarQuotes, nearestSimilarQuotes, type MemoryLine, type MemoryQuote } from "@/lib/quotes/neighborhood-draft";
+import { draftFromSimilarQuotes, draftLineSort, nearestSimilarQuotes, type MemoryLine, type MemoryQuote } from "@/lib/quotes/neighborhood-draft";
 import { createClient } from "@/lib/supabase/server";
 
 const STATES = new Set(["included", "recommended", "optional"]);
@@ -34,15 +34,36 @@ export async function suggestQuoteDraft(quoteId: string): Promise<
     .maybeSingle();
   if (propertyError || !property) return fail(propertyError?.message ?? "Property not found");
 
-  const { data: past, error: pastError } = await supabase
+  const { data: sameZipSites, error: sameZipError } = await supabase
+    .from("properties")
+    .select("id")
+    .eq("org_id", session.orgId)
+    .eq("postal_code", property.postal_code)
+    .limit(200);
+  if (sameZipError) return fail(sameZipError.message);
+  const sameZipIds = (sameZipSites ?? []).map((site) => site.id);
+  const accepted = supabase
     .from("quotes")
     .select("id, current_version, property_id")
     .eq("org_id", session.orgId)
     .eq("status", "accepted")
     .neq("id", quoteId)
-    .not("property_id", "is", null)
-    .limit(40);
-  if (pastError) return fail(pastError.message);
+    .not("property_id", "is", null);
+  const [{ data: zipPast, error: zipError }, { data: recentPast, error: recentError }] = await Promise.all([
+    sameZipIds.length ? accepted.in("property_id", sameZipIds).limit(80) : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from("quotes")
+      .select("id, current_version, property_id")
+      .eq("org_id", session.orgId)
+      .eq("status", "accepted")
+      .neq("id", quoteId)
+      .not("property_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(40),
+  ]);
+  if (zipError) return fail(zipError.message);
+  if (recentError) return fail(recentError.message);
+  const past = [...(zipPast ?? []), ...(recentPast ?? []).filter((row) => !(zipPast ?? []).some((kept) => kept.id === row.id))];
   const propertyIds = [...new Set((past ?? []).map((row) => row.property_id).filter((id): id is string => Boolean(id)))];
   const { data: sites } = propertyIds.length
     ? await supabase.from("properties").select("id, postal_code, lot_sqft").eq("org_id", session.orgId).in("id", propertyIds)
@@ -134,6 +155,14 @@ export async function addDraftLines(quoteId: string, lines: MemoryLine[]): Promi
     .limit(1)
     .maybeSingle();
   if (sectionError || !section) return fail(sectionError?.message ?? "Could not read this quote");
+  const { data: lastLine, error: sortError } = await supabase
+    .from("quote_line_items")
+    .select("sort")
+    .eq("version_id", versionId)
+    .order("sort", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (sortError) return fail(sortError.message);
   let count = 0;
   for (const line of parsed.data.lines) {
     const inserted = await supabase.from("quote_line_items").insert({
@@ -148,7 +177,7 @@ export async function addDraftLines(quoteId: string, lines: MemoryLine[]): Promi
       selected: line.state === "included",
       quantity_source: "manual",
       site_check_reasons: [],
-      sort: count,
+      sort: draftLineSort(lastLine?.sort ?? null, count),
     });
     if (inserted.error) return fail(inserted.error.message);
     count += 1;

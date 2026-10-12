@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { aiQuoteDraftConfig, requestAiQuoteDraft } from "./ai-draft-provider";
-import { draftFromSimilarQuotes, nearestSimilarQuotes, type MemoryQuote } from "./neighborhood-draft";
+import { draftFromSimilarQuotes, draftLineSort, nearestSimilarQuotes, type MemoryQuote } from "./neighborhood-draft";
 
 const probe = { postalCode: "37206", lotSqft: 8000, lat: 36.17, lng: -86.75 };
 
@@ -23,6 +23,13 @@ describe("nearestSimilarQuotes", () => {
       quote({ id: "near", lotSqft: 8200, lines: [{ name: "Weekly mowing", price: 40, qty: 1, unit: "visit", state: "included" }] }),
     ]);
     expect(ranked.map((item) => item.id)).toEqual(["near", "large", "far"]);
+  });
+});
+
+describe("draftLineSort", () => {
+  it("appends after the highest sort already on the quote", () => {
+    expect(draftLineSort(4, 0)).toBe(5);
+    expect(draftLineSort(null, 0)).toBe(0);
   });
 });
 
@@ -61,5 +68,8 @@ describe("AI quote provider", () => {
 
     const down = (async () => new Response("no", { status: 503 })) as typeof fetch;
     expect(await requestAiQuoteDraft({ fetchImpl: down, url: "https://example.test/draft", apiKey: "sk-test", probe, examples: [] })).toBeNull();
+
+    const malformed = (async () => new Response("not-json", { status: 200 })) as typeof fetch;
+    expect(await requestAiQuoteDraft({ fetchImpl: malformed, url: "https://example.test/draft", apiKey: "sk-test", probe, examples: [] })).toBeNull();
   });
 });
