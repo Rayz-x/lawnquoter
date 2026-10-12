@@ -121,6 +121,7 @@ select is(
     'site_check_decline',
     'site_check_request',
     'skip_visit',
+    'split_accepted_quote',
     'true_up_installment_agreement',
     'update_agreement_schedule',
     'update_agreement_season',
