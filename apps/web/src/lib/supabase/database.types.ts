@@ -1713,6 +1713,7 @@ export type Database = {
           po_number: string | null
           property_id: string | null
           public_token: string
+          quote_id: string | null
           source: Database["public"]["Enums"]["invoice_source"]
           status: Database["public"]["Enums"]["invoice_status"]
           stripe_dispute_id: string | null
@@ -1744,6 +1745,7 @@ export type Database = {
           po_number?: string | null
           property_id?: string | null
           public_token?: string
+          quote_id?: string | null
           source?: Database["public"]["Enums"]["invoice_source"]
           status?: Database["public"]["Enums"]["invoice_status"]
           stripe_dispute_id?: string | null
@@ -1775,6 +1777,7 @@ export type Database = {
           po_number?: string | null
           property_id?: string | null
           public_token?: string
+          quote_id?: string | null
           source?: Database["public"]["Enums"]["invoice_source"]
           status?: Database["public"]["Enums"]["invoice_status"]
           stripe_dispute_id?: string | null
@@ -4712,6 +4715,7 @@ export type Database = {
         Returns: Json
       }
       create_crew: { Args: { p_name: string }; Returns: string }
+      create_deposit_invoice: { Args: { p_quote_id: string }; Returns: string | null }
       create_installment_invoice: {
         Args: { p_agreement_id: string; p_month: number; p_year: number }
         Returns: string
