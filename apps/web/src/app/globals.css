@@ -214,6 +214,8 @@
 
   html {
     font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+    /* The canvas itself. Body already uses this token; html must too, or the root stays transparent. */
+    background-color: var(--background);
     caret-color: var(--primary);
     scroll-padding-block-start: var(--app-header-height);
     overscroll-behavior-y: none;
