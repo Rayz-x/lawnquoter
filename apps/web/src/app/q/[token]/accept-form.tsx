@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { ESIGN_DISCLOSURES } from "@/lib/quotes/legal-copy";
 import { acceptQuote, declineQuote } from "./actions";
+import { startDepositPayment } from "./deposit-actions";
 
 export function AcceptForm({
   token,
@@ -47,6 +48,11 @@ export function AcceptForm({
         startTransition(async () => {
           const r = await acceptQuote(token, fd);
           if (r.ok) {
+            const deposit = await startDepositPayment(token);
+            if (deposit.ok && deposit.data.url) {
+              window.location.href = deposit.data.url;
+              return;
+            }
             toast.success(
               r.data.already
                 ? "This proposal was already accepted"
@@ -54,6 +60,7 @@ export function AcceptForm({
                   ? "Accepted. We emailed you a sealed copy."
                   : "Accepted",
             );
+            if (!deposit.ok) toast.error(deposit.error);
             setDone(true);
             router.refresh();
           } else toast.error(r.error);
