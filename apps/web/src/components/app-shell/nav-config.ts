@@ -103,6 +103,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     items: [
       { title: "Reports", href: "/leads/report", icon: BarChart3, roles: OFFICE_ROLES },
       { title: "Funnel", href: "/leads/analytics", icon: BarChart3, roles: OFFICE_ROLES },
+      { title: "Job costing", href: "/reports/job-costing", icon: BarChart3, roles: OFFICE_ROLES },
     ],
   },
   {
