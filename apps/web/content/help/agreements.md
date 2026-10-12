@@ -15,9 +15,9 @@ Converting an accepted quote to a job creates the work the schedule uses. A recu
 
 On a snow agreement, set the contract the crew and the snow-day button both use.
 
-1. Type the trigger depth in inches. A snow event at or above that depth schedules this agreement.
-2. Pick how you charge. Per inch uses a price above the tier. The other price is a flat amount.
-3. For a tier, set Up to (inches) and the tier price.
-4. Save the contract.
+1. Pick the contract. Per push is one price each visit. Per inch uses tiers. Seasonal is one price for the winter.
+2. Type the trigger depth in inches. Snow at or above this depth schedules a visit.
+3. For per inch, set Up to (inches), the tier price, and the price for snow deeper than the tier.
+4. Save. The page says "Snow contract saved".
 
 Activate snow on the schedule uses this depth. See [Snow events](/help/snow).
