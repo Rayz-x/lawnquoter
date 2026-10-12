@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { FieldHint } from "@/components/ui/field";
+
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/server";
 import { createPortalLink } from "../portal-actions";
@@ -43,8 +43,7 @@ export async function PortalLink({
           <input type="hidden" name="account_id" value={accountId} />
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <label htmlFor="portal-email" className="text-sm">Email</label>
-            <Input id="portal-email" name="email" type="email" required aria-describedby="portal-email-hint" defaultValue={email ?? ""} placeholder="customer@example.com" className="w-full" />
-            <FieldHint id="portal-email-hint">The address that receives this customer&apos;s portal link.</FieldHint>
+            <Input id="portal-email" name="email" type="email" required defaultValue={email ?? ""} placeholder="customer@example.com" className="w-full" />
           </div>
           <Button type="submit">Create portal link</Button>
         </form>

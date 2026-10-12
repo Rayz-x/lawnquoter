@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Field, FieldHint, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { createConsolidatedInvoice } from "./consolidated-invoice-actions";
@@ -43,13 +43,11 @@ export function ConsolidatedInvoiceForm({ accountId, canEdit }: { accountId: str
       </p>
       <Field>
         <FieldLabel htmlFor="consol-start">From</FieldLabel>
-        <Input id="consol-start" name="period_start" aria-describedby="consol-start-hint" type="date" required className="w-full" />
-        <FieldHint id="consol-start-hint">The first day of visits on this combined invoice.</FieldHint>
+        <Input id="consol-start" name="period_start" type="date" required className="w-full" />
       </Field>
       <Field>
         <FieldLabel htmlFor="consol-end">Through</FieldLabel>
-        <Input id="consol-end" name="period_end" aria-describedby="consol-end-hint" type="date" required className="w-full" />
-        <FieldHint id="consol-end-hint">The last day of visits on this combined invoice.</FieldHint>
+        <Input id="consol-end" name="period_end" type="date" required className="w-full" />
       </Field>
       <Button type="submit" disabled={pending}>
         {pending ? <Spinner /> : null}

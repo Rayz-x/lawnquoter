@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldHint, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
@@ -101,29 +101,25 @@ export function ContactsPanel({
             <form onSubmit={onSubmit} className="flex flex-col gap-3">
               <Field>
                 <FieldLabel htmlFor="contact-name">Name</FieldLabel>
-                <Input id="contact-name" aria-describedby="contact-name-hint" value={name} autoComplete="name" className="max-md:h-12" onChange={(event) => setName(event.target.value)} />
-                <FieldHint id="contact-name-hint">Who to ask for at this account.</FieldHint>
+                <Input id="contact-name" value={name} autoComplete="name" className="max-md:h-12" onChange={(event) => setName(event.target.value)} />
               </Field>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="contact-phone">Mobile</FieldLabel>
-                  <Input id="contact-phone" type="tel" inputMode="tel" autoComplete="tel" aria-describedby="contact-phone-hint" value={phone} className="max-md:h-12" onChange={(event) => setPhone(event.target.value)} />
-                  <FieldHint id="contact-phone-hint">A number for this person, separate from the account.</FieldHint>
+                  <Input id="contact-phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} className="max-md:h-12" onChange={(event) => setPhone(event.target.value)} />
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="contact-email">Email</FieldLabel>
-                  <Input id="contact-email" type="email" inputMode="email" autoComplete="email" aria-describedby="contact-email-hint" value={email} className="max-md:h-12" onChange={(event) => setEmail(event.target.value)} />
-                  <FieldHint id="contact-email-hint">Where to write this person.</FieldHint>
+                  <Input id="contact-email" type="email" inputMode="email" autoComplete="email" value={email} className="max-md:h-12" onChange={(event) => setEmail(event.target.value)} />
                 </Field>
               </div>
               <Field>
                 <FieldLabel htmlFor="contact-role">Role</FieldLabel>
-                <NativeSelect id="contact-role" aria-describedby="contact-role-hint" value={role} className="max-md:h-12" onChange={(event) => setRole(event.target.value)}>
+                <NativeSelect id="contact-role" value={role} className="max-md:h-12" onChange={(event) => setRole(event.target.value)}>
                   <option value="site">Site contact</option>
                   <option value="decision_maker">Decision maker</option>
                   <option value="other">Other</option>
                 </NativeSelect>
-                <FieldHint id="contact-role-hint">Whether they run the site or approve the work.</FieldHint>
               </Field>
               <div className="flex min-w-0 flex-col gap-1">
               <ToggleGroup aria-label="Contact flags" spacing={0} multiple variant="outline" value={flags} onValueChange={setFlags}>
@@ -131,7 +127,6 @@ export function ContactsPanel({
                 <ToggleGroupItem value="billing" aria-label="Billing" className="max-md:h-11">Billing</ToggleGroupItem>
                 <ToggleGroupItem value="sms" aria-label="SMS" className="max-md:h-11">SMS</ToggleGroupItem>
               </ToggleGroup>
-              <FieldHint>Primary is the main person, billing gets invoices, and text can receive messages.</FieldHint>
               </div>
               <Button type="submit" disabled={pending} className="min-h-11 lg:min-h-9">
                 {pending ? <Spinner data-icon="inline-start" /> : null}

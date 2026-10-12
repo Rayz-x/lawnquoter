@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChipGroup, SectionCard, useSectionAutosave } from "@/components/entry";
-import { Field, FieldError, FieldHint, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { Tables } from "@/lib/supabase/types";
 import { identityError, normalizeIdentity, type IdentityDraft } from "../account-format";
@@ -92,7 +92,6 @@ export function IdentityCard({ account, canEdit = true }: { account: Tables<"acc
           setEditing(false);
         }}
       />
-      <FieldHint>A home is residential, and a business is commercial.</FieldHint>
       </div>
       <div ref={fieldsRef} className="flex flex-col gap-3">
         <Field data-invalid={invalidField === "name" ? true : undefined}>
@@ -101,13 +100,12 @@ export function IdentityCard({ account, canEdit = true }: { account: Tables<"acc
             id="account-name"
             autoComplete="name"
             value={draft.name}
-            aria-describedby="account-name-hint"
+           
             aria-invalid={invalidField === "name" ? true : undefined}
             className="h-12 font-serif text-2xl"
             onChange={(event) => setDraft({ ...draft, name: event.target.value })}
             onBlur={(event) => blurField({ ...draft, name: event.target.value }, "name", event.relatedTarget)}
           />
-          <FieldHint id="account-name-hint">The name on quotes, invoices, and the customer list.</FieldHint>
           {invalidField === "name" && fieldError ? <FieldError>{fieldError}</FieldError> : null}
         </Field>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -119,13 +117,12 @@ export function IdentityCard({ account, canEdit = true }: { account: Tables<"acc
               inputMode="tel"
               autoComplete="tel"
               value={draft.phone}
-              aria-describedby="account-phone-hint"
+             
               aria-invalid={invalidField === "phone" ? true : undefined}
               className="max-md:h-12"
               onChange={(event) => setDraft({ ...draft, phone: event.target.value })}
               onBlur={(event) => blurField({ ...draft, phone: event.target.value }, "phone", event.relatedTarget)}
             />
-            <FieldHint id="account-phone-hint">The number used for texts and calls.</FieldHint>
             {invalidField === "phone" && fieldError ? <FieldError>{fieldError}</FieldError> : null}
           </Field>
           <Field data-invalid={invalidField === "email" ? true : undefined}>
@@ -136,13 +133,12 @@ export function IdentityCard({ account, canEdit = true }: { account: Tables<"acc
               inputMode="email"
               autoComplete="email"
               value={draft.email}
-              aria-describedby="account-email-hint"
+             
               aria-invalid={invalidField === "email" ? true : undefined}
               className="max-md:h-12"
               onChange={(event) => setDraft({ ...draft, email: event.target.value })}
               onBlur={(event) => blurField({ ...draft, email: event.target.value }, "email", event.relatedTarget)}
             />
-            <FieldHint id="account-email-hint">Where quotes and invoices are sent.</FieldHint>
             {invalidField === "email" && fieldError ? <FieldError>{fieldError}</FieldError> : null}
           </Field>
         </div>

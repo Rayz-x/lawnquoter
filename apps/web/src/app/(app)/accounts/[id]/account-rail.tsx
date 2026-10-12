@@ -3,8 +3,9 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChipGroup, InternalNote, SectionCard, ToggleRow, useSectionAutosave } from "@/components/entry";
+import { HelpTip } from "@/components/help/help-tip";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldHint, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
@@ -178,7 +179,7 @@ function BillingCard({
         <FieldLabel htmlFor="company_name">Company</FieldLabel>
         <Input
           id="company_name"
-          aria-describedby="company-name-hint"
+         
           value={draft.company_name}
           className="max-md:h-12"
           onChange={(event) => setDraft({ ...draft, company_name: event.target.value })}
@@ -188,7 +189,6 @@ function BillingCard({
             save({ company_name });
           }}
         />
-        <FieldHint id="company-name-hint">The business name printed on invoices.</FieldHint>
       </Field>
       <Field data-invalid={emailError ? true : undefined}>
         <FieldLabel htmlFor="billing_email">Billing email</FieldLabel>
@@ -198,7 +198,7 @@ function BillingCard({
           inputMode="email"
           value={draft.billing_email}
           autoComplete="off"
-          aria-describedby="billing-email-hint"
+         
           aria-invalid={emailError ? true : undefined}
           className="max-md:h-12"
           onChange={(event) => setDraft({ ...draft, billing_email: event.target.value })}
@@ -214,13 +214,12 @@ function BillingCard({
             save({ billing_email });
           }}
         />
-        <FieldHint id="billing-email-hint">Where invoices go when it differs from the customer&apos;s email.</FieldHint>
       </Field>
       <Field>
         <FieldLabel htmlFor="billing_address_line1">Billing address</FieldLabel>
         <Input
           id="billing_address_line1"
-          aria-describedby="billing-address-hint"
+         
           value={draft.billing_address_line1}
           autoComplete="off"
           className="max-md:h-12"
@@ -229,7 +228,7 @@ function BillingCard({
         />
         <Input
           aria-label="Billing address line 2"
-          aria-describedby="billing-address-hint"
+         
           value={draft.billing_address_line2}
           autoComplete="off"
           className="max-md:h-12"
@@ -239,7 +238,7 @@ function BillingCard({
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_5rem_6rem]">
           <Input
             aria-label="Billing city"
-            aria-describedby="billing-address-hint"
+           
             value={draft.billing_city}
             autoComplete="off"
             className="max-md:h-12"
@@ -248,7 +247,7 @@ function BillingCard({
           />
           <Input
             aria-label="Billing state"
-            aria-describedby="billing-address-hint"
+           
             value={draft.billing_region}
             autoComplete="off"
             className="max-md:h-12"
@@ -257,7 +256,7 @@ function BillingCard({
           />
           <Input
             aria-label="Billing ZIP"
-            aria-describedby="billing-address-hint"
+           
             value={draft.billing_postal_code}
             autoComplete="off"
             className="max-md:h-12"
@@ -265,7 +264,6 @@ function BillingCard({
             onBlur={saveAddress}
           />
         </div>
-        <FieldHint id="billing-address-hint">The street, city, state, and ZIP printed on this customer&apos;s invoices.</FieldHint>
         {addressDefaulted ? <FieldDescription>Starts as the first property until you change it.</FieldDescription> : null}
       </Field>
       <Field data-invalid={termsError ? true : undefined}>
@@ -290,14 +288,13 @@ function BillingCard({
             save({ net_terms_days }, { immediate: true, rollback: true });
           }}
         />
-        <FieldHint>How many days after the invoice before payment is due.</FieldHint>
         </div>
         {choice === "custom" ? (
           <div className="flex min-w-0 flex-col gap-1">
           <Input
             inputMode="numeric"
             aria-label="Custom net days"
-            aria-describedby="custom-net-days-hint"
+           
             value={customDays}
             placeholder="1–120"
             className="max-md:h-12"
@@ -313,19 +310,18 @@ function BillingCard({
               save({ net_terms_days }, { immediate: true, rollback: true });
             }}
           />
-          <FieldHint id="custom-net-days-hint">A custom number of days, from 1 to 120.</FieldHint>
           </div>
         ) : null}
       </Field>
-      <div className="flex min-w-0 flex-col gap-1"><ToggleRow label="PO required" checked={draft.po_required} onCheckedChange={(checked) => flag("po_required", checked)} /><FieldHint>A purchase order is required before this customer is invoiced.</FieldHint></div>
-      <div className="flex min-w-0 flex-col gap-1"><ToggleRow label="Tax exempt" checked={draft.tax_exempt} onCheckedChange={(checked) => flag("tax_exempt", checked)} /><FieldHint>Invoices for this customer leave off sales tax.</FieldHint></div>
-      <div className="flex min-w-0 flex-col gap-1"><ToggleRow label="Consolidated invoicing" checked={draft.consolidated_invoicing} onCheckedChange={(checked) => flag("consolidated_invoicing", checked)} /><FieldHint>One bill covers every property for the month.</FieldHint></div>
+      <div className="flex min-w-0 flex-col gap-1"><ToggleRow label="PO required" checked={draft.po_required} onCheckedChange={(checked) => flag("po_required", checked)} /></div>
+      <div className="flex min-w-0 flex-col gap-1"><ToggleRow label="Tax exempt" checked={draft.tax_exempt} onCheckedChange={(checked) => flag("tax_exempt", checked)} /></div>
+      <div className="flex min-w-0 items-center gap-1"><ToggleRow label="Consolidated invoicing" checked={draft.consolidated_invoicing} onCheckedChange={(checked) => flag("consolidated_invoicing", checked)} /><HelpTip label="Help for consolidated invoicing" text="One bill covers every property for the month." href="/help/invoices#one-bill-for-every-property" /></div>
       {account.type === "commercial" ? (
         <Field>
           <FieldLabel htmlFor="parent_account_id">Parent account</FieldLabel>
           <NativeSelect
             id="parent_account_id"
-            aria-describedby="parent-account-hint"
+           
             value={draft.parent_account_id}
             className="max-md:h-12"
             onChange={(event) => {
@@ -343,7 +339,6 @@ function BillingCard({
                 </option>
               ))}
           </NativeSelect>
-          <FieldHint id="parent-account-hint">Bills and reports can roll up to this other company.</FieldHint>
         </Field>
       ) : null}
     </SectionCard>
@@ -399,7 +394,7 @@ function SalesCard({ account, ownerName, canEdit }: { account: Tables<"accounts"
         <FieldLabel htmlFor="lead_source">Lead source</FieldLabel>
         <NativeSelect
           id="lead_source"
-          aria-describedby="lead-source-hint"
+         
           value={draft.lead_source}
           className="max-md:h-12"
           onChange={(event) => {
@@ -418,14 +413,13 @@ function SalesCard({ account, ownerName, canEdit }: { account: Tables<"accounts"
             </option>
           ))}
         </NativeSelect>
-        <FieldHint id="lead-source-hint">How this customer first found you.</FieldHint>
       </Field>
       {draft.lead_source === "Other" ? (
         <Field>
           <FieldLabel htmlFor="lead_source_other">Other source</FieldLabel>
           <Input
             id="lead_source_other"
-            aria-describedby="lead-source-other-hint"
+           
             value={draft.lead_source_other}
             placeholder="How did they find you?"
             className="max-md:h-12"
@@ -437,14 +431,13 @@ function SalesCard({ account, ownerName, canEdit }: { account: Tables<"accounts"
               save({ lead_source: "Other", lead_source_other });
             }}
           />
-          <FieldHint id="lead-source-other-hint">The source name when it is not in the list.</FieldHint>
         </Field>
       ) : null}
       <Field>
         <FieldLabel htmlFor="tags">Tags</FieldLabel>
         <Input
           id="tags"
-          aria-describedby="tags-hint"
+         
           value={draft.tags}
           placeholder="hoa, weekly"
           className="max-md:h-12"
@@ -455,7 +448,6 @@ function SalesCard({ account, ownerName, canEdit }: { account: Tables<"accounts"
             save({ tags });
           }}
         />
-        <FieldHint id="tags-hint">Words you can filter this customer by, separated by commas.</FieldHint>
       </Field>
       <Field>
         <FieldLabel>Created by</FieldLabel>
@@ -500,7 +492,7 @@ function NotesCard({ account, canEdit }: { account: Tables<"accounts">; canEdit:
           <Textarea
             id="notes"
             aria-label="Notes"
-            aria-describedby="account-notes-hint"
+           
             value={notes}
             rows={4}
             aria-invalid={error ? true : undefined}
@@ -511,7 +503,6 @@ function NotesCard({ account, canEdit }: { account: Tables<"accounts">; canEdit:
               save({ notes: next });
             }}
           />
-          <FieldHint id="account-notes-hint">Office notes about this customer, which the customer does not see.</FieldHint>
           {error ? <FieldError>{error}</FieldError> : null}
         </Field>
         {error ? (

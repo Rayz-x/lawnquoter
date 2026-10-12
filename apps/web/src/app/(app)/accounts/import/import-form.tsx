@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { HelpTip } from "@/components/help/help-tip";
 import { Button } from "@/components/ui/button";
-import { Field, FieldHint, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { importCustomersCsv, type CustomerImportResult } from "../import-action";
 
@@ -33,18 +34,24 @@ export function ImportCustomersForm() {
       }}
     >
       <Field>
-        <FieldLabel htmlFor="customer-csv">CSV</FieldLabel>
+        <FieldLabel htmlFor="customer-csv" className="inline-flex items-center gap-1">
+          CSV
+          <HelpTip
+            label="Help for the customer import"
+            text="Paste up to 200 rows. The header is name, phone, email, type, address, city, state, and ZIP."
+            href="/help/customers#import-a-list"
+          />
+        </FieldLabel>
         <Textarea
           id="customer-csv"
           value={csv}
           rows={12}
           required
-          aria-describedby="customer-csv-hint"
+         
           className="w-full"
           onChange={(event) => setCsv(event.target.value)}
           placeholder={SAMPLE}
         />
-        <FieldHint id="customer-csv-hint">One customer per row, and a matching phone or address is skipped.</FieldHint>
       </Field>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <Button type="submit" disabled={pending} className="min-h-11 w-fit">
