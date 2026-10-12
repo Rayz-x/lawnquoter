@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { FieldHint } from "@/components/ui/field";
+
 import { Input } from "@/components/ui/input";
 import { createInvoicesBatch } from "@/lib/actions/invoices";
 
@@ -46,13 +46,11 @@ export function CreateBatchForm({
     >
       <div className="flex min-w-0 flex-col gap-1 text-sm">
         <label htmlFor="batch-start">From</label>
-        <Input id="batch-start" type="date" name="period_start" aria-describedby="batch-start-hint" defaultValue={defaultStart} required className="w-full" />
-        <FieldHint id="batch-start-hint">The first day of visits to put on these invoices.</FieldHint>
+        <Input id="batch-start" type="date" name="period_start" defaultValue={defaultStart} required className="w-full" />
       </div>
       <div className="flex min-w-0 flex-col gap-1 text-sm">
         <label htmlFor="batch-end">To</label>
-        <Input id="batch-end" type="date" name="period_end" aria-describedby="batch-end-hint" defaultValue={defaultEnd} required className="w-full" />
-        <FieldHint id="batch-end-hint">The last day of visits to put on these invoices.</FieldHint>
+        <Input id="batch-end" type="date" name="period_end" defaultValue={defaultEnd} required className="w-full" />
       </div>
       <Button type="submit" disabled={pending}>
         {pending ? "Creating…" : "Create invoices"}

@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { FieldHint } from "@/components/ui/field";
+
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { formatMoney } from "@/lib/money";
@@ -74,12 +74,10 @@ export function AddFromCatalog({ installedKeys }: { installedKeys: string[] }) {
         </DialogHeader>
         <div className="flex min-w-0 flex-col gap-1">
           <label className="flex items-center gap-2 text-sm">
-            <Switch checked={showSnow} onCheckedChange={setShowSnow} aria-describedby="catalog-snow-hint" />
+            <Switch checked={showSnow} onCheckedChange={setShowSnow} />
             I offer snow services
           </label>
-          <FieldHint id="catalog-snow-hint">Shows snow services you can add to this draft price list.</FieldHint>
         </div>
-        <FieldHint id="catalog-price-hint">The price you charge for each service you check.</FieldHint>
         {CATALOG_CATEGORIES.map((category) => {
           const entries = visible.filter((entry) => entry.category === category);
           if (entries.length === 0) return null;
@@ -110,7 +108,7 @@ export function AddFromCatalog({ installedKeys }: { installedKeys: string[] }) {
                     </div>
                     <Input
                       aria-label={`${entry.name} price`}
-                      aria-describedby="catalog-price-hint"
+                     
                       className="w-full max-w-24"
                       type="number"
                       min={0.01}

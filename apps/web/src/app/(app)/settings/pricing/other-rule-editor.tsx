@@ -3,11 +3,12 @@
 import { useState, useTransition } from "react";
 import { pricingRuleSchema, type Modifiers, type PricingRule } from "@lawnquoter/pricing-engine";
 import { MoreDisclosure, SectionCard, Stepper } from "@/components/entry";
+import { HelpTip } from "@/components/help/help-tip";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Spinner } from "@/components/ui/spinner";
 import { formatMoney } from "@/lib/money";
-import { FieldHint } from "@/components/ui/field";
+
 import { NumberBox } from "./number-box";
 import { quantityLabel, ruleExample } from "./rule-labels";
 
@@ -74,28 +75,32 @@ export function OtherRuleEditor({
       }
     >
       <div className="grid gap-4">
+        <HelpTip
+          label="Help for this price rule"
+          text="These amounts price new quotes. Snow depth, zone price, and markup each follow the rule you picked."
+          href="/help/pricing#other-ways-to-price-a-service"
+        />
         {rule.type === "program" ? (
           <>
             <div className="flex flex-wrap items-end gap-4">
-              <div className="grid gap-1 text-sm"><span className="text-muted-foreground">Applications per year</span><Stepper label="Applications per year" min={1} max={20} value={rule.applicationCount} onValueChange={(v) => canEdit && patch({ applicationCount: v })} /><FieldHint>How many treatment visits this program includes.</FieldHint></div>
-              <NumberBox label="Price per application" hint="What the customer pays for one treatment visit." prefix="$" value={rule.perApp.price} onChange={(v) => patch({ perApp: { ...rule.perApp, price: v } })} disabled={off} />
+              <div className="grid gap-1 text-sm"><span className="text-muted-foreground">Applications per year</span><Stepper label="Applications per year" min={1} max={20} value={rule.applicationCount} onValueChange={(v) => canEdit && patch({ applicationCount: v })} /></div>
+              <NumberBox label="Price per application" prefix="$" value={rule.perApp.price} onChange={(v) => patch({ perApp: { ...rule.perApp, price: v } })} disabled={off} />
             </div>
             <label className="grid max-w-sm gap-1 text-sm">
               <span className="text-muted-foreground">How customers pay</span>
-              <NativeSelect aria-describedby="program-billing-hint" value={rule.billing} disabled={off} onChange={(e) => patch({ billing: e.target.value as "per_app" | "prepay" })}>
+              <NativeSelect value={rule.billing} disabled={off} onChange={(e) => patch({ billing: e.target.value as "per_app" | "prepay" })}>
                 <option value="per_app">Bill after each application</option>
                 <option value="prepay">Prepay for the whole season</option>
               </NativeSelect>
-              <FieldHint id="program-billing-hint">Bill after each visit, or collect the season up front.</FieldHint>
             </label>
             {rule.billing === "prepay" ? (
               <>
-                <NumberBox label="Prepay discount" hint="Percent off when the customer pays for the program up front." suffix="%" max={50} value={pct(rule.prepayDiscountPct)} onChange={(v) => patch({ prepayDiscountPct: frac(v) })} disabled={off} />
+                <NumberBox label="Prepay discount" suffix="%" max={50} value={pct(rule.prepayDiscountPct)} onChange={(v) => patch({ prepayDiscountPct: frac(v) })} disabled={off} />
                 <p className="text-sm text-muted-foreground">The highest application count this program meets replaces the discount above.</p>
                 {(rule.prepayTiers ?? []).map((tier, index) => (
                   <div key={index} className="flex flex-wrap items-end gap-3">
-                    <NumberBox label="At least" hint="This discount starts when the program has this many visits." suffix="apps" min={1} max={24} value={tier.minApps} onChange={(v) => patch({ prepayTiers: (rule.prepayTiers ?? []).map((row, i) => (i === index ? { ...row, minApps: Math.max(1, Math.round(v)) } : row)) })} disabled={off} />
-                    <NumberBox label="Off" hint="Percent taken off when the customer prepays that many visits." suffix="%" max={50} value={pct(tier.discountPct)} onChange={(v) => patch({ prepayTiers: (rule.prepayTiers ?? []).map((row, i) => (i === index ? { ...row, discountPct: frac(v) } : row)) })} disabled={off} />
+                    <NumberBox label="At least" suffix="apps" min={1} max={24} value={tier.minApps} onChange={(v) => patch({ prepayTiers: (rule.prepayTiers ?? []).map((row, i) => (i === index ? { ...row, minApps: Math.max(1, Math.round(v)) } : row)) })} disabled={off} />
+                    <NumberBox label="Off" suffix="%" max={50} value={pct(tier.discountPct)} onChange={(v) => patch({ prepayTiers: (rule.prepayTiers ?? []).map((row, i) => (i === index ? { ...row, discountPct: frac(v) } : row)) })} disabled={off} />
                     <Button type="button" variant="ghost" disabled={off} onClick={() => patch({ prepayTiers: (rule.prepayTiers ?? []).filter((_, i) => i !== index) })}>Remove</Button>
                   </div>
                 ))}
@@ -106,8 +111,8 @@ export function OtherRuleEditor({
             ) : null}
             <MoreDisclosure label="More options">
               <div className="flex flex-wrap gap-3 pt-2">
-                <NumberBox label="Crew hours per application" hint="Hours the crew needs for one treatment visit." suffix="h" value={rule.perApp.hours} onChange={(v) => patch({ perApp: { ...rule.perApp, hours: v } })} disabled={off} />
-                <NumberBox label="Your cost per application" hint="What one treatment visit costs you, before profit." prefix="$" value={rule.perApp.cost} onChange={(v) => patch({ perApp: { ...rule.perApp, cost: v } })} disabled={off} />
+                <NumberBox label="Crew hours per application" suffix="h" value={rule.perApp.hours} onChange={(v) => patch({ perApp: { ...rule.perApp, hours: v } })} disabled={off} />
+                <NumberBox label="Your cost per application" prefix="$" value={rule.perApp.cost} onChange={(v) => patch({ perApp: { ...rule.perApp, cost: v } })} disabled={off} />
               </div>
             </MoreDisclosure>
           </>
@@ -119,7 +124,7 @@ export function OtherRuleEditor({
               <label htmlFor="snow-contract" className="text-muted-foreground">How you charge</label>
               <NativeSelect
                 id="snow-contract"
-                aria-describedby="snow-contract-hint"
+               
                 value={rule.contract}
                 disabled={off}
                 onChange={(e) => {
@@ -137,31 +142,30 @@ export function OtherRuleEditor({
                 <option value="per_inch">By snow depth</option>
                 <option value="seasonal_flat">One price for the season</option>
               </NativeSelect>
-              <FieldHint id="snow-contract-hint">Charge each visit, by snow depth, or one price for the season.</FieldHint>
             </div>
-            {rule.contract === "per_push" ? <NumberBox label="Price per visit" hint="What the customer pays each time the crew comes out." prefix="$" value={rule.perPush?.price ?? 0} onChange={(v) => patch({ perPush: { hours: 0, cost: 0, ...rule.perPush, price: v } })} disabled={off} /> : null}
-            {rule.contract === "seasonal_flat" ? <NumberBox label="Season price" hint="One price that covers the whole snow season." prefix="$" value={rule.seasonal?.price ?? 0} onChange={(v) => patch({ seasonal: { hours: 0, cost: 0, ...rule.seasonal, price: v } })} disabled={off} /> : null}
+            {rule.contract === "per_push" ? <NumberBox label="Price per visit" prefix="$" value={rule.perPush?.price ?? 0} onChange={(v) => patch({ perPush: { hours: 0, cost: 0, ...rule.perPush, price: v } })} disabled={off} /> : null}
+            {rule.contract === "seasonal_flat" ? <NumberBox label="Season price" prefix="$" value={rule.seasonal?.price ?? 0} onChange={(v) => patch({ seasonal: { hours: 0, cost: 0, ...rule.seasonal, price: v } })} disabled={off} /> : null}
             {rule.contract === "per_inch" ? (
               <div className="grid gap-2">
                 {(rule.inchTiers ?? []).map((row, i, rows) => (
                   <div key={i} className="flex flex-wrap items-end gap-3">
-                    {row.upTo == null ? <span className="pb-2 text-sm">More than {rows[i - 1]?.upTo ?? 0} in</span> : <NumberBox label={`Up to (tier ${i + 1})`} hint="Snow depth this price covers, in inches." suffix="in" min={0.5} value={row.upTo} onChange={(v) => patch({ inchTiers: rows.map((r, j) => (j === i ? { ...r, upTo: v } : r)) })} disabled={off} />}
-                    <NumberBox label="Price" hint="What the customer pays for snow in this depth band." prefix="$" value={row.price} onChange={(v) => patch({ inchTiers: rows.map((r, j) => (j === i ? { ...r, price: v } : r)) })} disabled={off} />
+                    {row.upTo == null ? <span className="pb-2 text-sm">More than {rows[i - 1]?.upTo ?? 0} in</span> : <NumberBox label={`Up to (tier ${i + 1})`} suffix="in" min={0.5} value={row.upTo} onChange={(v) => patch({ inchTiers: rows.map((r, j) => (j === i ? { ...r, upTo: v } : r)) })} disabled={off} />}
+                    <NumberBox label="Price" prefix="$" value={row.price} onChange={(v) => patch({ inchTiers: rows.map((r, j) => (j === i ? { ...r, price: v } : r)) })} disabled={off} />
                   </div>
                 ))}
               </div>
             ) : null}
-            <NumberBox label="Come out when snow reaches" hint="The crew is not billed for a push below this depth." suffix="in" value={rule.triggerDepthIn} onChange={(v) => patch({ triggerDepthIn: v })} disabled={off} />
+            <NumberBox label="Come out when snow reaches" suffix="in" value={rule.triggerDepthIn} onChange={(v) => patch({ triggerDepthIn: v })} disabled={off} />
           </>
         ) : null}
 
         {rule.type === "irrigation" ? (
           <>
-            <NumberBox label="Price per zone" hint="What the customer pays for each sprinkler zone." prefix="$" value={rule.pricePerZone} onChange={(v) => patch({ pricePerZone: v })} disabled={off} />
+            <NumberBox label="Price per zone" prefix="$" value={rule.pricePerZone} onChange={(v) => patch({ pricePerZone: v })} disabled={off} />
             <MoreDisclosure label="More options">
               <div className="flex flex-wrap gap-3 pt-2">
-                <NumberBox label="Crew time per zone" hint="Minutes the visit lasts for each sprinkler zone." suffix="min" value={rule.minutesPerZone} onChange={(v) => patch({ minutesPerZone: v })} disabled={off} />
-                <NumberBox label="Your cost per zone" hint="What each sprinkler zone costs you, before profit." prefix="$" value={rule.costPerZone} onChange={(v) => patch({ costPerZone: v })} disabled={off} />
+                <NumberBox label="Crew time per zone" suffix="min" value={rule.minutesPerZone} onChange={(v) => patch({ minutesPerZone: v })} disabled={off} />
+                <NumberBox label="Your cost per zone" prefix="$" value={rule.costPerZone} onChange={(v) => patch({ costPerZone: v })} disabled={off} />
               </div>
             </MoreDisclosure>
           </>
@@ -170,15 +174,15 @@ export function OtherRuleEditor({
         {rule.type === "catalog" ? (
           <>
             <div className="flex flex-wrap gap-3">
-              <NumberBox label="Materials cost you" hint="What the materials cost you before markup." prefix="$" value={rule.materialCost} onChange={(v) => patch({ materialCost: v })} disabled={off} />
-              <NumberBox label="Materials markup" hint="Percent added to material cost to set the customer price." suffix="%" max={500} value={pct(rule.materialMarkupPct)} onChange={(v) => patch({ materialMarkupPct: frac(v) })} disabled={off} />
+              <NumberBox label="Materials cost you" prefix="$" value={rule.materialCost} onChange={(v) => patch({ materialCost: v })} disabled={off} />
+              <NumberBox label="Materials markup" suffix="%" max={500} value={pct(rule.materialMarkupPct)} onChange={(v) => patch({ materialMarkupPct: frac(v) })} disabled={off} />
             </div>
             <div className="flex flex-wrap gap-3">
-              <NumberBox label="Labor cost you" hint="What the labor costs you before markup." prefix="$" value={rule.laborCost} onChange={(v) => patch({ laborCost: v })} disabled={off} />
-              <NumberBox label="Labor markup" hint="Percent added to labor cost to set the customer price." suffix="%" max={500} value={pct(rule.laborMarkupPct)} onChange={(v) => patch({ laborMarkupPct: frac(v) })} disabled={off} />
+              <NumberBox label="Labor cost you" prefix="$" value={rule.laborCost} onChange={(v) => patch({ laborCost: v })} disabled={off} />
+              <NumberBox label="Labor markup" suffix="%" max={500} value={pct(rule.laborMarkupPct)} onChange={(v) => patch({ laborMarkupPct: frac(v) })} disabled={off} />
             </div>
             <MoreDisclosure label="More options">
-              <div className="pt-2"><NumberBox label="Crew hours" hint="Hours scheduled for this catalog item." suffix="h" value={rule.laborHours} onChange={(v) => patch({ laborHours: v })} disabled={off} /></div>
+              <div className="pt-2"><NumberBox label="Crew hours" suffix="h" value={rule.laborHours} onChange={(v) => patch({ laborHours: v })} disabled={off} /></div>
             </MoreDisclosure>
           </>
         ) : null}
@@ -191,20 +195,20 @@ export function OtherRuleEditor({
                 <span className="w-full text-sm font-medium">{item.name} · {item.kind === "material" ? "material" : item.kind === "labor" ? "labor" : "equipment"}</span>
                 {item.kind === "material" ? (
                   <>
-                    <NumberBox label="Cost per unit" hint="What one unit of this material costs you." prefix="$" value={item.unitCost} onChange={(v) => patch({ items: rule.items.map((it, j) => (j === i ? { ...item, unitCost: v } : it)) })} disabled={off} />
-                    <NumberBox label={`Units per ${quantityLabel(rule.quantityKey).unit}`} hint="How many units the job uses for each measured unit." value={item.qtyPerUnit} onChange={(v) => patch({ items: rule.items.map((it, j) => (j === i ? { ...item, qtyPerUnit: v } : it)) })} disabled={off} />
+                    <NumberBox label="Cost per unit" prefix="$" value={item.unitCost} onChange={(v) => patch({ items: rule.items.map((it, j) => (j === i ? { ...item, unitCost: v } : it)) })} disabled={off} />
+                    <NumberBox label={`Units per ${quantityLabel(rule.quantityKey).unit}`} value={item.qtyPerUnit} onChange={(v) => patch({ items: rule.items.map((it, j) => (j === i ? { ...item, qtyPerUnit: v } : it)) })} disabled={off} />
                   </>
                 ) : (
                   <>
-                    <NumberBox label="Hourly rate" hint="What one crew hour costs for this part of the job." prefix="$" suffix="/h" value={item.hourlyRate} onChange={(v) => patch({ items: rule.items.map((it, j) => (j === i ? { ...item, hourlyRate: v } : it)) })} disabled={off} />
-                    <NumberBox label={`Hours per ${quantityLabel(rule.quantityKey).unit}`} hint="Crew hours used for each measured unit." value={item.hoursPerUnit} onChange={(v) => patch({ items: rule.items.map((it, j) => (j === i ? { ...item, hoursPerUnit: v } : it)) })} disabled={off} />
+                    <NumberBox label="Hourly rate" prefix="$" suffix="/h" value={item.hourlyRate} onChange={(v) => patch({ items: rule.items.map((it, j) => (j === i ? { ...item, hourlyRate: v } : it)) })} disabled={off} />
+                    <NumberBox label={`Hours per ${quantityLabel(rule.quantityKey).unit}`} value={item.hoursPerUnit} onChange={(v) => patch({ items: rule.items.map((it, j) => (j === i ? { ...item, hoursPerUnit: v } : it)) })} disabled={off} />
                   </>
                 )}
               </div>
             ))}
             <div className="flex flex-wrap gap-3 border-t pt-3">
-              <NumberBox label="Overhead" hint="Percent added to cover trucks, insurance, and the office." suffix="%" max={200} value={pct(rule.overheadPct)} onChange={(v) => patch({ overheadPct: frac(v) })} disabled={off} />
-              <NumberBox label="Profit margin" hint="Percent of the price you want to keep as profit." suffix="%" max={95} value={pct(rule.targetMarginPct)} onChange={(v) => patch({ targetMarginPct: frac(v) })} disabled={off} />
+              <NumberBox label="Overhead" suffix="%" max={200} value={pct(rule.overheadPct)} onChange={(v) => patch({ overheadPct: frac(v) })} disabled={off} />
+              <NumberBox label="Profit margin" suffix="%" max={95} value={pct(rule.targetMarginPct)} onChange={(v) => patch({ targetMarginPct: frac(v) })} disabled={off} />
             </div>
           </>
         ) : null}

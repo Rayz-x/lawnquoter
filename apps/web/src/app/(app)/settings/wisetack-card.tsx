@@ -1,3 +1,4 @@
+import { HelpTip } from "@/components/help/help-tip";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { WISETACK_NOT_CONNECTED } from "@/lib/billing/wisetack";
 
@@ -6,7 +7,14 @@ export function WisetackCard() {
   return (
     <Card className="mt-4">
       <CardHeader>
-        <CardTitle>Wisetack financing</CardTitle>
+        <CardTitle className="flex items-center gap-1">
+          Wisetack financing
+          <HelpTip
+            label="Help for Wisetack"
+            text="Financing stays off until its key is added. When it is on, proposals of $500 or more include the link."
+            href="/help/integrations#wisetack"
+          />
+        </CardTitle>
         <CardDescription>A financing link on proposals of $500 or more.</CardDescription>
       </CardHeader>
       <CardContent>

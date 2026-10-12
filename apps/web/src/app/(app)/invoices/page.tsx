@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { FieldHint } from "@/components/ui/field";
+
 import { NativeSelect } from "@/components/ui/native-select";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -89,7 +89,7 @@ export default async function InvoicesPage({
         <form className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="flex min-w-0 flex-col gap-1">
             <label htmlFor="invoice-status" className="text-sm">Status</label>
-            <NativeSelect id="invoice-status" name="status" aria-describedby="invoice-status-hint" defaultValue={statusFilter ?? ""} className="w-full sm:w-auto">
+            <NativeSelect id="invoice-status" name="status" defaultValue={statusFilter ?? ""} className="w-full sm:w-auto">
               <option value="">All statuses</option>
               {STATUSES.map((value) => (
                 <option key={value} value={value}>
@@ -97,7 +97,6 @@ export default async function InvoicesPage({
                 </option>
               ))}
             </NativeSelect>
-            <FieldHint id="invoice-status-hint">Shows drafts, issued invoices, paid ones, or void ones.</FieldHint>
           </div>
           <Button type="submit" variant="outline">
             Filter

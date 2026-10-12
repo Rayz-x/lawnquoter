@@ -5,7 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { FieldHint } from "@/components/ui/field";
+
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireOrg } from "@/lib/auth/session";
@@ -33,8 +33,7 @@ export default async function PropertiesPage({ searchParams }: { searchParams: P
         <form className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <label htmlFor="property-search" className="text-sm">Search</label>
-            <Input id="property-search" name="q" aria-describedby="property-search-hint" placeholder="Search address" defaultValue={q ?? ""} className="w-full max-w-xs" />
-            <FieldHint id="property-search-hint">Finds a property by its street address.</FieldHint>
+            <Input id="property-search" name="q" placeholder="Search address" defaultValue={q ?? ""} className="w-full max-w-xs" />
           </div>
           <Button type="submit" variant="outline">
             Search
