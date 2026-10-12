@@ -3,6 +3,7 @@ import {
   abandonedInstantQuote,
   depositLockCopy,
   emptyInstantQuote,
+  instantQuoteLeadRow,
   instantQuoteConfigFromSettings,
   instantQuoteOffer,
   instantQuoteStep,
@@ -99,6 +100,26 @@ describe("instant quote session", () => {
         instant_quote_minimum: 75,
       }),
     ).toEqual({ serviceAreaZips: ["37064"], ratePerSqft: 0.02, statedMinimum: 75 });
+  });
+
+  it("stores the contact and UTM on the lead and leaves the price off the row", () => {
+    expect(instantQuoteLeadRow("org-1", draft(inArea))).toBeNull();
+    const row = instantQuoteLeadRow("org-1", draft({
+      ...inArea,
+      contactName: "Ada",
+      email: "ada@example.com",
+      utmSource: "facebook",
+    }));
+    expect(row).toMatchObject({
+      org_id: "org-1",
+      contact_name: "Ada",
+      email: "ada@example.com",
+      source: "Website form",
+      utm_source: "facebook",
+      needs_address_check: true,
+    });
+    expect(row && "low" in row).toBe(false);
+    expect(JSON.stringify(row)).not.toContain("88");
   });
 
   it("keeps the deposit locked off until a Stripe key is configured", () => {
