@@ -132,6 +132,9 @@ export function OfficeTabBar({
           );
         })}
       </div>
+      <Link href="/help" className="dispatch-tab" aria-current={pathname === "/help" || pathname.startsWith("/help/") ? "page" : undefined}>
+        Help
+      </Link>
       {showNew ? (
         <Link href="/quotes/new" className="dispatch-tab-new" aria-label="New quote">
           <Plus className="size-6" />

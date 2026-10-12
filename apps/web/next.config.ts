@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/q/[token]/pdf": ["./src/app/q/**/fonts/**/*", "./public/brand/lq-mark-256.png"],
     "/settings/branding/sample-pdf": ["./src/app/q/**/fonts/**/*", "./public/brand/lq-mark-256.png"],
+    "/help": ["./content/help/**/*.md"],
+    "/help/[slug]": ["./content/help/**/*.md"],
   },
   async headers() {
     return securityHeaderGroups({

@@ -6,6 +6,7 @@ import {
   CircleDollarSign,
   FileText,
   Landmark,
+  CircleHelp,
   HardHat,
   Inbox,
   MessageSquare,
@@ -121,6 +122,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     priority: 20,
     place: "user",
     items: [
+      { title: "Help", href: "/help", icon: CircleHelp },
       { title: "Profile", href: "/settings/profile", icon: UserCircle },
       { title: "Settings", href: "/settings", icon: Settings },
       { title: "Messages", href: "/settings/messages", icon: Mail, roles: OFFICE_ROLES },
