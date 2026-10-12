@@ -1005,6 +1005,65 @@ export type Database = {
           },
         ]
       }
+      calls: {
+        Row: {
+          account_id: string | null
+          activity_id: string | null
+          contact_id: string | null
+          direction: string
+          duration_seconds: number | null
+          from_address: string
+          id: string
+          occurred_at: string
+          org_id: string
+          provider: string
+          provider_id: string
+          recording_url: string | null
+          status: string
+          to_address: string
+        }
+        Insert: {
+          account_id?: string | null
+          activity_id?: string | null
+          contact_id?: string | null
+          direction?: string
+          duration_seconds?: number | null
+          from_address: string
+          id?: string
+          occurred_at?: string
+          org_id: string
+          provider: string
+          provider_id: string
+          recording_url?: string | null
+          status?: string
+          to_address: string
+        }
+        Update: {
+          account_id?: string | null
+          activity_id?: string | null
+          contact_id?: string | null
+          direction?: string
+          duration_seconds?: number | null
+          from_address?: string
+          id?: string
+          occurred_at?: string
+          org_id?: string
+          provider?: string
+          provider_id?: string
+          recording_url?: string | null
+          status?: string
+          to_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calls_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           account_id: string
@@ -3304,6 +3363,7 @@ export type Database = {
           season_start_month: number
           settings: Json
           slug: string
+          call_tracking_number: string | null
           sms_number: string | null
           timezone: string
           updated_at: string
@@ -3342,6 +3402,7 @@ export type Database = {
           season_start_month?: number
           settings?: Json
           slug: string
+          call_tracking_number?: string | null
           sms_number?: string | null
           timezone?: string
           updated_at?: string
@@ -3380,6 +3441,7 @@ export type Database = {
           season_start_month?: number
           settings?: Json
           slug?: string
+          call_tracking_number?: string | null
           sms_number?: string | null
           timezone?: string
           updated_at?: string
