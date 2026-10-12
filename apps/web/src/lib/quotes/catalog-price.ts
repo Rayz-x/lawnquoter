@@ -51,6 +51,10 @@ export type PropertyPricingInput = {
   obstacleCount?: number | null;
   hasStairs?: boolean | null;
   confidence?: number | null;
+  driveMinutes?: number | null;
+  driveMiles?: number | null;
+  nearbyStops?: number | null;
+  serviceMonth?: number | null;
 };
 
 export function catalogPickerRules<T extends { price_list_id: string }>(
@@ -61,6 +65,30 @@ export function catalogPickerRules<T extends { price_list_id: string }>(
   return rules.filter((rule) => active.has(rule.price_list_id));
 }
 
+function finite(value: number | null | undefined): number | undefined {
+  return value != null && Number.isFinite(Number(value)) ? Number(value) : undefined;
+}
+
+/** Month in the company timezone. Falls back to US Central, then UTC. */
+export function monthInTimeZone(date: Date, timeZone?: string | null): number {
+  const zone = timeZone?.trim() || "America/Chicago";
+  try {
+    const month = Number(new Intl.DateTimeFormat("en-US", { timeZone: zone, month: "numeric" }).format(date));
+    if (month >= 1 && month <= 12) return month;
+  } catch {
+    /* unknown timezone */
+  }
+  return date.getUTCMonth() + 1;
+}
+
+/** minimum_price on a joined service row, or undefined when the service has no floor. */
+export function serviceMinimumPrice(row: unknown): number | undefined {
+  if (!row || typeof row !== "object" || !("services" in row)) return undefined;
+  const services = (row as { services?: { minimum_price?: number | string | null } | { minimum_price?: number | string | null }[] | null }).services;
+  const one = Array.isArray(services) ? services[0] : services;
+  return finite(one?.minimum_price == null ? undefined : Number(one.minimum_price));
+}
+
 export function propertyPricingContext(input: PropertyPricingInput): PropertyContext {
   const slope = input.slope && (SLOPES as readonly string[]).includes(input.slope) ? (input.slope as Slope) : undefined;
   return {
@@ -69,6 +97,10 @@ export function propertyPricingContext(input: PropertyPricingInput): PropertyCon
     obstacleCount: input.obstacleCount ?? undefined,
     hasStairs: input.hasStairs ?? undefined,
     confidence: input.confidence != null && Number.isFinite(input.confidence) ? input.confidence : undefined,
+    driveMinutes: finite(input.driveMinutes),
+    driveMiles: finite(input.driveMiles),
+    nearbyStops: finite(input.nearbyStops),
+    serviceMonth: finite(input.serviceMonth),
   };
 }
 
@@ -78,6 +110,7 @@ export function priceCatalogLine(input: {
   modifiers: Modifiers;
   features: readonly MeasuredFeature[];
   property: PropertyPricingInput | null;
+  serviceMinimum?: number | null;
 }): { ok: true; priced: PricedLine } | { ok: false; error: string } {
   const parsed = pricingRuleSchema.safeParse(input.config);
   if (!parsed.success) return { ok: false, error: "Pricing rule is not valid" };
@@ -87,7 +120,7 @@ export function priceCatalogLine(input: {
     priced: priceLine({
       rule: parsed.data,
       quantities: measurementQuantities(input.features, property?.lotSqft),
-      context: propertyPricingContext(property ?? {}),
+      context: { ...propertyPricingContext(property ?? {}), serviceMinimum: finite(input.serviceMinimum) },
       modifiers: input.modifiers,
     }),
   };

@@ -3,11 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { mergeModifiers } from "@lawnquoter/pricing-engine";
+import { mergeModifiers, routeDensityRadiusMeters } from "@lawnquoter/pricing-engine";
 import { ADMIN_ROLES, SALES_ROLES, hasRole, type OrgRole } from "@lawnquoter/shared";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
-import { priceCatalogLine, type MeasuredFeature, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
+import { monthInTimeZone, priceCatalogLine, serviceMinimumPrice, type MeasuredFeature, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
 import { customerCopyUpdateError } from "@/lib/quotes/customer-copy";
 import { ACCEPTED_QUOTE_DELETE_ERROR, deleteQuoteError } from "@/lib/quotes/delete-quote";
 import { autoSiteCheckReasons, mergeSiteCheckReasons, orgSiteCheckThreshold } from "@/lib/quotes/site-check";
@@ -472,12 +472,12 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
       supabase.from("quotes").select("property_id, account_id").eq("id", quoteId).eq("org_id", session.orgId).maybeSingle(),
       supabase
         .from("pricing_rules")
-        .select("name, config, service_id, price_list_id")
+        .select("name, config, service_id, price_list_id, services(minimum_price)")
         .eq("id", parsed.data.rule_id)
         .eq("org_id", session.orgId)
         .eq("active", true)
         .maybeSingle(),
-      supabase.from("orgs").select("settings").eq("id", session.orgId).maybeSingle(),
+      supabase.from("orgs").select("settings, timezone").eq("id", session.orgId).maybeSingle(),
     ]);
   if (quoteError) return fail(quoteError.message);
   if (!quote) return fail("Quote not found");
@@ -496,13 +496,13 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
   if (list.status !== "active") return fail("Price list is not active");
 
   let features: MeasuredFeature[] = [];
-  let property: PropertyPricingInput | null = null;
+  let property: PropertyPricingInput = { serviceMonth: monthInTimeZone(new Date(), org?.timezone) };
   let quantitySource: "measurement" | "manual" | "unknown" = "unknown";
   if (quote.property_id) {
     const [{ data: propertyRow, error: propertyError }, { data: measurement, error: measurementError }] = await Promise.all([
       supabase
         .from("properties")
-        .select("lot_sqft, slope, gate_width_in, obstacle_count, has_stairs")
+        .select("lot_sqft, slope, gate_width_in, obstacle_count, has_stairs, drive_minutes, drive_miles")
         .eq("id", quote.property_id)
         .eq("org_id", session.orgId)
         .maybeSingle(),
@@ -518,6 +518,16 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
     if (measurementError) return fail(measurementError.message);
     features = measurement?.measurement_features ?? [];
     quantitySource = measurement ? "measurement" : "unknown";
+    const modifiers = mergeModifiers(list.modifiers);
+    let nearbyStops: number | undefined;
+    if ((modifiers.routeDensity?.discountPct ?? 0) > 0) {
+      const { data: near, error: nearError } = await supabase.rpc("properties_near", {
+        p_property: quote.property_id,
+        p_radius_m: routeDensityRadiusMeters(modifiers),
+      });
+      if (nearError) return fail(nearError.message);
+      nearbyStops = near?.length ?? 0;
+    }
     property = {
       lotSqft: propertyRow?.lot_sqft,
       slope: propertyRow?.slope,
@@ -525,6 +535,10 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
       obstacleCount: propertyRow?.obstacle_count,
       hasStairs: propertyRow?.has_stairs,
       confidence: measurement?.confidence != null ? Number(measurement.confidence) : undefined,
+      driveMinutes: propertyRow.drive_minutes,
+      driveMiles: propertyRow.drive_miles,
+      nearbyStops,
+      serviceMonth: property.serviceMonth,
     };
   }
 
@@ -533,6 +547,7 @@ export async function addPricedService(quoteId: string, versionId: string, fd: F
     modifiers: mergeModifiers(list.modifiers),
     features,
     property,
+    serviceMinimum: serviceMinimumPrice(rule),
   });
   if (!priced.ok) return fail(priced.error);
 

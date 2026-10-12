@@ -98,6 +98,7 @@ export async function saveMeasurement(
     summary: `Saved measurement (${parsed.data.length} features, ${confidence.band} confidence)`,
     actor_id: session.userId,
   });
+  await supabase.rpc("record_usage", { p_kind: "measurement" });
 
   revalidatePath(`/properties/${propertyId}`);
   revalidatePath(`/properties/${propertyId}/measure`);

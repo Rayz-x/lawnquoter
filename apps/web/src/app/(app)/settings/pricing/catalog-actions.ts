@@ -18,7 +18,7 @@ const selectionSchema = z
 
 export async function installCatalogServices(
   selections: { key: string; price: number }[],
-): Promise<ActionResult<{ installed: number; skipped: number }>> {
+): Promise<ActionResult<{ installed: number; skipped: number; priceListId: string | null }>> {
   const session = await requireOrg();
   if (!hasRole(session.orgRole, ADMIN_ROLES)) return fail(DENIED);
   const parsed = selectionSchema.safeParse(selections);
@@ -49,10 +49,18 @@ export async function installCatalogServices(
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("install_catalog_services", { p_entries: entries });
   if (error) return fail(error.message);
-  const body = (data ?? {}) as { ok?: boolean; installed?: number; skipped?: number };
+  const body = (data ?? {}) as { ok?: boolean; installed?: number; skipped?: number; price_list_id?: string };
   if (body.ok !== true) return fail("Could not add these services");
+  const priceListId = z.string().uuid().safeParse(body.price_list_id);
   revalidatePath("/settings/pricing");
-  return { ok: true, data: { installed: body.installed ?? 0, skipped: body.skipped ?? 0 } };
+  return {
+    ok: true,
+    data: {
+      installed: body.installed ?? 0,
+      skipped: body.skipped ?? 0,
+      priceListId: priceListId.success ? priceListId.data : null,
+    },
+  };
 }
 
 export async function activateCatalogDraft(priceListId: string): Promise<ActionResult> {

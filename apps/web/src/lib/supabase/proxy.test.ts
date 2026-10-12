@@ -11,6 +11,8 @@ describe("isPublicPath", () => {
     expect(isPublicPath("/i/sample-token")).toBe(true);
     expect(isPublicPath("/s/sample-token")).toBe(true);
     expect(isPublicPath("/crew/today")).toBe(false);
+    expect(isPublicPath("/e2e")).toBe(false);
+    expect(isPublicPath("/e2e", true)).toBe(true);
   });
 
   it("serves the hosted request-a-quote form and intake without login", () => {

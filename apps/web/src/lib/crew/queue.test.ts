@@ -49,6 +49,42 @@ describe("crew outbox", () => {
     await expect(enqueueMutation(store, { kind: "not_a_kind", visit_id: "visit-1", ...who }, now)).rejects.toThrow("Unknown crew mutation");
   });
 
+  it("queues a chemical log, a snow event, and an irrigation zone note", async () => {
+    const store = createMemoryCrewStore();
+    await enqueueMutation(store, {
+      kind: "visit_log_chemical",
+      visit_id: "visit-1",
+      client_id: "chem",
+      payload: { product: "Trimec", rate: "1.5 oz / 1000 sq ft", epa_reg_no: "2217-543", temp_f: 72, wind_mph: 4, conditions: "Clear" },
+      ...who,
+    }, now);
+    await enqueueMutation(store, {
+      kind: "visit_log_snow",
+      visit_id: "visit-1",
+      client_id: "snow",
+      payload: {
+        trigger_depth_in: 2,
+        started_at: "2026-01-15T06:00:00.000Z",
+        ended_at: "2026-01-15T09:30:00.000Z",
+        materials: "salt, 2 bags",
+      },
+      ...who,
+    }, now);
+    await enqueueMutation(store, {
+      kind: "visit_log_irrigation",
+      visit_id: "visit-1",
+      client_id: "zone",
+      payload: { zone_number: 3, note: "head leaking at the curb" },
+      ...who,
+    }, now);
+    const items = syncItems(await store.listOutbox(), "2026-10-09T15:00:05.000Z", scope);
+    expect(items.map((item) => [item.client_id, item.kind, item.payload])).toEqual([
+      ["chem", "visit_log_chemical", { product: "Trimec", rate: "1.5 oz / 1000 sq ft", epa_reg_no: "2217-543", temp_f: 72, wind_mph: 4, conditions: "Clear" }],
+      ["snow", "visit_log_snow", { trigger_depth_in: 2, started_at: "2026-01-15T06:00:00.000Z", ended_at: "2026-01-15T09:30:00.000Z", materials: "salt, 2 bags" }],
+      ["zone", "visit_log_irrigation", { zone_number: 3, note: "head leaking at the curb" }],
+    ]);
+  });
+
   it("sends in order, drops applied and replayed rows, and stops on an error", async () => {
     const store = createMemoryCrewStore();
     const first = await enqueueMutation(store, { kind: "visit_pause", visit_id: "v", client_id: "a", ...who }, new Date("2026-10-09T15:00:01.000Z"));
