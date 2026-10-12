@@ -17,7 +17,7 @@ export default async function QuotesPage() {
   const supabase = await createClient();
   const { data: quotes, error } = await supabase
     .from("quotes")
-    .select("id, number, title, status, site_check_status, created_at, accounts(name)")
+    .select("id, number, title, status, site_check_status, created_at, gone_quiet_at, accounts(name)")
     .eq("org_id", session.orgId)
     .order("created_at", { ascending: false })
     .limit(200);
@@ -70,6 +70,11 @@ export default async function QuotesPage() {
                       <Badge variant="outline" className="capitalize">
                         {q.status}
                       </Badge>
+                      {q.gone_quiet_at ? (
+                        <Badge variant="outline" className="border-transparent bg-warning/15 text-warning">
+                          Gone quiet
+                        </Badge>
+                      ) : null}
                       {q.site_check_status === "requested" || q.site_check_status === "scheduled" ? (
                         <Badge variant="outline" className="border-transparent bg-warning/15 text-warning">
                           {SITE_CHECK_REQUESTED_BADGE}
