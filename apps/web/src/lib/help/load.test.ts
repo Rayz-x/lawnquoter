@@ -14,5 +14,7 @@ describe("loadHelpArticle", () => {
     expect(loadHelpArticle("getting-started")?.headings.map((heading) => heading.id)).toContain("service-area");
     expect(loadHelpArticle("plan-and-billing")?.headings.map((heading) => heading.id)).toContain("when-billing-stays-off");
     expect(loadHelpArticle("export-data")?.headings.map((heading) => heading.id)).toEqual(["download-the-zip", "what-is-in-the-file"]);
+    expect(loadHelpArticle("customers")?.headings.map((heading) => heading.id)).toContain("duplicates");
+    expect(loadHelpArticle("properties")?.headings.map((heading) => heading.id)).toContain("what-changes-the-price");
   });
 });
