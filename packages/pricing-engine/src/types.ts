@@ -38,6 +38,15 @@ export type PropertyContext = {
   /** Go iLawn-style complexity slider. 1 = normal. */
   complexity?: number;
   confidence?: number;
+  /** Drive from the shop. Unknown means no travel-zone charge. */
+  driveMinutes?: number | null;
+  driveMiles?: number | null;
+  /** Other active stops within the route-density radius. */
+  nearbyStops?: number | null;
+  /** Calendar month 1–12 for seasonal factors. Omitted means no seasonal change. */
+  serviceMonth?: number | null;
+  /** Per-service floor. Raises the company minimum; it cannot undercut it. */
+  serviceMinimum?: number | null;
 };
 
 export type LineBreakdown = { label: string; price: number; hours: number; cost: number };
@@ -175,6 +184,27 @@ export const pricingRuleSchema = z.discriminatedUnion("type", [
 ]);
 export type PricingRule = z.infer<typeof pricingRuleSchema>;
 
+export const travelZoneSchema = z.object({
+  label: z.string().min(1).max(40),
+  maxMinutes: z.number().positive().max(600).nullable(),
+  maxMiles: z.number().positive().max(500).nullable(),
+  extraPrice: z.number().nonnegative(),
+});
+export type TravelZone = z.infer<typeof travelZoneSchema>;
+
+export const routeDensitySchema = z.object({
+  minNearby: z.number().int().positive().max(50).default(4),
+  discountPct: z.number().min(0).max(0.5).default(0),
+  radiusMiles: z.number().positive().max(50).default(0.5),
+});
+
+export const seasonalFactorSchema = z.object({
+  label: z.string().min(1).max(40),
+  months: z.array(z.number().int().min(1).max(12)).min(1),
+  pricePct: z.number().min(-0.5).max(1),
+});
+export type SeasonalFactor = z.infer<typeof seasonalFactorSchema>;
+
 export const modifiersSchema = z.object({
   slope: z
     .record(z.string(), z.object({ pricePct: z.number().default(0), hoursPct: z.number().default(0) }))
@@ -185,6 +215,9 @@ export const modifiersSchema = z.object({
   perObstacle: z.object({ extraHours: z.number().nonnegative(), extraPrice: z.number().nonnegative() }).optional(),
   minimum: z.object({ price: z.number().nonnegative(), hours: z.number().nonnegative().optional() }).optional(),
   stairs: z.object({ extraHours: z.number().nonnegative(), extraPrice: z.number().nonnegative().default(0) }).optional(),
+  travelZones: z.array(travelZoneSchema).max(8).optional(),
+  routeDensity: routeDensitySchema.optional(),
+  seasonalFactors: z.array(seasonalFactorSchema).max(12).optional(),
 });
 export type Modifiers = z.infer<typeof modifiersSchema>;
 
@@ -201,6 +234,18 @@ export const defaultModifiers = (): Modifiers => ({
   perObstacle: { extraHours: 0.05, extraPrice: 3 },
   minimum: { price: 45, hours: 0.4 },
   stairs: { extraHours: 0.1, extraPrice: 5 },
+  travelZones: [
+    { label: "Nearby", maxMinutes: 15, maxMiles: 8, extraPrice: 0 },
+    { label: "Town", maxMinutes: 30, maxMiles: 20, extraPrice: 0 },
+    { label: "Farther", maxMinutes: null, maxMiles: null, extraPrice: 0 },
+  ],
+  routeDensity: { minNearby: 4, discountPct: 0, radiusMiles: 0.5 },
+  seasonalFactors: [
+    { label: "Spring", months: [3, 4, 5], pricePct: 0 },
+    { label: "Summer", months: [6, 7, 8], pricePct: 0 },
+    { label: "Fall", months: [9, 10, 11], pricePct: 0 },
+    { label: "Winter", months: [12, 1, 2], pricePct: 0 },
+  ],
 });
 
 function modifierRecord(stored: unknown): Record<string, unknown> {
