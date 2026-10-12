@@ -2,14 +2,21 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { requireOrg } from "@/lib/auth/session";
 import { leadsClient } from "@/lib/leads/client";
 import { canEditLeads, canViewLeads, leadDisplayName, type LeadActivity, type LeadRequest } from "@/lib/leads/detail";
 import { loadPossibleMatchesForLead } from "@/lib/leads/match-candidates";
+import {
+  DEFAULT_MINIMUM_LOT_SQFT,
+  LEAD_SCORE_LABEL,
+  leadIsEngaged,
+  scoreLead,
+} from "@/lib/leads/score";
+import type { LeadTaskRecord } from "@/lib/leads/tasks";
 import { createClient } from "@/lib/supabase/server";
 import { LeadDetail } from "./lead-detail";
 import { LeadTaskList } from "./lead-task-list";
-import type { LeadTaskRecord } from "@/lib/leads/tasks";
 
 export const metadata: Metadata = { title: "Lead" };
 
@@ -121,6 +128,11 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     <>
       <PageHeader title={leadDisplayName(typedLead)} description="Lead detail" />
       <div className="page-body">
+        <LeadScoreBadge
+          status={typedLead.status}
+          services={(typedLead as { services?: string[] }).services ?? []}
+          outOfArea={(typedLead as { out_of_area?: boolean }).out_of_area === true}
+        />
         <LeadTaskList
           leadId={typedLead.id}
           today={new Date().toISOString().slice(0, 10)}
@@ -144,5 +156,30 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         />
       </div>
     </>
+  );
+}
+
+function LeadScoreBadge({
+  status,
+  services,
+  outOfArea,
+}: {
+  status: string;
+  services: string[];
+  outOfArea: boolean;
+}) {
+  const scored = scoreLead({
+    lotSqft: null,
+    minimumLotSqft: DEFAULT_MINIMUM_LOT_SQFT,
+    requestedServices: services,
+    offeredServices: [],
+    outOfArea,
+    sourceWinRate: null,
+    engaged: leadIsEngaged(status),
+  });
+  return (
+    <Badge variant="outline" data-testid="lead-score">
+      {LEAD_SCORE_LABEL[scored.recommendation]} · {scored.score}
+    </Badge>
   );
 }

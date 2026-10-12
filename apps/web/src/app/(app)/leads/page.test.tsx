@@ -195,6 +195,7 @@ describe("LeadsPage access", () => {
     expect(html).toContain("Bea Lost");
     expect(html).toContain("Lost: Price");
     expect(html).toContain("1 open task");
+    expect(html).toContain("Qualify first");
     expect(html).toContain("Quoted");
     expect(html).not.toContain("Next follow-up");
   });
