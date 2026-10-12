@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
+  abandonedInstantQuote,
   contactCaptured,
   depositLockCopy,
   emptyInstantQuote,
@@ -117,6 +118,16 @@ export function InstantQuoteWidget({
     script.onload = render;
     document.head.appendChild(script);
   }, [step, turnstileSiteKey]);
+
+  useEffect(() => {
+    const send = () => {
+      if (!abandonedInstantQuote(draft)) return;
+      const body = JSON.stringify({ slug, draft });
+      navigator.sendBeacon("/api/public/instant-quote/abandon", new Blob([body], { type: "application/json" }));
+    };
+    window.addEventListener("pagehide", send);
+    return () => window.removeEventListener("pagehide", send);
+  }, [draft, slug]);
 
   async function reveal() {
     setPending(true);
