@@ -62,10 +62,13 @@ Optional:
 - `REGRID_API_TOKEN` — parcel lookup while measuring. Without it, the lot is traced by hand.
 - `RESEND_API_KEY` and `EMAIL_FROM` — email the sealed acceptance copy, and the morning follow-up list. Leave both unset to skip sending.
 - `CRON_SECRET` — shared secret for the hourly follow-up job (`Authorization: Bearer`). Leave unset and that job refuses the request. The job still needs the email keys above before it sends.
-- `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `STRIPE_WEBHOOK_SECRET` — Stripe Connect. The company owner connects an Express account from the Payments section of Settings. Owners and admins can save a card on file from an account once Connect is ready. Leave the keys unset and that screen says to add a Stripe key. Click-to-accept does not charge a card, and it works with these unset.
+- `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `STRIPE_WEBHOOK_SECRET` — Stripe Connect. The company owner connects an Express account from the Payments section of Settings. Owners and admins can save a card on file from an account once Connect is ready. Leave the keys unset and that screen says to add a Stripe key. Click-to-accept does not charge a card, and it works with these unset. A quote deposit is collected in Stripe Checkout only when the keys are set and Connect is ready.
 - `SIGNWELL_API_KEY` — listed for a later formal-contract step. Accepting a quote does not use it.
+- `E2E_MODE` — set to `1` only for the Playwright fixture at `/e2e`. It is ignored when `VERCEL_ENV=production`. Leave it unset in every deployed environment.
 - `WISETACK_PREQUAL_URL` — public financing link. Leave unset and Settings says it is not connected. When set, a proposal of $500 or more shows "See financing options". No Wisetack API call is made.
+- `AI_QUOTE_API_KEY` and `AI_QUOTE_API_URL` — optional AI draft on a quote. Both must be set before any request is sent. With either one missing, the quote still drafts from similar accepted quotes nearby and the page says the provider is not connected.
 - Lead connectors stay off until their keys are set. The settings page says which key. `GOOGLE_LSA_WEBHOOK_SECRET`, `THUMBTACK_WEBHOOK_SECRET`, `YELP_WEBHOOK_SECRET`, `ANGI_WEBHOOK_SECRET`, and `INBOUND_LEAD_WEBHOOK_SECRET` (Zapier) authorize `POST /api/public/leads/inbound/{connector}` with `Authorization: Bearer`. Facebook Lead Ads also needs `FACEBOOK_LEAD_ADS_VERIFY_TOKEN`, `FACEBOOK_APP_SECRET`, `FACEBOOK_PAGE_ACCESS_TOKEN`, and `INBOUND_LEAD_ORG_SLUG`. Leave them unset and those routes refuse the request.
+- `NEARMAP_API_KEY`, `VEXCEL_API_KEY`, and `SEGMENTATION_API_KEY` — HD imagery and one-click segmentation on the measure screen. Leave them unset. The screen then says to add that key. Tracing on Esri does not need them, and this build does not call those services.
 
 ## Connecting a Supabase project
 

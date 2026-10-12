@@ -9,7 +9,14 @@ import { CUSTOMER_EDIT_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
-const conditionsSchema = z.object({ slope: z.enum(["flat", "gentle", "moderate", "steep"]).nullable(), gate_width_in: z.number().int().min(0).max(240).nullable(), obstacle_count: z.number().int().min(0).max(50), has_stairs: z.boolean() });
+const conditionsSchema = z.object({
+  slope: z.enum(["flat", "gentle", "moderate", "steep"]).nullable(),
+  gate_width_in: z.number().int().min(0).max(240).nullable(),
+  obstacle_count: z.number().int().min(0).max(50),
+  has_stairs: z.boolean(),
+  drive_minutes: z.number().min(0).max(600).nullable().optional(),
+  drive_miles: z.number().min(0).max(500).nullable().optional(),
+});
 const accessSchema = z.object({ has_dogs: z.boolean().optional(), crew_notes: z.string().trim().max(2000).nullable().optional(), access_notes: z.string().trim().max(2000).nullable().optional(), gate_code: z.string().trim().max(32).nullable().optional() });
 const metaSchema = z.object({ name: z.string().trim().max(120).nullable().optional(), zone: z.string().trim().max(60).nullable().optional() });
 const addressSchema = z.object({ address_line1: z.string().trim().min(1).max(200), city: z.string().trim().min(1).max(100), region: z.string().trim().min(2).max(100), postal_code: z.string().trim().regex(/^\d{5}(?:-\d{4})?$/) });

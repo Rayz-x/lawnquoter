@@ -29,11 +29,11 @@ import { archiveProperty, placePropertyPin, updatePropertyAccess, updateProperty
 
 type Slope = "flat" | "gentle" | "moderate" | "steep" | null;
 type Row = { id: string; label: string; status: string };
-type Conditions = { slope: Slope; gate_width_in: number | null; obstacle_count: number; has_stairs: boolean };
+type Conditions = { slope: Slope; gate_width_in: number | null; obstacle_count: number; has_stairs: boolean; drive_minutes: number | null; drive_miles: number | null };
 type Access = { has_dogs: boolean; gate_code: string | null; access_notes: string | null; crew_notes: string | null };
 
 export type PropertyScreenData = {
-  id: string; accountId: string; accountName: string; street: string; place: string; label: string | null; archived: boolean; slope: Slope; slopeHint: string; gateWidthIn: number | null; obstacleCount: number; hasStairs: boolean; hasDogs: boolean; gateCode: string | null; accessNotes: string; crewNotes: string; zone: string | null; zones: string[]; lot: string; lotAuto: boolean; building: string; apn: string | null; parcelSource: string; footprintSource: string; turf: string; openQuotes: string; service: string; ungeocoded: boolean; pinCenter: [number, number] | null; quotes: Row[]; jobs: Row[]; visits: Row[]; activity: { id: string; summary: string; when: string }[]; nearby: { id: string; address: string; meters: number }[]; location: PropertyMapProps["location"]; parcel: PropertyMapProps["parcel"]; footprint: PropertyMapProps["footprint"]; tab: string | null;
+  id: string; accountId: string; accountName: string; street: string; place: string; label: string | null; archived: boolean; slope: Slope; slopeHint: string; gateWidthIn: number | null; obstacleCount: number; hasStairs: boolean; hasDogs: boolean; gateCode: string | null; accessNotes: string; crewNotes: string; zone: string | null; zones: string[]; lot: string; lotAuto: boolean; building: string; apn: string | null; parcelSource: string; footprintSource: string; turf: string; openQuotes: string; service: string; ungeocoded: boolean; pinCenter: [number, number] | null; quotes: Row[]; jobs: Row[]; visits: Row[]; activity: { id: string; summary: string; when: string }[]; nearby: { id: string; address: string; meters: number }[]; location: PropertyMapProps["location"]; parcel: PropertyMapProps["parcel"]; footprint: PropertyMapProps["footprint"]; tab: string | null; driveMinutes: number | null; driveMiles: number | null;
 };
 
 const TABS = ["quotes", "visits", "activity"] as const;
@@ -52,7 +52,7 @@ export function PropertyWorkspace({ data }: { data: PropertyScreenData }) {
   const gateWidthRef = useRef<HTMLInputElement>(null);
   const [gateInches, setGateInches] = useState(() => (data.gateWidthIn == null || data.gateWidthIn === GATE_WIDTH_NO_GATE ? "" : String(data.gateWidthIn)));
   const [revealGate, setRevealGate] = useState(false);
-  const [cond, setCond] = useState<Conditions>({ slope: data.slope, gate_width_in: data.gateWidthIn, obstacle_count: data.obstacleCount, has_stairs: data.hasStairs });
+  const [cond, setCond] = useState<Conditions>({ slope: data.slope, gate_width_in: data.gateWidthIn, obstacle_count: data.obstacleCount, has_stairs: data.hasStairs, drive_minutes: data.driveMinutes, drive_miles: data.driveMiles });
   const [access, setAccess] = useState<Access>({ has_dogs: data.hasDogs, gate_code: data.gateCode, access_notes: data.accessNotes || null, crew_notes: data.crewNotes || null });
   const [zone, setZone] = useState(data.zone ?? "");
   const [savedCond] = useState(cond); const [savedAccess] = useState(access); const [savedZone] = useState(zone);
@@ -139,6 +139,16 @@ export function PropertyWorkspace({ data }: { data: PropertyScreenData }) {
             {exactOpen ? <Input ref={gateWidthRef} className="max-w-32" inputMode="numeric" aria-label="Gate width in inches" placeholder="12–240" value={gateInches} onChange={(event) => { const raw = event.target.value; if (raw === "" || /^\d+$/.test(raw)) setGateInches(raw); }} onBlur={commitGateInches} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitGateInches(); } }} /> : null}
             <Stepper label="Obstacles" min={0} max={50} value={cond.obstacle_count} onValueChange={(count) => saveCond({ obstacle_count: count })} />
             <ToggleRow label="Stairs to the turf" checked={cond.has_stairs} onCheckedChange={(checked) => saveCond({ has_stairs: checked })} />
+            <div className="flex flex-wrap gap-3">
+              <label className="grid gap-1 text-sm">
+                <span className="text-muted-foreground">Drive from the shop (minutes)</span>
+                <Input className="w-28" inputMode="decimal" aria-label="Drive minutes from the shop" value={cond.drive_minutes ?? ""} onChange={(event) => { const raw = event.target.value; if (raw === "" || /^\d{0,3}(\.\d?)?$/.test(raw)) setCond((current) => ({ ...current, drive_minutes: raw === "" ? null : Number(raw) })); }} onBlur={(event) => { const raw = event.target.value.trim(); saveCond({ drive_minutes: raw === "" ? null : Number(raw) }); }} />
+              </label>
+              <label className="grid gap-1 text-sm">
+                <span className="text-muted-foreground">Drive distance (miles)</span>
+                <Input className="w-28" inputMode="decimal" aria-label="Drive miles from the shop" value={cond.drive_miles ?? ""} onChange={(event) => { const raw = event.target.value; if (raw === "" || /^\d{0,3}(\.\d{0,2})?$/.test(raw)) setCond((current) => ({ ...current, drive_miles: raw === "" ? null : Number(raw) })); }} onBlur={(event) => { const raw = event.target.value.trim(); saveCond({ drive_miles: raw === "" ? null : Number(raw) }); }} />
+              </label>
+            </div>
           </SectionCard>
           <TabBox label="Property categories" value={tab} onValueChange={(next) => { setTab(next); router.replace(`?tab=${next}`, { scroll: false }); }} tabs={[
             { value: "quotes", label: "Quotes & jobs", count: data.quotes.length + data.jobs.length, content: <div className="flex flex-col gap-2"><Rows rows={data.quotes} href={(id) => `/quotes/${id}`} empty="No quotes yet." /><Rows rows={data.jobs} empty="No jobs yet." /></div> },
