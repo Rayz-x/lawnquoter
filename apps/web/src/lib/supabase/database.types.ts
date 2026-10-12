@@ -561,7 +561,11 @@ export type Database = {
           season_start_day: number | null
           season_start_month: number | null
           service_kind: string | null
+          snow_contract: string | null
+          snow_price: number | null
+          snow_tiers: Json | null
           start_date: string
+          trigger_depth_in: number | null
           status: Database["public"]["Enums"]["agreement_status"]
           updated_at: string
         }
@@ -588,7 +592,11 @@ export type Database = {
           season_start_day?: number | null
           season_start_month?: number | null
           service_kind?: string | null
+          snow_contract?: string | null
+          snow_price?: number | null
+          snow_tiers?: Json | null
           start_date: string
+          trigger_depth_in?: number | null
           status?: Database["public"]["Enums"]["agreement_status"]
           updated_at?: string
         }
@@ -615,7 +623,11 @@ export type Database = {
           season_start_day?: number | null
           season_start_month?: number | null
           service_kind?: string | null
+          snow_contract?: string | null
+          snow_price?: number | null
+          snow_tiers?: Json | null
           start_date?: string
+          trigger_depth_in?: number | null
           status?: Database["public"]["Enums"]["agreement_status"]
           updated_at?: string
         }
@@ -4915,6 +4927,16 @@ export type Database = {
           p_agreement_id: string
           p_effective_from: string
           p_season_price_cents: number
+        }
+        Returns: undefined
+      }
+      set_agreement_snow_contract: {
+        Args: {
+          p_agreement_id: string
+          p_contract: string
+          p_price: number
+          p_tiers: Json | null
+          p_trigger_depth: number
         }
         Returns: undefined
       }
