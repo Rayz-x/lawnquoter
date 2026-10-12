@@ -8,6 +8,7 @@
 // snow_events and activate_snow_event added for 20261016000400.
 // org_subscriptions added for 20261017002000.
 // instant_quote_events added for 20261014110000.
+// drive_minutes, route optimizer, route_stop_points, and apply_optimized_route added for 20261016000600.
 
 export type Json =
   | string
@@ -4666,6 +4667,8 @@ export type Database = {
           date: string
           id: string
           org_id: string
+          optimized_at: string | null
+          optimizer: string | null
           published_at: string | null
           revision: number
           status: Database["public"]["Enums"]["route_status"]
@@ -4677,6 +4680,8 @@ export type Database = {
           date: string
           id?: string
           org_id: string
+          optimized_at?: string | null
+          optimizer?: string | null
           published_at?: string | null
           revision?: number
           status?: Database["public"]["Enums"]["route_status"]
@@ -4688,6 +4693,8 @@ export type Database = {
           date?: string
           id?: string
           org_id?: string
+          optimized_at?: string | null
+          optimizer?: string | null
           published_at?: string | null
           revision?: number
           status?: Database["public"]["Enums"]["route_status"]
@@ -5543,6 +5550,7 @@ export type Database = {
           created_at: string
           crew_note: string | null
           crew_size: number
+          drive_minutes: number | null
           forgot_to_finish: boolean
           id: string
           job_id: string
@@ -5586,6 +5594,7 @@ export type Database = {
           created_at?: string
           crew_note?: string | null
           crew_size?: number
+          drive_minutes?: number | null
           forgot_to_finish?: boolean
           id?: string
           job_id: string
@@ -5629,6 +5638,7 @@ export type Database = {
           created_at?: string
           crew_note?: string | null
           crew_size?: number
+          drive_minutes?: number | null
           forgot_to_finish?: boolean
           id?: string
           job_id?: string
@@ -5890,6 +5900,15 @@ export type Database = {
       agreement_installment_balance: {
         Args: { p_agreement_id: string }
         Returns: Json
+      }
+      apply_optimized_route: {
+        Args: {
+          p_drive_minutes: number[]
+          p_optimizer: string
+          p_route_id: string
+          p_visit_ids: string[]
+        }
+        Returns: undefined
       }
       assign_visit: {
         Args: {
@@ -6230,6 +6249,15 @@ export type Database = {
       }
       resume_agreement: { Args: { p_agreement_id: string }; Returns: undefined }
       revoke_org_invite: { Args: { p_id: string }; Returns: undefined }
+      route_stop_points: {
+        Args: { p_route_id: string }
+        Returns: {
+          lat: number
+          lng: number
+          sort: number
+          visit_id: string
+        }[]
+      }
       set_active_org: { Args: { p_org: string }; Returns: undefined }
       set_agreement_fixed_route_day: {
         Args: { p_agreement_id: string; p_fixed: boolean }

@@ -19,9 +19,11 @@ import { parseRevokePhoneResult, type RevokedUnsyncedVisit } from "@/lib/schedul
 import { boardPhonesForCrew } from "@/lib/scheduling/phone-sync";
 import { createClient } from "@/lib/supabase/server";
 import { isCrewStatus, type CrewStatus } from "@/lib/scheduling/crew-status";
+import { routingConfigured, routingEnv } from "@/lib/scheduling/route-optimize";
 import { isWeatherAction, isWeatherCondition, type WeatherRule } from "@/lib/scheduling/weather-rules";
 import { DayBoard, type BoardColumn, type BoardVisit, type PhoneSync } from "./day-board";
 import { DispatchGrid, type GridVisit } from "./dispatch-grid";
+import { PaidRoutingNotice } from "./paid-routing-notice";
 import { SnowActivationCard } from "./snow-activation-card";
 import { WeatherCard } from "./weather-card";
 
@@ -158,8 +160,9 @@ export default async function SchedulePage({
 
   const date = requested && isIsoDate(requested) ? requested : today;
   const canWrite = hasRole(session.orgRole, DISPATCH_ROLES);
+  const paidRouting = routingConfigured(routingEnv(process.env));
   const visitSelect =
-    "id, route_id, scheduled_date, sort, status, budget_minutes, window_start, window_end, jobs(title), properties(formatted_address, address_line1, city, accounts(name))";
+    "id, route_id, scheduled_date, sort, status, budget_minutes, drive_minutes, window_start, window_end, jobs(title), properties(formatted_address, address_line1, city, accounts(name))";
   const [
     { data: crews, error: crewsError },
     { data: routes, error: routesError },
@@ -274,6 +277,7 @@ export default async function SchedulePage({
       scheduledDate: visit.scheduled_date,
       overdue: visit.scheduled_date != null && visit.scheduled_date < today,
       budgetMinutes: visit.budget_minutes,
+      driveMinutes: visit.drive_minutes,
       windowLabel: windowLabel(visit.window_start, visit.window_end),
     };
   };
@@ -435,12 +439,14 @@ export default async function SchedulePage({
           </Alert>
         ) : view === "day" ? (
           <>
+            <PaidRoutingNotice connected={paidRouting} />
             {canWrite ? <SnowActivationCard date={date} /> : null}
             <DayBoard
               date={date}
               canWrite={canWrite}
               timeZone={org?.timezone ?? "UTC"}
               saturdayWorkday={saturdayWorkday}
+              paidRouting={paidRouting}
               tray={tray}
               columns={columns}
             />
