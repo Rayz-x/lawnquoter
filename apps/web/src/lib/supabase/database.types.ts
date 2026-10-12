@@ -5082,6 +5082,14 @@ export type Database = {
         }
         Returns: Json
       }
+      create_progress_invoice: {
+        Args: {
+          p_line_item_ids: string[]
+          p_percent: number
+          p_quote_id: string
+        }
+        Returns: string
+      }
       crew_ack_day_pack: {
         Args: { p_crew_id: string; p_date: string }
         Returns: Json
