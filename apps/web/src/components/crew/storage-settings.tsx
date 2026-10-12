@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FieldHint } from "@/components/entry";
+
 import {
   isLowStorage,
   lowStorageWarning,
@@ -49,7 +49,6 @@ export function StorageSettings() {
   return (
     <div className="flex flex-col gap-2 rounded-xl border px-3 py-3">
       <p className="text-[17px] font-semibold">Storage</p>
-      <FieldHint>Offline route and photos stay on this phone until they send.</FieldHint>
       {persistWarn ? <p className="text-[15px] font-semibold text-warning">{persistWarn}</p> : null}
       {low ? <p className="text-[15px] font-semibold text-warning">{lowStorageWarning()}</p> : null}
     </div>

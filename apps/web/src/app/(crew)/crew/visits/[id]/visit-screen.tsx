@@ -1,6 +1,6 @@
 "use client";
 
-import { FieldHint } from "@/components/entry";
+
 import { gateWidthLabel, isNarrowGate } from "@/lib/property/gate";
 import { TriangleAlert } from "lucide-react";
 import Link from "next/link";
@@ -222,7 +222,6 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack, textsCon
     <section className="flex flex-1 flex-col px-4 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-28">
       <span className="flex min-w-0 flex-col items-start gap-1">
         {onBack ? <button type="button" className="inline-flex min-h-12 items-center text-[17px] font-semibold" onClick={onBack}>Today</button> : <Link href="/crew/today" className="inline-flex min-h-12 items-center text-[17px] font-semibold">Today</Link>}
-        <FieldHint>Goes back to today’s stop list.</FieldHint>
       </span>
       {!online ? <p className="mt-3 rounded-xl bg-warning/15 px-3 py-2 text-[15px] font-semibold text-warning">No signal. Your work is saved on this phone.</p> : null}
       <p className="mt-2 text-[15px] font-semibold text-muted-foreground">
@@ -244,13 +243,13 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack, textsCon
       {!midCancel && closed ? <p className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-[15px] font-semibold text-destructive">Office cancelled this stop.</p> : null}
       {alreadyDone ? <p className="mt-3 rounded-xl bg-warning/15 px-3 py-2 text-[15px] font-semibold text-warning" data-testid="already-done">{alreadyDoneMessage(detail.completedByCrew)}</p> : null}
       <div className="mt-4 flex flex-col gap-2">
-        {drive ? <span className="flex min-w-0 flex-col gap-1"><a href={driveUrl(detail.lat!, detail.lng!, false)} className="flex min-h-14 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" onClick={(event) => openMaps(event, detail.lat!, detail.lng!)}>Navigate</a><FieldHint>Opens directions to this stop.</FieldHint></span> : null}
-        {tel ? <span className="flex min-w-0 flex-col gap-1"><a href={tel} className="flex min-h-14 items-center justify-center rounded-xl border text-[17px] font-semibold">Call office</a><FieldHint>Calls the office about this stop.</FieldHint></span> : null}
+        {drive ? <span className="flex min-w-0 flex-col gap-1"><a href={driveUrl(detail.lat!, detail.lng!, false)} className="flex min-h-14 items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" onClick={(event) => openMaps(event, detail.lat!, detail.lng!)}>Navigate</a></span> : null}
+        {tel ? <span className="flex min-w-0 flex-col gap-1"><a href={tel} className="flex min-h-14 items-center justify-center rounded-xl border text-[17px] font-semibold">Call office</a></span> : null}
       </div>
       {detail.gateCode || detail.accessNotes || detail.hasDogs || detail.steep || detail.hasStairs || detail.gateWidthIn != null ? (
         <div className="mt-4 rounded-xl border p-4">
           {detail.gateCode && clock.status === "scheduled" ? <p className="text-[34px] font-bold tracking-[0.18em] tabular-nums">{detail.gateCode}</p> : null}
-          {detail.gateCode && clock.status !== "scheduled" ? <span className="flex min-w-0 flex-col items-start gap-1"><button type="button" className="min-h-12 text-[17px] font-semibold" onClick={() => setShowGate((open) => !open)}>{showGate ? "Hide gate code" : "Show gate code"}</button><FieldHint>{showGate ? "Hides the gate code on this phone." : "Shows the gate code after you have started."}</FieldHint></span> : null}
+          {detail.gateCode && clock.status !== "scheduled" ? <span className="flex min-w-0 flex-col items-start gap-1"><button type="button" className="min-h-12 text-[17px] font-semibold" onClick={() => setShowGate((open) => !open)}>{showGate ? "Hide gate code" : "Show gate code"}</button></span> : null}
           {detail.gateCode && showGate && clock.status !== "scheduled" ? <p className="text-[34px] font-bold tracking-[0.18em] tabular-nums">{detail.gateCode}</p> : null}
           <ul className="mt-2 flex flex-wrap gap-2 text-[15px] font-semibold">
             {detail.gateWidthIn != null ? (
@@ -277,12 +276,10 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack, textsCon
             <div className="mt-3 flex flex-wrap items-start gap-2">
               <span className="flex flex-col items-start gap-1">
                 <button type="button" className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving || crewSize <= 1} onClick={() => void act("visit_set_crew_size", crewSize - 1)}>−</button>
-                <FieldHint>One fewer person on this stop.</FieldHint>
               </span>
               <p className="pt-3 text-[17px] font-semibold">On site {crewSize}</p>
               <span className="flex flex-col items-start gap-1">
                 <button type="button" className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving || crewSize >= 12} onClick={() => void act("visit_set_crew_size", crewSize + 1)}>+</button>
-                <FieldHint>One more person on this stop.</FieldHint>
               </span>
             </div>
           ) : null}
@@ -318,7 +315,6 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack, textsCon
         <div className="fixed inset-0 z-40 overflow-y-auto bg-background px-4 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-8" data-testid="finish-choice">
           <span className="flex min-w-0 flex-col items-start gap-1">
             <button type="button" className="inline-flex min-h-12 items-center text-[17px] font-semibold" onClick={() => setFinishChoice(false)}>Back</button>
-            <FieldHint>Returns to the stop without finishing.</FieldHint>
           </span>
           <h2 className="mt-2 font-serif text-2xl font-bold">Finish stop</h2>
           <p className="mt-2 text-[15px] text-muted-foreground">All done, or leave unfinished work for a return visit?</p>
@@ -326,13 +322,11 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack, textsCon
             <button type="button" className="flex min-h-14 w-full items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => void act("visit_finish")} data-testid="finish-done">
               Done
             </button>
-            <FieldHint>Marks the stop finished.</FieldHint>
           </span>
           <span className="mt-2 flex min-w-0 flex-col gap-1">
             <button type="button" className="flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => { setPartlyOpen(true); setError(null); }} data-testid="finish-partly">
               Partly done
             </button>
-            <FieldHint>Leaves unfinished work for a return visit.</FieldHint>
           </span>
         </div>
       ) : null}
@@ -346,16 +340,16 @@ export function VisitScreen({ visitId, timeZone, userId, orgId, onBack, textsCon
         </div>
       ) : null}
       <div className="fixed inset-x-0 bottom-0 z-10 flex flex-col gap-2 bg-background px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom,0px))]">
-        {lead && clock.status === "scheduled" && !closed && !midCancel ? <span className="flex min-w-0 flex-col gap-1"><button type="button" className="flex min-h-14 w-full items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={saving || Boolean(blocked)} onClick={() => void act("visit_start")}>Start job</button><FieldHint>Starts the clock for this stop.</FieldHint></span> : null}
-        {lead && clock.status === "in_progress" && !midCancel ? <span className="flex min-w-0 flex-col gap-1"><button type="button" className="inline-flex min-h-16 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_pause")}>Pause</button><FieldHint>Pauses the clock. Resume when you start again.</FieldHint></span> : null}
-        {lead && clock.status === "paused" && !midCancel ? <span className="flex min-w-0 flex-col gap-1"><button type="button" className="inline-flex min-h-16 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_resume")}>Resume</button><FieldHint>Starts the clock again after a pause.</FieldHint></span> : null}
+        {lead && clock.status === "scheduled" && !closed && !midCancel ? <span className="flex min-w-0 flex-col gap-1"><button type="button" className="flex min-h-14 w-full items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50" disabled={saving || Boolean(blocked)} onClick={() => void act("visit_start")}>Start job</button></span> : null}
+        {lead && clock.status === "in_progress" && !midCancel ? <span className="flex min-w-0 flex-col gap-1"><button type="button" className="inline-flex min-h-16 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_pause")}>Pause</button></span> : null}
+        {lead && clock.status === "paused" && !midCancel ? <span className="flex min-w-0 flex-col gap-1"><button type="button" className="inline-flex min-h-16 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_resume")}>Resume</button></span> : null}
         {lead && midCancel && !alreadyDone ? (
-          <span className="flex min-w-0 flex-col gap-1"><button type="button" className="inline-flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_stop")}>Stop</button><FieldHint>Stops work on a visit the office cancelled.</FieldHint></span>
+          <span className="flex min-w-0 flex-col gap-1"><button type="button" className="inline-flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={saving} onClick={() => void act("visit_stop")}>Stop</button></span>
         ) : null}
         {lead && working && !alreadyDone ? (
           needAfter
-            ? <span className="flex min-w-0 flex-col gap-1"><button type="button" className="flex min-h-14 w-full items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => photos.current?.pickAfter()}>Take an after photo to finish</button><FieldHint>Takes the after photo this stop needs before it can finish.</FieldHint></span>
-            : <span className="flex min-w-0 flex-col gap-1"><button type="button" className="flex min-h-14 w-full items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => (midCancel ? void act("visit_finish") : setFinishChoice(true))} data-testid="finish-job">{midCancel ? "Finish" : "Finish job"}</button><FieldHint>{midCancel ? "Closes the cancelled stop." : "Opens done or partly done."}</FieldHint></span>
+            ? <span className="flex min-w-0 flex-col gap-1"><button type="button" className="flex min-h-14 w-full items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => photos.current?.pickAfter()}>Take an after photo to finish</button></span>
+            : <span className="flex min-w-0 flex-col gap-1"><button type="button" className="flex min-h-14 w-full items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={saving} onClick={() => (midCancel ? void act("visit_finish") : setFinishChoice(true))} data-testid="finish-job">{midCancel ? "Finish" : "Finish job"}</button></span>
         ) : null}
       </div>
     </section>

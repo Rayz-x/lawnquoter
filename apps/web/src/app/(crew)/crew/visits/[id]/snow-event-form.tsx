@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { FieldHint } from "@/components/entry";
+import { HelpTip } from "@/components/help/help-tip";
+
 import { browserCrewStore, enqueueMutation, flushOutbox } from "@/lib/crew/queue";
 import { snowEventLog } from "@/lib/crew/snow-event-log";
 import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
@@ -21,7 +22,6 @@ export function SnowEventForm({ visitId, userId, orgId, startOpen = false }: { v
         <button type="button" className="flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" onClick={() => setOpen(true)}>
           Log a snow event
         </button>
-        <FieldHint>Records the depth, the time you worked, and what you put down. It sends when you have signal.</FieldHint>
       </span>
     );
   }
@@ -72,30 +72,32 @@ export function SnowEventForm({ visitId, userId, orgId, startOpen = false }: { v
     >
       <h2 className="font-serif text-xl font-bold">Snow event</h2>
       <label className="flex min-w-0 flex-col gap-1 text-[15px]">
-        Trigger depth
+        <span className="inline-flex items-center gap-1">
+          Trigger depth
+          <HelpTip
+            label="Help for snow depth"
+            text="How many inches had to fall before this visit was scheduled."
+            href="/help/snow#activate-a-snow-day"
+          />
+        </span>
         <input aria-label="Trigger depth" placeholder="Trigger inches" inputMode="decimal" value={trigger} onChange={(event) => setTrigger(event.target.value)} required className="h-12 rounded-md border px-3 text-[17px]" />
-        <FieldHint>How many inches had to fall before this visit was scheduled.</FieldHint>
       </label>
       <label className="flex min-w-0 flex-col gap-1 text-[15px]">
         Started
         <input aria-label="Started" type="datetime-local" value={started} onChange={(event) => setStarted(event.target.value)} required className="h-12 w-full max-w-full rounded-md border px-3 text-[17px]" />
-        <FieldHint>When you started clearing snow.</FieldHint>
       </label>
       <label className="flex min-w-0 flex-col gap-1 text-[15px]">
         Ended
         <input aria-label="Ended" type="datetime-local" value={ended} onChange={(event) => setEnded(event.target.value)} required className="h-12 w-full max-w-full rounded-md border px-3 text-[17px]" />
-        <FieldHint>When you finished clearing snow.</FieldHint>
       </label>
       <label className="flex min-w-0 flex-col gap-1 text-[15px]">
         Materials
         <input aria-label="Materials" placeholder="Materials" value={materials} onChange={(event) => setMaterials(event.target.value)} required className="h-12 rounded-md border px-3 text-[17px]" />
-        <FieldHint>Salt, sand, or anything else you put down.</FieldHint>
       </label>
       <span className="flex min-w-0 flex-col gap-1">
         <button type="submit" className="flex min-h-14 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={pending}>
           Save snow event
         </button>
-        <FieldHint>Saves this log on the phone and sends it when you have signal.</FieldHint>
       </span>
     </form>
   );

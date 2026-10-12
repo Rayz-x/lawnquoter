@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { FieldHint } from "@/components/entry";
+
 import { irrigationZoneNote } from "@/lib/crew/irrigation-zone-note";
 import { browserCrewStore, enqueueMutation, flushOutbox } from "@/lib/crew/queue";
 import { sendCrewSync, uploadVisitPhoto } from "@/lib/crew/sync";
@@ -19,7 +19,6 @@ export function IrrigationZoneForm({ visitId, userId, orgId, startOpen = false }
         <button type="button" className="flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" onClick={() => setOpen(true)}>
           Add an irrigation zone note
         </button>
-        <FieldHint>Writes what you found on one zone. It sends when you have signal.</FieldHint>
       </span>
     );
   }
@@ -61,18 +60,15 @@ export function IrrigationZoneForm({ visitId, userId, orgId, startOpen = false }
       <label className="flex min-w-0 flex-col gap-1 text-[15px]">
         Zone
         <input aria-label="Zone" placeholder="Zone" inputMode="numeric" value={zone} onChange={(event) => setZone(event.target.value)} required className="h-12 rounded-md border px-3 text-[17px]" />
-        <FieldHint>The zone number on the controller.</FieldHint>
       </label>
       <label className="flex min-w-0 flex-col gap-1 text-[15px]">
         Note
         <input aria-label="Note" placeholder="What you found" value={note} onChange={(event) => setNote(event.target.value)} required className="h-12 rounded-md border px-3 text-[17px]" />
-        <FieldHint>What you found, such as a broken head or a dry zone.</FieldHint>
       </label>
       <span className="flex min-w-0 flex-col gap-1">
         <button type="submit" className="flex min-h-14 items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={pending}>
           Save zone note
         </button>
-        <FieldHint>Saves the note on the phone and sends it when you have signal.</FieldHint>
       </span>
     </form>
   );

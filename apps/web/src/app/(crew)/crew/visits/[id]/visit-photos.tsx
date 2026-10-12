@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FieldHint } from "@/components/entry";
+
 import { packIsFresh } from "@/app/(crew)/crew/today";
 import { afterPhotoReady, downscalePhoto, packPhotoKinds } from "@/lib/crew/photo";
 import { cameraPickIsNoop } from "@/lib/crew/photo-pending";
@@ -106,11 +106,9 @@ export function VisitPhotos({
       <div className="mt-2 flex flex-col gap-2">
         <span className="flex min-w-0 flex-col gap-1">
           <button type="button" className="inline-flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold" disabled={busy} onClick={() => pick("before")}>Before</button>
-          <FieldHint>Takes a photo of the yard before you start.</FieldHint>
         </span>
         <span className="flex min-w-0 flex-col gap-1">
           <button type="button" className="inline-flex min-h-14 w-full items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground" disabled={busy} onClick={() => pick("after")}>{busy ? "Saving photo" : "Take after photo"}</button>
-          <FieldHint>Takes the photo required to finish the stop.</FieldHint>
         </span>
       </div>
       {error ? <p className="mt-2 text-[15px] font-semibold text-destructive">{error}</p> : null}
