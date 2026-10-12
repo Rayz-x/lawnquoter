@@ -28,6 +28,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ConvertToJobForm } from "./convert-to-job-button";
 import { SplitQuoteForm } from "./split-quote-form";
 import { DeleteQuoteButton } from "./delete-quote-button";
+import { ProgressBillForm } from "./progress-bill-form";
 import { QuoteLines } from "./quote-lines";
 import { QuoteMetaForm } from "./quote-meta-form";
 import { QuoteTermsForm } from "./quote-terms-form";
@@ -383,6 +384,23 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           ) : null}
           {alreadySplit ? (
             <p className="text-sm text-muted-foreground">This quote is already split into {(quoteJobs ?? []).map((job) => job.title).join(", ")}.</p>
+          ) : null}
+          {quote.status === "accepted" && hasRole(session.orgRole, QUOTE_CONVERT_ROLES) ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Progress billing</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ProgressBillForm
+                  quoteId={quote.id}
+                  lines={(items ?? []).filter((line) => line.selected).map((line) => ({
+                    id: line.id,
+                    name: line.name,
+                    price: Number(line.price),
+                  }))}
+                />
+              </CardContent>
+            </Card>
           ) : null}
           <Card>
             <CardHeader>
