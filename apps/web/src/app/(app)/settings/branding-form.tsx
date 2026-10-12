@@ -8,7 +8,7 @@ import { headingFontOf, type HeadingFont, type PublicOrg } from "@/lib/brand/pub
 import { brandingAssetUrl } from "@/lib/brand/urls";
 import { brandWarningCopy } from "@/lib/brand/warnings";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import type { Tables } from "@/lib/supabase/types";
@@ -157,11 +157,13 @@ export function BrandingForm({ org, canEdit }: { org: Tables<"orgs">; canEdit: b
             )}
             <input
               type="file"
+              aria-describedby="logo-light-hint"
               accept="image/svg+xml,image/png,image/jpeg"
               className="sr-only"
               onChange={(event) => onLight(event.target.files?.[0] ?? null)}
             />
             <span className="text-xs text-muted-foreground">{fileMeta(lightFile) ?? (org.logo_path && !removeLight ? "Current logo" : "No logo yet")}</span>
+            <FieldHint id="logo-light-hint">This logo appears on quotes, invoices, and the customer portal.</FieldHint>
           </label>
           {lightUrl && !removeLight ? (
             <Button type="button" variant="outline" className="mt-2" onClick={() => { onLight(null); setRemoveLight(true); setLightUrl(null); }}>
@@ -182,6 +184,7 @@ export function BrandingForm({ org, canEdit }: { org: Tables<"orgs">; canEdit: b
             )}
             <input
               type="file"
+              aria-describedby="logo-dark-hint"
               accept="image/svg+xml,image/png,image/jpeg"
               className="sr-only"
               onChange={(event) => {
@@ -192,6 +195,7 @@ export function BrandingForm({ org, canEdit }: { org: Tables<"orgs">; canEdit: b
                 setDarkUrl(file ? URL.createObjectURL(file) : brandingAssetUrl(org.logo_dark_path));
               }}
             />
+            <FieldHint id="logo-dark-hint">Used when a quote or the portal is shown on a dark background.</FieldHint>
           </label>
           {darkUrl && !removeDark ? (
             <Button type="button" variant="outline" className="mt-2" onClick={() => { setDarkFile(null); setRemoveDark(true); setDarkUrl(null); }}>
@@ -203,6 +207,7 @@ export function BrandingForm({ org, canEdit }: { org: Tables<"orgs">; canEdit: b
             <FieldLabel htmlFor="show-name">Show company name next to the logo</FieldLabel>
             <select
               id="show-name"
+              aria-describedby="show-name-hint"
               className="native-control"
               value={showName}
               onChange={(event) => setShowName(event.target.value as "auto" | "on" | "off")}
@@ -211,17 +216,23 @@ export function BrandingForm({ org, canEdit }: { org: Tables<"orgs">; canEdit: b
               <option value="on">Always show</option>
               <option value="off">Hide</option>
             </select>
+            <FieldHint id="show-name-hint">Choose whether the company name sits beside the logo.</FieldHint>
           </Field>
           <label className="mt-3 flex items-start gap-2 text-sm">
             <input
               type="checkbox"
+              aria-describedby="logo-chip-hint"
+              className="mt-1"
               checked={chip}
               onChange={(event) => {
                 setChip(event.target.checked);
                 setChipTouched(true);
               }}
             />
-            Put the logo on a white chip in dark mode when there is no dark logo
+            <span className="min-w-0 flex-1">
+              Put the logo on a white chip in dark mode when there is no dark logo
+              <FieldHint id="logo-chip-hint">A white chip keeps a dark logo readable on a dark page.</FieldHint>
+            </span>
           </label>
         </section>
 
@@ -231,12 +242,14 @@ export function BrandingForm({ org, canEdit }: { org: Tables<"orgs">; canEdit: b
             <input
               type="color"
               aria-label="Brand color"
+              aria-describedby="brand-color-hint"
               value={normalized ?? "#1E5235"}
               onChange={(event) => setColor(event.target.value.toUpperCase())}
               className="size-10 cursor-pointer rounded-md border bg-transparent"
             />
-            <Input value={color} onChange={(event) => setColor(event.target.value)} onBlur={() => normalized && setColor(normalized)} className="max-w-[140px] font-mono" spellCheck={false} />
+            <Input value={color} aria-describedby="brand-color-hint" onChange={(event) => setColor(event.target.value)} onBlur={() => normalized && setColor(normalized)} className="max-w-[140px] font-mono" spellCheck={false} />
           </div>
+          <FieldHint id="brand-color-hint">Buttons and headings on quotes use this color.</FieldHint>
           <div className="mt-3 flex flex-wrap gap-2">
             {PRESETS.map((hex) => (
               <button key={hex} type="button" aria-label={hex} className="size-7 rounded-md border" style={{ background: hex }} onClick={() => setColor(hex)} />
@@ -253,6 +266,7 @@ export function BrandingForm({ org, canEdit }: { org: Tables<"orgs">; canEdit: b
 
         <section className="rounded-xl border p-4">
           <h2 className="font-medium">Heading style</h2>
+          <FieldHint id="heading-hint">This typeface is used for titles on quotes and the portal.</FieldHint>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
             {(
               [
@@ -262,7 +276,7 @@ export function BrandingForm({ org, canEdit }: { org: Tables<"orgs">; canEdit: b
               ] as const
             ).map(([value, label, font]) => (
               <label key={value} className="cursor-pointer rounded-lg border p-3 has-[:checked]:border-primary">
-                <input type="radio" name="heading-preview" className="sr-only" checked={heading === value} onChange={() => setHeading(value)} />
+                <input type="radio" name="heading-preview" aria-describedby="heading-hint" className="sr-only" checked={heading === value} onChange={() => setHeading(value)} />
                 <span className="block text-xs text-muted-foreground">{label}</span>
                 <span className={`mt-1 block text-lg ${font}`}>Aa $1,601</span>
               </label>

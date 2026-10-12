@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { updateProfile } from "../actions";
@@ -24,11 +24,13 @@ export function ProfileForm({ fullName, phone }: { fullName: string; phone: stri
       <FieldGroup>
         <Field>
           <FieldLabel htmlFor="full_name">Full name</FieldLabel>
-          <Input id="full_name" name="full_name" defaultValue={fullName} required />
+          <Input id="full_name" name="full_name" aria-describedby="full-name-hint" defaultValue={fullName} required />
+          <FieldHint id="full-name-hint">Your name on quotes you send and on the team list.</FieldHint>
         </Field>
         <Field>
           <FieldLabel htmlFor="phone">Mobile phone</FieldLabel>
-          <Input id="phone" name="phone" defaultValue={phone} />
+          <Input id="phone" name="phone" aria-describedby="profile-phone-hint" defaultValue={phone} />
+          <FieldHint id="profile-phone-hint">A number the office can use to reach you.</FieldHint>
         </Field>
       </FieldGroup>
       <div>
