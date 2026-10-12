@@ -46,6 +46,8 @@ export type AbandonedInstantQuote = {
 export type InstantQuoteConfig = {
   serviceAreaZips: string[];
   statedMinimum: number;
+  /** Cents. Null means the deposit is the low end of the range. */
+  depositCents: number | null;
 };
 
 export function emptyInstantQuote(
@@ -135,7 +137,16 @@ export function instantQuoteConfigFromSettings(settings: unknown): InstantQuoteC
   return {
     serviceAreaZips,
     statedMinimum: settingsNumber(record, "instant_quote_minimum", INSTANT_QUOTE_DEFAULT_MINIMUM),
+    depositCents: settingsCents(record, "instant_quote_deposit_cents"),
   };
+}
+
+function settingsCents(settings: Record<string, unknown>, key: string): number | null {
+  if (!Object.prototype.hasOwnProperty.call(settings, key)) return null;
+  const raw = settings[key];
+  const value = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : Number.NaN;
+  if (!Number.isInteger(value) || value <= 0) return null;
+  return value;
 }
 
 export function depositLockCopy(stripeConfigured: boolean): string {

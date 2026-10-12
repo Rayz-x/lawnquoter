@@ -31,7 +31,7 @@ export async function revealInstantQuote(
   slug: string,
   draft: InstantQuoteDraft,
   guards: { turnstileToken: string; honeypot: string },
-): Promise<InstantQuoteOffer | null> {
+): Promise<(InstantQuoteOffer & { leadId: string }) | null> {
   const org = await loadInstantQuotePage(slug);
   if (!org) return null;
   const row = instantQuoteLeadRow(org.orgId, draft);
@@ -68,9 +68,13 @@ export async function revealInstantQuote(
   });
   if (!offer) return null;
 
-  const { error } = await admin.from("lead_requests").insert({ ...row, ip_hash: hashClientIp(ip) });
-  if (error) return null;
-  return offer;
+  const { data, error } = await admin
+    .from("lead_requests")
+    .insert({ ...row, ip_hash: hashClientIp(ip) })
+    .select("id")
+    .single();
+  if (error || !data) return null;
+  return { ...offer, leadId: data.id };
 }
 
 async function loadInstantQuoteCatalog(

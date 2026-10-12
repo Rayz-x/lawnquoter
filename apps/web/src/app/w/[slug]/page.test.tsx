@@ -9,6 +9,10 @@ vi.mock("@/lib/leads/load-public-form", () => ({ loadInstantQuotePage }));
 vi.mock("next/navigation", () => ({ notFound }));
 vi.mock("./reveal-quote", () => ({ revealInstantQuote: vi.fn(async () => null) }));
 vi.mock("./load-map", () => ({ loadInstantQuoteMap: vi.fn(async () => null) }));
+vi.mock("./start-deposit", () => ({
+  instantQuoteDepositAvailable: vi.fn(async () => false),
+  startInstantQuoteDeposit: vi.fn(async () => ({ ok: false, reason: "not_connected" })),
+}));
 vi.mock("@/components/map/measure-map", () => ({ MeasureMap: () => null }));
 
 import InstantQuotePage from "./page";
