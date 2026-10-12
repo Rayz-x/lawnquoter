@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { onMyWayText } from "./on-my-way";
+import { crewMayTextOnMyWay, onMyWayText } from "./on-my-way";
 import { TWILIO_NOT_CONNECTED } from "./sms";
 
 const ready = {
@@ -35,5 +35,16 @@ describe("on my way texts", () => {
       ok: false,
       error: "This person has not agreed to texts.",
     });
+  });
+
+  it("lets the live crew lead text and refuses another crew member", () => {
+    const lead = { office: false, role: "crew_lead", userId: "lead", active: true, crewKnown: true, openLeadId: "lead", defaultLeadId: "other" };
+    expect(crewMayTextOnMyWay(lead)).toBe(true);
+    expect(crewMayTextOnMyWay({ ...lead, openLeadId: null, defaultLeadId: "lead" })).toBe(true);
+    expect(crewMayTextOnMyWay({ ...lead, userId: "mate", role: "crew" })).toBe(false);
+    expect(crewMayTextOnMyWay({ ...lead, openLeadId: "other" })).toBe(false);
+    expect(crewMayTextOnMyWay({ ...lead, crewKnown: false })).toBe(false);
+    expect(crewMayTextOnMyWay({ ...lead, active: false })).toBe(false);
+    expect(crewMayTextOnMyWay({ ...lead, office: true, role: "crew", userId: "mate", crewKnown: false })).toBe(true);
   });
 });

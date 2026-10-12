@@ -16,7 +16,7 @@ export async function saveSmsNumber(fd: FormData): Promise<void> {
   if (raw && !smsNumber) redirect("/inbox?error=Enter%20a%2010-digit%20texting%20number.");
   const supabase = await createClient();
   const { error } = await supabase.from("orgs").update({ sms_number: smsNumber }).eq("id", session.orgId);
-  if (error) redirect(`/inbox?error=${encodeURIComponent(error.message)}`);
+  if (error) redirect(`/inbox?error=${encodeURIComponent(error.code === "23505" ? "That texting number is already used by another company." : error.message)}`);
   revalidatePath("/inbox");
   redirect("/inbox");
 }

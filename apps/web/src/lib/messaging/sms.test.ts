@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deliverSms, inboundSms, mayText, readTwilioConfig, toE164 } from "./sms";
+import { deliverSms, inboundSms, mayText, readTwilioConfig, resolveInboundOrg, toE164 } from "./sms";
 
 const url = "https://app.example.com/api/webhooks/twilio/sms";
 const params = { Body: "On my way", From: "+15551110000", MessageSid: "SM123", To: "+15552220000" };
@@ -62,5 +62,12 @@ describe("Twilio SMS", () => {
     expect(mayText({ optedIn: false, inbound: true })).toEqual({ ok: true });
     expect(mayText({ optedIn: false, inbound: false })).toEqual({ ok: false, error: "This person has not agreed to texts." });
     expect(toE164("5551110000")).toBe("+15551110000");
+  });
+
+  it("gives a reply to the company that sent it, not a company that claimed the number", () => {
+    expect(resolveInboundOrg({ claimedOrgId: "org-b", claimedAmbiguous: false, priorSenderOrgId: "org-a" })).toBe("org-a");
+    expect(resolveInboundOrg({ claimedOrgId: "org-a", claimedAmbiguous: false, priorSenderOrgId: null })).toBe("org-a");
+    expect(resolveInboundOrg({ claimedOrgId: null, claimedAmbiguous: true, priorSenderOrgId: null })).toBeNull();
+    expect(resolveInboundOrg({ claimedOrgId: null, claimedAmbiguous: false, priorSenderOrgId: null })).toBeNull();
   });
 });

@@ -3,6 +3,21 @@ import { mayText, toE164, TWILIO_NOT_CONNECTED } from "./sms";
 
 const OPEN = new Set(["scheduled", "in_progress", "paused"]);
 
+/** Office can text. A crew member can text only as the live lead for that stop's crew. */
+export function crewMayTextOnMyWay(input: {
+  office: boolean;
+  role: string;
+  userId: string;
+  active: boolean;
+  crewKnown: boolean;
+  openLeadId: string | null;
+  defaultLeadId: string | null;
+}): boolean {
+  if (input.office) return true;
+  if (!input.crewKnown || input.role !== "crew_lead" || !input.active) return false;
+  return (input.openLeadId ?? input.defaultLeadId) === input.userId;
+}
+
 export function onMyWayText(input: {
   templateBody: string | null;
   company: string;

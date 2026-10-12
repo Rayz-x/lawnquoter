@@ -6,7 +6,7 @@ import { fail, type ActionResult } from "@/lib/actions/result";
 import { CUSTOMER_EDIT_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
-import { onMyWayText } from "./on-my-way";
+import { crewMayTextOnMyWay, onMyWayText } from "./on-my-way";
 import { deliverSms, readTwilioConfig, toE164, TWILIO_NOT_CONNECTED } from "./sms";
 
 const CREW = ["crew", "crew_lead"] as const;
@@ -25,7 +25,7 @@ export async function textOnMyWay(visitId: string): Promise<ActionResult> {
   const supabase = await createClient();
   const { data: visit, error } = await supabase
     .from("visits")
-    .select("id, status, property_id, properties(formatted_address, account_id)")
+    .select("id, status, property_id, route_id, properties(formatted_address, account_id)")
     .eq("id", visitId)
     .eq("org_id", session.orgId)
     .maybeSingle();
@@ -33,6 +33,36 @@ export async function textOnMyWay(visitId: string): Promise<ActionResult> {
   const property = Array.isArray(visit?.properties) ? visit.properties[0] : visit?.properties;
   const accountId = property?.account_id ?? null;
   if (!visit || !accountId) return fail("That stop was not found.");
+
+  const office = hasRole(session.orgRole, CUSTOMER_EDIT_ROLES);
+  if (!office) {
+    let crewKnown = false;
+    let openLeadId: string | null = null;
+    let defaultLeadId: string | null = null;
+    if (visit.route_id) {
+      const { data: route } = await supabase.from("routes").select("crew_id, date").eq("id", visit.route_id).eq("org_id", session.orgId).maybeSingle();
+      if (route?.crew_id) {
+        crewKnown = true;
+        const [{ data: openSession }, { data: crew }] = await Promise.all([
+          supabase.from("crew_lead_sessions").select("lead_id").eq("org_id", session.orgId).eq("crew_id", route.crew_id).eq("route_date", route.date).is("ended_at", null).maybeSingle(),
+          supabase.from("crews").select("default_lead_id").eq("id", route.crew_id).eq("org_id", session.orgId).maybeSingle(),
+        ]);
+        openLeadId = openSession?.lead_id ?? null;
+        defaultLeadId = crew?.default_lead_id ?? null;
+      }
+    }
+    const { data: membership } = await supabase.from("memberships").select("status").eq("org_id", session.orgId).eq("user_id", session.userId).maybeSingle();
+    const allowed = crewMayTextOnMyWay({
+      office: false,
+      role: session.orgRole,
+      userId: session.userId,
+      active: membership?.status === "active",
+      crewKnown,
+      openLeadId,
+      defaultLeadId,
+    });
+    if (!allowed) return fail("The crew lead sends that text.");
+  }
 
   const admin = createAdminClient();
   const [{ data: org }, { data: template }, { data: contacts, error: contactError }] = await Promise.all([

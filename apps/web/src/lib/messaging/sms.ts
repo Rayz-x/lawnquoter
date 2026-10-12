@@ -80,6 +80,13 @@ export function mayText(input: { optedIn: boolean; inbound: boolean }): { ok: tr
   return { ok: false, error: "This person has not agreed to texts." };
 }
 
+/** Reply goes to whoever sent the last text. A first text goes to the one company that claimed the number. */
+export function resolveInboundOrg(input: { claimedOrgId: string | null; claimedAmbiguous: boolean; priorSenderOrgId: string | null }): string | null {
+  if (input.priorSenderOrgId) return input.priorSenderOrgId;
+  if (input.claimedAmbiguous) return null;
+  return input.claimedOrgId;
+}
+
 export function publicWebhookUrl(requestUrl: string, appUrl: string | undefined): string {
   if (!appUrl?.trim()) return requestUrl;
   const incoming = new URL(requestUrl);
