@@ -34,6 +34,7 @@ import { QuoteTermsForm } from "./quote-terms-form";
 import { SendQuoteButton } from "./send-quote-button";
 import { SiteCheckPanel } from "./site-check-panel";
 import { SiteCheckRequestActions } from "./site-check-request-actions";
+import { QuoteTemplateCard } from "./quote-template-card";
 import { ReviseQuoteButton } from "./revise-quote-button";
 import { QuoteVersionDiffCard } from "@/components/quotes/version-diff";
 
@@ -248,6 +249,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const basis = turf > 0 ? `Priced from ${Math.round(turf).toLocaleString("en-US")} sq ft` : "Priced from this property";
   const canEditQuote = hasRole(session.orgRole, SALES_ROLES);
   const editable = canEditQuote && (quote.status === "draft" || quote.status === "changed");
+  const { data: templates } = editable
+    ? await supabase.from("quote_templates").select("id, name, service_kind").eq("org_id", session.orgId).order("name")
+    : { data: [] };
   const canRevise =
     canEditQuote &&
     (quote.status === "sent" || quote.status === "viewed" || quote.status === "declined" || quote.status === "expired");
@@ -316,6 +320,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
               </Badge>
             ) : null}
           </div>
+          {editable ? <QuoteTemplateCard quoteId={quote.id} templates={templates ?? []} /> : null}
           {versionChanges ? <QuoteVersionDiffCard fromVersion={quote.current_version - 1} changes={versionChanges} /> : null}
           <QuoteLines
             quoteId={quote.id}
