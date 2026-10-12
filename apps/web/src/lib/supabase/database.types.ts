@@ -3812,6 +3812,7 @@ export type Database = {
           property_id: string | null
           public_token: string
           sent_at: string | null
+          signwell_document_id: string | null
           site_check_status:
             | Database["public"]["Enums"]["site_check_status"]
             | null
@@ -3837,6 +3838,7 @@ export type Database = {
           property_id?: string | null
           public_token?: string
           sent_at?: string | null
+          signwell_document_id?: string | null
           site_check_status?:
             | Database["public"]["Enums"]["site_check_status"]
             | null
@@ -3862,6 +3864,7 @@ export type Database = {
           property_id?: string | null
           public_token?: string
           sent_at?: string | null
+          signwell_document_id?: string | null
           site_check_status?:
             | Database["public"]["Enums"]["site_check_status"]
             | null
