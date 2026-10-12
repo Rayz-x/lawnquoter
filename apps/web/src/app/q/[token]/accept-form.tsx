@@ -8,8 +8,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { DEPOSIT_NOT_CONNECTED } from "@/lib/billing/deposit";
+import { formatMoney } from "@/lib/money";
 import { ESIGN_DISCLOSURES } from "@/lib/quotes/legal-copy";
 import { acceptQuote, declineQuote } from "./actions";
+import { startDepositPayment } from "./deposit-actions";
 
 export function AcceptForm({
   token,
@@ -17,19 +20,46 @@ export function AcceptForm({
   selectedIds,
   clause,
   acceptLabel = "Accept",
+  depositCents = 0,
+  stripeReady = false,
 }: {
   token: string;
   status: string;
   selectedIds: string[];
   clause: string | null;
   acceptLabel?: string;
+  depositCents?: number;
+  stripeReady?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(status === "accepted");
 
+  function payDeposit() {
+    startTransition(async () => {
+      const pay = await startDepositPayment(token);
+      if (pay.ok && pay.data.url) {
+        window.location.href = pay.data.url;
+        return;
+      }
+      if (pay.ok) toast.success("This deposit is already paid.");
+      else toast.error(pay.error);
+    });
+  }
+
   if (done || status === "accepted") {
-    return <p className="rounded-lg border bg-muted/40 p-4 text-sm">This proposal is accepted. Thank you.</p>;
+    return (
+      <div className="rounded-lg border bg-muted/40 p-4 text-sm">
+        <p>This proposal is accepted. Thank you.</p>
+        {depositCents > 0 && stripeReady ? (
+          <Button type="button" className="mt-3" disabled={pending} onClick={payDeposit}>
+            {pending ? <Spinner data-icon="inline-start" /> : null}
+            Pay the deposit
+          </Button>
+        ) : null}
+        {depositCents > 0 && !stripeReady ? <p className="mt-2">{DEPOSIT_NOT_CONNECTED}</p> : null}
+      </div>
+    );
   }
   if (status === "declined") {
     return <p className="rounded-lg border p-4 text-sm">This proposal was declined.</p>;
@@ -54,6 +84,17 @@ export function AcceptForm({
                   ? "Accepted. We emailed you a sealed copy."
                   : "Accepted",
             );
+            if (depositCents > 0 && stripeReady) {
+              const pay = await startDepositPayment(token);
+              if (pay.ok && pay.data.url) {
+                window.location.href = pay.data.url;
+                return;
+              }
+              if (!pay.ok) {
+                toast.error(pay.error);
+                return;
+              }
+            }
             setDone(true);
             router.refresh();
           } else toast.error(r.error);
@@ -64,6 +105,12 @@ export function AcceptForm({
         <input key={id} type="hidden" name="selected" value={id} />
       ))}
       <h2 className="font-medium">Accept this proposal</h2>
+      {depositCents > 0 ? (
+        <p className="text-sm">
+          A deposit of {formatMoney(depositCents / 100, { cents: true })} is collected when you accept.
+          {stripeReady ? null : ` ${DEPOSIT_NOT_CONNECTED}`}
+        </p>
+      ) : null}
       {clause ? (
         <p className="text-sm" data-testid="accept-nte-clause">
           {clause}

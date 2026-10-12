@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { fail, type ActionResult } from "@/lib/actions/result";
+import { tryAutoChargeVisitInvoice } from "@/lib/billing/auto-charge-visit";
 import { notifyIssuedInvoice } from "@/lib/billing/notify-issued-invoice";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
@@ -48,14 +49,19 @@ export async function issueInvoiceAndNotify(
   let emailed = false;
   let publicToken: string | null = null;
   for (const issued of body.data.invoices) {
-    const notice = await notifyIssuedInvoice({
-      supabase,
-      invoiceId: issued.id,
-      orgId: session.orgId,
-      appBaseUrl: base,
-    });
-    emailed = emailed || notice.emailed;
-    if (!publicToken) publicToken = notice.publicToken;
+    try {
+      const notice = await notifyIssuedInvoice({
+        supabase,
+        invoiceId: issued.id,
+        orgId: session.orgId,
+        appBaseUrl: base,
+      });
+      emailed = emailed || notice.emailed;
+      if (!publicToken) publicToken = notice.publicToken;
+    } catch {
+      // The invoice is already issued. A failed email must not skip the card charge.
+    }
+    await tryAutoChargeVisitInvoice(issued.id);
   }
 
   revalidatePath("/invoices");

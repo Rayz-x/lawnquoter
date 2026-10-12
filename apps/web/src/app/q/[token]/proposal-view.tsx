@@ -223,9 +223,13 @@ export function ProposalView({
   token,
   payload,
   wisetackUrl = null,
+  depositCents = 0,
+  stripeReady = false,
 }: {
   token: string;
   wisetackUrl?: string | null;
+  depositCents?: number;
+  stripeReady?: boolean;
   payload: {
     title: string;
     number: number;
@@ -451,6 +455,8 @@ export function ProposalView({
               selectedIds={selectedIds}
               clause={clause}
               acceptLabel={hasRanges ? acceptUpToLabel(nteLabel) : "Accept"}
+              depositCents={depositCents}
+              stripeReady={stripeReady}
             />
           ) : null}
         </aside>
