@@ -33,7 +33,7 @@ export function ServiceForm({ onCreated }: { onCreated?: (id: string) => void })
           <Input id="svc_name" name="name" required placeholder="Weekly mow" />
         </Field>
         <Field>
-          <FieldLabel htmlFor="svc_kind">Kind</FieldLabel>
+          <FieldLabel htmlFor="svc_kind">Category</FieldLabel>
           <select id="svc_kind" name="kind" className="native-control" defaultValue="mowing">
             <option value="mowing">Mowing</option>
             <option value="fert">Fert / weed</option>

@@ -61,7 +61,7 @@ export function parseMaterialsCsv(csv: string): MaterialCsvRow[] {
   const lines = csv.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (lines.length === 0) return [];
   const header = splitCsv(lines[0]!).map((h) => h.toLowerCase().replace(/\s+/g, "_"));
-  const skuI = header.findIndex((h) => h === "sku" || h === "item" || h === "part");
+  const skuI = header.findIndex((h) => h === "sku" || h === "item" || h === "item_number" || h === "part");
   const nameI = header.findIndex((h) => h === "name" || h === "description" || h === "product");
   const unitI = header.findIndex((h) => h === "unit" || h === "uom");
   const costI = header.findIndex((h) => h === "unit_cost" || h === "cost" || h === "price");

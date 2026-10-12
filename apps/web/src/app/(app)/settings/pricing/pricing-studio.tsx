@@ -67,7 +67,7 @@ export function PricingHeaderActions({ priceListId, modifiers, materials }: { pr
       <Sheet>
         <SheetTrigger render={<Button variant="outline" />}>Materials</SheetTrigger>
         <SheetContent className="overflow-y-auto sm:max-w-3xl">
-          <SheetHeader><SheetTitle>Materials</SheetTitle><SheetDescription>Used by assemblies and catalog markups.</SheetDescription></SheetHeader>
+          <SheetHeader><SheetTitle>Materials</SheetTitle><SheetDescription>What your materials cost you. Used to work out your margins.</SheetDescription></SheetHeader>
           <div className="px-4 pb-4"><MaterialsPanel materials={materials.map((item) => ({ ...item, unit_cost: Number(item.unit_cost) }))} /></div>
         </SheetContent>
       </Sheet>
