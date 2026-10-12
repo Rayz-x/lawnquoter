@@ -136,6 +136,7 @@ describe("billing details disclosure", () => {
       tags: [] as string[],
       created_by: null,
       stripe_customer_id: null,
+      auto_charge: false,
       qbo_customer_id: null,
       tax_exempt_certificate: null,
       collections_flagged_at: null,

@@ -1,12 +1,12 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { SectionCard } from "@/components/entry";
+import { SectionCard, ToggleRow } from "@/components/entry";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cardOnFileBlockedReason, cardOnFileLabel } from "@/lib/billing/card-on-file";
-import { startCardOnFile } from "./card-on-file-actions";
+import { setAccountAutoCharge, startCardOnFile } from "./card-on-file-actions";
 
 export type CardOnFileRow = {
   id: string;
@@ -22,20 +22,34 @@ export function CardOnFileCard({
   connectReady,
   methods,
   notice,
+  autoCharge = false,
 }: {
   accountId: string;
   stripeKey: boolean;
   connectReady: boolean;
   methods: CardOnFileRow[];
   notice: string | null;
+  autoCharge?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  const [chargePending, startCharge] = useTransition();
+  const [chargeOn, setChargeOn] = useState(autoCharge);
   const blocked = cardOnFileBlockedReason({ stripeKey, connectReady });
   const add = () => {
     startTransition(async () => {
       const result = await startCardOnFile(accountId);
       if (!result.ok) return void toast.error(result.error);
       window.location.href = result.data.url;
+    });
+  };
+  const toggleCharge = (checked: boolean) => {
+    setChargeOn(checked);
+    startCharge(async () => {
+      const result = await setAccountAutoCharge(accountId, checked);
+      if (!result.ok) {
+        setChargeOn(!checked);
+        toast.error(result.error);
+      }
     });
   };
   return (
@@ -54,10 +68,19 @@ export function CardOnFileCard({
           </ul>
         )}
         {blocked ? null : (
-          <Button type="button" className="w-fit" disabled={pending} onClick={add}>
-            {pending ? <Spinner /> : null}
-            Add card
-          </Button>
+          <>
+            <ToggleRow
+              label="Charge this card after each visit"
+              description="Uses the default card once the visit invoice is issued."
+              checked={chargeOn}
+              disabled={chargePending}
+              onCheckedChange={toggleCharge}
+            />
+            <Button type="button" className="w-fit" disabled={pending} onClick={add}>
+              {pending ? <Spinner /> : null}
+              Add card
+            </Button>
+          </>
         )}
       </div>
     </SectionCard>

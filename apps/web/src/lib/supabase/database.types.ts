@@ -2,6 +2,7 @@
 // partly_done_reason / return_of_visit_id added for 20261011190100.
 // stage_entered_at added for 20261014090000.
 // usage_meters added for 20261017003000.
+// auto_charge added for 20261016001800.
 
 export type Json =
   | string
@@ -255,6 +256,7 @@ export type Database = {
       }
       accounts: {
         Row: {
+          auto_charge: boolean
           billing_address_line1: string | null
           billing_address_line2: string | null
           billing_city: string | null
@@ -289,6 +291,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_charge?: boolean
           billing_address_line1?: string | null
           billing_address_line2?: string | null
           billing_city?: string | null
@@ -323,6 +326,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_charge?: boolean
           billing_address_line1?: string | null
           billing_address_line2?: string | null
           billing_city?: string | null
