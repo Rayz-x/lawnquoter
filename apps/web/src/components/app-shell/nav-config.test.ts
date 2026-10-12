@@ -107,6 +107,8 @@ describe("office nav categories", () => {
     expect(item("dispatcher", "Quotes")).toBeUndefined();
     expect(item("sales", "Team")).toBeUndefined();
     expect(item("owner", "Settings")?.href).toBe("/settings");
+    expect(item("owner", "Help")?.href).toBe("/help");
+    expect(item("crew", "Help")?.href).toBe("/help");
   });
 
   it("highlights the category that owns the child route", () => {

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChevronDown, Plus, Search } from "lucide-react";
+import { Bell, ChevronDown, CircleHelp, Plus, Search } from "lucide-react";
 import { useTheme } from "next-themes";
 import type { OrgRole } from "@lawnquoter/shared";
 import { activateOrg } from "@/lib/auth/activate-org";
@@ -175,6 +175,15 @@ export function OfficeShell({
           </button>
 
           <div className="ms-auto flex items-center gap-1">
+            <Link
+              href="/help"
+              className="dispatch-help"
+              aria-label="Help"
+              aria-current={pathname === "/help" || pathname.startsWith("/help/") ? "page" : undefined}
+            >
+              <CircleHelp aria-hidden className="size-4" />
+              <span className="max-[759px]:sr-only">Help</span>
+            </Link>
             <Link href="/dashboard#needs-attention" className="dispatch-icon" aria-label={requestCount > 0 ? `${requestCount} new requests` : "Needs attention"}>
               <Bell className="size-4" />
               {requestCount > 0 ? <span className="dispatch-pip" aria-hidden /> : null}
