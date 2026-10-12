@@ -11,7 +11,7 @@ order: 10
 2. Type the name, mobile, and email.
 3. Start typing the service address and pick a suggestion. The button becomes Create & measure and opens the measure screen after the customer is saved.
 4. Leave the address blank to choose Create. Status starts as Lead.
-5. Choose + Billing details when the customer is a business. You can set the company name printed on invoices, a billing email, terms, PO required, tax exempt, and consolidated invoicing.
+5. A commercial customer shows the billing fields right away. A home starts with + Billing details, which opens the same fields. You can set the company name printed on invoices, a billing email, terms, PO required, tax exempt, and consolidated invoicing.
 
 ## Payment terms
 
@@ -23,11 +23,11 @@ Terms are how many days after the invoice before payment is due.
 
 ## Duplicates
 
-LawnQuoter looks for the same phone or the same street, city, and ZIP. When it finds a match, the form names the existing customer. Create anyway keeps this as a separate customer.
+LawnQuoter looks for the same phone or the same street, city, and ZIP. When it finds a match, the form shows "Possible duplicate" and names the existing customer. Create anyway keeps this as a separate customer.
 
 ## Import a list
 
-Owners open Import customers. Paste a CSV with this header:
+Sales, admins, and owners open Import customers. More than 200 rows says "Import up to 200 customers at a time." Paste a CSV with this header:
 
 `name,phone,email,type,address_line1,city,region,postal_code`
 
