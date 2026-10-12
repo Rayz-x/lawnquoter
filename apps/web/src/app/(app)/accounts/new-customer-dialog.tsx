@@ -4,7 +4,9 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
+import { AccountDuplicateNotice } from "@/components/accounts/duplicate-notice";
 import { ChipGroup, MoreDisclosure, ToggleRow } from "@/components/entry";
+import type { AccountDuplicate } from "@/lib/accounts/duplicates";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
@@ -18,6 +20,7 @@ import { suggestPropertyAddresses } from "./address-suggest";
 import { identityError, normalizeIdentity } from "./account-format";
 import { BILLING_DETAILS_LABEL } from "./billing-details";
 import { createAccount, createProperty } from "./actions";
+import { lookupAccountDuplicates } from "./duplicate-action";
 
 type FieldName = "name" | "phone" | "email" | "billing" | "terms" | "address" | "source";
 
@@ -53,6 +56,8 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
   const [error, setError] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [duplicateMatches, setDuplicateMatches] = useState<AccountDuplicate[]>([]);
+  const [confirmedProbe, setConfirmedProbe] = useState<string | null>(null);
   const business = type === "commercial" || showBusiness;
 
   useEffect(() => {
@@ -104,7 +109,26 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
       return;
     }
     const normalized = normalizeIdentity({ type, name, phone, email });
+    const probeKey = `${normalized.phone}|${street?.address_line1 ?? ""}|${street?.city ?? ""}|${street?.postal_code ?? ""}`;
     startTransition(async () => {
+      if (confirmedProbe !== probeKey) {
+        const found = await lookupAccountDuplicates({
+          phones: normalized.phone ? [normalized.phone] : [],
+          addresses: street
+            ? [{ addressLine1: street.address_line1, city: street.city, postalCode: street.postal_code }]
+            : [],
+        });
+        if (!found.ok) {
+          reject("name", found.error);
+          return;
+        }
+        if (found.data.length) {
+          setDuplicateMatches(found.data);
+          setConfirmedProbe(probeKey);
+          return;
+        }
+        setDuplicateMatches([]);
+      }
       let accountId = savedId;
       if (!accountId) {
         const fd = new FormData();
@@ -193,7 +217,7 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
           <div className="grid gap-3 sm:grid-cols-2">
             <Field data-invalid={invalid === "phone" ? true : undefined}>
               <FieldLabel htmlFor="new-phone">Mobile</FieldLabel>
-              <Input id="new-phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} aria-invalid={invalid === "phone" ? true : undefined} className="max-lg:h-12" onChange={(event) => setPhone(event.target.value)} />
+              <Input id="new-phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} aria-invalid={invalid === "phone" ? true : undefined} className="max-lg:h-12" onChange={(event) => { setPhone(event.target.value); setConfirmedProbe(null); setDuplicateMatches([]); }} />
               {fieldError("phone")}
             </Field>
             <Field data-invalid={invalid === "email" ? true : undefined}>
@@ -204,10 +228,10 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
           </div>
           <Field data-invalid={invalid === "address" ? true : undefined}>
             <FieldLabel htmlFor="new-address">Service address</FieldLabel>
-            <Input id="new-address" role="combobox" aria-autocomplete="list" aria-expanded={suggestions.length > 0} autoComplete="street-address" value={address} placeholder="Start typing an address" aria-invalid={invalid === "address" ? true : undefined} className="max-lg:h-12" onChange={(event) => { setAddress(event.target.value); setPicked(null); setSuggestions([]); }} />
+            <Input id="new-address" role="combobox" aria-autocomplete="list" aria-expanded={suggestions.length > 0} autoComplete="street-address" value={address} placeholder="Start typing an address" aria-invalid={invalid === "address" ? true : undefined} className="max-lg:h-12" onChange={(event) => { setAddress(event.target.value); setPicked(null); setSuggestions([]); setConfirmedProbe(null); setDuplicateMatches([]); }} />
             <div role="listbox" aria-label="Address suggestions" hidden={suggestions.length === 0}>
               {suggestions.map((suggestion) => (
-                <Button key={suggestion.placeId ?? suggestion.formattedAddress} type="button" role="option" variant="ghost" className="min-h-11 w-full justify-start" onClick={() => { setAddress(suggestion.formattedAddress); setPicked(suggestion); setSuggestions([]); }}>
+                <Button key={suggestion.placeId ?? suggestion.formattedAddress} type="button" role="option" variant="ghost" className="min-h-11 w-full justify-start" onClick={() => { setAddress(suggestion.formattedAddress); setPicked(suggestion); setSuggestions([]); setConfirmedProbe(null); setDuplicateMatches([]); }}>
                   {suggestion.formattedAddress}
                 </Button>
               ))}
@@ -266,9 +290,12 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
             </div>
           </MoreDisclosure>
           </div>
-          <div className="sticky bottom-0 flex shrink-0 flex-col gap-2 border-t bg-background pt-3 pb-[env(safe-area-inset-bottom)] sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">Status starts as Lead</p>
-            <Button type="submit" disabled={pending} className="min-h-11">{address.trim() ? "Create & measure →" : "Create"}</Button>
+          <div className="sticky bottom-0 flex shrink-0 flex-col gap-2 border-t bg-background pt-3 pb-[env(safe-area-inset-bottom)]">
+            <AccountDuplicateNotice matches={duplicateMatches} />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">{duplicateMatches.length ? "Create anyway keeps this as a separate customer." : "Status starts as Lead"}</p>
+              <Button type="submit" disabled={pending} className="min-h-11">{duplicateMatches.length ? "Create anyway" : address.trim() ? "Create & measure →" : "Create"}</Button>
+            </div>
           </div>
         </form>
       </DialogContent>

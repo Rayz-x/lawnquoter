@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { priceLine } from "./price";
-import { parseMaterialsCsv, scaleRule } from "./updates";
+import { parseMaterialsCsv, scaleModifiers, scaleRule } from "./updates";
 import { defaultModifiers, type AssemblyRule, type CatalogRule, type IrrigationRule, type ProgramRule, type SnowRule, type TierMatrixRule } from "./types";
 
 const mow: TierMatrixRule = {
@@ -120,6 +120,20 @@ describe("program", () => {
     const r = priceLine({ rule: { ...fert, billing: "prepay" }, quantities: {}, modifiers, context: {} });
     expect(r.price).toBe(324);
   });
+
+  it("uses the highest prepay tier the application count meets", () => {
+    const tiers = [
+      { minApps: 4, discountPct: 0.05 },
+      { minApps: 6, discountPct: 0.1 },
+      { minApps: 8, discountPct: 0.15 },
+    ];
+    const prepaid = { ...fert, billing: "prepay" as const, prepayDiscountPct: 0, prepayTiers: tiers };
+    expect(priceLine({ rule: { ...prepaid, applicationCount: 4 }, quantities: {}, modifiers, context: {} }).price).toBe(228);
+    expect(priceLine({ rule: { ...prepaid, applicationCount: 7 }, quantities: {}, modifiers, context: {} }).price).toBe(378);
+    expect(priceLine({ rule: { ...prepaid, applicationCount: 8 }, quantities: {}, modifiers, context: {} }).price).toBe(408);
+    expect(priceLine({ rule: { ...prepaid, applicationCount: 3 }, quantities: {}, modifiers, context: {} }).price).toBe(180);
+    expect(priceLine({ rule: { ...prepaid, applicationCount: 4, prepayDiscountPct: 0.1 }, quantities: {}, modifiers, context: {} }).price).toBe(228);
+  });
 });
 
 describe("snow and irrigation", () => {
@@ -195,6 +209,17 @@ describe("mass update and csv", () => {
     const next = scaleRule(mow, 1.1);
     if (next.type !== "tier_matrix") throw new Error("expected tier");
     expect(next.rows[0]?.price).toBe(44);
+  });
+
+  it("scales property-adjustment dollars and leaves hours and percents", () => {
+    const next = scaleModifiers(defaultModifiers(), 1.1);
+    expect(next.minimum?.price).toBe(49.5);
+    expect(next.narrowGate?.extraPrice).toBe(8.8);
+    expect(next.narrowGate?.extraHours).toBe(0.15);
+    expect(next.perObstacle?.extraPrice).toBe(3.3);
+    expect(next.stairs?.extraPrice).toBe(5.5);
+    expect(next.slope?.steep?.pricePct).toBe(0.25);
+    expect(next.firstCut?.multiplier).toBe(1.5);
   });
 
   it("scales assembly rates", () => {

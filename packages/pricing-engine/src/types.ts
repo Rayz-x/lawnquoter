@@ -141,6 +141,8 @@ export const programRuleSchema = z.object({
   applicationCount: z.number().int().positive(),
   perApp: z.object({ price: z.number().nonnegative(), hours: z.number().nonnegative(), cost: z.number().nonnegative() }),
   prepayDiscountPct: z.number().min(0).max(0.5).default(0),
+  /** Highest tier whose application count the program meets wins over the flat prepay percent. */
+  prepayTiers: z.array(z.object({ minApps: z.number().int().positive().max(24), discountPct: z.number().min(0).max(0.5) })).max(6).optional(),
   billing: z.enum(["per_app", "prepay"]).default("per_app"),
 });
 export type ProgramRule = z.infer<typeof programRuleSchema>;

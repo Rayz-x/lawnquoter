@@ -1,4 +1,4 @@
-import type { PricingRule } from "./types";
+import type { Modifiers, PricingRule } from "./types";
 import { roundMoney } from "./money";
 
 /** Mass-update: scale every dollar figure on a rule. Hours stay put. */
@@ -51,6 +51,21 @@ export function scaleRule(rule: PricingRule, factor: number): PricingRule {
         ? { ...item, unitCost: roundMoney(item.unitCost * factor) }
         : { ...item, hourlyRate: roundMoney(item.hourlyRate * factor) },
     ),
+  };
+}
+
+/** Mass-update: scale dollar add-ons on property adjustments. Hours and percents stay put. */
+export function scaleModifiers(modifiers: Modifiers, factor: number): Modifiers {
+  return {
+    ...modifiers,
+    narrowGate: modifiers.narrowGate
+      ? { ...modifiers.narrowGate, extraPrice: roundMoney(modifiers.narrowGate.extraPrice * factor) }
+      : undefined,
+    perObstacle: modifiers.perObstacle
+      ? { ...modifiers.perObstacle, extraPrice: roundMoney(modifiers.perObstacle.extraPrice * factor) }
+      : undefined,
+    stairs: modifiers.stairs ? { ...modifiers.stairs, extraPrice: roundMoney(modifiers.stairs.extraPrice * factor) } : undefined,
+    minimum: modifiers.minimum ? { ...modifiers.minimum, price: roundMoney(modifiers.minimum.price * factor) } : undefined,
   };
 }
 

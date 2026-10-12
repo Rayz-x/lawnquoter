@@ -134,5 +134,66 @@ describe("LeadsPage access", () => {
     expect(html).toContain("Older Lead");
     expect(html.indexOf("Newest Lead")).toBeLessThan(html.indexOf("Older Lead"));
     expect(html).toContain("Add phone lead");
+    expect(html).toContain("Board");
+  });
+
+  it("shows rotting, the owner, and the lost reason on the board", async () => {
+    requireOrg.mockResolvedValueOnce({
+      userId: "user-1",
+      email: "owner@example.com",
+      orgId: "org-1",
+      orgRole: "owner",
+    });
+    listLeadRequests.mockResolvedValueOnce({
+      ok: true,
+      leads: [
+        {
+          id: "rotting",
+          org_id: "org-1",
+          status: "new",
+          contact_name: "Stale Ada",
+          phone: "555-0100",
+          email: null,
+          source: "Google",
+          source_other: null,
+          assignee_id: "user-9",
+          assignee_name: "Sam Owner",
+          lost_reason: null,
+          stage_entered_at: "2026-10-10T08:00:00.000Z",
+          next_follow_up_on: null,
+          created_at: "2026-10-10T08:00:00.000Z",
+          updated_at: "2026-10-10T08:00:00.000Z",
+        },
+        {
+          id: "lost",
+          org_id: "org-1",
+          status: "lost",
+          contact_name: "Bea Lost",
+          phone: null,
+          email: "bea@example.com",
+          source: "Referral",
+          source_other: null,
+          assignee_id: null,
+          assignee_name: null,
+          lost_reason: "price",
+          stage_entered_at: "2026-10-01T12:00:00.000Z",
+          next_follow_up_on: null,
+          created_at: "2026-10-01T12:00:00.000Z",
+          updated_at: "2026-10-01T12:00:00.000Z",
+        },
+      ],
+    });
+
+    const html = renderToStaticMarkup(
+      await LeadsPage({ searchParams: Promise.resolve({ view: "board" }) }),
+    );
+
+    expect(html).toContain("Stale Ada");
+    expect(html).toContain("Sam Owner");
+    expect(html).toContain("Rotting");
+    expect(html).toContain("Bea Lost");
+    expect(html).toContain("Lost: Price");
+    expect(html).toContain("Quoted");
+    expect(html).not.toContain("Next follow-up");
   });
 });
