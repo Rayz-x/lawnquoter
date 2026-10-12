@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exportJson, exportPdfLines, storedZip, tableCsv, type ExportTables } from "./bundle";
+import { exportJson, exportPdfLines, invoicePdfLines, storedZip, tableCsv, type ExportTables } from "./bundle";
 
 const tables: ExportTables = {
   accounts: [{ id: "a", name: "North" }],
@@ -23,6 +23,15 @@ describe("company export", () => {
       "Invoices: 1",
       "Q-12 Spring — accepted",
     ]);
+  });
+
+  it("writes an invoice PDF separate from the register", () => {
+    expect(
+      invoicePdfLines({
+        ...tables,
+        invoices: [{ id: "i", number_label: "INV-3", status: "issued", total_cents: 1500 }],
+      }),
+    ).toEqual(["LawnQuoter invoices", "INV-3 — issued — 1500 cents"]);
   });
 
   it("stores a zip member named accounts.csv", () => {

@@ -32,6 +32,14 @@ export function exportJson(tables: ExportTables): string {
   return `${JSON.stringify(tables, null, 2)}\n`;
 }
 
+export function invoicePdfLines(tables: ExportTables): string[] {
+  const lines = ["LawnQuoter invoices"];
+  for (const invoice of tables.invoices.slice(0, 40)) {
+    lines.push(`${invoice.number_label ?? ""} — ${invoice.status ?? ""} — ${invoice.total_cents ?? 0} cents`.trim());
+  }
+  return lines;
+}
+
 export function exportPdfLines(tables: ExportTables): string[] {
   const lines = [
     "LawnQuoter export",

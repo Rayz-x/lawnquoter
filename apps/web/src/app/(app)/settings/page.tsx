@@ -78,7 +78,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         {canEdit ? (
           <p className="mb-4 text-sm">
             <a className="underline" href="/settings/export">
-              Download CSV, JSON, and PDF export
+              Download CSV, JSON, and PDF exports
             </a>
           </p>
         ) : null}

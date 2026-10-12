@@ -1,7 +1,7 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { NextResponse } from "next/server";
 import { requireOrg } from "@/lib/auth/session";
-import { EXPORT_COLUMNS, exportJson, exportPdfLines, storedZip, tableCsv, type Row } from "@/lib/export/bundle";
+import { EXPORT_COLUMNS, exportJson, exportPdfLines, invoicePdfLines, storedZip, tableCsv, type Row } from "@/lib/export/bundle";
 import { ExportPdf } from "@/lib/export/export-pdf";
 import { createClient } from "@/lib/supabase/server";
 
@@ -37,11 +37,18 @@ export async function GET() {
     ]);
     const tables = { accounts, properties, quotes, invoices };
     const lines = exportPdfLines(tables);
+    const invoiceLines = invoicePdfLines(tables);
     if (accounts.length >= MAX) lines.push("Accounts stopped at 20000 rows.");
     if (properties.length >= MAX) lines.push("Properties stopped at 20000 rows.");
     if (quotes.length >= MAX) lines.push("Quotes stopped at 20000 rows.");
-    if (invoices.length >= MAX) lines.push("Invoices stopped at 20000 rows.");
-    const pdf = await renderToBuffer(ExportPdf({ lines }));
+    if (invoices.length >= MAX) {
+      lines.push("Invoices stopped at 20000 rows.");
+      invoiceLines.push("Invoices stopped at 20000 rows.");
+    }
+    const [pdf, invoicePdf] = await Promise.all([
+      renderToBuffer(ExportPdf({ lines })),
+      renderToBuffer(ExportPdf({ lines: invoiceLines })),
+    ]);
     const encoder = new TextEncoder();
     const zip = storedZip([
       { name: "accounts.csv", bytes: encoder.encode(tableCsv(EXPORT_COLUMNS.accounts, accounts)) },
@@ -50,6 +57,7 @@ export async function GET() {
       { name: "invoices.csv", bytes: encoder.encode(tableCsv(EXPORT_COLUMNS.invoices, invoices)) },
       { name: "export.json", bytes: encoder.encode(exportJson(tables)) },
       { name: "register.pdf", bytes: new Uint8Array(pdf) },
+      { name: "invoices.pdf", bytes: new Uint8Array(invoicePdf) },
     ]);
     return new NextResponse(Buffer.from(zip), {
       headers: {
