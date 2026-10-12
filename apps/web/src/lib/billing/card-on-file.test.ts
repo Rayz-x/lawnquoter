@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardFromSetupSession, cardOnFileBlockedReason, cardOnFileLabel, cardSetupCheckoutParams } from "./card-on-file";
+import { cardFromSetupSession, cardOnFileBlockedReason, cardOnFileLabel, cardSetupCheckoutParams, startCardOnFileSetup } from "./card-on-file";
 
 const visaSession = {
   mode: "setup",
@@ -91,5 +91,22 @@ describe("card on file", () => {
       payment_method_options: { us_bank_account: { verification_method: "instant" } },
       metadata: { lawnquoter_account_id: "acct-1", lawnquoter_org_id: "org-1", lawnquoter_purpose: "card_on_file" },
     });
+  });
+
+  it("does not call Stripe when the key is missing", async () => {
+    const result = await startCardOnFileSetup({
+      stripeKeyPresent: false,
+      connectReady: false,
+      stripeAccountId: null,
+      customerId: "cus_123",
+      accountId: "acct-1",
+      orgId: "org-1",
+      successUrl: "https://app.example/ok",
+      cancelUrl: "https://app.example/cancel",
+      createSession: async () => {
+        throw new Error("stripe should not be called");
+      },
+    });
+    expect(result).toEqual({ ok: false, reason: "not_configured" });
   });
 });

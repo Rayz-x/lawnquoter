@@ -139,3 +139,33 @@ export function cardFromSetupSession(
     },
   };
 }
+
+export async function startCardOnFileSetup(deps: {
+  stripeKeyPresent: boolean;
+  connectReady: boolean;
+  stripeAccountId: string | null;
+  customerId: string;
+  accountId: string;
+  orgId: string;
+  successUrl: string;
+  cancelUrl: string;
+  createSession: (
+    params: ReturnType<typeof cardSetupCheckoutParams>,
+    stripeAccountId: string,
+  ) => Promise<{ url: string | null }>;
+}): Promise<{ ok: true; url: string } | { ok: false; reason: "not_configured" | "connect_not_ready" | "missing_url" }> {
+  if (!deps.stripeKeyPresent) return { ok: false, reason: "not_configured" };
+  if (!deps.connectReady || !deps.stripeAccountId) return { ok: false, reason: "connect_not_ready" };
+  const session = await deps.createSession(
+    cardSetupCheckoutParams({
+      accountId: deps.accountId,
+      orgId: deps.orgId,
+      customerId: deps.customerId,
+      successUrl: deps.successUrl,
+      cancelUrl: deps.cancelUrl,
+    }),
+    deps.stripeAccountId,
+  );
+  if (!session.url) return { ok: false, reason: "missing_url" };
+  return { ok: true, url: session.url };
+}
