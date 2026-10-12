@@ -29,6 +29,7 @@ describe("dispatch views", () => {
   it("ignores a drop onto the same crew and day", () => {
     expect(shouldMoveVisit({ crewId: "c", date: "2026-10-12" }, { crewId: "c", date: "2026-10-12" })).toBe(false);
     expect(shouldMoveVisit({ crewId: "c", date: "2026-10-12" }, { crewId: "c", date: "2026-10-13" })).toBe(true);
+    expect(shouldMoveVisit({ crewId: "a", date: "2026-10-12" }, { crewId: "b", date: "2026-10-12" })).toBe(true);
     expect(shouldMoveVisit({ crewId: null, date: "2026-10-12" }, { crewId: "c", date: "2026-10-12" })).toBe(true);
   });
 });

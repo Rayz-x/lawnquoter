@@ -144,6 +144,7 @@ describe("saveMeasurement", () => {
     const saved = await saveMeasurement(PROPERTY_ID, DRAFT_ID, features, "2014-02-20");
     expect(saved).toEqual({ ok: true, data: { confidence: 0 } });
     expect(db.measurements.find((row) => row.id === DRAFT_ID)?.imagery_date).toBe("2014-02-20");
+    expect(db.rpcCalls).toContainEqual({ fn: "record_usage", args: { p_kind: "measurement" } });
     expect(await saveMeasurement(PROPERTY_ID, DRAFT_ID, features, "1999-01-01")).toEqual({
       ok: false,
       error: "Choose an imagery date from the list.",

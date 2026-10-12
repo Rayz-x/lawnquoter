@@ -7,6 +7,7 @@ import { z } from "zod";
  */
 const money = z.number().min(0).max(10000);
 const pct = z.number().min(0).max(200);
+const signedPct = z.number().min(-50).max(100);
 const minutes = z.number().min(0).max(600);
 const slopes = z.object({ gentle: pct, moderate: pct, steep: pct });
 
@@ -28,6 +29,23 @@ export const modifierFieldsSchema = z.object({
   stairsOn: z.boolean(),
   stairsPrice: money,
   stairsMinutes: minutes,
+  travelOn: z.boolean(),
+  nearbyMinutes: minutes,
+  nearbyMiles: z.number().min(0.1).max(200),
+  nearbyPrice: money,
+  townMinutes: minutes,
+  townMiles: z.number().min(0.1).max(200),
+  townPrice: money,
+  farPrice: money,
+  densityOn: z.boolean(),
+  densityStops: z.number().int().min(1).max(50),
+  densityPct: z.number().min(0).max(50),
+  densityMiles: z.number().min(0.1).max(50),
+  seasonOn: z.boolean(),
+  springPct: signedPct,
+  summerPct: signedPct,
+  fallPct: signedPct,
+  winterPct: signedPct,
 });
 export type ModifierFields = z.infer<typeof modifierFieldsSchema>;
 
@@ -66,6 +84,23 @@ export function modifiersToFields(raw: Modifiers): ModifierFields {
     stairsOn: isOn(m.stairs?.extraPrice, m.stairs?.extraHours),
     stairsPrice: m.stairs?.extraPrice ?? 0,
     stairsMinutes: toMin(m.stairs?.extraHours),
+    travelOn: isOn(...(m.travelZones ?? []).map((zone) => zone.extraPrice)),
+    nearbyMinutes: m.travelZones?.[0]?.maxMinutes ?? 15,
+    nearbyMiles: m.travelZones?.[0]?.maxMiles ?? 8,
+    nearbyPrice: m.travelZones?.[0]?.extraPrice ?? 0,
+    townMinutes: m.travelZones?.[1]?.maxMinutes ?? 30,
+    townMiles: m.travelZones?.[1]?.maxMiles ?? 20,
+    townPrice: m.travelZones?.[1]?.extraPrice ?? 0,
+    farPrice: m.travelZones?.[2]?.extraPrice ?? 0,
+    densityOn: (m.routeDensity?.discountPct ?? 0) > 0,
+    densityStops: m.routeDensity?.minNearby ?? 4,
+    densityPct: toPct(m.routeDensity?.discountPct),
+    densityMiles: m.routeDensity?.radiusMiles ?? 0.5,
+    seasonOn: (m.seasonalFactors ?? []).some((factor) => factor.pricePct !== 0),
+    springPct: toPct(m.seasonalFactors?.find((factor) => factor.label === "Spring")?.pricePct),
+    summerPct: toPct(m.seasonalFactors?.find((factor) => factor.label === "Summer")?.pricePct),
+    fallPct: toPct(m.seasonalFactors?.find((factor) => factor.label === "Fall")?.pricePct),
+    winterPct: toPct(m.seasonalFactors?.find((factor) => factor.label === "Winter")?.pricePct),
   };
 }
 
@@ -85,6 +120,22 @@ export function fieldsToModifiers(f: ModifierFields): Modifiers {
     firstCut: { multiplier: f.firstCutOn ? 1 + f.firstCutPct / 100 : 1 },
     perObstacle: { extraPrice: on(f.obstacleOn, f.obstaclePrice), extraHours: on(f.obstacleOn, toHours(f.obstacleMinutes)) },
     stairs: { extraPrice: on(f.stairsOn, f.stairsPrice), extraHours: on(f.stairsOn, toHours(f.stairsMinutes)) },
+    travelZones: [
+      { label: "Nearby", maxMinutes: f.nearbyMinutes || 15, maxMiles: f.nearbyMiles || 8, extraPrice: on(f.travelOn, f.nearbyPrice) },
+      { label: "Town", maxMinutes: f.townMinutes || 30, maxMiles: f.townMiles || 20, extraPrice: on(f.travelOn, f.townPrice) },
+      { label: "Farther", maxMinutes: null, maxMiles: null, extraPrice: on(f.travelOn, f.farPrice) },
+    ],
+    routeDensity: {
+      minNearby: f.densityStops,
+      discountPct: on(f.densityOn, toFrac(f.densityPct)),
+      radiusMiles: f.densityMiles,
+    },
+    seasonalFactors: [
+      { label: "Spring", months: [3, 4, 5], pricePct: on(f.seasonOn, toFrac(f.springPct)) },
+      { label: "Summer", months: [6, 7, 8], pricePct: on(f.seasonOn, toFrac(f.summerPct)) },
+      { label: "Fall", months: [9, 10, 11], pricePct: on(f.seasonOn, toFrac(f.fallPct)) },
+      { label: "Winter", months: [12, 1, 2], pricePct: on(f.seasonOn, toFrac(f.winterPct)) },
+    ],
   });
 }
 
@@ -100,5 +151,8 @@ export function modifierExamples(modifiers: Modifiers, base: number) {
     obstacles: at({ obstacleCount: 3 }),
     stairs: at({ hasStairs: true }),
     small: at({}, tiny),
+    farDrive: at({ driveMinutes: 45, driveMiles: 30 }),
+    denseRoute: at({ nearbyStops: Math.max(modifiers.routeDensity?.minNearby ?? 4, 4) }),
+    summer: at({ serviceMonth: 7 }),
   };
 }

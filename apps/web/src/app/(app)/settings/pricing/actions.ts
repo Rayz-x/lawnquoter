@@ -84,6 +84,7 @@ export async function updateService(fd: FormData): Promise<ActionResult> {
       window_start: optionalIsoDate,
       window_end: optionalIsoDate,
       warn_date: optionalIsoDate,
+      minimum_price: z.string().trim().optional(),
     })
     .safeParse(Object.fromEntries(fd));
   if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Invalid");
@@ -102,15 +103,22 @@ export async function updateService(fd: FormData): Promise<ActionResult> {
     return fail("Warn date must be on or before the window end.");
   }
 
+  const minimumRaw = parsed.data.minimum_price;
+  const minimumPrice = minimumRaw == null || minimumRaw === "" ? null : Number(minimumRaw);
+  if (minimumRaw != null && minimumRaw !== "" && (minimumPrice == null || !Number.isFinite(minimumPrice) || minimumPrice < 0 || minimumPrice > 100000)) {
+    return fail("Enter a service minimum of $0 or more.");
+  }
   const patch: {
     description?: string | null;
     window_start?: string | null;
     window_end?: string | null;
     warn_date?: string | null;
+    minimum_price?: number | null;
   } = {};
   if (parsed.data.description !== undefined) {
     patch.description = parsed.data.description || null;
   }
+  if (minimumRaw !== undefined) patch.minimum_price = minimumPrice;
   if (
     parsed.data.window_start !== undefined ||
     parsed.data.window_end !== undefined ||

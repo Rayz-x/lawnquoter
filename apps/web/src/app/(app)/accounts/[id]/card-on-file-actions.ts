@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { requireOrg } from "@/lib/auth/session";
@@ -17,6 +18,24 @@ function reasonMessage(reason: "not_configured" | "connect_not_ready" | "missing
   if (reason === "not_configured") return "Not connected - add a Stripe key to enable.";
   if (reason === "connect_not_ready") return "Connect Stripe in Settings before a card can be saved.";
   return "Stripe did not return a checkout link.";
+}
+
+export async function setAccountAutoCharge(accountId: string, enabled: boolean): Promise<ActionResult> {
+  const session = await requireOrg();
+  if (!hasRole(session.orgRole, ADMIN_ROLES)) return fail("Only an owner or admin can change auto-charge.");
+  const parsed = z
+    .object({ accountId: z.string().uuid(), enabled: z.boolean() })
+    .safeParse({ accountId, enabled });
+  if (!parsed.success) return fail("Account not found.");
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("accounts")
+    .update({ auto_charge: parsed.data.enabled })
+    .eq("id", parsed.data.accountId)
+    .eq("org_id", session.orgId);
+  if (error) return fail(error.message);
+  revalidatePath(`/accounts/${parsed.data.accountId}`);
+  return { ok: true };
 }
 
 export async function startCardOnFile(accountId: string): Promise<ActionResult<{ url: string }>> {

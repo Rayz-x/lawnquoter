@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { hasRole } from "@lawnquoter/shared";
+import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { OFFICE_ROLES } from "@/lib/auth/office-roles";
+import { IssueInvoiceButton } from "./issue-invoice-button";
 import { requireOrg } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
@@ -99,6 +100,9 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           </Badge>
           {invoice.status === "draft" ? (
             <p className="text-sm text-muted-foreground">Draft — numbering and tax land when issued.</p>
+          ) : null}
+          {invoice.status === "draft" && hasRole(session.orgRole, ADMIN_ROLES) ? (
+            <IssueInvoiceButton invoiceId={invoice.id} />
           ) : null}
         </div>
 

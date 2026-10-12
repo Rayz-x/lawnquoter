@@ -18,8 +18,10 @@ import {
 import { parseRevokePhoneResult, type RevokedUnsyncedVisit } from "@/lib/scheduling/phone-revoke";
 import { boardPhonesForCrew } from "@/lib/scheduling/phone-sync";
 import { createClient } from "@/lib/supabase/server";
+import { isWeatherAction, isWeatherCondition, type WeatherRule } from "@/lib/scheduling/weather-rules";
 import { DayBoard, type BoardColumn, type BoardVisit, type PhoneSync } from "./day-board";
 import { DispatchGrid, type GridVisit } from "./dispatch-grid";
+import { WeatherCard } from "./weather-card";
 
 export const metadata: Metadata = { title: "Schedule" };
 
@@ -164,6 +166,7 @@ export default async function SchedulePage({
     { data: memberRows, error: memberError },
     { data: phoneRows, error: phoneError },
     { data: revokeRows, error: revokeError },
+    { data: ruleRows, error: ruleError },
   ] = await Promise.all([
       supabase.from("crews").select("id, name, active").eq("org_id", session.orgId).order("name"),
       supabase.from("routes").select("id, crew_id, status, revision").eq("org_id", session.orgId).eq("date", date),
@@ -183,6 +186,7 @@ export default async function SchedulePage({
         .select("profile_id, revoked_at, unsynced_visits")
         .eq("org_id", session.orgId)
         .is("cleared_at", null),
+      supabase.from("weather_skip_rules").select("condition, threshold, action, enabled").eq("org_id", session.orgId),
     ]);
   const error =
     crewsError?.message ??
@@ -192,8 +196,14 @@ export default async function SchedulePage({
     memberError?.message ??
     phoneError?.message ??
     revokeError?.message ??
+    ruleError?.message ??
     null;
   const tray = parseAttentionTray(trayData, today);
+  const weatherRules: WeatherRule[] = (ruleRows ?? []).flatMap((row) =>
+    isWeatherCondition(row.condition) && isWeatherAction(row.action)
+      ? [{ condition: row.condition, threshold: row.threshold, action: row.action, enabled: row.enabled }]
+      : [],
+  );
   const routeByCrew = new Map((routes ?? []).map((route) => [route.crew_id, route]));
   const routeIds = new Set((routes ?? []).map((route) => route.id));
   const visibleCrews = (crews ?? []).filter((crew) => crew.active || routeByCrew.has(crew.id));
@@ -406,6 +416,7 @@ export default async function SchedulePage({
             ))}
           </div>
         ) : null}
+        {canWrite ? <WeatherCard date={date} rules={weatherRules} /> : null}
         {loadError ? (
           <Alert variant="destructive">
             <AlertTitle>Could not load this schedule</AlertTitle>
