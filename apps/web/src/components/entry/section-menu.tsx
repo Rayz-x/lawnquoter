@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
-import { FieldHint } from "./field-hint";
+
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -12,19 +12,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 export type SectionMenuItem = {
   id: string;
   label: string;
-  hint?: string;
   onSelect: () => void;
   destructive?: boolean;
   confirm?: string;
 };
 
 function MenuLabel({ item }: { item: SectionMenuItem }) {
-  return (
-    <span className="flex min-w-0 max-w-full flex-col items-start gap-0.5 whitespace-normal text-start">
-      <span>{item.label}</span>
-      {item.hint ? <FieldHint>{item.hint}</FieldHint> : null}
-    </span>
-  );
+  return <span className="whitespace-normal text-start">{item.label}</span>;
 }
 
 export function splitSectionMenuItems(items: SectionMenuItem[]) {
