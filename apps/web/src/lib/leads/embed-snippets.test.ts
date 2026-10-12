@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   hostedQuoteFormUrl,
+  instantQuoteIframeEmbed,
   leadFormSlugFromOrg,
   quoteButtonSnippet,
   quoteIframeEmbed,
@@ -19,6 +20,13 @@ describe("lead form embed snippets", () => {
     expect(snippet).toContain(slug);
     expect(snippet).toContain("/r/acme-lawn");
     expect(snippet).toMatch(/utm_medium=button/);
+    expect(snippet).toMatch(/utm_source=website/);
+  });
+
+  it("instant-quote embed points at the widget route", () => {
+    const snippet = instantQuoteIframeEmbed(origin, slug);
+    expect(snippet).toContain("/w/acme-lawn");
+    expect(snippet).toMatch(/utm_medium=embed/);
     expect(snippet).toMatch(/utm_source=website/);
   });
 

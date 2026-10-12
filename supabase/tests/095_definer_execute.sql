@@ -117,6 +117,7 @@ select is(
     'record_office_payment',
     'record_usage',
     'reorder_route_visits',
+    'resolve_qbo_conflict',
     'resume_agreement',
     'revoke_org_invite',
     'set_active_org',

@@ -3,6 +3,7 @@ import { defaultModifiers, type Modifiers } from "@lawnquoter/pricing-engine";
 import { ADMIN_ROLES, hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { requireOrg } from "@/lib/auth/session";
+import { vendorPriceStatus } from "@/lib/pricing/vendor-prices";
 import { createClient } from "@/lib/supabase/server";
 import { AddFromCatalog, CatalogDraftBanner } from "./catalog-panel";
 import { openQuotesByService, type OpenQuote } from "./pricing-entry";
@@ -46,7 +47,7 @@ export default async function PricingPage({ searchParams }: { searchParams?: Pro
 
   return (
     <>
-      <PageHeader title="Services & Pricing" description={subtitle(list ?? null)} actions={canEdit ? <><AddFromCatalog installedKeys={installedKeys} /><PricingHeaderActions priceListId={list?.id ?? null} modifiers={modifiers} materials={materials ?? []} /></> : null} />
+      <PageHeader title="Services & Pricing" description={subtitle(list ?? null)} actions={canEdit ? <><AddFromCatalog installedKeys={installedKeys} /><PricingHeaderActions priceListId={list?.id ?? null} modifiers={modifiers} materials={materials ?? []} vendorPrices={vendorPriceStatus(process.env)} /></> : null} />
       <div className="page-body">
         {draft ? (
           <CatalogDraftBanner
