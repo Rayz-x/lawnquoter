@@ -1,5 +1,6 @@
 import type { StyleSpecification } from "maplibre-gl";
 import "./maplibre-worker";
+import { waybackTileUrl } from "./imagery-dates";
 
 /**
  * Required wherever a stored ArcGIS geocode is drawn. Esri's location-services
@@ -28,13 +29,16 @@ export const mapAttributionControl = {
 /** Glyphs for stop-number symbol layers on crew maps. */
 export const MAP_GLYPHS = "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf";
 
-export function imageryStyle(): StyleSpecification {
+export function imageryStyle(release?: number | null): StyleSpecification {
   const key = process.env.NEXT_PUBLIC_ARCGIS_API_KEY;
-  const tiles = key
-    ? [
-        `https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=${key}`,
-      ]
-    : ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"];
+  const tiles =
+    release != null
+      ? [waybackTileUrl(release)]
+      : key
+        ? [
+            `https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?token=${key}`,
+          ]
+        : ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"];
   return {
     version: 8,
     glyphs: MAP_GLYPHS,
