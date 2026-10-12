@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
+import { applyCardSetupEvent } from "@/lib/billing/card-on-file-webhook";
+import { createCardOnFileStore } from "@/lib/billing/card-on-file-store";
 import { applyStripePaymentEvent } from "@/lib/billing/stripe-payment-webhook";
 import { applyStripeRefundDisputeEvent } from "@/lib/billing/stripe-refund-dispute-webhook";
 import { createStripePaymentWebhookStore } from "@/lib/billing/supabase-stripe-payment-store";
@@ -97,6 +99,27 @@ export async function POST(request: Request) {
     });
     if (!result.ok) return NextResponse.json({ received: true, ignored: true });
     return NextResponse.json({ received: true });
+  }
+
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    if (session.mode === "setup") {
+      const stripeAccount = typeof event.account === "string" && event.account.length > 0 ? event.account : undefined;
+      const expanded =
+        typeof session.setup_intent === "string"
+          ? await stripe.checkout.sessions.retrieve(
+              session.id,
+              { expand: ["setup_intent.payment_method"] },
+              stripeAccount ? { stripeAccount } : undefined,
+            )
+          : session;
+      const outcome = await applyCardSetupEvent({
+        eventId: event.id,
+        session: expanded,
+        store: createCardOnFileStore(admin),
+      });
+      return NextResponse.json({ received: true, outcome });
+    }
   }
 
   if (REFUND_DISPUTE_TYPES.has(event.type)) {

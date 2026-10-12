@@ -4,7 +4,7 @@ type LeadRow = {
   id: string;
   org_id: string;
   status: "new" | "contacted" | "quoted" | "won" | "lost" | "spam";
-  assigned_to: string | null;
+  assignee_id: string | null;
   first_contacted_at: string | null;
   next_follow_up_on: string | null;
 };
@@ -25,7 +25,7 @@ const state = vi.hoisted(() => ({
     id: "lead-1",
     org_id: "org-1",
     status: "new",
-    assigned_to: null,
+    assignee_id: null,
     first_contacted_at: null,
     next_follow_up_on: null,
   } as LeadRow,
@@ -128,7 +128,7 @@ function makeQuery(table: string) {
     }
     if (table === "lead_requests" && mode === "update" && patch) {
       Object.assign(state.lead, patch);
-      return { data: [{ id: state.lead.id, assigned_to: state.lead.assigned_to }], error: null };
+      return { data: [{ id: state.lead.id, assignee_id: state.lead.assignee_id }], error: null };
     }
     if (table === "profiles") {
       const rows = state.profiles.filter((p) => !inIds || inIds.includes(p.id));
@@ -155,7 +155,7 @@ beforeEach(() => {
     id: "lead-1",
     org_id: "org-1",
     status: "new",
-    assigned_to: null,
+    assignee_id: null,
     first_contacted_at: null,
     next_follow_up_on: null,
   };
@@ -194,7 +194,7 @@ describe("reassign and follow-up", () => {
     expect(await reassignLead("lead-1", fd({ assigneeId: "22222222-2222-4222-8222-222222222222" }))).toEqual({
       ok: true,
     });
-    expect(state.lead.assigned_to).toBe("22222222-2222-4222-8222-222222222222");
+    expect(state.lead.assignee_id).toBe("22222222-2222-4222-8222-222222222222");
     expect(state.activities.at(-1)?.kind).toBe("lead.reassigned");
 
     expect(await setLeadFollowUp("lead-1", fd({ nextFollowUpOn: "2026-10-20" }))).toEqual({ ok: true });
