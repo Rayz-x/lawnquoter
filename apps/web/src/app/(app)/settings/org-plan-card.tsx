@@ -3,9 +3,10 @@
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { SectionCard } from "@/components/entry";
+import { HelpTip } from "@/components/help/help-tip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FieldHint } from "@/components/ui/field";
+
 import { Spinner } from "@/components/ui/spinner";
 import { startOrgPlan } from "./org-plan-actions";
 
@@ -48,10 +49,15 @@ export function OrgPlanCard({
       menu={plan ? <Badge variant="outline">{STATUS[plan.status] ?? plan.status}</Badge> : undefined}
       className="w-full min-w-0"
     >
+      <HelpTip
+        label="Help for the plan"
+        text="Billing stays off until a Stripe test key is set, and checkout stays in test mode."
+        href="/help/plan-and-billing#when-billing-stays-off"
+      />
       {notice ? <p className="text-sm text-muted-foreground">{notice}</p> : null}
       {current ? <p className="text-sm">{current.label}</p> : null}
       {!notice && canStart ? (
-        <div role="group" aria-label="Plan" aria-describedby="org-plan-hint" className="flex w-full min-w-0 flex-col gap-2">
+        <div role="group" aria-label="Plan" className="flex w-full min-w-0 flex-col gap-2">
           <div className="flex flex-wrap gap-2">
             {TIERS.map((tier) => (
               <Button key={tier.id} type="button" variant={plan?.tier === tier.id ? "default" : "outline"} disabled={pending} onClick={() => choose(tier.id)}>
@@ -60,7 +66,6 @@ export function OrgPlanCard({
               </Button>
             ))}
           </div>
-          <FieldHint id="org-plan-hint">Choose a plan to start the monthly payment for this company.</FieldHint>
         </div>
       ) : null}
     </SectionCard>

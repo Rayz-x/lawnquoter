@@ -7,7 +7,7 @@ import { companyInitials } from "@/lib/brand/initials";
 import { brandingAssetUrl, isHttpUrl } from "@/lib/brand/urls";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Field, FieldError, FieldHint, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import type { Tables } from "@/lib/supabase/types";
 import { formatSeasonLabel } from "@/lib/scheduling/season";
@@ -50,13 +50,11 @@ function useOrgSave<T>(section: string, initial: T, encode: (values: T) => Recor
 function editButton(editing: boolean, onEdit: () => void, onDone: () => void) {
   return <Button type="button" variant="ghost" className="h-11 px-3 lg:h-8" onClick={editing ? onDone : onEdit}>{editing ? "Done" : "Edit"}</Button>;
 }
-function TextField({ id, label, hint, value, error, onValue, onBlur, ...props }: { id: string; label: string; hint: string; value: string; error?: string; onValue: (value: string) => void; onBlur: (value: string) => void } & Pick<ComponentProps<"input">, "autoComplete" | "inputMode" | "list" | "placeholder" | "type">) {
-  const hintId = `${id}-hint`;
+function TextField({ id, label, value, error, onValue, onBlur, ...props }: { id: string; label: string; value: string; error?: string; onValue: (value: string) => void; onBlur: (value: string) => void } & Pick<ComponentProps<"input">, "autoComplete" | "inputMode" | "list" | "placeholder" | "type">) {
   return (
     <Field data-invalid={error ? true : undefined}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Input id={id} value={value} aria-invalid={error ? true : undefined} aria-describedby={hintId} className="max-lg:h-11" onChange={(event) => onValue(event.target.value)} onBlur={(event) => onBlur(event.currentTarget.value)} {...props} />
-      <FieldHint id={hintId}>{hint}</FieldHint>
+      <Input id={id} value={value} aria-invalid={error ? true : undefined} className="max-lg:h-11" onChange={(event) => onValue(event.target.value)} onBlur={(event) => onBlur(event.currentTarget.value)} {...props} />
       {error ? <FieldError>{error}</FieldError> : null}
     </Field>
   );
@@ -93,7 +91,7 @@ function IdentityCard({ org, canEdit, editing, onEdit, onDone }: Edit & { org: T
     <SectionCard title="Identity" heading="h2" description="Shown on quotes, proposals, invoices and public quote pages." status={save.status} error={localError ?? save.error} onRetry={save.retry} mode={editing ? "edit" : "view"} onEdit={canEdit && !editing ? onEdit : undefined} menu={canEdit ? <Button type="button" variant="ghost" className="h-11 px-3 lg:h-8" onClick={() => { if (!editing) onEdit(); else if (commit(nameRef.current)) onDone(); }}>{editing ? "Done" : "Edit"}</Button> : undefined}>
       <div className="flex flex-col gap-3">
         <Badge variant="outline" className={complete ? "border-transparent bg-success/10 text-success" : undefined}>{complete ? "Profile complete" : "Profile incomplete"}</Badge>
-        {editing ? <TextField id="company-name" label="Company name" hint="The name customers see on quotes, invoices, and your public pages." value={name} autoComplete="organization" error={localError ?? undefined} onValue={writeName} onBlur={commit} /> : <FactRows onEdit={canEdit ? onEdit : undefined} rows={[{ label: "Company", value: name }, { label: "Logo", value: logo ? <img src={logo} alt="" className="size-10 rounded-md bg-muted object-contain" /> : <span className="flex size-10 items-center justify-center rounded-md bg-muted text-sm font-medium">{companyInitials(name)}</span> }]} />}
+        {editing ? <TextField id="company-name" label="Company name" value={name} autoComplete="organization" error={localError ?? undefined} onValue={writeName} onBlur={commit} /> : <FactRows onEdit={canEdit ? onEdit : undefined} rows={[{ label: "Company", value: name }, { label: "Logo", value: logo ? <img src={logo} alt="" className="size-10 rounded-md bg-muted object-contain" /> : <span className="flex size-10 items-center justify-center rounded-md bg-muted text-sm font-medium">{companyInitials(name)}</span> }]} />}
       </div>
     </SectionCard>
   );
@@ -119,7 +117,7 @@ function ContactCard({ org, canEdit, editing, onEdit, onDone }: Edit & { org: Ta
   ] as const;
   return (
     <SectionCard title="Contact" heading="h3" status={save.status} error={save.error} onRetry={save.retry} mode={editing ? "edit" : "view"} onEdit={canEdit && !editing ? onEdit : undefined} menu={canEdit ? <Button type="button" variant="ghost" className="h-11 px-3 lg:h-8" onClick={() => { if (!editing) onEdit(); else if (publish(ref.current)) onDone(); }}>{editing ? "Done" : "Edit"}</Button> : undefined}>
-      {editing ? <div className="flex flex-col gap-4">{fields.map(([key, label, type, hint]) => <TextField key={key} id={`${uid}-${key}`} label={label} hint={hint} type={type} inputMode={type} autoComplete={type} placeholder={key === "website" ? "https://" : undefined} value={values[key]} error={errors[key]} onValue={(value) => setValues({ ...ref.current, [key]: value })} onBlur={(value) => publish({ ...ref.current, [key]: value })} />)}</div> : <FactRows onEdit={canEdit ? onEdit : undefined} rows={fields.map(([key, label]) => ({ label, value: values[key] || "—" }))} />}
+      {editing ? <div className="flex flex-col gap-4">{fields.map(([key, label, type]) => <TextField key={key} id={`${uid}-${key}`} label={label} type={type} inputMode={type} autoComplete={type} placeholder={key === "website" ? "https://" : undefined} value={values[key]} error={errors[key]} onValue={(value) => setValues({ ...ref.current, [key]: value })} onBlur={(value) => publish({ ...ref.current, [key]: value })} />)}</div> : <FactRows onEdit={canEdit ? onEdit : undefined} rows={fields.map(([key, label]) => ({ label, value: values[key] || "—" }))} />}
     </SectionCard>
   );
 }
@@ -174,8 +172,8 @@ function AddressCard({ org, canEdit, editing, onEdit, onDone }: Edit & { org: Ta
       {editing ? (
         <div className="flex flex-col gap-4">
           {missed ? <p className="text-sm text-warning">{MISSED}</p> : null}
-          {fields.map(([key, label, auto, hint]) => (
-            <TextField key={key} id={`${uid}-${key}`} label={label} hint={hint} autoComplete={auto} inputMode={key === "postal" ? "numeric" : undefined} placeholder={key === "line1" ? "Start typing an address" : undefined} value={address[key]} error={key === "postal" ? postalMessage : undefined} onValue={(value) => setAddress({ ...address, [key]: value })} onBlur={(value) => {
+          {fields.map(([key, label, auto]) => (
+            <TextField key={key} id={`${uid}-${key}`} label={label} autoComplete={auto} inputMode={key === "postal" ? "numeric" : undefined} placeholder={key === "line1" ? "Start typing an address" : undefined} value={address[key]} error={key === "postal" ? postalMessage : undefined} onValue={(value) => setAddress({ ...address, [key]: value })} onBlur={(value) => {
               if (key === "postal") setPostalMessage(zipError(value));
               if (key === "line1" && canEdit && value.trim().length >= 5) void lookupOfficeAddress(value.trim()).then((hit) => setSuggestion(hit.ok ? hit : null));
             }} />
@@ -234,14 +232,13 @@ function RegionCard({ org, canEdit, editing, onEdit, onDone }: Edit & { org: Tab
     <SectionCard title="Region & time" heading="h3" status={save.status} error={seasonError ?? save.error} onRetry={save.retry} mode={editing ? "edit" : "view"} onEdit={canEdit && !editing ? onEdit : undefined} menu={canEdit ? editButton(editing, onEdit, onDone) : undefined}>
       {editing ? (
         <div className="flex flex-col gap-4">
-          <TextField id="timezone" label="Timezone" hint="Visit times and the mowing season use this clock." list="org-timezones" value={values.timezone} onValue={(timezone) => setValues({ ...ref.current, timezone })} onBlur={(timezone) => commit({ ...ref.current, timezone })} />
+          <TextField id="timezone" label="Timezone" list="org-timezones" value={values.timezone} onValue={(timezone) => setValues({ ...ref.current, timezone })} onBlur={(timezone) => commit({ ...ref.current, timezone })} />
           <datalist id="org-timezones">{zones.map((zone) => <option key={zone} value={zone} />)}</datalist>
           <Field>
             <FieldLabel htmlFor="currency">Currency</FieldLabel>
-            <select id="currency" aria-describedby="currency-hint" className="native-control max-lg:h-11" value={values.currency} onChange={(event) => commit({ ...ref.current, currency: event.target.value }, true)}>
+            <select id="currency" className="native-control max-lg:h-11" value={values.currency} onChange={(event) => commit({ ...ref.current, currency: event.target.value }, true)}>
               {[values.currency, "USD", "CAD"].filter((value, index, list) => list.indexOf(value) === index).map((value) => <option key={value} value={value}>{value}</option>)}
             </select>
-            <FieldHint id="currency-hint">Prices and invoices use this currency.</FieldHint>
           </Field>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {(
@@ -251,7 +248,7 @@ function RegionCard({ org, canEdit, editing, onEdit, onDone }: Edit & { org: Tab
                 ["endMonth", "Season end month", "The month recurring lawn visits stop for the year."],
                 ["endDay", "Season end day", "The day of the month recurring lawn visits stop."],
               ] as const
-            ).map(([key, label, hint]) => (
+            ).map(([key, label]) => (
               <Field key={key}>
                 <FieldLabel htmlFor={`org-${key}`}>{label}</FieldLabel>
                 <Input
@@ -259,13 +256,12 @@ function RegionCard({ org, canEdit, editing, onEdit, onDone }: Edit & { org: Tab
                   type="number"
                   min={1}
                   max={key.endsWith("Month") ? 12 : 31}
-                  aria-describedby={`org-${key}-hint`}
+                 
                   className="max-lg:h-11"
                   value={values[key]}
                   onChange={(event) => setValues({ ...ref.current, [key]: Number(event.target.value) })}
                   onBlur={() => commitSeason(ref.current)}
                 />
-                <FieldHint id={`org-${key}-hint`}>{hint}</FieldHint>
               </Field>
             ))}
           </div>
