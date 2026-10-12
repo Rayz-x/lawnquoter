@@ -191,9 +191,10 @@ export function DayBoard({
       <AttentionTrayPanel date={date} canWrite={canWrite} tray={tray} crews={crews} />
 
       <div className="grid gap-4">
-        {canWrite ? (
-          <div className="flex flex-wrap items-start gap-2">
-            <span className="flex min-w-0 max-w-full flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-2">
+          {canWrite ? (
+            <>
+            <span className="inline-flex min-w-0 items-center gap-1">
               <Button
                 type="button"
                 variant="outline"
@@ -212,6 +213,11 @@ export function DayBoard({
                   ? `Rain day · selection → ${targetLabel}`
                   : `Rain day · all crews → ${targetLabel}`}
               </Button>
+              <HelpTip
+                label="Help for rain day"
+                text="Moves the checked stops, or every stop, to the next workday. Stops already in progress can stay put."
+                href="/help/schedule#rain-day"
+              />
             </span>
             {selectedIds.length > 0 ? (
               <span className="flex min-w-0 max-w-full flex-col gap-1">
@@ -220,8 +226,14 @@ export function DayBoard({
                 </Button>
               </span>
             ) : null}
-          </div>
-        ) : null}
+            </>
+          ) : null}
+          <HelpTip
+            label="Help for routing"
+            text="Reorder by drive time uses a free estimate. Paid routing stays off until a routing key is added. Publish route sends the order to phones."
+            href="/help/schedule#stop-order"
+          />
+        </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         {columns.length === 0 ? (
@@ -280,13 +292,6 @@ export function DayBoard({
                     </span>
                     {column.routeId && scheduledIds(column.visits).length >= 2 ? (
                       <span className="flex min-w-0 max-w-full flex-col gap-1">
-                        <span className="inline-flex items-center gap-1">
-                          <HelpTip
-                            label="Help for routing"
-                            text="Reorder by drive time uses a free estimate. Paid routing stays off until a routing key is added. Publish route sends the order to phones."
-                            href="/help/schedule#stop-order"
-                          />
-                        </span>
                         <Button
                           type="button"
                           size="sm"
