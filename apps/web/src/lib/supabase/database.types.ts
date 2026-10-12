@@ -4707,6 +4707,10 @@ export type Database = {
         Args: { p_account?: string; p_force_fail?: boolean; p_lead: string }
         Returns: Json
       }
+      create_consolidated_invoice: {
+        Args: { p_account_id: string; p_period_end: string; p_period_start: string }
+        Returns: string
+      }
       create_credit_note: {
         Args: { p_amount_cents: number; p_invoice_id: string; p_reason: string }
         Returns: Json
