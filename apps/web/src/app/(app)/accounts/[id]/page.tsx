@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SALES_ROLES, hasRole } from "@lawnquoter/shared";
+import { CardOnFilePanel } from "./card-on-file-panel";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { FactStrip } from "@/components/entry";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -9,6 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { requireOrg } from "@/lib/auth/session";
+import { AccountDuplicateNotice } from "@/components/accounts/duplicate-notice";
+import { loadAccountDuplicates } from "@/lib/accounts/load-duplicates";
+import type { AccountDuplicate } from "@/lib/accounts/duplicates";
 import { formatLeadSource } from "@/lib/leads/lead-source";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
@@ -28,10 +32,10 @@ export default async function AccountDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; card_session_id?: string }>;
 }) {
   const { id } = await params;
-  const { tab } = await searchParams;
+  const { tab, card_session_id: cardSessionId } = await searchParams;
   const session = await requireOrg();
   const supabase = await createClient();
 
@@ -95,6 +99,32 @@ export default async function AccountDetailPage({
     ? await supabase.from("profiles").select("full_name").eq("id", account.created_by).maybeSingle()
     : { data: null };
 
+  let duplicates: AccountDuplicate[] = [];
+  try {
+    duplicates = await loadAccountDuplicates(supabase, session.orgId, {
+      excludeAccountId: account.id,
+      phones: [account.phone, ...(contacts ?? []).map((contact) => contact.phone)],
+      addresses: [
+        ...(account.billing_address_line1
+          ? [
+              {
+                addressLine1: account.billing_address_line1,
+                city: account.billing_city,
+                postalCode: account.billing_postal_code,
+              },
+            ]
+          : []),
+        ...(properties ?? []).map((property) => ({
+          addressLine1: property.address_line1,
+          city: property.city,
+          postalCode: property.postal_code,
+        })),
+      ],
+    });
+  } catch {
+    duplicates = [];
+  }
+
   const primary = (contacts ?? []).find((contact) => contact.is_primary) ?? contacts?.[0] ?? null;
   const primaryName = [primary?.first_name, primary?.last_name].filter(Boolean).join(" ") || null;
   const showSites = account.type === "commercial" && (children?.length ?? 0) > 0;
@@ -140,6 +170,7 @@ export default async function AccountDetailPage({
       <PageHeader title={account.name} />
       <div className={`page-body lg:pb-0 ${canEdit ? "pb-24" : ""}`}>
         <AccountHeader account={account} primaryName={primaryName} canEdit={canEdit} />
+        <AccountDuplicateNotice matches={duplicates} />
         <FactStrip
           facts={[
             { label: "Open quotes", value: openQuotes ?? 0 },
@@ -270,6 +301,8 @@ export default async function AccountDetailPage({
           ]}
         />
         </div>
+        <div className="flex flex-col gap-4">
+        <CardOnFilePanel accountId={account.id} orgId={session.orgId} role={session.orgRole} returnSessionId={cardSessionId ?? null} />
         <AccountRail
           account={account}
           parents={parents ?? []}
@@ -287,6 +320,7 @@ export default async function AccountDetailPage({
               : null
           }
         />
+        </div>
         </div>
       </div>
     </>

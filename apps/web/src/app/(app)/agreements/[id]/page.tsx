@@ -17,6 +17,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AgreementLifecycleForm } from "./agreement-lifecycle-form";
 import { AgreementHoldForm } from "./agreement-hold-form";
 import { AgreementScheduleForm } from "./agreement-schedule-form";
+import { FixedRouteDayForm } from "./fixed-route-day-form";
 
 export const metadata: Metadata = { title: "Agreement" };
 
@@ -54,7 +55,7 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
     supabase
       .from("agreements")
       .select(
-        "id, kind, frequency, status, start_date, end_date, preferred_dow, service_kind, notes_office, quote_id, account_id, property_id, resume_on, season_start_month, season_start_day, season_end_month, season_end_day, accounts(name), properties(formatted_address, address_line1, city)",
+        "id, kind, frequency, status, start_date, end_date, preferred_dow, fixed_route_day, service_kind, notes_office, quote_id, account_id, property_id, resume_on, season_start_month, season_start_day, season_end_month, season_end_day, accounts(name), properties(formatted_address, address_line1, city)",
       )
       .eq("id", id)
       .eq("org_id", session.orgId)
@@ -265,13 +266,20 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
               </CardHeader>
               <CardContent className="flex flex-col gap-4 text-sm">
                 {canEditSchedule ? (
-                  <AgreementScheduleForm
-                    agreementId={agreement.id}
-                    kind={agreement.kind}
-                    frequency={agreement.frequency}
-                    preferredDow={agreement.preferred_dow}
-                    startDate={agreement.start_date}
-                  />
+                  <>
+                    <AgreementScheduleForm
+                      agreementId={agreement.id}
+                      kind={agreement.kind}
+                      frequency={agreement.frequency}
+                      preferredDow={agreement.preferred_dow}
+                      startDate={agreement.start_date}
+                    />
+                    <FixedRouteDayForm
+                      agreementId={agreement.id}
+                      fixed={agreement.fixed_route_day}
+                      weekday={weekday}
+                    />
+                  </>
                 ) : (
                   <>
                     <div className="flex justify-between gap-3">
@@ -289,6 +297,10 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
                     <div className="flex justify-between gap-3">
                       <span className="text-muted-foreground">Preferred day</span>
                       <span>{weekday ?? "—"}</span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">Fixed route day</span>
+                      <span>{agreement.fixed_route_day ? (weekday ?? "Locked") : "No"}</span>
                     </div>
                   </>
                 )}
