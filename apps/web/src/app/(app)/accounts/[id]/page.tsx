@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { SALES_ROLES, hasRole } from "@lawnquoter/shared";
 import { CardOnFilePanel } from "./card-on-file-panel";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { ParentRollupCard } from "@/components/accounts/parent-rollup";
 import { FactStrip } from "@/components/entry";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -11,8 +12,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { requireOrg } from "@/lib/auth/session";
 import { AccountDuplicateNotice } from "@/components/accounts/duplicate-notice";
-import { loadAccountDuplicates } from "@/lib/accounts/load-duplicates";
 import type { AccountDuplicate } from "@/lib/accounts/duplicates";
+import { loadAccountDuplicates } from "@/lib/accounts/load-duplicates";
+import { rollupParentSites, type ParentRollup } from "@/lib/accounts/parent-rollup";
 import { formatLeadSource } from "@/lib/leads/lead-source";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
@@ -123,6 +125,34 @@ export default async function AccountDetailPage({
     });
   } catch {
     duplicates = [];
+  }
+
+  let parentRollup: ParentRollup | null = null;
+  if ((children?.length ?? 0) > 0) {
+    const rollupAccounts = [
+      { id: account.id, name: account.name },
+      ...(children ?? []).map((child) => ({ id: child.id, name: child.name })),
+    ];
+    const rollupIds = rollupAccounts.map((row) => row.id);
+    const [{ data: rollupQuotes, error: rollupQuoteError }, { data: rollupInvoices, error: rollupInvoiceError }, { data: rollupProperties, error: rollupPropertyError }] =
+      await Promise.all([
+        supabase.from("quotes").select("account_id, status").eq("org_id", session.orgId).in("account_id", rollupIds),
+        supabase.from("invoices").select("account_id, status, total_cents").eq("org_id", session.orgId).in("account_id", rollupIds),
+        supabase.from("properties").select("id, account_id").eq("org_id", session.orgId).in("account_id", rollupIds),
+      ]);
+    const rollupPropertyIds = (rollupProperties ?? []).map((property) => property.id);
+    const { data: rollupJobs, error: rollupJobError } = rollupPropertyIds.length
+      ? await supabase.from("jobs").select("property_id, status").eq("org_id", session.orgId).in("property_id", rollupPropertyIds)
+      : { data: [], error: null };
+    if (!rollupQuoteError && !rollupInvoiceError && !rollupPropertyError && !rollupJobError) {
+      parentRollup = rollupParentSites({
+        accounts: rollupAccounts,
+        quotes: rollupQuotes ?? [],
+        invoices: rollupInvoices ?? [],
+        properties: rollupProperties ?? [],
+        jobs: rollupJobs ?? [],
+      });
+    }
   }
 
   const primary = (contacts ?? []).find((contact) => contact.is_primary) ?? contacts?.[0] ?? null;
@@ -259,6 +289,8 @@ export default async function AccountDetailPage({
                     label: "Child accounts",
                     count: children?.length ?? 0,
                     content: (
+              <div className="flex flex-col gap-4">
+              {parentRollup ? <ParentRollupCard rollup={parentRollup} /> : null}
               <Card>
                 <CardHeader>
                   <CardTitle>Child accounts</CardTitle>
@@ -274,6 +306,7 @@ export default async function AccountDetailPage({
                   {(children ?? []).length === 0 ? <p className="text-sm text-muted-foreground">None yet.</p> : null}
                 </CardContent>
               </Card>
+              </div>
                     ),
                   },
                 ]
