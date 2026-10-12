@@ -3338,6 +3338,69 @@ export type Database = {
           },
         ]
       }
+      portal_links: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string | null
+          email: string
+          expires_at: string
+          id: string
+          org_id: string
+          token: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          org_id: string
+          token?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          org_id?: string
+          token?: string
+        }
+        Relationships: []
+      }
+      portal_requests: {
+        Row: {
+          account_id: string
+          body: string
+          created_at: string
+          id: string
+          org_id: string
+          portal_link_id: string
+          property_id: string | null
+        }
+        Insert: {
+          account_id: string
+          body: string
+          created_at?: string
+          id?: string
+          org_id: string
+          portal_link_id: string
+          property_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          org_id?: string
+          portal_link_id?: string
+          property_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           active_org_id: string | null
