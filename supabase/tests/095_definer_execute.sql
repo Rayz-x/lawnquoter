@@ -114,6 +114,7 @@ select is(
     'set_active_org',
     'set_agreement_fixed_route_day',
     'set_agreement_season_price',
+    'set_agreement_snow_contract',
     'set_crew_lead',
     'set_crew_pin',
     'set_lead_for_today',

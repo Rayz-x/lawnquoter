@@ -14,6 +14,7 @@ import {
   Receipt,
   Repeat,
   Settings,
+  Upload,
   Smartphone,
   Tags,
   UserCircle,
@@ -66,6 +67,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     items: [
       { title: "Accounts", href: "/accounts", icon: Building2 },
       { title: "Properties", href: "/properties", icon: MapPinned },
+      { title: "Import customers", href: "/accounts/import", icon: Upload, roles: ["owner"] },
       { title: "Requests", href: "/leads", icon: Inbox, roles: OFFICE_ROLES },
     ],
   },

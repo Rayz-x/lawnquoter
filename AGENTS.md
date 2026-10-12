@@ -20,6 +20,7 @@ Skills in `.agents/skills/` are MIT-licensed. See `.agents/skills/LICENSE`.
 - Author commits as `Rayz-x <242874303+Rayz-x@users.noreply.github.com>`.
 - Keep UI pull requests under ~500 lines.
 - Never merge, push to `main`, or apply Supabase migrations to the hosted database. Dusty approves every merge and hosted migration.
+- Leave each Supabase migration timestamp as first committed, unique within your branch. The Engineering Lead review routine renumbers each migration right before merge.
 
 ## Default workflow: Matt Pocock skills
 
