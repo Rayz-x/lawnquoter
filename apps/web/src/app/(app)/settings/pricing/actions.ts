@@ -229,7 +229,7 @@ export async function importMaterialsCsv(fd: FormData): Promise<ActionResult<{ c
   if (!hasRole(session.orgRole, ADMIN_ROLES)) return denyPricing();
   const csv = String(fd.get("csv") ?? "");
   const rows = parseMaterialsCsv(csv);
-  if (rows.length === 0) return fail("No material rows found. Need name and unit_cost columns.");
+  if (rows.length === 0) return fail("No materials found. The first row needs a Name column and a Cost column.");
   const supabase = await createClient();
   const { error } = await supabase.from("materials").insert(
     rows.map((r) => ({

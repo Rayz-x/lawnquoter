@@ -225,3 +225,11 @@ describe("mass update and csv", () => {
     ]);
   });
 });
+
+describe("materials spreadsheet headers", () => {
+  it("accepts the plain headers the import screen suggests", () => {
+    expect(parseMaterialsCsv("Item number,Name,Unit,Cost\nMUL-1,Brown mulch,cubic yard,$32.00")).toEqual([
+      { sku: "MUL-1", name: "Brown mulch", unit: "cubic yard", unitCost: 32 },
+    ]);
+  });
+});
