@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ChipGroup } from "@/components/entry";
+import { ChipGroup, FieldHint } from "@/components/entry";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -75,33 +75,43 @@ export function SnowContractForm({
         });
       }}
     >
-      <ChipGroup label="Snow contract" options={OPTIONS} value={kind} onValueChange={(value) => {
-        if (isSnowContract(value)) setKind(value);
-      }} />
+      <div className="flex min-w-0 flex-col gap-1">
+        <ChipGroup label="Snow contract" options={OPTIONS} value={kind} onValueChange={(value) => {
+          if (isSnowContract(value)) setKind(value);
+        }} />
+        <FieldHint>Per push is one price each visit. Per inch uses tiers. Seasonal is one price for the winter.</FieldHint>
+      </div>
       <Field>
         <FieldLabel htmlFor="snow-trigger">Trigger depth (inches)</FieldLabel>
         <Input id="snow-trigger" inputMode="decimal" value={trigger} onChange={(event) => setTrigger(event.target.value)} required />
+        <FieldHint>Snow at or above this depth schedules a visit.</FieldHint>
       </Field>
       <Field>
         <FieldLabel htmlFor="snow-price">{kind === "per_inch" ? "Price above the tier" : "Price"}</FieldLabel>
         <Input id="snow-price" inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} required />
+        <FieldHint>{kind === "per_inch" ? "Price for snow deeper than the tier." : "What you charge for this contract."}</FieldHint>
       </Field>
       {kind === "per_inch" ? (
         <div className="grid grid-cols-2 gap-2">
           <Field>
             <FieldLabel htmlFor="snow-up-to">Up to (inches)</FieldLabel>
             <Input id="snow-up-to" inputMode="decimal" value={upTo} onChange={(event) => setUpTo(event.target.value)} />
+            <FieldHint>Inches included in this tier.</FieldHint>
           </Field>
           <Field>
             <FieldLabel htmlFor="snow-tier">Tier price</FieldLabel>
             <Input id="snow-tier" inputMode="decimal" value={tierPrice} onChange={(event) => setTierPrice(event.target.value)} />
+            <FieldHint>Price for snow up to that depth.</FieldHint>
           </Field>
         </div>
       ) : null}
-      <Button type="submit" disabled={pending}>
-        {pending ? <Spinner data-icon="inline-start" /> : null}
-        Save snow contract
-      </Button>
+      <span className="flex min-w-0 flex-col gap-1">
+        <Button type="submit" disabled={pending}>
+          {pending ? <Spinner data-icon="inline-start" /> : null}
+          Save snow contract
+        </Button>
+        <FieldHint>Saves the contract on this agreement.</FieldHint>
+      </span>
     </form>
   );
 }

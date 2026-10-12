@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldHint } from "@/components/entry";
 import { canSubmitPartlyDone, PARTLY_DONE_REASON_MAX } from "@/lib/crew/partly-done";
 
 export function PartlyDoneSheet({
@@ -27,9 +28,12 @@ export function PartlyDoneSheet({
       className="fixed inset-0 z-40 overflow-y-auto bg-background px-4 pt-[max(1rem,env(safe-area-inset-top,0px))] pb-8"
       data-testid="partly-done-sheet"
     >
-      <button type="button" className="inline-flex min-h-12 items-center text-[17px] font-semibold" onClick={onBack}>
-        Back
-      </button>
+      <span className="flex min-w-0 flex-col items-start gap-1">
+        <button type="button" className="inline-flex min-h-12 items-center text-[17px] font-semibold" onClick={onBack}>
+          Back
+        </button>
+        <FieldHint>Returns to the stop without saving a partial finish.</FieldHint>
+      </span>
       <h2 className="mt-2 font-serif text-2xl font-bold">Partly done</h2>
       <p className="mt-2 text-[15px] text-muted-foreground">
         After photo and a short reason are required. A return visit goes to Needs attention for the office.
@@ -46,6 +50,7 @@ export function PartlyDoneSheet({
         className="mt-2 min-h-28 w-full rounded-xl border p-3 text-[17px]"
         data-testid="partly-done-reason"
       />
+      <FieldHint>What is left for the return visit.</FieldHint>
       <button
         type="button"
         className="mt-3 flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold"
@@ -54,6 +59,7 @@ export function PartlyDoneSheet({
       >
         {hasAfterPhoto ? "After photo ready" : "Take an after photo"}
       </button>
+      <FieldHint>The after photo required before a partial finish.</FieldHint>
       <button
         type="button"
         className="mt-3 flex min-h-14 w-full items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50"
@@ -63,6 +69,7 @@ export function PartlyDoneSheet({
       >
         Finish partly done
       </button>
+      <FieldHint>Saves the partial finish and sends a return visit to the office.</FieldHint>
       {error ? <p className="mt-3 text-[15px] font-semibold text-destructive">{error}</p> : null}
     </div>
   );
