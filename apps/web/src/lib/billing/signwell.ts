@@ -16,6 +16,15 @@ export function signWellApiKey(): string | null {
   return key ? key : null;
 }
 
+export function signWellWebhookId(): string | null {
+  const id = process.env.SIGNWELL_WEBHOOK_ID?.trim();
+  return id ? id : null;
+}
+
+export function signWellConfigured(): boolean {
+  return Boolean(signWellApiKey() && signWellWebhookId());
+}
+
 /** Talks to SignWell only when a key is set. Tests pass a fake fetch. */
 export function createSignWellClient(fetchImpl: typeof fetch = fetch): SignWellClient {
   return {
