@@ -78,19 +78,41 @@ async function applyFollowUp(admin: ReturnType<typeof createAdminClient>, orgId:
   const base = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   const link = quote?.public_token ? `${base}/q/${quote.public_token}` : "";
   const body = renderTemplate(suggestedTemplate(action.channel, "follow_up").body, { customerName: account?.name ?? "there", company: org?.name ?? "us", link, amount: "", address: "" });
+  let to = "";
+  let from = process.env.EMAIL_FROM?.trim() || "email";
   if (action.channel === "sms") {
     const contact = (contacts ?? []).find((row) => row.sms_opt_in && toE164(row.phone ?? ""));
-    const to = contact ? toE164(contact.phone ?? "") : null;
-    const from = claimedSmsFrom(org?.sms_number);
+    to = contact ? toE164(contact.phone ?? "") ?? "" : "";
+    from = claimedSmsFrom(org?.sms_number) ?? "";
     if (!to || !from || !config) return false;
     const delivery = await deliverSms({ config, to, from, body, fetch: (url, init) => fetch(url, init) });
     if (!delivery.sent) return false;
   } else {
-    const to = account?.billing_email?.trim() || account?.email?.trim();
+    to = account?.billing_email?.trim() || account?.email?.trim() || "";
     if (!to) return false;
     const sent = await createEmailProvider().send({ to, subject: suggestedTemplate("email", "follow_up").subject ?? "Following up", text: body });
     if (!sent.sent) return false;
   }
+  const { data: activity } = await admin.from("activities").insert({
+    org_id: orgId,
+    account_id: action.accountId,
+    kind: action.channel === "sms" ? "sms.out" : "email.out",
+    summary: action.channel === "sms" ? `Text to ${to}` : `Email to ${to}`,
+    meta: { quote_id: action.quoteId },
+  }).select("id").single();
+  await admin.from("messages").insert({
+    org_id: orgId,
+    channel: action.channel,
+    direction: "out",
+    status: "sent",
+    from_address: from,
+    to_address: to,
+    body,
+    provider: action.channel === "sms" ? "twilio" : "resend",
+    account_id: action.accountId,
+    quote_id: action.quoteId,
+    activity_id: activity?.id ?? null,
+  });
   if (action.runId) await admin.from("automation_runs").update({ steps_sent: action.nextSteps }).eq("id", action.runId);
   else await admin.from("automation_runs").insert({ org_id: orgId, quote_id: action.quoteId, steps_sent: action.nextSteps });
   return true;

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { FactStrip } from "@/components/entry";
+import { ActivityTimeline } from "@/components/messaging/activity-timeline";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import { ConvertLeadButton } from "@/components/leads/convert-lead-button";
 import { PossibleMatchBanner } from "@/components/leads/possible-match-banner";
 import type { PossibleMatchView } from "@/lib/leads/dedupe";
 import type { ContactChannel, LeadActivity, LeadRequest } from "@/lib/leads/detail";
+import { timelineEntries, type TimelineEntry } from "@/lib/messaging/timeline";
 import { leadAddressLine, leadDisplayName } from "@/lib/leads/detail";
 import { dismissLeadMatch, linkLeadMatch, logLeadContact, reassignLead, setLeadFollowUp } from "./actions";
 
@@ -24,6 +26,7 @@ export type LeadDetailPerson = { id: string; name: string };
 export type LeadDetailView = {
   lead: LeadRequest;
   activities: LeadActivity[];
+  timeline?: TimelineEntry[];
   assigneeName: string | null;
   people: LeadDetailPerson[];
   canEdit: boolean;
@@ -43,6 +46,7 @@ function statusLabel(status: string) {
 export function LeadDetail({
   lead,
   activities,
+  timeline,
   assigneeName,
   people,
   canEdit,
@@ -63,6 +67,18 @@ export function LeadDetail({
       .filter(Boolean),
   );
   const bannerMatches = possibleMatches.filter((match) => !dismissedAccountIds.has(match.accountId));
+  const shown =
+    timeline ??
+    timelineEntries({
+      activities: activities.map((activity) => ({
+        id: activity.id,
+        kind: activity.kind,
+        summary: activity.summary,
+        occurredAt: activity.occurred_at,
+      })),
+      messages: [],
+      calls: [],
+    });
 
   const run = (work: () => Promise<{ ok: true } | { ok: false; error: string }>, success: string) => {
     startTransition(async () => {
@@ -242,7 +258,7 @@ export function LeadDetail({
           <CardDescription>Append-only activity for this lead.</CardDescription>
         </CardHeader>
         <CardContent>
-          {activities.length === 0 ? (
+          {shown.length === 0 ? (
             <Empty className="border-0 p-4" data-testid="lead-timeline-empty">
               <EmptyHeader>
                 <EmptyTitle>No activity yet</EmptyTitle>
@@ -250,24 +266,7 @@ export function LeadDetail({
               </EmptyHeader>
             </Empty>
           ) : (
-            <ol className="flex flex-col gap-3" data-testid="lead-timeline">
-              {activities.map((item) => (
-                <li key={item.id} className="border-b border-border/60 pb-3 last:border-0 last:pb-0">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <p className="text-sm font-medium">{item.summary}</p>
-                    <time className="text-xs text-muted-foreground" dateTime={item.occurred_at}>
-                      {new Date(item.occurred_at).toLocaleString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                    </time>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{item.kind}</p>
-                </li>
-              ))}
-            </ol>
+            <ActivityTimeline entries={shown} testId="lead-timeline" />
           )}
         </CardContent>
       </Card>

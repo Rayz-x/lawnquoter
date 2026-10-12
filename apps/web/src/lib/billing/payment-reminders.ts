@@ -213,6 +213,7 @@ export async function sendPaymentReminders(input: {
   orgEmail: string | null;
   appBaseUrl: string;
   send: EmailProvider["send"];
+  onEmailSent?: (invoice: ReminderInvoice, to: string) => Promise<void>;
   sendText?: (message: ReminderText & { from: string | null }) => Promise<{ sent: boolean }>;
   orgSmsNumber?: string | null;
   templateBody?: string | null;
@@ -263,8 +264,10 @@ export async function sendPaymentReminders(input: {
           appBaseUrl: input.appBaseUrl,
         }),
       );
-      if (result.sent) remindersSent += 1;
-      else remindersSkipped += 1;
+      if (result.sent) {
+        remindersSent += 1;
+        await input.onEmailSent?.(invoice, to);
+      } else remindersSkipped += 1;
     }
     if (text && input.sendText) {
       const result = await input.sendText({ ...text, from: input.orgSmsNumber?.trim() || null });

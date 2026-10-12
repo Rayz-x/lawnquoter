@@ -5,6 +5,7 @@ import { SALES_ROLES, hasRole } from "@lawnquoter/shared";
 import { CardOnFilePanel } from "./card-on-file-panel";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { ParentRollupCard } from "@/components/accounts/parent-rollup";
+import { ActivityTimeline } from "@/components/messaging/activity-timeline";
 import { FactStrip } from "@/components/entry";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ import type { AccountDuplicate } from "@/lib/accounts/duplicates";
 import { loadAccountDuplicates } from "@/lib/accounts/load-duplicates";
 import { rollupParentSites, type ParentRollup } from "@/lib/accounts/parent-rollup";
 import { formatLeadSource } from "@/lib/leads/lead-source";
+import { loadContactTimeline } from "@/lib/messaging/load-timeline";
 import { formatMoney } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { AccountHeader } from "./account-header";
@@ -50,7 +52,7 @@ export default async function AccountDetailPage({
     { data: properties, error: propertiesError },
     { data: children, error: childrenError },
     { data: parents, error: parentsError },
-    { data: activities, error: activitiesError },
+    timeline,
     { count: openQuotes, error: quotesError },
   ] = await Promise.all([
     supabase.from("accounts").select("*").eq("id", id).eq("org_id", session.orgId).maybeSingle(),
@@ -64,12 +66,7 @@ export default async function AccountDetailPage({
       .order("created_at"),
     supabase.from("accounts").select("id, name, status").eq("parent_account_id", id).order("name"),
     supabase.from("accounts").select("id, name").eq("org_id", session.orgId).is("parent_account_id", null).eq("type", "commercial").order("name"),
-    supabase
-      .from("activities")
-      .select("id, kind, summary, occurred_at")
-      .eq("account_id", id)
-      .order("occurred_at", { ascending: false })
-      .limit(50),
+    loadContactTimeline(supabase, { accountId: id }),
     supabase
       .from("quotes")
       .select("id", { count: "exact", head: true })
@@ -83,7 +80,6 @@ export default async function AccountDetailPage({
     propertiesError?.message ??
     childrenError?.message ??
     parentsError?.message ??
-    activitiesError?.message ??
     quotesError?.message ??
     null;
   if (loadError) {
@@ -324,13 +320,7 @@ export default async function AccountDetailPage({
                 <CardTitle>Timeline</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
-                {(activities ?? []).map((a) => (
-                  <div key={a.id} className="flex items-start justify-between gap-4 text-sm">
-                    <span>{a.summary}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">{new Date(a.occurred_at).toLocaleString()}</span>
-                  </div>
-                ))}
-                {(activities ?? []).length === 0 ? <p className="text-sm text-muted-foreground">No activity yet.</p> : null}
+                <ActivityTimeline entries={timeline} />
               </CardContent>
             </Card>
               ),

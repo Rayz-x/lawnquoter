@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { loadContactTimeline } from "@/lib/messaging/load-timeline";
+import { timelineEntries } from "@/lib/messaging/timeline";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { requireOrg } from "@/lib/auth/session";
 import { leadsClient } from "@/lib/leads/client";
@@ -77,6 +79,24 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
     assignee_id?: string | null;
   };
   const typedActivities = (activities ?? []) as LeadActivity[];
+  const contactTimeline = await loadContactTimeline(supabase, {
+    accountId: typedLead.account_id,
+    leadId: typedLead.id,
+    contactOnly: true,
+  });
+  const timeline = [
+    ...contactTimeline,
+    ...timelineEntries({
+      activities: typedActivities.map((activity) => ({
+        id: activity.id,
+        kind: activity.kind,
+        summary: activity.summary,
+        occurredAt: activity.occurred_at,
+      })),
+      messages: [],
+      calls: [],
+    }),
+  ].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
   const people = (members ?? []).map((member) => {
     const profile = member.profiles as { full_name: string | null } | { full_name: string | null }[] | null;
     const row = Array.isArray(profile) ? profile[0] : profile;
@@ -114,6 +134,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         <LeadDetail
           lead={{ ...typedLead, assigned_to: assigneeId }}
           activities={typedActivities}
+          timeline={timeline}
           assigneeName={assigneeName}
           people={people}
           canEdit={canEditLeads(session.orgRole)}

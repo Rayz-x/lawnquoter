@@ -40,6 +40,7 @@ export async function runPaymentRemindersJob(input: {
   store: PaymentReminderStore;
   now?: Date;
   send?: ReturnType<typeof createEmailProvider>["send"];
+  onEmailSent?: (invoice: ReminderInvoice, to: string) => Promise<void>;
   sendText?: (message: ReminderText & { from: string | null }) => Promise<{ sent: boolean }>;
   templateForOrg?: (orgId: string) => Promise<string | null>;
 }): Promise<{
@@ -71,6 +72,7 @@ export async function runPaymentRemindersJob(input: {
       orgEmail: org.email,
       appBaseUrl: appBaseUrl(),
       send,
+      onEmailSent: input.onEmailSent,
       sendText: input.sendText,
       orgSmsNumber: org.smsNumber,
       templateBody: input.templateForOrg ? await input.templateForOrg(org.id) : null,
