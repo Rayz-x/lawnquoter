@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SALES_ROLES, hasRole } from "@lawnquoter/shared";
+import { CardOnFilePanel } from "./card-on-file-panel";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { FactStrip } from "@/components/entry";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -31,10 +32,10 @@ export default async function AccountDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; card_session_id?: string }>;
 }) {
   const { id } = await params;
-  const { tab } = await searchParams;
+  const { tab, card_session_id: cardSessionId } = await searchParams;
   const session = await requireOrg();
   const supabase = await createClient();
 
@@ -300,6 +301,8 @@ export default async function AccountDetailPage({
           ]}
         />
         </div>
+        <div className="flex flex-col gap-4">
+        <CardOnFilePanel accountId={account.id} orgId={session.orgId} role={session.orgRole} returnSessionId={cardSessionId ?? null} />
         <AccountRail
           account={account}
           parents={parents ?? []}
@@ -317,6 +320,7 @@ export default async function AccountDetailPage({
               : null
           }
         />
+        </div>
         </div>
       </div>
     </>

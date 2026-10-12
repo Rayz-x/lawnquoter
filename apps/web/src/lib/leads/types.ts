@@ -22,6 +22,9 @@ export type LeadRequestRow = {
   next_follow_up_on: string | null;
   created_at: string;
   updated_at: string;
+  /** Present once the pipeline stage clock migration is applied. */
+  stage_entered_at?: string | null;
+  lost_reason?: string | null;
 };
 
 export type LeadRequestListItem = LeadRequestRow & {

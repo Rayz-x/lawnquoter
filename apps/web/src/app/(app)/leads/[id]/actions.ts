@@ -12,7 +12,9 @@ import {
   canEditLeads,
   nextFirstContactedAt,
   type ContactChannel,
+  type LeadStatus,
 } from "@/lib/leads/detail";
+import { advanceLeadStage } from "@/lib/leads/pipeline";
 import { createClient } from "@/lib/supabase/server";
 
 const contactSchema = z.object({
@@ -45,6 +47,7 @@ async function requireLeadEditor() {
 
 function revalidateLead(id: string) {
   revalidatePath(`/leads/${id}`);
+  revalidatePath("/leads");
 }
 
 export async function logLeadContact(leadId: string, fd: FormData): Promise<ActionResult> {
@@ -78,11 +81,12 @@ export async function logLeadContact(leadId: string, fd: FormData): Promise<Acti
   const activity = buildContactActivity(parsed.data.channel as ContactChannel);
   if (parsed.data.note) activity.meta = { ...activity.meta, note: parsed.data.note };
 
+  const nextStatus = advanceLeadStage(lead.status as LeadStatus, "contact_logged");
   const patch: {
     first_contacted_at: string;
-    status?: "contacted";
+    status?: LeadStatus;
   } = { first_contacted_at: firstContactedAt };
-  if (lead.status === "new") patch.status = "contacted";
+  if (nextStatus !== lead.status) patch.status = nextStatus;
 
   const { data: updatedRaw, error: updateError } = (await db
     .from("lead_requests")
@@ -118,15 +122,15 @@ export async function reassignLead(leadId: string, fd: FormData): Promise<Action
   const db = leadsClient(supabase);
   const { data: leadRaw, error: loadError } = await db
     .from("lead_requests")
-    .select("id, assigned_to")
+    .select("id, assignee_id")
     .eq("id", leadId)
     .eq("org_id", session.orgId)
     .maybeSingle();
   if (loadError) return fail(loadError.message);
-  const lead = leadRaw as { id: string; assigned_to: string | null } | null;
+  const lead = leadRaw as { id: string; assignee_id: string | null } | null;
   if (!lead) return fail("Lead not found.");
 
-  const ids = [lead.assigned_to, parsed.data.assigneeId].filter((id): id is string => Boolean(id));
+  const ids = [lead.assignee_id, parsed.data.assigneeId].filter((id): id is string => Boolean(id));
   const { data: profiles } = ids.length
     ? await supabase.from("profiles").select("id, full_name").in("id", ids)
     : { data: [] as { id: string; full_name: string | null }[] };
@@ -134,7 +138,7 @@ export async function reassignLead(leadId: string, fd: FormData): Promise<Action
 
   const { data: updated, error: updateError } = (await db
     .from("lead_requests")
-    .update({ assigned_to: parsed.data.assigneeId })
+    .update({ assignee_id: parsed.data.assigneeId })
     .eq("id", leadId)
     .eq("org_id", session.orgId)
     .select("id")) as { data: { id: string }[] | null; error: { message: string } | null };
@@ -142,7 +146,7 @@ export async function reassignLead(leadId: string, fd: FormData): Promise<Action
   if (!updated?.length) return fail("Could not reassign. You may not have permission.");
 
   const activity = buildReassignActivity(
-    lead.assigned_to ? (nameById.get(lead.assigned_to) ?? null) : null,
+    lead.assignee_id ? (nameById.get(lead.assignee_id) ?? null) : null,
     nameById.get(parsed.data.assigneeId) ?? "Teammate",
   );
   const { error: activityError } = (await db.from("lead_activities").insert({
