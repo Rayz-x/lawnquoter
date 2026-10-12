@@ -35,13 +35,13 @@ export function MaterialsPanel({
       <Card className="lg:col-span-2">
         <CardHeader>
           <CardTitle>Materials</CardTitle>
-          <CardDescription>Used by assemblies and catalog markups. Import SiteOne / Home Depot CSVs.</CardDescription>
+          <CardDescription>What your materials cost you, used to work out your margins. You can upload a spreadsheet from SiteOne or Home Depot.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>SKU</TableHead>
+                <TableHead>Item #</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Unit</TableHead>
                 <TableHead className="text-right">Cost</TableHead>
