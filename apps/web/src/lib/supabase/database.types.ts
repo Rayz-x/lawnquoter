@@ -4763,6 +4763,47 @@ export type Database = {
           },
         ]
       }
+      weather_skip_rules: {
+        Row: {
+          action: string
+          condition: string
+          created_at: string
+          enabled: boolean
+          id: string
+          org_id: string
+          threshold: number
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          condition: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          org_id: string
+          threshold: number
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          condition?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          org_id?: string
+          threshold?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weather_skip_rules_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       site_checks_crew: {
@@ -5084,6 +5125,16 @@ export type Database = {
         Returns: undefined
       }
       my_crews: { Args: never; Returns: Json }
+      office_apply_weather: {
+        Args: {
+          p_rain: number
+          p_service_date: string
+          p_snow: number
+          p_temp: number
+          p_wind: number
+        }
+        Returns: Json
+      }
       office_approve_same_day_extra: {
         Args: { p_enhancement_id: string }
         Returns: Json
@@ -5238,6 +5289,10 @@ export type Database = {
       set_lead_for_today: {
         Args: { p_crew_id: string; p_date: string; p_lead_id: string }
         Returns: undefined
+      }
+      set_weather_skip_rule: {
+        Args: { p_action: string; p_condition: string; p_threshold: number }
+        Returns: string
       }
       set_renewal_rule: { Args: { p_percent: number; p_window_days: number }; Returns: undefined }
       site_check_approve: { Args: { p_id: string }; Returns: Json }
