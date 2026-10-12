@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Field, FieldError, FieldHint, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import type { GeocodeResult } from "@/lib/geo/types";
@@ -81,7 +81,7 @@ export function PropertyQuickAdd({ accountId, canEdit = true }: { accountId: str
           aria-controls="quick-property-list"
           className="max-md:h-12"
           aria-invalid={error ? true : undefined}
-          aria-describedby="quick-property-hint"
+         
           aria-expanded={suggestions.length > 0}
           onChange={(event) => {
             setAddress(event.target.value);
@@ -90,7 +90,6 @@ export function PropertyQuickAdd({ accountId, canEdit = true }: { accountId: str
             setError(null);
           }}
         />
-        <FieldHint id="quick-property-hint">Another lawn for this customer, placed on the map from the address.</FieldHint>
         <div id="quick-property-list" role="listbox" aria-label="Address suggestions" hidden={suggestions.length === 0} className="flex flex-col">
           {suggestions.map((suggestion) => (
             <Button

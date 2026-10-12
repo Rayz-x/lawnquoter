@@ -6,10 +6,11 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { AccountDuplicateNotice } from "@/components/accounts/duplicate-notice";
 import { ChipGroup, MoreDisclosure, ToggleRow } from "@/components/entry";
+import { HelpTip } from "@/components/help/help-tip";
 import type { AccountDuplicate } from "@/lib/accounts/duplicates";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Field, FieldError, FieldHint, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
@@ -210,32 +211,27 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
             setTaxExempt(false);
             setConsolidated(false);
           }} />
-          <FieldHint id="new-type-hint">A home is residential, and a business is commercial.</FieldHint>
           </div>
           <Field data-invalid={invalid === "name" ? true : undefined}>
             <FieldLabel htmlFor="new-name">Name</FieldLabel>
-            <Input id="new-name" autoComplete="name" aria-describedby="new-name-hint" value={name} aria-invalid={invalid === "name" ? true : undefined} className="h-12 font-serif text-2xl" onChange={(event) => setName(event.target.value)} />
-            <FieldHint id="new-name-hint">The name on quotes, invoices, and the customer list.</FieldHint>
+            <Input id="new-name" autoComplete="name" value={name} aria-invalid={invalid === "name" ? true : undefined} className="h-12 font-serif text-2xl" onChange={(event) => setName(event.target.value)} />
             {fieldError("name")}
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field data-invalid={invalid === "phone" ? true : undefined}>
               <FieldLabel htmlFor="new-phone">Mobile</FieldLabel>
-              <Input id="new-phone" type="tel" inputMode="tel" autoComplete="tel" aria-describedby="new-phone-hint" value={phone} aria-invalid={invalid === "phone" ? true : undefined} className="max-lg:h-12" onChange={(event) => { setPhone(event.target.value); setConfirmedProbe(null); setDuplicateMatches([]); }} />
-              <FieldHint id="new-phone-hint">The number used for texts and calls.</FieldHint>
+              <Input id="new-phone" type="tel" inputMode="tel" autoComplete="tel" value={phone} aria-invalid={invalid === "phone" ? true : undefined} className="max-lg:h-12" onChange={(event) => { setPhone(event.target.value); setConfirmedProbe(null); setDuplicateMatches([]); }} />
               {fieldError("phone")}
             </Field>
             <Field data-invalid={invalid === "email" ? true : undefined}>
               <FieldLabel htmlFor="new-email">Email</FieldLabel>
-              <Input id="new-email" type="email" inputMode="email" autoComplete="email" aria-describedby="new-email-hint" value={email} aria-invalid={invalid === "email" ? true : undefined} className="max-lg:h-12" onChange={(event) => setEmail(event.target.value)} />
-              <FieldHint id="new-email-hint">Where quotes and invoices are sent.</FieldHint>
+              <Input id="new-email" type="email" inputMode="email" autoComplete="email" value={email} aria-invalid={invalid === "email" ? true : undefined} className="max-lg:h-12" onChange={(event) => setEmail(event.target.value)} />
               {fieldError("email")}
             </Field>
           </div>
           <Field data-invalid={invalid === "address" ? true : undefined}>
             <FieldLabel htmlFor="new-address">Service address</FieldLabel>
-            <Input id="new-address" role="combobox" aria-autocomplete="list" aria-expanded={suggestions.length > 0} aria-describedby="new-address-hint" autoComplete="street-address" value={address} placeholder="Start typing an address" aria-invalid={invalid === "address" ? true : undefined} className="max-lg:h-12" onChange={(event) => { setAddress(event.target.value); setPicked(null); setSuggestions([]); setConfirmedProbe(null); setDuplicateMatches([]); }} />
-            <FieldHint id="new-address-hint">The lawn address, used to place the property on the map.</FieldHint>
+            <Input id="new-address" role="combobox" aria-autocomplete="list" aria-expanded={suggestions.length > 0} autoComplete="street-address" value={address} placeholder="Start typing an address" aria-invalid={invalid === "address" ? true : undefined} className="max-lg:h-12" onChange={(event) => { setAddress(event.target.value); setPicked(null); setSuggestions([]); setConfirmedProbe(null); setDuplicateMatches([]); }} />
             <div role="listbox" aria-label="Address suggestions" hidden={suggestions.length === 0}>
               {suggestions.map((suggestion) => (
                 <Button key={suggestion.placeId ?? suggestion.formattedAddress} type="button" role="option" variant="ghost" className="min-h-11 w-full justify-start" onClick={() => { setAddress(suggestion.formattedAddress); setPicked(suggestion); setSuggestions([]); setConfirmedProbe(null); setDuplicateMatches([]); }}>
@@ -249,22 +245,20 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
           {business ? null : <Button type="button" variant="ghost" className="justify-start" onClick={() => setShowBusiness(true)}>{BILLING_DETAILS_LABEL}</Button>}
           {business ? (
             <div className="flex flex-col gap-3">
-              <Field><FieldLabel htmlFor="new-company">Company</FieldLabel><Input id="new-company" aria-describedby="new-company-hint" value={company} onChange={(event) => setCompany(event.target.value)} /><FieldHint id="new-company-hint">The business name printed on invoices.</FieldHint></Field>
+              <Field><FieldLabel htmlFor="new-company">Company</FieldLabel><Input id="new-company" value={company} onChange={(event) => setCompany(event.target.value)} /></Field>
               <Field data-invalid={invalid === "billing" ? true : undefined}>
                 <FieldLabel htmlFor="new-billing-email">Billing email</FieldLabel>
-                <Input id="new-billing-email" type="email" inputMode="email" autoComplete="off" aria-describedby="new-billing-hint" value={billingEmail} aria-invalid={invalid === "billing" ? true : undefined} onChange={(event) => setBillingEmail(event.target.value)} />
-                <FieldHint id="new-billing-hint">Where invoices go when it differs from the main email.</FieldHint>
+                <Input id="new-billing-email" type="email" inputMode="email" autoComplete="off" value={billingEmail} aria-invalid={invalid === "billing" ? true : undefined} onChange={(event) => setBillingEmail(event.target.value)} />
                 {fieldError("billing")}
               </Field>
               <div className="flex min-w-0 flex-col gap-1">
               <ChipGroup label="Terms" value={terms} options={[{ value: "0", label: "Due" }, { value: "15", label: "Net 15" }, { value: "30", label: "Net 30" }, { value: "custom", label: "Custom" }]} onValueChange={setTerms} />
-              <FieldHint id="new-terms-hint">How many days after the invoice before payment is due.</FieldHint>
               </div>
-              {terms === "custom" ? <div className="flex min-w-0 flex-col gap-1"><Input inputMode="numeric" aria-label="Custom net days" aria-describedby="new-net-days-hint" aria-invalid={invalid === "terms" ? true : undefined} value={customDays} placeholder="1–120" onChange={(event) => setCustomDays(event.target.value)} /><FieldHint id="new-net-days-hint">A custom number of days, from 1 to 120.</FieldHint></div> : null}
+              {terms === "custom" ? <div className="flex min-w-0 flex-col gap-1"><Input inputMode="numeric" aria-label="Custom net days" aria-invalid={invalid === "terms" ? true : undefined} value={customDays} placeholder="1–120" onChange={(event) => setCustomDays(event.target.value)} /></div> : null}
               {fieldError("terms")}
-              <div className="flex min-w-0 flex-col gap-1"><ToggleRow label="PO required" checked={poRequired} onCheckedChange={setPoRequired} /><FieldHint>A purchase order is required before this customer is invoiced.</FieldHint></div>
-              <div className="flex min-w-0 flex-col gap-1"><ToggleRow label="Tax exempt" checked={taxExempt} onCheckedChange={setTaxExempt} /><FieldHint>Invoices for this customer leave off sales tax.</FieldHint></div>
-              <div className="flex min-w-0 flex-col gap-1"><ToggleRow label="Consolidated invoicing" checked={consolidated} onCheckedChange={setConsolidated} /><FieldHint>One bill covers every property for the month.</FieldHint></div>
+              <div className="flex min-w-0 flex-col gap-1"><ToggleRow label="PO required" checked={poRequired} onCheckedChange={setPoRequired} /></div>
+              <div className="flex min-w-0 flex-col gap-1"><ToggleRow label="Tax exempt" checked={taxExempt} onCheckedChange={setTaxExempt} /></div>
+              <div className="flex min-w-0 items-center gap-1"><ToggleRow label="Consolidated invoicing" checked={consolidated} onCheckedChange={setConsolidated} /><HelpTip label="Help for consolidated invoicing" text="One bill covers every property for the month." href="/help/invoices#one-bill-for-every-property" /></div>
             </div>
           ) : null}
           <MoreDisclosure label="+ More">
@@ -274,7 +268,7 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
                 <NativeSelect
                   id="new-source"
                   value={source}
-                  aria-describedby="new-source-hint"
+                 
                   aria-invalid={invalid === "source" ? true : undefined}
                   onChange={(event) => {
                     const next = event.target.value;
@@ -285,7 +279,6 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
                   <option value="">None</option>
                   {LEAD_SOURCES.map((item) => <option key={item} value={item}>{item}</option>)}
                 </NativeSelect>
-                <FieldHint id="new-source-hint">How this customer first found you.</FieldHint>
                 {source === "Other" ? (
                   <>
                   <Input
@@ -294,16 +287,15 @@ export function NewCustomerDialog({ startOpen = false }: { startOpen?: boolean }
                     value={sourceOther}
                     placeholder="How did they find you?"
                     aria-label="Other lead source"
-                    aria-describedby="new-source-other-hint"
+                   
                     aria-invalid={invalid === "source" ? true : undefined}
                     onChange={(event) => setSourceOther(event.target.value)}
                   />
-                  <FieldHint id="new-source-other-hint">The source name when it is not in the list.</FieldHint>
                   </>
                 ) : null}
                 {fieldError("source")}
               </Field>
-              <Field><FieldLabel htmlFor="new-notes">Notes</FieldLabel><Textarea id="new-notes" aria-describedby="new-notes-hint" value={notes} rows={3} onChange={(event) => setNotes(event.target.value)} /><FieldHint id="new-notes-hint">Office notes about this customer, which the customer does not see.</FieldHint></Field>
+              <Field><FieldLabel htmlFor="new-notes">Notes</FieldLabel><Textarea id="new-notes" value={notes} rows={3} onChange={(event) => setNotes(event.target.value)} /></Field>
             </div>
           </MoreDisclosure>
           </div>
