@@ -1,14 +1,5 @@
 import { isOutsideLeadServiceArea, normalizeLeadZip } from "./lead-zip";
 
-function roundMoney(amount: number): number {
-  return Math.round((amount + Number.EPSILON) * 100) / 100;
-}
-
-/** Low-confidence band from the pricing engine (0.88–1.18). Self-reported size is never high confidence. */
-const LOW_BAND_LOW = 0.88;
-const LOW_BAND_HIGH = 1.18;
-
-export const INSTANT_QUOTE_DEFAULT_RATE = 0.01;
 export const INSTANT_QUOTE_DEFAULT_MINIMUM = 50;
 export const INSTANT_QUOTE_CONFIRM = "We'll confirm within 24 hours";
 export const DEPOSIT_NOT_CONNECTED = "Not connected — add a STRIPE_SECRET_KEY to enable";
@@ -22,6 +13,7 @@ export type InstantQuoteDraft = {
   hasGate: boolean | null;
   hasDogs: boolean | null;
   lotSqft: number | null;
+  measurementConfidence: number | null;
   contactName: string;
   phone: string;
   email: string;
@@ -53,7 +45,6 @@ export type AbandonedInstantQuote = {
 
 export type InstantQuoteConfig = {
   serviceAreaZips: string[];
-  ratePerSqft: number;
   statedMinimum: number;
 };
 
@@ -73,6 +64,7 @@ export function emptyInstantQuote(
     hasGate: null,
     hasDogs: null,
     lotSqft: null,
+    measurementConfidence: null,
     contactName: "",
     phone: "",
     email: "",
@@ -105,19 +97,6 @@ export function instantQuoteStep(draft: InstantQuoteDraft, serviceAreaZips: stri
   if (draft.lotSqft == null || !Number.isFinite(draft.lotSqft) || draft.lotSqft <= 0) return "measure";
   if (!contactCaptured(draft)) return "contact";
   return "confirm";
-}
-
-export function instantQuoteOffer(draft: InstantQuoteDraft, config: InstantQuoteConfig): InstantQuoteOffer | null {
-  if (instantQuoteStep(draft, config.serviceAreaZips) !== "confirm") return null;
-  if (!Number.isFinite(config.ratePerSqft) || config.ratePerSqft <= 0) return null;
-  if (!Number.isFinite(config.statedMinimum) || config.statedMinimum < 0) return null;
-  const point = roundMoney(draft.lotSqft! * config.ratePerSqft);
-  let low = roundMoney(point * LOW_BAND_LOW);
-  let high = roundMoney(point * LOW_BAND_HIGH);
-  const minimum = roundMoney(config.statedMinimum);
-  if (low < minimum) low = minimum;
-  if (high < low) high = low;
-  return { low, high, statedMinimum: minimum, confirm: INSTANT_QUOTE_CONFIRM };
 }
 
 export function abandonedInstantQuote(draft: InstantQuoteDraft): AbandonedInstantQuote | null {
@@ -153,10 +132,8 @@ export function instantQuoteConfigFromSettings(settings: unknown): InstantQuoteC
   const serviceAreaZips = Array.isArray(rawZips)
     ? rawZips.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
     : [];
-  const rate = settingsNumber(record, "instant_quote_rate_per_sqft", INSTANT_QUOTE_DEFAULT_RATE);
   return {
     serviceAreaZips,
-    ratePerSqft: rate > 0 ? rate : INSTANT_QUOTE_DEFAULT_RATE,
     statedMinimum: settingsNumber(record, "instant_quote_minimum", INSTANT_QUOTE_DEFAULT_MINIMUM),
   };
 }

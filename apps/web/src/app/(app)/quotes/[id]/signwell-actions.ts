@@ -5,7 +5,7 @@ import { z } from "zod";
 import { hasRole } from "@lawnquoter/shared";
 import { fail, type ActionResult } from "@/lib/actions/result";
 import { CUSTOMER_EDIT_ROLES } from "@/lib/auth/office-roles";
-import { SIGNWELL_NOT_CONNECTED, createSignWellClient, signWellApiKey } from "@/lib/billing/signwell";
+import { SIGNWELL_NOT_CONNECTED, createSignWellClient, signWellConfigured } from "@/lib/billing/signwell";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 
@@ -13,7 +13,7 @@ export async function sendSignWellContract(quoteId: string): Promise<ActionResul
   const session = await requireOrg();
   if (!hasRole(session.orgRole, CUSTOMER_EDIT_ROLES)) return fail("You cannot send a contract.");
   if (!z.string().uuid().safeParse(quoteId).success) return fail("Quote not found.");
-  if (!signWellApiKey()) return fail(SIGNWELL_NOT_CONNECTED);
+  if (!signWellConfigured()) return fail(SIGNWELL_NOT_CONNECTED);
 
   const supabase = await createClient();
   const { data: quote, error } = await supabase

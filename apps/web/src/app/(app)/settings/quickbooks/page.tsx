@@ -7,6 +7,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { QBO_NOT_CONNECTED, qboConfigured } from "@/lib/billing/qbo";
 import { createClient } from "@/lib/supabase/server";
 import { QboConflictChoices } from "./conflict-choices";
+import { QboSyncButton } from "./qbo-sync-button";
 
 export const metadata: Metadata = { title: "QuickBooks" };
 
@@ -25,6 +26,14 @@ export default async function QuickBooksPage() {
       <PageHeader title="QuickBooks" description="Customers, invoices, and payments sync both ways. Child accounts map to sub-customers." />
       <div className="page-body flex flex-col gap-4">
         {!qboConfigured() ? <p className="text-sm text-muted-foreground">{QBO_NOT_CONNECTED}</p> : null}
+        {qboConfigured() && canResolve ? (
+          <div className="flex flex-wrap items-center gap-4">
+            <Link href="/api/qbo/connect" className="text-sm underline">
+              Connect QuickBooks
+            </Link>
+            <QboSyncButton />
+          </div>
+        ) : null}
         {error ? (
           <Alert variant="destructive">
             <AlertTitle>Could not load QuickBooks</AlertTitle>

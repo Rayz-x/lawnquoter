@@ -6,12 +6,14 @@ import { requireOrg } from "@/lib/auth/session";
 import type { ConnectStatus } from "@/lib/stripe/connect";
 import { createClient } from "@/lib/supabase/server";
 import { headingSturdy } from "@/app/q/[token]/heading-font";
+import { orgBillingGate } from "@/lib/billing/org-plan";
 import { usageFromRpc } from "@/lib/billing/usage";
 import { leadFormSlugFromOrg } from "@/lib/leads/embed-snippets";
 import { BrandingForm } from "./branding-form";
 import { LateFeeCard } from "./late-fee-card";
 import { LeadConnectorsCard } from "./lead-connectors-card";
 import { LeadFormEmbedCard } from "./lead-form-embed-card";
+import { OrgPlanCard } from "./org-plan-card";
 import { OrgSettingsForm } from "./org-settings-form";
 import { QboCard } from "./qbo-card";
 import { StripeConnectCard } from "./stripe-connect-card";
@@ -52,6 +54,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   if (canEdit) {
     const { data, error: usageError } = await supabase.rpc("usage_totals");
     usage = usageError ? null : usageFromRpc(data);
+  }
+
+  const billing = orgBillingGate({ secretKey: process.env.STRIPE_SECRET_KEY, enabled: process.env.STRIPE_BILLING_ENABLED });
+  let plan: { tier: string; status: string } | null = null;
+  if (canEdit) {
+    const { data: subscription } = await supabase.from("org_subscriptions").select("tier, status").eq("org_id", session.orgId).maybeSingle();
+    if (subscription) plan = { tier: subscription.tier, status: subscription.status };
   }
 
   let connectStatus: ConnectStatus = "not_connected";
@@ -105,6 +114,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 graceDays={org.late_fee_grace_days}
                 canEdit={canEdit}
               />
+              {canEdit ? <OrgPlanCard canStart={isOwner && billing.ok} notice={billing.ok ? null : billing.message} plan={plan} /> : null}
             </>
           }
           leadForm={

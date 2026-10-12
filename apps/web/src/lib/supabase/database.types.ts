@@ -6,6 +6,8 @@
 // crew_status added for 20261016001100.
 // irrigation plan columns and set_agreement_irrigation_plan added for 20261016000800.
 // snow_events and activate_snow_event added for 20261016000400.
+// org_subscriptions added for 20261017002000.
+// instant_quote_events added for 20261014110000.
 
 export type Json =
   | string
@@ -1650,6 +1652,62 @@ export type Database = {
           },
         ]
       }
+      instant_quote_events: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          kind: string
+          lot_sqft: number | null
+          org_id: string
+          postal_code: string | null
+          service: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          id?: string
+          kind?: string
+          lot_sqft?: number | null
+          org_id: string
+          postal_code?: string | null
+          service?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          lot_sqft?: number | null
+          org_id?: string
+          postal_code?: string | null
+          service?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instant_quote_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_counters: {
         Row: {
           next_number: number
@@ -3112,6 +3170,47 @@ export type Database = {
           },
         ]
       }
+      org_subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          org_id: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          tier: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          org_id: string
+          status: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tier: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          org_id?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tier?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_subscriptions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orgs: {
         Row: {
           address_line1: string | null
@@ -4093,6 +4192,30 @@ export type Database = {
           qbo_id?: string
           remote_updated_at?: string | null
           sync_token?: string | null
+        }
+        Relationships: []
+      },
+      qbo_oauth_tokens: {
+        Row: {
+          access_expires_at: string
+          access_token: string
+          org_id: string
+          refresh_token: string
+          updated_at: string
+        }
+        Insert: {
+          access_expires_at: string
+          access_token: string
+          org_id: string
+          refresh_token: string
+          updated_at?: string
+        }
+        Update: {
+          access_expires_at?: string
+          access_token?: string
+          org_id?: string
+          refresh_token?: string
+          updated_at?: string
         }
         Relationships: []
       },
@@ -5810,6 +5933,10 @@ export type Database = {
       }
       publish_route: { Args: { p_route_id: string }; Returns: string }
       purge_expired_leads: { Args: never; Returns: number }
+      record_signwell_completion: {
+        Args: { p_document_id: string; p_signer_email: string; p_signer_name: string }
+        Returns: Json
+      }
       resolve_qbo_conflict: { Args: { p_choice: string; p_id: string }; Returns: undefined }
       quote_accept: {
         Args: {

@@ -20,7 +20,50 @@ vi.mock("@/lib/leads/intake-store", () => ({
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createAdminClient: () => ({
-    from: () => ({ insert: harness.insert }),
+    from: (table: string) => {
+      if (table === "price_lists") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                limit: () => ({
+                  maybeSingle: async () => ({ data: { id: "list-1", modifiers: {} } }),
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "pricing_rules") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                eq: async () => ({
+                  data: [{
+                    name: "Mowing",
+                    config: {
+                      type: "tier_matrix",
+                      quantityKey: "turf_sqft",
+                      rows: [{ upTo: 10000, price: 55, hours: 0, cost: 0 }],
+                    },
+                  }],
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+      return {
+        insert: (row: unknown) => {
+          harness.insert(row);
+          const saved = Promise.resolve({ error: null });
+          return Object.assign(saved, {
+            select: () => ({ single: async () => ({ data: { id: "lead-1" }, error: null }) }),
+          });
+        },
+      };
+    },
   }),
 }));
 
@@ -52,7 +95,7 @@ beforeEach(() => {
     services: ["Mowing"],
     consentText: "",
     responseTargetMinutes: 60,
-    config: { serviceAreaZips: ["37064"], ratePerSqft: 0.01, statedMinimum: 50 },
+    config: { serviceAreaZips: ["37064"], statedMinimum: 50 },
   });
   harness.verifyTurnstileToken.mockResolvedValue(true);
   harness.countRecentByIpHash.mockResolvedValue(0);

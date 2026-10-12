@@ -1,18 +1,26 @@
 "use client";
 
 import { useEffect, useRef, useState, type ComponentProps } from "react";
+import type { Geometry } from "@lawnquoter/shared";
+import { MeasureMap } from "@/components/map/measure-map";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
+  abandonedInstantQuote,
   contactCaptured,
   depositLockCopy,
   emptyInstantQuote,
   instantQuoteStep,
-  lawnSqftFromSides,
   type InstantQuoteDraft,
   type InstantQuoteOffer,
 } from "@/lib/leads/instant-quote";
+import {
+  chooseLawnSize,
+  type InstantQuoteMap,
+  type LawnSizeChoice,
+} from "@/lib/leads/instant-quote-measure";
+import { loadInstantQuoteMap } from "./load-map";
 import { revealInstantQuote } from "./reveal-quote";
 
 function dollars(amount: number) {
@@ -56,6 +64,75 @@ function TextField({
   );
 }
 
+export function InstantQuoteMeasureStep({
+  map,
+  trace,
+  lengthFt,
+  widthFt,
+  onTrace,
+  onLength,
+  onWidth,
+  onUse,
+}: {
+  map: InstantQuoteMap;
+  trace: Geometry | null;
+  lengthFt: string;
+  widthFt: string;
+  onTrace: (geometry: Geometry) => void;
+  onLength: (value: string) => void;
+  onWidth: (value: string) => void;
+  onUse: (choice: LawnSizeChoice) => void;
+}) {
+  const choice = chooseLawnSize({
+    trace,
+    parcel: map.parcel,
+    parcelSource: map.parcelSource,
+    footprint: map.footprint,
+    footprintSource: map.footprintSource,
+    location: map.location,
+    lengthFt: Number(lengthFt),
+    widthFt: Number(widthFt),
+  });
+  const measured = choice && choice.source !== "rectangle" ? choice : null;
+  return (
+    <>
+      <p className="text-sm text-muted-foreground">Trace your lawn on the map. We start from the lot minus the house.</p>
+      <MeasureMap
+        className="h-64 w-full overflow-hidden rounded-lg border"
+        location={map.location}
+        parcel={map.parcel}
+        footprint={map.footprint}
+        features={
+          trace
+            ? [{ clientId: "trace", category: "turf_front", source: "traced", geometry: trace, area_sqft: null, length_ft: null }]
+            : []
+        }
+        mode="polygon"
+        onDrawn={onTrace}
+      />
+      {measured ? (
+        <>
+          <p>
+            {measured.source === "trace" ? "Traced lawn" : "Lot minus the house"}: {measured.sqft.toLocaleString("en-US")} sq ft
+          </p>
+          <Button type="button" onClick={() => onUse(measured)}>
+            Use this lawn
+          </Button>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">Enter length and width.</p>
+          <TextField label="Length (ft)" inputMode="decimal" value={lengthFt} onChange={onLength} />
+          <TextField label="Width (ft)" inputMode="decimal" value={widthFt} onChange={onWidth} />
+          <Button type="button" disabled={choice == null} onClick={() => choice && onUse(choice)}>
+            Use this size
+          </Button>
+        </>
+      )}
+    </>
+  );
+}
+
 function YesNo({ label, value, onChange }: { label: string; value: boolean | null; onChange: (value: boolean) => void }) {
   return (
     <div className="grid gap-2">
@@ -87,6 +164,8 @@ export function InstantQuoteWidget({
   turnstileSiteKey?: string | null;
 }) {
   const [draft, setDraft] = useState(() => emptyInstantQuote(initialUtm));
+  const [map, setMap] = useState<InstantQuoteMap | null>(null);
+  const [trace, setTrace] = useState<Geometry | null>(null);
   const [lengthFt, setLengthFt] = useState("");
   const [widthFt, setWidthFt] = useState("");
   const [honeypot, setHoneypot] = useState("");
@@ -117,6 +196,34 @@ export function InstantQuoteWidget({
     script.onload = render;
     document.head.appendChild(script);
   }, [step, turnstileSiteKey]);
+
+  useEffect(() => {
+    if (step !== "measure" || map) return;
+    let cancelled = false;
+    const address = `${draft.address}, ${draft.postalCode}`;
+    void loadInstantQuoteMap(address)
+      .then((loaded) => {
+        if (!cancelled) setMap(loaded);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMap({ location: null, parcel: null, parcelSource: null, footprint: null, footprintSource: null });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [step, map, draft.address, draft.postalCode]);
+
+  useEffect(() => {
+    const send = () => {
+      if (!abandonedInstantQuote(draft)) return;
+      const body = JSON.stringify({ slug, draft });
+      navigator.sendBeacon("/api/public/instant-quote/abandon", new Blob([body], { type: "application/json" }));
+    };
+    window.addEventListener("pagehide", send);
+    return () => window.removeEventListener("pagehide", send);
+  }, [draft, slug]);
 
   async function reveal() {
     setPending(true);
@@ -160,14 +267,20 @@ export function InstantQuoteWidget({
         </>
       ) : null}
       {step === "measure" ? (
-        <>
-          <p className="text-sm text-muted-foreground">Trace the lawn as a rectangle, in feet.</p>
-          <TextField label="Length (ft)" inputMode="decimal" value={lengthFt} onChange={setLengthFt} />
-          <TextField label="Width (ft)" inputMode="decimal" value={widthFt} onChange={setWidthFt} />
-          <Button type="button" onClick={() => patch({ lotSqft: lawnSqftFromSides(Number(lengthFt), Number(widthFt)) })}>
-            Use this size
-          </Button>
-        </>
+        map ? (
+          <InstantQuoteMeasureStep
+            map={map}
+            trace={trace}
+            lengthFt={lengthFt}
+            widthFt={widthFt}
+            onTrace={setTrace}
+            onLength={setLengthFt}
+            onWidth={setWidthFt}
+            onUse={(choice) => patch({ lotSqft: choice.sqft, measurementConfidence: choice.confidence })}
+          />
+        ) : (
+          <p>Looking up the lot…</p>
+        )
       ) : null}
       {step === "contact" || step === "confirm" ? (
         <>
