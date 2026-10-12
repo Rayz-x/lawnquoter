@@ -83,6 +83,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     place: "bar",
     items: [
       { title: "Agreements", href: "/agreements", icon: Repeat, roles: OFFICE_ROLES },
+      { title: "Renewals", href: "/renewals", icon: CalendarDays, roles: OFFICE_ROLES },
       { title: "Crews", href: "/settings/crews", icon: HardHat, roles: DISPATCH_ROLES },
     ],
   },

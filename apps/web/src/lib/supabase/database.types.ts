@@ -3608,6 +3608,87 @@ export type Database = {
           },
         ]
       }
+      renewal_proposals: {
+        Row: {
+          agreement_id: string
+          created_at: string
+          id: string
+          org_id: string
+          prior_cents: number
+          proposed_cents: number
+          quote_id: string
+        }
+        Insert: {
+          agreement_id: string
+          created_at?: string
+          id?: string
+          org_id: string
+          prior_cents: number
+          proposed_cents: number
+          quote_id: string
+        }
+        Update: {
+          agreement_id?: string
+          created_at?: string
+          id?: string
+          org_id?: string
+          prior_cents?: number
+          proposed_cents?: number
+          quote_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "renewal_proposals_agreement_id_fkey"
+            columns: ["agreement_id"]
+            isOneToOne: false
+            referencedRelation: "agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_proposals_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_proposals_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: true
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      renewal_rules: {
+        Row: {
+          increase_percent: number
+          org_id: string
+          updated_at: string
+          window_days: number
+        }
+        Insert: {
+          increase_percent: number
+          org_id: string
+          updated_at?: string
+          window_days: number
+        }
+        Update: {
+          increase_percent?: number
+          org_id?: string
+          updated_at?: string
+          window_days?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "renewal_rules_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       routes: {
         Row: {
           created_at: string
@@ -4835,6 +4916,7 @@ export type Database = {
         Args: { p_agreement_id: string; p_resume_on?: string }
         Returns: undefined
       }
+      propose_agreement_renewal: { Args: { p_agreement: string }; Returns: string }
       properties_near: {
         Args: { p_property: string; p_radius_m?: number }
         Returns: {
@@ -4927,6 +5009,7 @@ export type Database = {
         Args: { p_crew_id: string; p_date: string; p_lead_id: string }
         Returns: undefined
       }
+      set_renewal_rule: { Args: { p_percent: number; p_window_days: number }; Returns: undefined }
       site_check_approve: { Args: { p_id: string }; Returns: Json }
       site_check_cancel_request: { Args: { p_token: string }; Returns: Json }
       site_check_decline: {
