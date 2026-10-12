@@ -9,6 +9,9 @@ export default function CrewMePage() {
       <p className="text-[15px] text-muted-foreground">Install LawnQuoter Crew from the browser menu to keep the route on this phone.</p>
       <BatterySaverSettings />
       <StorageSettings />
+      <a href="/crew/walk" className="inline-flex min-h-12 items-center text-[17px] font-semibold text-primary">
+        Site walk
+      </a>
       <a href="/dashboard" className="inline-flex min-h-12 items-center text-[17px] font-semibold text-primary">
         Office
       </a>

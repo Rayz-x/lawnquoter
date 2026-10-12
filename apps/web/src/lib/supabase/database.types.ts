@@ -4,6 +4,7 @@
 // usage_meters added for 20261017003000.
 // auto_charge added for 20261016001800.
 // irrigation plan columns and set_agreement_irrigation_plan added for 20261016000800.
+// snow_events and activate_snow_event added for 20261016000400.
 
 export type Json =
   | string
@@ -1768,6 +1769,7 @@ export type Database = {
           created_at: string
           currency: string
           due_on: string | null
+          fee_for_invoice_id: string | null
           id: string
           issued_at: string | null
           notes: string | null
@@ -1800,6 +1802,7 @@ export type Database = {
           created_at?: string
           currency?: string
           due_on?: string | null
+          fee_for_invoice_id?: string | null
           id?: string
           issued_at?: string | null
           notes?: string | null
@@ -1832,6 +1835,7 @@ export type Database = {
           created_at?: string
           currency?: string
           due_on?: string | null
+          fee_for_invoice_id?: string | null
           id?: string
           issued_at?: string | null
           notes?: string | null
@@ -2985,6 +2989,9 @@ export type Database = {
           email: string | null
           heading_font: string
           id: string
+          late_fee_bps: number
+          late_fee_flat_cents: number
+          late_fee_grace_days: number
           logo_dark_path: string | null
           logo_height: number | null
           logo_needs_chip: boolean
@@ -3019,6 +3026,9 @@ export type Database = {
           email?: string | null
           heading_font?: string
           id?: string
+          late_fee_bps?: number
+          late_fee_flat_cents?: number
+          late_fee_grace_days?: number
           logo_dark_path?: string | null
           logo_height?: number | null
           logo_needs_chip?: boolean
@@ -3053,6 +3063,9 @@ export type Database = {
           email?: string | null
           heading_font?: string
           id?: string
+          late_fee_bps?: number
+          late_fee_flat_cents?: number
+          late_fee_grace_days?: number
           logo_dark_path?: string | null
           logo_height?: number | null
           logo_needs_chip?: boolean
@@ -3805,6 +3818,117 @@ export type Database = {
           },
         ]
       }
+      qbo_conflicts: {
+        Row: {
+          created_at: string
+          id: string
+          link_id: string | null
+          local_name: string
+          org_id: string
+          remote_name: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          link_id?: string | null
+          local_name: string
+          org_id: string
+          remote_name: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          link_id?: string | null
+          local_name?: string
+          org_id?: string
+          remote_name?: string
+          status?: string
+        }
+        Relationships: []
+      },
+      qbo_connections: {
+        Row: { connected_at: string | null; org_id: string; realm_id: string | null }
+        Insert: { connected_at?: string | null; org_id: string; realm_id?: string | null }
+        Update: { connected_at?: string | null; org_id?: string; realm_id?: string | null }
+        Relationships: []
+      },
+      qbo_entity_links: {
+        Row: {
+          id: string
+          last_synced_at: string | null
+          local_id: string
+          local_table: string
+          org_id: string
+          parent_qbo_id: string | null
+          qbo_entity: string
+          qbo_id: string
+          remote_updated_at: string | null
+          sync_token: string | null
+        }
+        Insert: {
+          id?: string
+          last_synced_at?: string | null
+          local_id: string
+          local_table: string
+          org_id: string
+          parent_qbo_id?: string | null
+          qbo_entity: string
+          qbo_id: string
+          remote_updated_at?: string | null
+          sync_token?: string | null
+        }
+        Update: {
+          id?: string
+          last_synced_at?: string | null
+          local_id?: string
+          local_table?: string
+          org_id?: string
+          parent_qbo_id?: string | null
+          qbo_entity?: string
+          qbo_id?: string
+          remote_updated_at?: string | null
+          sync_token?: string | null
+        }
+        Relationships: []
+      },
+      qbo_sync_log: {
+        Row: {
+          created_at: string
+          detail: string | null
+          direction: string
+          entity: string
+          id: string
+          local_id: string | null
+          org_id: string
+          outcome: string
+          qbo_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          direction: string
+          entity: string
+          id?: string
+          local_id?: string | null
+          org_id: string
+          outcome: string
+          qbo_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          direction?: string
+          entity?: string
+          id?: string
+          local_id?: string | null
+          org_id?: string
+          outcome?: string
+          qbo_id?: string | null
+        }
+        Relationships: []
+      },
       quotes: {
         Row: {
           account_id: string
@@ -3822,6 +3946,7 @@ export type Database = {
           property_id: string | null
           public_token: string
           sent_at: string | null
+          signwell_document_id: string | null
           site_check_status:
             | Database["public"]["Enums"]["site_check_status"]
             | null
@@ -3847,6 +3972,7 @@ export type Database = {
           property_id?: string | null
           public_token?: string
           sent_at?: string | null
+          signwell_document_id?: string | null
           site_check_status?:
             | Database["public"]["Enums"]["site_check_status"]
             | null
@@ -3872,6 +3998,7 @@ export type Database = {
           property_id?: string | null
           public_token?: string
           sent_at?: string | null
+          signwell_document_id?: string | null
           site_check_status?:
             | Database["public"]["Enums"]["site_check_status"]
             | null
@@ -4322,6 +4449,48 @@ export type Database = {
             columns: ["visit_id"]
             isOneToOne: false
             referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      snow_events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_date: string
+          id: string
+          inches: number
+          org_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_date: string
+          id?: string
+          inches: number
+          org_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_date?: string
+          id?: string
+          inches?: number
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "snow_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "snow_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
             referencedColumns: ["id"]
           },
         ]
@@ -5131,6 +5300,7 @@ export type Database = {
     }
     Functions: {
       activate_price_list: { Args: { p_id: string }; Returns: Json }
+      activate_snow_event: { Args: { p_event_date: string; p_inches: number }; Returns: number }
       install_catalog_services: { Args: { p_entries: Json }; Returns: Json }
       accept_org_invite: { Args: { p_token: string }; Returns: string }
       account_statement_public: {
@@ -5154,6 +5324,7 @@ export type Database = {
         }
         Returns: string
       }
+      apply_late_fees: { Args: never; Returns: number }
       billable_line_amount_cents: {
         Args: { p_actual_cents: number; p_line_item_id: string }
         Returns: number
@@ -5436,6 +5607,7 @@ export type Database = {
       }
       publish_route: { Args: { p_route_id: string }; Returns: string }
       purge_expired_leads: { Args: never; Returns: number }
+      resolve_qbo_conflict: { Args: { p_choice: string; p_id: string }; Returns: undefined }
       quote_accept: {
         Args: {
           p_disclosure?: boolean
@@ -5641,6 +5813,7 @@ export type Database = {
         | "installment"
         | "true_up"
         | "level"
+        | "late_fee"
       invoice_status: "draft" | "issued" | "paid" | "void"
       item_state: "included" | "recommended" | "optional"
       job_status:
@@ -5939,6 +6112,7 @@ export const Constants = {
         "installment",
         "true_up",
         "level",
+        "late_fee",
       ],
       invoice_status: ["draft", "issued", "paid", "void"],
       item_state: ["included", "recommended", "optional"],

@@ -16,6 +16,17 @@ export function quoteButtonSnippet(
   return `<a href="${href}">${label}</a>`;
 }
 
+export function instantQuoteWidgetUrl(origin: string, slug: string): string {
+  const base = origin.replace(/\/$/, "");
+  return `${base}/w/${slug}`;
+}
+
+/** iframe HTML that loads the instant-quote widget. Includes default UTM tags. */
+export function instantQuoteIframeEmbed(origin: string, slug: string): string {
+  const src = `${instantQuoteWidgetUrl(origin, slug)}?utm_medium=embed&utm_source=website`;
+  return `<iframe src="${src}" title="Instant quote" style="width:100%;min-height:720px;border:0;" loading="lazy"></iframe>`;
+}
+
 /** iframe HTML that loads the hosted form. Includes default UTM tags for attribution. */
 export function quoteIframeEmbed(origin: string, slug: string): string {
   const src = `${hostedQuoteFormUrl(origin, slug)}?utm_medium=embed&utm_source=website`;

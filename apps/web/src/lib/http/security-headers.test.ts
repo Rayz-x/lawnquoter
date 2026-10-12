@@ -46,5 +46,7 @@ describe("securityHeaderGroups", () => {
     expect(value("/", "Strict-Transport-Security")).toBe("max-age=63072000; includeSubDomains; preload");
     expect(value("/", "X-Content-Type-Options")).toBe("nosniff");
     expect(value("/", "Referrer-Policy")).toBe("strict-origin-when-cross-origin");
+    expect(value("/", "Permissions-Policy")).toContain("microphone=(self)");
+    expect(value("/", "Permissions-Policy")).toContain("geolocation=(self)");
   });
 });

@@ -164,3 +164,48 @@ export function instantQuoteConfigFromSettings(settings: unknown): InstantQuoteC
 export function depositLockCopy(stripeConfigured: boolean): string {
   return stripeConfigured ? "Pay a deposit to lock this range." : DEPOSIT_NOT_CONNECTED;
 }
+
+function clipUtm(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, 200);
+}
+
+/** Lead row written when the range is revealed. The price stays off this row. */
+export function instantQuoteLeadRow(orgId: string, draft: InstantQuoteDraft) {
+  if (!contactCaptured(draft)) return null;
+  const phone = draft.phone.trim();
+  const email = draft.email.trim();
+  const phoneOk = phone.length >= 3 && phone.length <= 40 ? phone : null;
+  const emailOk = email.includes("@") && email.length >= 3 && email.length <= 320 ? email : null;
+  if (!phoneOk && !emailOk) return null;
+  const name = draft.contactName.trim().slice(0, 200);
+  const address = draft.address.trim().slice(0, 500);
+  if (!name || !address) return null;
+  const note = [
+    "Instant quote",
+    draft.lotSqft ? `${draft.lotSqft} sq ft` : null,
+    draft.hasGate ? "gate" : null,
+    draft.hasDogs ? "dogs" : null,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(". ");
+  return {
+    org_id: orgId,
+    contact_name: name,
+    phone: phoneOk,
+    email: emailOk,
+    address_typed: address,
+    postal_code: normalizeLeadZip(draft.postalCode),
+    services: draft.service.trim() ? [draft.service.trim().slice(0, 80)] : [],
+    note: note.slice(0, 5000),
+    source: "Website form" as const,
+    needs_address_check: true,
+    utm_source: clipUtm(draft.utmSource),
+    utm_medium: clipUtm(draft.utmMedium),
+    utm_campaign: clipUtm(draft.utmCampaign),
+    utm_term: clipUtm(draft.utmTerm),
+    utm_content: clipUtm(draft.utmContent),
+  };
+}
