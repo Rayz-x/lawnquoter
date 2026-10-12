@@ -165,6 +165,13 @@ export function depositLockCopy(stripeConfigured: boolean): string {
   return stripeConfigured ? "Pay a deposit to lock this range." : DEPOSIT_NOT_CONNECTED;
 }
 
+function clipUtm(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, 200);
+}
+
 /** Lead row written when the range is revealed. The price stays off this row. */
 export function instantQuoteLeadRow(orgId: string, draft: InstantQuoteDraft) {
   if (!contactCaptured(draft)) return null;
@@ -195,10 +202,10 @@ export function instantQuoteLeadRow(orgId: string, draft: InstantQuoteDraft) {
     note: note.slice(0, 5000),
     source: "Website form" as const,
     needs_address_check: true,
-    utm_source: draft.utmSource,
-    utm_medium: draft.utmMedium,
-    utm_campaign: draft.utmCampaign,
-    utm_term: draft.utmTerm,
-    utm_content: draft.utmContent,
+    utm_source: clipUtm(draft.utmSource),
+    utm_medium: clipUtm(draft.utmMedium),
+    utm_campaign: clipUtm(draft.utmCampaign),
+    utm_term: clipUtm(draft.utmTerm),
+    utm_content: clipUtm(draft.utmContent),
   };
 }

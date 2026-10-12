@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ComponentProps } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -77,26 +77,54 @@ export function InstantQuoteWidget({
   serviceAreaZips,
   initialUtm,
   depositConnected,
+  turnstileSiteKey = null,
 }: {
   slug: string;
   services: string[];
   serviceAreaZips: string[];
   initialUtm: Pick<InstantQuoteDraft, "utmSource" | "utmMedium" | "utmCampaign" | "utmTerm" | "utmContent">;
   depositConnected: boolean;
+  turnstileSiteKey?: string | null;
 }) {
   const [draft, setDraft] = useState(() => emptyInstantQuote(initialUtm));
   const [lengthFt, setLengthFt] = useState("");
   const [widthFt, setWidthFt] = useState("");
+  const [honeypot, setHoneypot] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<HTMLDivElement>(null);
   const [offer, setOffer] = useState<InstantQuoteOffer | null>(null);
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
   const step = instantQuoteStep(draft, serviceAreaZips);
   const patch = (partial: Partial<InstantQuoteDraft>) => setDraft((current) => ({ ...current, ...partial }));
 
+  useEffect(() => {
+    if ((step !== "contact" && step !== "confirm") || !turnstileSiteKey || !turnstileRef.current) return;
+    const w = window as Window & {
+      turnstile?: { render: (el: HTMLElement, opts: { sitekey: string; callback: (token: string) => void }) => void };
+    };
+    const render = () => {
+      if (!turnstileRef.current || !w.turnstile) return;
+      w.turnstile.render(turnstileRef.current, { sitekey: turnstileSiteKey, callback: setTurnstileToken });
+    };
+    if (w.turnstile) {
+      render();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.onload = render;
+    document.head.appendChild(script);
+  }, [step, turnstileSiteKey]);
+
   async function reveal() {
     setPending(true);
     setFailed(false);
-    const result = await revealInstantQuote(slug, draft);
+    const result = await revealInstantQuote(slug, draft, {
+      turnstileToken: turnstileToken || (turnstileSiteKey ? "" : "dev-missing-site-key"),
+      honeypot,
+    });
     setPending(false);
     if (!result) {
       setFailed(true);
@@ -147,6 +175,13 @@ export function InstantQuoteWidget({
           <TextField label="Name" value={draft.contactName} onChange={(contactName) => patch({ contactName })} />
           <TextField label="Phone" value={draft.phone} onChange={(phone) => patch({ phone })} />
           <TextField label="Email" type="email" value={draft.email} onChange={(email) => patch({ email })} />
+          <div className="absolute left-[-10000px] h-px w-px overflow-hidden" aria-hidden="true">
+            <label>
+              Website
+              <input type="text" name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(event) => setHoneypot(event.target.value)} />
+            </label>
+          </div>
+          {turnstileSiteKey ? <div ref={turnstileRef} /> : null}
           <Button type="button" disabled={!contactCaptured(draft) || pending} onClick={() => void reveal()}>
             {pending ? "Saving…" : "See my range"}
           </Button>

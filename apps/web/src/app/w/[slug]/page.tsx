@@ -38,6 +38,7 @@ export default async function InstantQuotePage({
           serviceAreaZips={org.config.serviceAreaZips}
           initialUtm={utm}
           depositConnected={Boolean(process.env.STRIPE_SECRET_KEY?.trim())}
+          turnstileSiteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() || null}
         />
       </div>
     </main>

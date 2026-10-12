@@ -120,6 +120,22 @@ describe("instant quote session", () => {
     });
     expect(row && "low" in row).toBe(false);
     expect(JSON.stringify(row)).not.toContain("88");
+    const long = "u".repeat(250);
+    const capped = instantQuoteLeadRow("org-1", draft({
+      ...inArea,
+      contactName: "Ada",
+      email: "ada@example.com",
+      utmSource: long,
+      utmMedium: long,
+      utmCampaign: long,
+      utmTerm: long,
+      utmContent: long,
+    }));
+    expect(capped?.utm_source).toHaveLength(200);
+    expect(capped?.utm_medium).toHaveLength(200);
+    expect(capped?.utm_campaign).toHaveLength(200);
+    expect(capped?.utm_term).toHaveLength(200);
+    expect(capped?.utm_content).toHaveLength(200);
   });
 
   it("keeps the deposit locked off until a Stripe key is configured", () => {
