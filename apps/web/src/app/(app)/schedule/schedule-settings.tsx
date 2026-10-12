@@ -1,7 +1,7 @@
 "use client";
 
 import { Settings } from "lucide-react";
-import { FieldHint } from "@/components/entry";
+
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { WeatherRule } from "@/lib/scheduling/weather-rules";
@@ -28,7 +28,6 @@ export function ScheduleSettings({ date, rules }: { date: string; rules: Weather
         >
           <Settings />
         </SheetTrigger>
-        <FieldHint>Open weather rules and snow events.</FieldHint>
       </span>
       <SheetContent
         side="bottom"

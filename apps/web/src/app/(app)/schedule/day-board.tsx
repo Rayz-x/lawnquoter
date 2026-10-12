@@ -4,7 +4,8 @@ import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
-import { FieldHint } from "@/components/entry";
+
+import { HelpTip } from "@/components/help/help-tip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -211,14 +212,12 @@ export function DayBoard({
                   ? `Rain day · selection → ${targetLabel}`
                   : `Rain day · all crews → ${targetLabel}`}
               </Button>
-              <FieldHint>Pushes the selected stops, or every stop, to the next open day.</FieldHint>
             </span>
             {selectedIds.length > 0 ? (
               <span className="flex min-w-0 max-w-full flex-col gap-1">
                 <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setSelected({})}>
                   Clear selection
                 </Button>
-                <FieldHint>Unchecks the stops you picked for the rain day.</FieldHint>
               </span>
             ) : null}
           </div>
@@ -278,10 +277,16 @@ export function DayBoard({
                       >
                         Rain day → {targetLabel}
                       </Button>
-                      <FieldHint>Pushes this crew’s scheduled stops to the next open day.</FieldHint>
                     </span>
                     {column.routeId && scheduledIds(column.visits).length >= 2 ? (
                       <span className="flex min-w-0 max-w-full flex-col gap-1">
+                        <span className="inline-flex items-center gap-1">
+                          <HelpTip
+                            label="Help for routing"
+                            text="Reorder by drive time uses a free estimate. Paid routing stays off until a routing key is added. Publish route sends the order to phones."
+                            href="/help/schedule#stop-order"
+                          />
+                        </span>
                         <Button
                           type="button"
                           size="sm"
@@ -295,7 +300,6 @@ export function DayBoard({
                         >
                           Reorder by drive time
                         </Button>
-                        <FieldHint>Orders this crew’s stops by a free drive-time estimate.</FieldHint>
                       </span>
                     ) : null}
                     {paidRouting && column.routeId && scheduledIds(column.visits).length >= 2 ? (
@@ -313,7 +317,6 @@ export function DayBoard({
                         >
                           Use paid routing
                         </Button>
-                        <FieldHint>Orders this crew’s stops with the paid routing service.</FieldHint>
                       </span>
                     ) : null}
                   </div>
@@ -372,7 +375,6 @@ export function DayBoard({
                                 >
                                   Move up
                                 </Button>
-                                <FieldHint>Moves this stop earlier in the crew’s day.</FieldHint>
                               </span>
                               <span className="flex min-w-0 flex-col gap-1">
                                 <Button
@@ -392,7 +394,6 @@ export function DayBoard({
                                 >
                                   Move down
                                 </Button>
-                                <FieldHint>Moves this stop later in the crew’s day.</FieldHint>
                               </span>
                             </div>
                           ) : null}
@@ -438,7 +439,6 @@ export function DayBoard({
                         {pending ? <Spinner data-icon="inline-start" /> : null}
                         Publish route
                       </Button>
-                      <FieldHint>Sends this crew’s stop order to their phones.</FieldHint>
                     </span>
                   )
                 ) : null}
@@ -476,7 +476,6 @@ function VisitCard({
                 onChange={(event) => select.onChange(event.target.checked)}
                 aria-label={`Select ${visit.title} for rain day`}
               />
-              <FieldHint>Includes this stop in the rain-day push.</FieldHint>
             </span>
           ) : null}
           <div
@@ -540,7 +539,6 @@ function AssignControls({
         <label htmlFor={`assign-${visit.id}-${date}`} className="text-xs text-muted-foreground">
           {fieldLabel}
         </label>
-        <FieldHint>The crew that should run this stop.</FieldHint>
         <NativeSelect id={`assign-${visit.id}-${date}`} value={selected} onChange={(event) => setCrewId(event.target.value)}>
           {crews.map((crew) => (
             <option key={crew.id} value={crew.id}>
@@ -553,7 +551,6 @@ function AssignControls({
         <Button type="button" size="sm" disabled={pending} onClick={() => onAssign(selected)}>
           {fieldLabel === "Move to" ? "Move" : "Assign"}
         </Button>
-        <FieldHint>Puts this stop on the crew you picked, for this day.</FieldHint>
       </span>
     </div>
   );
@@ -619,7 +616,6 @@ function PhoneSyncLines({
                   >
                     Allow phone
                   </Button>
-                  <FieldHint>Lets this phone sync the route again.</FieldHint>
                 </span>
               ) : null}
             </li>
@@ -665,7 +661,6 @@ function PhoneSyncLines({
                 >
                   Revoke phone
                 </Button>
-                <FieldHint>Stops this phone from syncing until you allow it again.</FieldHint>
               </span>
             ) : null}
           </li>
@@ -696,7 +691,6 @@ function StopControls({
           <label htmlFor={`skip-${visit.id}`} className="text-xs text-muted-foreground">
             Skip reason
           </label>
-          <FieldHint>Why this stop will not be done today.</FieldHint>
           <NativeSelect
             id={`skip-${visit.id}`}
             value={skipReason}
@@ -713,7 +707,6 @@ function StopControls({
           <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => onSkip(skipReason)}>
             Skip
           </Button>
-          <FieldHint>Marks the stop skipped and keeps it off the route.</FieldHint>
         </span>
       </div>
       <div className="flex flex-wrap items-end gap-2">
@@ -721,7 +714,6 @@ function StopControls({
           <label htmlFor={`cancel-${visit.id}`} className="text-xs text-muted-foreground">
             Cancel reason
           </label>
-          <FieldHint>Why this stop is cancelled.</FieldHint>
           <Input id={`cancel-${visit.id}`} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} />
         </div>
         <Button
@@ -733,7 +725,6 @@ function StopControls({
         >
           Cancel
         </Button>
-        <FieldHint>Cancels the stop. It will not be done.</FieldHint>
       </div>
     </>
   );

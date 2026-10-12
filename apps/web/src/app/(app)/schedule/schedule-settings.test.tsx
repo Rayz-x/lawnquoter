@@ -14,7 +14,7 @@ describe("schedule settings", () => {
       createElement(ScheduleSettings, { date: "2026-12-01", rules: [] }),
     );
     expect(closed).toContain("Schedule settings");
-    expect(closed).toContain("Open weather rules and snow events.");
+    expect(closed).not.toContain("Open weather rules and snow events.");
     expect(closed).not.toContain("Activate snow");
     expect(closed).not.toContain("Help for weather rules");
 
