@@ -7,6 +7,7 @@
 // irrigation plan columns and set_agreement_irrigation_plan added for 20261016000800.
 // snow_events and activate_snow_event added for 20261016000400.
 // org_subscriptions added for 20261017002000.
+// instant_quote_events added for 20261014110000.
 
 export type Json =
   | string
@@ -1644,6 +1645,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "equipment_rates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      instant_quote_events: {
+        Row: {
+          address: string
+          created_at: string
+          id: string
+          kind: string
+          lot_sqft: number | null
+          org_id: string
+          postal_code: string | null
+          service: string | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          id?: string
+          kind?: string
+          lot_sqft?: number | null
+          org_id: string
+          postal_code?: string | null
+          service?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          lot_sqft?: number | null
+          org_id?: string
+          postal_code?: string | null
+          service?: string | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instant_quote_events_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "orgs"
@@ -4061,6 +4118,30 @@ export type Database = {
         }
         Relationships: []
       },
+      qbo_oauth_tokens: {
+        Row: {
+          access_expires_at: string
+          access_token: string
+          org_id: string
+          refresh_token: string
+          updated_at: string
+        }
+        Insert: {
+          access_expires_at: string
+          access_token: string
+          org_id: string
+          refresh_token: string
+          updated_at?: string
+        }
+        Update: {
+          access_expires_at?: string
+          access_token?: string
+          org_id?: string
+          refresh_token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      },
       qbo_sync_log: {
         Row: {
           created_at: string
@@ -5775,6 +5856,10 @@ export type Database = {
       }
       publish_route: { Args: { p_route_id: string }; Returns: string }
       purge_expired_leads: { Args: never; Returns: number }
+      record_signwell_completion: {
+        Args: { p_document_id: string; p_signer_email: string; p_signer_name: string }
+        Returns: Json
+      }
       resolve_qbo_conflict: { Args: { p_choice: string; p_id: string }; Returns: undefined }
       quote_accept: {
         Args: {
