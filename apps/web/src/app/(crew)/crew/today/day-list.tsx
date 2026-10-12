@@ -36,7 +36,7 @@ import {
   type RouteDayBanner,
 } from "../today";
 
-export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId: string; orgId: string }) {
+export function DayList({ timeZone, userId, orgId, textsConnected = false, textNotice = null }: { timeZone: string; userId: string; orgId: string; textsConnected?: boolean; textNotice?: string | null }) {
   const [now, setNow] = useState(() => new Date());
   const date = orgToday(timeZone, now);
   const [view, setView] = useState<DayPackView | null>(null);
@@ -269,7 +269,7 @@ export function DayList({ timeZone, userId, orgId }: { timeZone: string; userId:
       ) : null}
       {openId ? (
         <div className="fixed inset-0 z-30 overflow-y-auto bg-background">
-          <VisitScreen visitId={openId} timeZone={timeZone} userId={userId} orgId={orgId} onBack={() => setOpenId(null)} />
+          <VisitScreen visitId={openId} timeZone={timeZone} userId={userId} orgId={orgId} onBack={() => setOpenId(null)} textsConnected={textsConnected} textNotice={textNotice} />
         </div>
       ) : null}
     </section>
