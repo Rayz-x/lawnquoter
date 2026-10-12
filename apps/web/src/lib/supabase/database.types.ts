@@ -1758,6 +1758,7 @@ export type Database = {
           created_at: string
           currency: string
           due_on: string | null
+          fee_for_invoice_id: string | null
           id: string
           issued_at: string | null
           notes: string | null
@@ -1790,6 +1791,7 @@ export type Database = {
           created_at?: string
           currency?: string
           due_on?: string | null
+          fee_for_invoice_id?: string | null
           id?: string
           issued_at?: string | null
           notes?: string | null
@@ -1822,6 +1824,7 @@ export type Database = {
           created_at?: string
           currency?: string
           due_on?: string | null
+          fee_for_invoice_id?: string | null
           id?: string
           issued_at?: string | null
           notes?: string | null
@@ -2975,6 +2978,9 @@ export type Database = {
           email: string | null
           heading_font: string
           id: string
+          late_fee_bps: number
+          late_fee_flat_cents: number
+          late_fee_grace_days: number
           logo_dark_path: string | null
           logo_height: number | null
           logo_needs_chip: boolean
@@ -3009,6 +3015,9 @@ export type Database = {
           email?: string | null
           heading_font?: string
           id?: string
+          late_fee_bps?: number
+          late_fee_flat_cents?: number
+          late_fee_grace_days?: number
           logo_dark_path?: string | null
           logo_height?: number | null
           logo_needs_chip?: boolean
@@ -3043,6 +3052,9 @@ export type Database = {
           email?: string | null
           heading_font?: string
           id?: string
+          late_fee_bps?: number
+          late_fee_flat_cents?: number
+          late_fee_grace_days?: number
           logo_dark_path?: string | null
           logo_height?: number | null
           logo_needs_chip?: boolean
@@ -5258,6 +5270,7 @@ export type Database = {
         }
         Returns: string
       }
+      apply_late_fees: { Args: never; Returns: number }
       billable_line_amount_cents: {
         Args: { p_actual_cents: number; p_line_item_id: string }
         Returns: number
@@ -5737,6 +5750,7 @@ export type Database = {
         | "installment"
         | "true_up"
         | "level"
+        | "late_fee"
       invoice_status: "draft" | "issued" | "paid" | "void"
       item_state: "included" | "recommended" | "optional"
       job_status:
@@ -6035,6 +6049,7 @@ export const Constants = {
         "installment",
         "true_up",
         "level",
+        "late_fee",
       ],
       invoice_status: ["draft", "issued", "paid", "void"],
       item_state: ["included", "recommended", "optional"],

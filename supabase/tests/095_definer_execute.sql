@@ -58,6 +58,7 @@ select is(
     'activate_price_list',
     'add_crew_member',
     'agreement_installment_balance',
+    'apply_late_fees',
     'assign_visit',
     'cancel_visit',
     'change_order_accept',
