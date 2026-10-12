@@ -120,6 +120,20 @@ describe("program", () => {
     const r = priceLine({ rule: { ...fert, billing: "prepay" }, quantities: {}, modifiers, context: {} });
     expect(r.price).toBe(324);
   });
+
+  it("uses the highest prepay tier the application count meets", () => {
+    const tiers = [
+      { minApps: 4, discountPct: 0.05 },
+      { minApps: 6, discountPct: 0.1 },
+      { minApps: 8, discountPct: 0.15 },
+    ];
+    const prepaid = { ...fert, billing: "prepay" as const, prepayDiscountPct: 0, prepayTiers: tiers };
+    expect(priceLine({ rule: { ...prepaid, applicationCount: 4 }, quantities: {}, modifiers, context: {} }).price).toBe(228);
+    expect(priceLine({ rule: { ...prepaid, applicationCount: 7 }, quantities: {}, modifiers, context: {} }).price).toBe(378);
+    expect(priceLine({ rule: { ...prepaid, applicationCount: 8 }, quantities: {}, modifiers, context: {} }).price).toBe(408);
+    expect(priceLine({ rule: { ...prepaid, applicationCount: 3 }, quantities: {}, modifiers, context: {} }).price).toBe(180);
+    expect(priceLine({ rule: { ...prepaid, applicationCount: 4, prepayDiscountPct: 0.1 }, quantities: {}, modifiers, context: {} }).price).toBe(228);
+  });
 });
 
 describe("snow and irrigation", () => {
