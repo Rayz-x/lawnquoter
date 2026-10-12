@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import { cn } from "cn";
 
 /** Short helper under a field, toggle, or button. Wraps on a phone instead of clipping. */
-export function FieldHint({ children }: { children: ReactNode }) {
+export function FieldHint({ children, id }: { children?: ReactNode; id?: string }) {
   return (
-    <span data-field-hint className="block max-w-full text-start text-xs leading-snug font-normal text-muted-foreground text-pretty wrap-break-word">
+    <span id={id} data-field-hint data-slot="field-hint" className="block w-full max-w-full break-words text-start text-xs leading-snug font-normal text-muted-foreground text-pretty wrap-break-word">
       {children}
     </span>
   );

@@ -143,3 +143,5 @@ export {
   FieldError,
   FieldGroup,
 }
+export { FieldHint } from "@/components/entry/field-hint"
+
