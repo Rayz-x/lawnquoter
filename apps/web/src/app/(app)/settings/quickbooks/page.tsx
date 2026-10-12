@@ -7,6 +7,7 @@ import { requireOrg } from "@/lib/auth/session";
 import { QBO_NOT_CONNECTED, qboConfigured } from "@/lib/billing/qbo";
 import { createClient } from "@/lib/supabase/server";
 import { QboConflictChoices } from "./conflict-choices";
+import { QboSyncButton } from "./qbo-sync-button";
 
 export const metadata: Metadata = { title: "QuickBooks" };
 
@@ -26,9 +27,12 @@ export default async function QuickBooksPage() {
       <div className="page-body flex flex-col gap-4">
         {!qboConfigured() ? <p className="text-sm text-muted-foreground">{QBO_NOT_CONNECTED}</p> : null}
         {qboConfigured() && canResolve ? (
-          <Link href="/api/qbo/connect" className="text-sm underline">
-            Connect QuickBooks
-          </Link>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link href="/api/qbo/connect" className="text-sm underline">
+              Connect QuickBooks
+            </Link>
+            <QboSyncButton />
+          </div>
         ) : null}
         {error ? (
           <Alert variant="destructive">
