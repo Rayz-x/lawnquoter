@@ -1,4 +1,6 @@
 import type { EmailProvider, OutboundEmail } from "@/lib/email/provider";
+import { renderTemplate, suggestedTemplate } from "@/lib/messaging/template";
+import { toE164 } from "@/lib/messaging/sms";
 
 /** Reminder cadence: due day, then +7 and +14. Late fees are intentionally off. */
 export const PAYMENT_REMINDER_STAGES = ["due", "plus_7", "plus_14"] as const;
@@ -17,6 +19,8 @@ export type ReminderInvoice = {
   billingEmail: string | null;
   /** Present once I05 lands; reminders work without it. */
   publicToken: string | null;
+  smsPhone?: string | null;
+  smsOptIn?: boolean;
   paymentDisputeOpen: boolean;
   /** Inclusive pause window; null means no promise-to-pay. */
   promiseToPayUntil: string | null;
@@ -129,6 +133,48 @@ Late fees are not applied.
   };
 }
 
+const STAGE_LINE: Record<PaymentReminderStage, string> = {
+  due: "It is due today.",
+  plus_7: "It was due 7 days ago.",
+  plus_14: "It was due 14 days ago.",
+};
+
+export type ReminderText = {
+  to: string;
+  body: string;
+  invoiceId: string;
+  orgId: string;
+  accountId: string;
+};
+
+export function paymentReminderText(input: {
+  invoice: ReminderInvoice;
+  stage: PaymentReminderStage;
+  orgName: string;
+  appBaseUrl: string;
+  templateBody?: string | null;
+}): ReminderText | null {
+  if (!input.invoice.smsOptIn) return null;
+  const to = input.invoice.smsPhone ? toE164(input.invoice.smsPhone) : null;
+  if (!to) return null;
+  const path = invoicePublicPath(input.invoice.publicToken);
+  if (!path) return null;
+  const link = `${input.appBaseUrl.replace(/\/$/, "")}${path}`;
+  const amount = `$${(Math.max(0, input.invoice.totalCents) / 100).toFixed(2)}`;
+  const source = input.templateBody?.trim() || suggestedTemplate("sms", "reminder").body;
+  const rendered = renderTemplate(source, {
+    customerName: input.invoice.accountName,
+    company: input.orgName,
+    link,
+    amount,
+    address: "",
+  });
+  const withLink = rendered.includes(link) ? rendered : `${rendered} ${link}`.trim();
+  const body = withLink.includes(STAGE_LINE[input.stage]) ? withLink : `${withLink} ${STAGE_LINE[input.stage]}`;
+  if (!body.trim() || body.length > 1600) return null;
+  return { to, body, invoiceId: input.invoice.id, orgId: input.invoice.orgId, accountId: input.invoice.accountId };
+}
+
 export function officeCollectionsFlagMessage(input: {
   to: string;
   orgName: string;
@@ -167,12 +213,16 @@ export async function sendPaymentReminders(input: {
   orgEmail: string | null;
   appBaseUrl: string;
   send: EmailProvider["send"];
+  sendText?: (message: ReminderText & { from: string | null }) => Promise<{ sent: boolean }>;
+  orgSmsNumber?: string | null;
+  templateBody?: string | null;
   claim: (invoiceId: string, stage: PaymentReminderStage, reminderOn: string) => Promise<boolean>;
   flagAccount: (accountId: string) => Promise<boolean>;
-}): Promise<{ remindersSent: number; remindersSkipped: number; accountsFlagged: number }> {
+}): Promise<{ remindersSent: number; remindersSkipped: number; remindersTexted: number; accountsFlagged: number }> {
   const selected = selectPaymentReminders(input.invoices, input.asOfDate);
   let remindersSent = 0;
   let remindersSkipped = 0;
+  let remindersTexted = 0;
   let accountsFlagged = 0;
 
   const plus14ByAccount = new Map<string, ReminderInvoice[]>();
@@ -185,7 +235,16 @@ export async function sendPaymentReminders(input: {
     }
 
     const to = invoice.billingEmail?.trim();
-    if (!to) {
+    const text = input.sendText
+      ? paymentReminderText({
+          invoice,
+          stage,
+          orgName: input.orgName,
+          appBaseUrl: input.appBaseUrl,
+          templateBody: input.templateBody,
+        })
+      : null;
+    if (!to && !text) {
       remindersSkipped += 1;
       continue;
     }
@@ -194,17 +253,24 @@ export async function sendPaymentReminders(input: {
       remindersSkipped += 1;
       continue;
     }
-    const result = await input.send(
-      paymentReminderMessage({
-        to,
-        orgName: input.orgName,
-        invoice,
-        stage,
-        appBaseUrl: input.appBaseUrl,
-      }),
-    );
-    if (result.sent) remindersSent += 1;
-    else remindersSkipped += 1;
+    if (to) {
+      const result = await input.send(
+        paymentReminderMessage({
+          to,
+          orgName: input.orgName,
+          invoice,
+          stage,
+          appBaseUrl: input.appBaseUrl,
+        }),
+      );
+      if (result.sent) remindersSent += 1;
+      else remindersSkipped += 1;
+    }
+    if (text && input.sendText) {
+      const result = await input.sendText({ ...text, from: input.orgSmsNumber?.trim() || null });
+      if (result.sent) remindersTexted += 1;
+      else if (!to) remindersSkipped += 1;
+    }
   }
 
   for (const [accountId, invoices] of plus14ByAccount) {
@@ -227,5 +293,5 @@ export async function sendPaymentReminders(input: {
     );
   }
 
-  return { remindersSent, remindersSkipped, accountsFlagged };
+  return { remindersSent, remindersSkipped, remindersTexted, accountsFlagged };
 }

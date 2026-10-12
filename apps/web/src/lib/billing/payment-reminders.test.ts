@@ -3,6 +3,7 @@ import {
   invoicePublicPath,
   isPaymentReminderPaused,
   paymentReminderMessage,
+  paymentReminderText,
   reminderSendKey,
   reminderStageForDueOn,
   selectPaymentReminders,
@@ -159,6 +160,73 @@ describe("invoicePublicPath", () => {
     expect(invoicePublicPath("tok-abc")).toBe("/i/tok-abc");
     expect(invoicePublicPath(null)).toBeNull();
     expect(invoicePublicPath("")).toBeNull();
+  });
+});
+
+describe("payment reminder texts", () => {
+  it("texts an opted-in number in the same claim as email, and skips a number that never agreed", async () => {
+    const row = invoice({
+      id: "inv-sms",
+      dueOn: "2026-10-10",
+      billingEmail: "pat@example.com",
+      smsPhone: "5551110000",
+      smsOptIn: true,
+      publicToken: "tok-sms",
+    });
+    const send = vi.fn(async () => ({ id: "email", sent: true }));
+    const sendText = vi.fn(async () => ({ sent: true }));
+    const claim = vi.fn(async () => true);
+    const flagAccount = vi.fn(async () => false);
+    const result = await sendPaymentReminders({
+      invoices: [row],
+      asOfDate: "2026-10-10",
+      orgName: "North Lawn",
+      orgEmail: null,
+      appBaseUrl: "https://app.example",
+      send,
+      sendText,
+      claim,
+      flagAccount,
+    });
+    expect(claim).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(sendText).toHaveBeenCalledWith({
+      to: "+15551110000",
+      body: "Hi Pat Home, a reminder from North Lawn about $125.00: https://app.example/i/tok-sms It is due today.",
+      from: null,
+      invoiceId: "inv-sms",
+      orgId: "org-1",
+      accountId: "acct-1",
+    });
+    expect(result.remindersTexted).toBe(1);
+
+    sendText.mockClear();
+    claim.mockClear();
+    await sendPaymentReminders({
+      invoices: [invoice({ id: "inv-no", dueOn: "2026-10-10", billingEmail: null, smsPhone: "5551110000", smsOptIn: false })],
+      asOfDate: "2026-10-10",
+      orgName: "North Lawn",
+      orgEmail: null,
+      appBaseUrl: "https://app.example",
+      send,
+      sendText,
+      claim,
+      flagAccount,
+    });
+    expect(claim).not.toHaveBeenCalled();
+    expect(sendText).not.toHaveBeenCalled();
+    expect(paymentReminderText({
+      invoice: invoice({ id: "inv-no", smsPhone: "5551110000", smsOptIn: false }),
+      stage: "due",
+      orgName: "North Lawn",
+      appBaseUrl: "https://app.example",
+    })).toBeNull();
+    expect(paymentReminderText({
+      invoice: invoice({ id: "inv-nolink", smsPhone: "5551110000", smsOptIn: true, publicToken: null }),
+      stage: "due",
+      orgName: "North Lawn",
+      appBaseUrl: "https://app.example",
+    })).toBeNull();
   });
 });
 
