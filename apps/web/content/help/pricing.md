@@ -16,6 +16,10 @@ Owners and admins open Services & Pricing.
 
 A service can also have its own price floor. That floor cannot go below the company minimum.
 
+## Units on the price list
+
+The measured quantity is what each price tier counts. Lawn area uses square feet, edging uses feet, and some services use hours or a count of items. The column heading shows that unit. A bigger job uses the next tier, and anything past the last tier uses the extra price.
+
 ## Minimum and the first cut
 
 Property adjustments apply to the price list.
