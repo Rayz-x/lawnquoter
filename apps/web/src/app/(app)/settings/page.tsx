@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { headingSturdy } from "@/app/q/[token]/heading-font";
 import { leadFormSlugFromOrg } from "@/lib/leads/embed-snippets";
 import { BrandingForm } from "./branding-form";
+import { LeadConnectorsCard } from "./lead-connectors-card";
 import { LeadFormEmbedCard } from "./lead-form-embed-card";
 import { OrgSettingsForm } from "./org-settings-form";
 import { StripeConnectCard } from "./stripe-connect-card";
@@ -82,7 +83,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               <WisetackCard />
             </>
           }
-          leadForm={<LeadFormEmbedCard isOwner={isOwner} origin={appOrigin} slug={formSlug} />}
+          leadForm={
+            <>
+              <LeadFormEmbedCard isOwner={isOwner} origin={appOrigin} slug={formSlug} />
+              <LeadConnectorsCard isOwner={isOwner} />
+            </>
+          }
         />
       </div>
     </div>
