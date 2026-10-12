@@ -23,8 +23,10 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { scoreMeasurementConfidence } from "@/lib/geo/confidence";
+import type { ImageryIntegrationStatus } from "@/lib/geo/imagery-integrations";
 import { liveSize, newFeature, summarize, type StudioFeature } from "@/lib/geo/features";
 import { prefillTurf } from "@/lib/geo/prefill";
+import { parseTakeoff } from "@/lib/geo/takeoff";
 import { saveMeasurement } from "./actions";
 
 export function MeasureStudio({
@@ -37,6 +39,7 @@ export function MeasureStudio({
   parcelSource,
   footprintSource,
   imageryDate,
+  integrations,
 }: {
   propertyId: string;
   measurementId: string;
@@ -47,6 +50,7 @@ export function MeasureStudio({
   parcelSource: string | null;
   footprintSource: string | null;
   imageryDate: string | null;
+  integrations: ImageryIntegrationStatus;
 }) {
   const router = useRouter();
   const [features, setFeatures] = useState<StudioFeature[]>(initialFeatures);
@@ -167,6 +171,34 @@ export function MeasureStudio({
           <Tool mode={mode} setMode={setMode} id="freehand" icon={<Pencil data-icon="inline-start" />} label="Freehand" />
           <Tool mode={mode} setMode={setMode} id="linestring" icon={<Minus data-icon="inline-start" />} label="Line" />
           <Tool mode={mode} setMode={setMode} id="cut" icon={<Eraser data-icon="inline-start" />} label="Cut" />
+          <label className="inline-flex">
+            <input
+              className="sr-only"
+              type="file"
+              accept=".json,.geojson,.csv,application/json,text/csv"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (!file) return;
+                void file.text().then((text) => {
+                  const result = parseTakeoff(text);
+                  if (!result.ok) {
+                    toast.error(result.error);
+                    return;
+                  }
+                  setFeatures((prev) => [
+                    ...prev,
+                    ...result.features.map((item) => {
+                      const draft = newFeature(item);
+                      return { ...draft, ...liveSize(draft) };
+                    }),
+                  ]);
+                  toast.success(`Imported ${result.features.length} takeoff ${result.features.length === 1 ? "feature" : "features"}`);
+                });
+              }}
+            />
+            <span className="inline-flex h-8 cursor-pointer items-center rounded-md border bg-background px-3 text-sm">Import takeoff</span>
+          </label>
           <Button variant="outline" size="sm" onClick={prefill}>
             <Sparkles data-icon="inline-start" />
             Auto-prefill turf
@@ -207,8 +239,19 @@ export function MeasureStudio({
               ))}
             </select>
           </label>
-          <p>Esri World Imagery (tracing permitted). Yellow dashed = parcel. Red = building. An older photo helps when the latest view is trees or construction.</p>
+          <p>Esri World Imagery (tracing permitted). Yellow dashed = parcel. Red = building. An older photo helps when the latest view is trees or construction. Import takeoff reads GeoJSON, or a CSV saved from Excel with columns category and area_sqft.</p>
         </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>HD imagery and segmentation</CardTitle>
+            <CardDescription>These stay off. Tracing on Esri does not need them.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 text-sm">
+            <p>{integrations.nearmap.message}</p>
+            <p>{integrations.vexcel.message}</p>
+            <p>{integrations.segmentation.message}</p>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="flex flex-col gap-4">

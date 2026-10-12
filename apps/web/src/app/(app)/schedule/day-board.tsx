@@ -22,6 +22,7 @@ import {
   skipVisit,
 } from "@/lib/actions/scheduling";
 import type { AttentionTray } from "@/lib/scheduling/attention-tray";
+import { shouldMoveVisit } from "@/lib/scheduling/dispatch-view";
 import { formatOfficeDay } from "@/lib/scheduling/office-date";
 import type { RevokedUnsyncedVisit } from "@/lib/scheduling/phone-revoke";
 import { unsyncedVisitLabel } from "@/lib/scheduling/phone-revoke";
@@ -105,6 +106,7 @@ export function DayBoard({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [overCrew, setOverCrew] = useState<string | null>(null);
   const crews = columns.map((column) => ({ id: column.crewId, name: column.crewName }));
   const targetDay = nextWorkday(date, { saturdayWorkday });
   const targetLabel = formatOfficeDay(targetDay);
@@ -122,6 +124,14 @@ export function DayBoard({
         toast.error(result.error);
       }
     });
+  };
+
+  const moveToCrew = (visitId: string, crewId: string) => {
+    const from = columns.find((column) => column.visits.some((visit) => visit.id === visitId));
+    const visit = from?.visits.find((item) => item.id === visitId);
+    if (!from || !visit || visit.status !== "scheduled") return;
+    if (!shouldMoveVisit({ crewId: from.crewId, date }, { crewId, date })) return;
+    run(() => assignVisit({ visitId, crewId, date }), "Stop moved");
   };
 
   const runRain = (
@@ -189,7 +199,23 @@ export function DayBoard({
           </Empty>
         ) : (
           columns.map((column) => (
-            <Card key={column.crewId}>
+            <Card
+              key={column.crewId}
+              className={overCrew === column.crewId ? "ring-2 ring-primary" : undefined}
+              onDragOver={(event) => {
+                if (!canWrite || pending) return;
+                event.preventDefault();
+                setOverCrew(column.crewId);
+              }}
+              onDragLeave={() => setOverCrew((current) => (current === column.crewId ? null : current))}
+              onDrop={(event) => {
+                event.preventDefault();
+                setOverCrew(null);
+                if (!canWrite || pending) return;
+                const visitId = event.dataTransfer.getData("text/plain");
+                if (visitId) moveToCrew(visitId, column.crewId);
+              }}
+            >
               <CardHeader>
                 <CardTitle className="flex items-center justify-between gap-2">
                   {column.crewName}
@@ -231,13 +257,14 @@ export function DayBoard({
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
                 {column.visits.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Assign a visit from Needs attention.</p>
+                  <p className="text-sm text-muted-foreground">{canWrite ? "Drop a stop" : "Assign a visit from Needs attention."}</p>
                 ) : (
                   <ol className="flex flex-col gap-3">
                     {column.visits.map((visit, index) => (
                       <li key={visit.id}>
                         <VisitCard
                           visit={visit}
+                          draggable={canWrite && visit.status === "scheduled" && !pending}
                           select={
                             canWrite && visit.status === "scheduled"
                               ? {
@@ -341,10 +368,12 @@ export function DayBoard({
 
 function VisitCard({
   visit,
+  draggable = false,
   select,
   children,
 }: {
   visit: BoardVisit;
+  draggable?: boolean;
   select?: { checked: boolean; onChange: (checked: boolean) => void } | null;
   children?: ReactNode;
 }) {
@@ -361,7 +390,15 @@ function VisitCard({
               aria-label={`Select ${visit.title} for rain day`}
             />
           ) : null}
-          <div>
+          <div
+            className={draggable ? "cursor-grab" : undefined}
+            draggable={draggable}
+            onDragStart={(event) => {
+              if (!draggable) return;
+              event.dataTransfer.setData("text/plain", visit.id);
+              event.dataTransfer.effectAllowed = "move";
+            }}
+          >
             <div className="font-medium">{visit.title}</div>
             <div className="text-muted-foreground">{visit.customer}</div>
             <div className="text-muted-foreground">{visit.address}</div>

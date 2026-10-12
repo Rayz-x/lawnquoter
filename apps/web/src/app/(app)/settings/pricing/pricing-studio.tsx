@@ -37,6 +37,7 @@ export type StudioService = {
   windowStart: string | null;
   windowEnd: string | null;
   warnDate: string | null;
+  minimumPrice: number | null;
 };
 export type StudioRule = { id: string; serviceId: string; name: string; config: unknown };
 type Material = { id: string; sku: string | null; name: string; unit: string; unit_cost: number; vendor: string | null };
@@ -363,6 +364,18 @@ function ServiceEditor({ service, rule, tier, rules, modifiers, priceListId, can
           )) },
         { value: "details", label: "Details", content: (
           <div className="grid gap-4">
+            <Field>
+              <FieldLabel htmlFor="svc-minimum">Minimum for this service</FieldLabel>
+              <Input id="svc-minimum" inputMode="decimal" className="max-w-40" placeholder="Use the company minimum" readOnly={!canEdit} defaultValue={service.minimumPrice ?? ""} onBlur={(event) => {
+                if (!canEdit) return;
+                const raw = event.target.value.trim();
+                const fd = new FormData();
+                fd.set("id", service.id);
+                fd.set("minimum_price", raw);
+                void updateService(fd).then((result) => { if (!result.ok) toast.error(result.error); else router.refresh(); });
+              }} />
+              <p className="text-sm text-muted-foreground">Raises the company minimum for this service only. It cannot go below it.</p>
+            </Field>
             <Field>
               <FieldLabel htmlFor="svc-desc">Description</FieldLabel>
               <Textarea id="svc-desc" key={service.id} rows={3} readOnly={!canEdit} defaultValue={service.description ?? ""} onBlur={(event) => { if (canEdit && event.target.value !== (service.description ?? "")) descSave.save(event.target.value); }} />

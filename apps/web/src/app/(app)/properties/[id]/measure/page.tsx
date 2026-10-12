@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { requireOrg } from "@/lib/auth/session";
+import { imageryIntegrationStatus } from "@/lib/geo/imagery-integrations";
 import type { StudioFeature } from "@/lib/geo/features";
 import { createClient } from "@/lib/supabase/server";
 import { MeasureStudio } from "./measure-studio";
@@ -81,6 +82,7 @@ export default async function MeasurePage({ params }: { params: Promise<{ id: st
 
   const g = (geo ?? {}) as Record<string, unknown>;
   const { data: measurementRow } = await supabase.from("measurements").select("imagery_date").eq("id", measurementId).eq("org_id", session.orgId).maybeSingle();
+  await supabase.rpc("record_usage", { p_kind: "imagery_session" });
 
   return (
     <>
@@ -103,6 +105,7 @@ export default async function MeasurePage({ params }: { params: Promise<{ id: st
         parcelSource={property.parcel_source}
         footprintSource={property.footprint_source}
         imageryDate={measurementRow?.imagery_date ?? property.imagery_date}
+        integrations={imageryIntegrationStatus(process.env)}
       />
     </>
   );

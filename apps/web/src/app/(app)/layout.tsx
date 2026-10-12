@@ -4,13 +4,14 @@ import { OfficeShell } from "@/components/app-shell/office-shell";
 import { OFFICE_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { redirectIfOnboardingOpen } from "@/app/onboarding/gate";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await requireOrg();
   const supabase = await createClient();
   const office = hasRole(session.orgRole, OFFICE_ROLES);
   const [{ data: org }, { data: profile }, { data: memberships }, requestCount] = await Promise.all([
-    supabase.from("orgs").select("name").eq("id", session.orgId).single(),
+    supabase.from("orgs").select("name, settings").eq("id", session.orgId).single(),
     supabase.from("profiles").select("full_name").eq("id", session.userId).single(),
     supabase.from("memberships").select("org_id, orgs(name)").eq("user_id", session.userId).eq("status", "active"),
     office
@@ -21,6 +22,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           .eq("status", "new")
       : Promise.resolve({ count: 0 }),
   ]);
+
+  redirectIfOnboardingOpen(org?.settings, Boolean(org));
 
   const orgs = (memberships ?? []).flatMap((row) => {
     const name = row.orgs?.name;
