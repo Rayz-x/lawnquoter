@@ -9,6 +9,7 @@ import { headingSturdy } from "@/app/q/[token]/heading-font";
 import { usageFromRpc } from "@/lib/billing/usage";
 import { leadFormSlugFromOrg } from "@/lib/leads/embed-snippets";
 import { BrandingForm } from "./branding-form";
+import { LateFeeCard } from "./late-fee-card";
 import { LeadConnectorsCard } from "./lead-connectors-card";
 import { LeadFormEmbedCard } from "./lead-form-embed-card";
 import { OrgSettingsForm } from "./org-settings-form";
@@ -89,6 +90,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 payoutsEnabled={payoutsEnabled}
               />
               <WisetackCard />
+              <LateFeeCard
+                flatCents={org.late_fee_flat_cents}
+                feeBps={org.late_fee_bps}
+                graceDays={org.late_fee_grace_days}
+                canEdit={canEdit}
+              />
             </>
           }
           leadForm={
