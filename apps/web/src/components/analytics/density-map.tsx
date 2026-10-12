@@ -57,7 +57,7 @@ export function DensityMap({ points }: { points: DensityMapPoint[] }) {
         type: "heatmap",
         source: "density-heat",
         paint: {
-          "heatmap-weight": ["interpolate", ["linear"], ["get", "weight"], 0, 0, 8, 1],
+          "heatmap-weight": ["interpolate", ["linear"], ["get", "weight"], 1, 1, 8, 1],
           "heatmap-intensity": 1.1,
           "heatmap-radius": 28,
           "heatmap-opacity": 0.75,
@@ -75,6 +75,13 @@ export function DensityMap({ points }: { points: DensityMapPoint[] }) {
             "#14532d",
           ],
         },
+      });
+      map.addLayer({
+        id: "density-points",
+        type: "circle",
+        source: "density",
+        filter: ["!", ["has", "point_count"]],
+        paint: { "circle-color": "#166534", "circle-radius": 6, "circle-stroke-width": 2, "circle-stroke-color": "#fefce8" },
       });
       map.addLayer({
         id: "density-clusters",
