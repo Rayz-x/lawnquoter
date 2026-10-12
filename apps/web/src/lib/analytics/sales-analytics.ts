@@ -217,6 +217,25 @@ export type LaborOutcome = {
   laborCostCents: number | null;
 };
 
+export function densityPoints(
+  counts: { propertyId: string; count: number }[],
+  coordinates: { id: string; lng: number; lat: number }[],
+): { lng: number; lat: number; weight: number }[] {
+  const byId = new Map(coordinates.map((row) => [row.id, row]));
+  const totals = new Map<string, number>();
+  for (const row of counts) {
+    if (row.count <= 0) continue;
+    totals.set(row.propertyId, (totals.get(row.propertyId) ?? 0) + row.count);
+  }
+  return [...totals.entries()]
+    .flatMap(([id, weight]) => {
+      const point = byId.get(id);
+      if (!point || !Number.isFinite(point.lng) || !Number.isFinite(point.lat)) return [];
+      return [{ lng: point.lng, lat: point.lat, weight }];
+    })
+    .sort((a, b) => b.weight - a.weight || a.lng - b.lng);
+}
+
 export function marginBy(rows: LaborOutcome[], keyOf: (row: LaborOutcome) => string) {
   const buckets = new Map<string, { revenue: number; minutes: number; cost: number | null }>();
   for (const row of rows) {

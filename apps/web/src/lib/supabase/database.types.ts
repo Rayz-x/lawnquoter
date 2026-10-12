@@ -4620,6 +4620,14 @@ export type Database = {
         Returns: undefined
       }
       property_geometry: { Args: { p_property: string }; Returns: Json }
+      property_coordinates: {
+        Args: { p_ids: string[] }
+        Returns: {
+          id: string
+          lat: number
+          lng: number
+        }[]
+      }
       property_set_geometry: {
         Args: {
           p_footprint?: Json

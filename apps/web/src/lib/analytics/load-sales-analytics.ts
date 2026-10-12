@@ -6,6 +6,7 @@ import { isMissingLeadRequestsRelation } from "@/lib/leads/lead-report-rows";
 import { defaultSelectedIds, sumSelected } from "@/lib/quotes/selection";
 import type { Database } from "@/lib/supabase/database.types";
 import {
+  densityPoints,
   estimatedVsActual,
   funnelByRep,
   funnelByService,
@@ -14,7 +15,6 @@ import {
   overallFunnel,
   pipelineForecast,
   pipelineValue,
-  routeDensity,
   widgetStages,
   winLoss,
   type LaborOutcome,
@@ -38,7 +38,7 @@ export type SalesAnalyticsLoad =
       medianResponseMinutes: number | null;
       leadCount: number;
       variance: ReturnType<typeof estimatedVsActual>;
-      density: ReturnType<typeof routeDensity>;
+      points: ReturnType<typeof densityPoints>;
       widget: ReturnType<typeof widgetStages>;
       marginByService: ReturnType<typeof marginBy>;
       marginByCrew: ReturnType<typeof marginBy>;
@@ -151,13 +151,7 @@ export async function loadSalesAnalytics(
       quoteViewed: lead.quote_id ? viewed.has(lead.quote_id) : false,
       depositPaid: lead.quote_id ? paid.has(lead.quote_id) : false,
     }));
-  const outcomes = await loadOutcomes(
-    supabase,
-    orgId,
-    fromIso,
-    toIsoExclusive,
-    rawLeads.map((lead) => ({ postalCode: lead.postal_code, status: lead.status })),
-  );
+  const outcomes = await loadOutcomes(supabase, orgId, fromIso, toIsoExclusive);
 
   return {
     ok: true,
@@ -171,7 +165,7 @@ export async function loadSalesAnalytics(
     medianResponseMinutes: overall.medianResponseMinutes,
     leadCount: overall.leads,
     variance: outcomes.variance,
-    density: outcomes.density,
+    points: outcomes.points,
     widget: widgetStages(widgetEvents),
     marginByService: marginBy(outcomes.labor, (row) => row.service),
     marginByCrew: marginBy(outcomes.labor, (row) => row.crew),
@@ -231,7 +225,6 @@ async function loadOutcomes(
   orgId: string,
   fromIso: string,
   toIsoExclusive: string,
-  leadZips: { postalCode: string | null; status: string }[],
 ) {
   const fromDate = fromIso.slice(0, 10);
   const toDate = toIsoExclusive.slice(0, 10);
@@ -256,8 +249,10 @@ async function loadOutcomes(
   const jobs = (entries.data ?? []).filter((entry) => entry.visit_id && entry.ended_at);
   const visitIds = ids(jobs.map((entry) => entry.visit_id));
   const propertyIds = ids((visits.data ?? []).map((visit) => visit.property_id));
+  const counts = new Map<string, number>();
+  for (const visit of visits.data ?? []) counts.set(visit.property_id, (counts.get(visit.property_id) ?? 0) + 1);
   const jobIds = ids((visits.data ?? []).map((visit) => visit.job_id));
-  const [crews, invoices, jobRows, properties] = await Promise.all([
+  const [crews, invoices, jobRows, coordinates] = await Promise.all([
     ids(jobs.map((entry) => entry.crew_id)).length
       ? supabase.from("crews").select("id, name").in("id", ids(jobs.map((entry) => entry.crew_id)))
       : Promise.resolve({ data: [] }),
@@ -268,7 +263,7 @@ async function loadOutcomes(
       ? supabase.from("jobs").select("id, service_id, title").in("id", jobIds)
       : Promise.resolve({ data: [] }),
     propertyIds.length
-      ? supabase.from("properties").select("id, postal_code").in("id", propertyIds)
+      ? supabase.rpc("property_coordinates", { p_ids: propertyIds })
       : Promise.resolve({ data: [] }),
   ]);
   const serviceIds = ids((jobRows.data ?? []).map((job) => job.service_id));
@@ -306,7 +301,6 @@ async function loadOutcomes(
         hourly && burden != null ? Math.round((minutes / 60) * Number(hourly.hourly_rate) * burden * 100) : null,
     };
   });
-  const zips = new Map((properties.data ?? []).map((property) => [property.id, property.postal_code]));
   return {
     variance: estimatedVsActual(
       jobs.map((entry) => {
@@ -324,9 +318,9 @@ async function loadOutcomes(
       }),
     ),
     labor,
-    density: routeDensity([
-      ...leadZips,
-      ...(visits.data ?? []).map((visit) => ({ postalCode: zips.get(visit.property_id) ?? null })),
-    ]),
+    points: densityPoints(
+      [...counts.entries()].map(([propertyId, count]) => ({ propertyId, count })),
+      coordinates.data ?? [],
+    ),
   };
 }
