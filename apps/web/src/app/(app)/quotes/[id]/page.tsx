@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { mergeModifiers } from "@lawnquoter/pricing-engine";
+import { mergeModifiers, routeDensityRadiusMeters } from "@lawnquoter/pricing-engine";
 import { ADMIN_ROLES, SALES_ROLES, hasRole } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { QUOTE_CONVERT_ROLES } from "@/lib/auth/office-roles";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireOrg } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/money";
-import { catalogPickerRules, measurementQuantities, priceCatalogLine, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
+import { catalogPickerRules, measurementQuantities, monthInTimeZone, priceCatalogLine, serviceMinimumPrice, type PropertyPricingInput } from "@/lib/quotes/catalog-price";
 import { defaultSelectedIds } from "@/lib/quotes/selection";
 import { quoteSectionTotals } from "@/lib/quotes/section-totals";
 import { diffQuoteVersions, quoteDiffLines, type QuoteVersionChange } from "@/lib/quotes/version-diff";
@@ -47,7 +47,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .select(
-      "id, number, title, status, site_check_status, created_at, current_version, intro, notes_customer, notes_internal, deposit_amount, public_token, expires_at, property_id, accounts(name), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs)",
+      "id, number, title, status, site_check_status, created_at, current_version, intro, notes_customer, notes_internal, deposit_amount, public_token, expires_at, property_id, accounts(name), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs, drive_minutes, drive_miles)",
     )
     .eq("id", id)
     .eq("org_id", session.orgId)
@@ -79,9 +79,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     ? await supabase.from("jobs").select("id, title").eq("org_id", session.orgId).eq("quote_id", id)
     : { data: [], error: null };
   const alreadySplit = (quoteJobs?.length ?? 0) > 0;
-  const { data: org, error: orgError } = canConvert
-    ? await supabase.from("orgs").select("timezone").eq("id", session.orgId).maybeSingle()
-    : { data: null, error: null };
+  const { data: org, error: orgError } = await supabase.from("orgs").select("timezone").eq("id", session.orgId).maybeSingle();
 
   const { data: versionId, error: versionError } = await supabase.rpc("quote_current_version", { p_quote: id });
   const [
@@ -122,7 +120,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           }[],
           error: null,
         }),
-    supabase.from("pricing_rules").select("id, name, rule_type, config, service_id, price_list_id").eq("org_id", session.orgId).eq("active", true),
+    supabase.from("pricing_rules").select("id, name, rule_type, config, service_id, price_list_id, services(minimum_price)").eq("org_id", session.orgId).eq("active", true),
     supabase.from("price_lists").select("id, status, modifiers").eq("org_id", session.orgId),
     quote.property_id
       ? supabase
@@ -160,14 +158,26 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     sectionsError?.message ??
     siteCheckError?.message ??
     null;
-  if (loadError) {
+  const activeModifiers = mergeModifiers(listModifiers.values().next().value);
+  let nearbyStops: number | undefined;
+  let nearbyError: string | null = null;
+  if (quote.property_id && (activeModifiers.routeDensity?.discountPct ?? 0) > 0) {
+    const near = await supabase.rpc("properties_near", {
+      p_property: quote.property_id,
+      p_radius_m: routeDensityRadiusMeters(activeModifiers),
+    });
+    nearbyError = near.error?.message ?? null;
+    nearbyStops = near.data?.length ?? 0;
+  }
+  const pageError = loadError ?? nearbyError;
+  if (pageError) {
     return (
       <>
         <PageHeader title="Quote" />
         <div className="page-body">
           <Alert variant="destructive">
             <AlertTitle>Could not load this quote</AlertTitle>
-            <AlertDescription>{loadError}</AlertDescription>
+            <AlertDescription>{pageError}</AlertDescription>
           </Alert>
         </div>
       </>
@@ -214,6 +224,10 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
     obstacleCount: quote.properties?.obstacle_count,
     hasStairs: quote.properties?.has_stairs,
     confidence: confidence ?? undefined,
+    driveMinutes: quote.properties?.drive_minutes,
+    driveMiles: quote.properties?.drive_miles,
+    nearbyStops,
+    serviceMonth: monthInTimeZone(new Date(), org?.timezone),
   };
 
   const picked = defaultSelectedIds(lines);
@@ -347,7 +361,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
             rules={catalogPickerRules(rules ?? [], lists ?? []).flatMap((rule) => {
               const stored = listModifiers.get(rule.price_list_id);
               if (stored === undefined) return [];
-              const priced = priceCatalogLine({ config: rule.config, modifiers: mergeModifiers(stored), features, property: propertyPricing });
+              const priced = priceCatalogLine({ config: rule.config, modifiers: mergeModifiers(stored), features, property: propertyPricing, serviceMinimum: serviceMinimumPrice(rule) });
               return priced.ok ? [{ id: rule.id, name: rule.name, priced: priced.priced }] : [];
             })}
           />

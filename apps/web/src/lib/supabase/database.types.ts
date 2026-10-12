@@ -3106,6 +3106,8 @@ export type Database = {
           country: string
           created_at: string
           crew_notes: string | null
+          drive_miles: number | null
+          drive_minutes: number | null
           footprint: unknown
           footprint_source: Database["public"]["Enums"]["geo_source"]
           formatted_address: string | null
@@ -3140,6 +3142,8 @@ export type Database = {
           country?: string
           created_at?: string
           crew_notes?: string | null
+          drive_miles?: number | null
+          drive_minutes?: number | null
           footprint?: unknown
           footprint_source?: Database["public"]["Enums"]["geo_source"]
           formatted_address?: string | null
@@ -3174,6 +3178,8 @@ export type Database = {
           country?: string
           created_at?: string
           crew_notes?: string | null
+          drive_miles?: number | null
+          drive_minutes?: number | null
           footprint?: unknown
           footprint_source?: Database["public"]["Enums"]["geo_source"]
           formatted_address?: string | null
@@ -3683,6 +3689,7 @@ export type Database = {
           description: string | null
           id: string
           kind: Database["public"]["Enums"]["service_kind"]
+          minimum_price: number | null
           name: string
           org_id: string
           slug: string
@@ -3703,6 +3710,7 @@ export type Database = {
           description?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["service_kind"]
+          minimum_price?: number | null
           name: string
           org_id: string
           slug: string
@@ -3723,6 +3731,7 @@ export type Database = {
           description?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["service_kind"]
+          minimum_price?: number | null
           name?: string
           org_id?: string
           slug?: string

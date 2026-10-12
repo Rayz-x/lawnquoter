@@ -69,6 +69,7 @@ export default async function PricingPage({ searchParams }: { searchParams?: Pro
             windowStart: item.window_start ?? null,
             windowEnd: item.window_end ?? null,
             warnDate: item.warn_date ?? null,
+            minimumPrice: item.minimum_price == null ? null : Number(item.minimum_price),
           }))}
           rules={(rules ?? []).map((rule) => ({ id: rule.id, serviceId: rule.service_id, name: rule.name, config: rule.config }))}
           modifiers={modifiers}
