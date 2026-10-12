@@ -6,7 +6,7 @@ import { FieldHint } from "./field";
 describe("FieldHint", () => {
   it("shows one sentence that can wrap on a phone", () => {
     const markup = renderToStaticMarkup(
-      createElement(FieldHint, { id: "company-hint", children: "The name customers see on quotes and invoices." }),
+      createElement(FieldHint, { id: "company-hint" }, "The name customers see on quotes and invoices."),
     );
     expect(markup).toContain("The name customers see on quotes and invoices.");
     expect(markup).toContain('data-slot="field-hint"');
