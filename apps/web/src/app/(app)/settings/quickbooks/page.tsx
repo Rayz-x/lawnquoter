@@ -25,6 +25,11 @@ export default async function QuickBooksPage() {
       <PageHeader title="QuickBooks" description="Customers, invoices, and payments sync both ways. Child accounts map to sub-customers." />
       <div className="page-body flex flex-col gap-4">
         {!qboConfigured() ? <p className="text-sm text-muted-foreground">{QBO_NOT_CONNECTED}</p> : null}
+        {qboConfigured() && canResolve ? (
+          <Link href="/api/qbo/connect" className="text-sm underline">
+            Connect QuickBooks
+          </Link>
+        ) : null}
         {error ? (
           <Alert variant="destructive">
             <AlertTitle>Could not load QuickBooks</AlertTitle>
