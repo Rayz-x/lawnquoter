@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   hostedQuoteFormUrl,
+  instantQuoteIframeEmbed,
   quoteButtonSnippet,
   quoteIframeEmbed,
 } from "@/lib/leads/embed-snippets";
@@ -65,6 +66,7 @@ export function LeadFormEmbedCard({
   const hosted = hostedQuoteFormUrl(origin, slug);
   const button = quoteButtonSnippet(origin, slug);
   const embed = quoteIframeEmbed(origin, slug);
+  const widget = instantQuoteIframeEmbed(origin, slug);
 
   return (
     <SectionCard
@@ -77,6 +79,7 @@ export function LeadFormEmbedCard({
         <CopyField label="Hosted link" value={hosted} rows={2} />
         <CopyField label="Button snippet" value={button} rows={3} />
         <CopyField label="Embed snippet" value={embed} rows={4} />
+        <CopyField label="Instant quote embed" value={widget} rows={4} />
       </div>
     </SectionCard>
   );

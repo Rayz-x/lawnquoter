@@ -48,6 +48,8 @@ describe("LeadFormEmbedCard", () => {
     expect(html).toContain("/r/acme-lawn");
     expect(html).toContain("Button snippet");
     expect(html).toContain("Embed snippet");
+    expect(html).toContain("/w/acme-lawn");
+    expect(html).toContain("Instant quote embed");
     expect(html).toContain("&lt;iframe");
     expect(html).toContain("acme-lawn");
   });
