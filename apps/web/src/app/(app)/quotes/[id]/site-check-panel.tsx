@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { HelpTip } from "@/components/help/help-tip";
 import { Button } from "@/components/ui/button";
-import { FieldHint } from "@/components/ui/field";
+
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
 import {
@@ -49,7 +50,14 @@ export function SiteCheckPanel({
       aria-label="Site check"
       className="rounded-lg bg-warning/10 px-3 py-3 text-sm ring-1 ring-warning/30"
     >
-      <h2 className="font-medium text-warning">Site check · {flagged.length} line{flagged.length === 1 ? "" : "s"}</h2>
+      <h2 className="inline-flex items-center gap-1 font-medium text-warning">
+        Site check · {flagged.length} line{flagged.length === 1 ? "" : "s"}
+        <HelpTip
+          label="Help for site check"
+          text="These lines need a look at the property before the price is firm."
+          href="/help/quote-builder#needs-site-check"
+        />
+      </h2>
       <dl className="mt-2 grid gap-2 text-sm">
         <div>
           <dt className="text-xs text-muted-foreground">Why</dt>
@@ -117,7 +125,7 @@ export function SiteCheckPanel({
           </label>
           <Input
             id="waive-reason"
-            aria-describedby="waive-reason-hint"
+           
             className="w-full"
             value={reason}
             required
@@ -126,7 +134,6 @@ export function SiteCheckPanel({
             onChange={(event) => setReason(event.target.value)}
             placeholder="e.g. Customer confirmed bed depth on site last year"
           />
-          <FieldHint id="waive-reason-hint">Why this line can be priced as firm without a site visit.</FieldHint>
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={pending || !reason.trim()}>
               Lock at estimate

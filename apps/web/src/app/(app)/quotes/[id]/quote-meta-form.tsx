@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSectionAutosave } from "@/components/entry";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldHint, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { updateQuoteMeta } from "../actions";
@@ -57,7 +57,7 @@ export function ProposalCard({ quote, editable }: { quote: QuoteCopy; editable: 
           <FieldLabel htmlFor="q_title">Title</FieldLabel>
           <Input
             id="q_title"
-            aria-describedby="q-title-hint"
+           
             value={draft.title}
             required={editable}
             disabled={!editable}
@@ -68,13 +68,12 @@ export function ProposalCard({ quote, editable }: { quote: QuoteCopy; editable: 
               if (editable) save({ title, intro: draft.intro, notes_customer: draft.notes_customer });
             }}
           />
-          <FieldHint id="q-title-hint">The heading the customer sees at the top of the quote.</FieldHint>
         </Field>
         <Field>
           <FieldLabel htmlFor="q_intro">Customer intro</FieldLabel>
           <Textarea
             id="q_intro"
-            aria-describedby="q-intro-hint"
+           
             className="w-full"
             rows={3}
             value={draft.intro}
@@ -86,13 +85,12 @@ export function ProposalCard({ quote, editable }: { quote: QuoteCopy; editable: 
               if (editable) save({ title: draft.title, intro, notes_customer: draft.notes_customer });
             }}
           />
-          <FieldHint id="q-intro-hint">The opening note the customer reads before the prices.</FieldHint>
         </Field>
         <Field>
           <FieldLabel htmlFor="q_notes">Customer notes</FieldLabel>
           <Textarea
             id="q_notes"
-            aria-describedby="q-notes-hint"
+           
             className="w-full"
             rows={2}
             value={draft.notes_customer}
@@ -104,7 +102,6 @@ export function ProposalCard({ quote, editable }: { quote: QuoteCopy; editable: 
               if (editable) save({ title: draft.title, intro: draft.intro, notes_customer });
             }}
           />
-          <FieldHint id="q-notes-hint">Extra notes the customer sees with the quote.</FieldHint>
         </Field>
         {editable ? <SaveStatus status={status} error={error} /> : null}
       </CardContent>
@@ -137,7 +134,7 @@ export function InternalCard({ quote }: { quote: QuoteCopy }) {
           <FieldLabel htmlFor="q_internal">Internal notes</FieldLabel>
           <Textarea
             id="q_internal"
-            aria-describedby="q-internal-hint"
+           
             className="w-full"
             rows={2}
             value={notes}
@@ -148,7 +145,6 @@ export function InternalCard({ quote }: { quote: QuoteCopy }) {
               save({ notes_internal });
             }}
           />
-          <FieldHint id="q-internal-hint">Office notes about this quote, which the customer does not see.</FieldHint>
         </Field>
         <SaveStatus status={status} error={error} />
       </CardContent>

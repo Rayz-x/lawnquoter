@@ -12,7 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { FieldHint } from "@/components/ui/field";
+
 import { Input } from "@/components/ui/input";
 import { approveSiteCheckRequest, declineSiteCheckRequest } from "../actions";
 
@@ -104,7 +104,7 @@ export function SiteCheckRequestActions({
           </label>
           <Input
             id="decline-reason"
-            aria-describedby="decline-reason-hint"
+           
             className="w-full"
             value={reason}
             required
@@ -113,7 +113,6 @@ export function SiteCheckRequestActions({
             onChange={(event) => setReason(event.target.value)}
             placeholder="e.g. outside service area"
           />
-          <FieldHint id="decline-reason-hint">What the customer reads when you turn down the visit.</FieldHint>
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={pending || !reason.trim()}>
               Decline request
@@ -135,26 +134,24 @@ export function SiteCheckRequestActions({
               <label htmlFor="site-window-start">From</label>
               <Input
                 id="site-window-start"
-                aria-describedby="site-window-start-hint"
+               
                 type="date"
                 value={windowStart}
                 disabled={pending}
                 onChange={(event) => setWindowStart(event.target.value)}
               />
-              <FieldHint id="site-window-start-hint">The first day the crew can visit to set the final price.</FieldHint>
             </div>
             <div className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
               <label htmlFor="site-window-end">To</label>
               <Input
                 id="site-window-end"
-                aria-describedby="site-window-end-hint"
+               
                 type="date"
                 value={windowEnd}
                 min={windowStart || undefined}
                 disabled={pending}
                 onChange={(event) => setWindowEnd(event.target.value)}
               />
-              <FieldHint id="site-window-end-hint">The last day the crew can visit to set the final price.</FieldHint>
             </div>
           </div>
           <AlertDialogFooter>
