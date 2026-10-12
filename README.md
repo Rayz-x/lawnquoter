@@ -61,6 +61,7 @@ Optional:
 - `NEXT_PUBLIC_ARCGIS_API_KEY` — public browser key for Esri World Imagery tiles. It is not used for geocoding.
 - `REGRID_API_TOKEN` — parcel lookup while measuring. Without it, the lot is traced by hand.
 - `RESEND_API_KEY` and `EMAIL_FROM` — email the sealed acceptance copy, and the morning follow-up list. Leave both unset to skip sending.
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER` — send and receive texts. Leave them unset and the Texts page says texting is not connected. Set the company's texting number in Texts so inbound messages land on the right company. Point Twilio's inbound webhook at `/api/webhooks/twilio/sms`.
 - `CRON_SECRET` — shared secret for the hourly follow-up job (`Authorization: Bearer`). Leave unset and that job refuses the request. The job still needs the email keys above before it sends.
 - `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, and `STRIPE_WEBHOOK_SECRET` — Stripe Connect. The company owner connects an Express account from the Payments section of Settings. Click-to-accept does not charge a card, and it works with these unset.
 - `SIGNWELL_API_KEY` — listed for a later formal-contract step. Accepting a quote does not use it.

@@ -83,6 +83,7 @@ describe("office nav categories", () => {
       "Accounts",
       "Properties",
       "Requests",
+      "Texts",
     ]);
     expect(owner.find((category) => category.label === "Sales")?.items.map((entry) => entry.href)).toEqual([
       "/quotes",

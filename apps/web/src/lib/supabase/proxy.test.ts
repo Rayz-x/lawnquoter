@@ -16,6 +16,7 @@ describe("isPublicPath", () => {
   it("serves the hosted request-a-quote form and intake without login", () => {
     expect(isPublicPath("/r/acme-lawn")).toBe(true);
     expect(isPublicPath("/api/leads/intake")).toBe(true);
+    expect(isPublicPath("/api/webhooks/twilio/sms")).toBe(true);
     expect(isPublicPath("/api/public/anything")).toBe(true);
   });
 });

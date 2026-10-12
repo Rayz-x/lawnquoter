@@ -2378,6 +2378,80 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          account_id: string | null
+          activity_id: string | null
+          body: string
+          channel: string
+          contact_id: string | null
+          created_at: string
+          direction: string
+          error: string | null
+          from_address: string
+          id: string
+          invoice_id: string | null
+          lead_request_id: string | null
+          occurred_at: string
+          org_id: string
+          provider: string | null
+          provider_id: string | null
+          quote_id: string | null
+          status: string
+          to_address: string
+        }
+        Insert: {
+          account_id?: string | null
+          activity_id?: string | null
+          body: string
+          channel?: string
+          contact_id?: string | null
+          created_at?: string
+          direction: string
+          error?: string | null
+          from_address: string
+          id?: string
+          invoice_id?: string | null
+          lead_request_id?: string | null
+          occurred_at?: string
+          org_id: string
+          provider?: string | null
+          provider_id?: string | null
+          quote_id?: string | null
+          status: string
+          to_address: string
+        }
+        Update: {
+          account_id?: string | null
+          activity_id?: string | null
+          body?: string
+          channel?: string
+          contact_id?: string | null
+          created_at?: string
+          direction?: string
+          error?: string | null
+          from_address?: string
+          id?: string
+          invoice_id?: string | null
+          lead_request_id?: string | null
+          occurred_at?: string
+          org_id?: string
+          provider?: string | null
+          provider_id?: string | null
+          quote_id?: string | null
+          status?: string
+          to_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_invites: {
         Row: {
           accepted_at: string | null
@@ -2514,6 +2588,7 @@ export type Database = {
           season_start_month: number
           settings: Json
           slug: string
+          sms_number: string | null
           timezone: string
           updated_at: string
           website: string | null
@@ -2548,6 +2623,7 @@ export type Database = {
           season_start_month?: number
           settings?: Json
           slug: string
+          sms_number?: string | null
           timezone?: string
           updated_at?: string
           website?: string | null
@@ -2582,6 +2658,7 @@ export type Database = {
           season_start_month?: number
           settings?: Json
           slug?: string
+          sms_number?: string | null
           timezone?: string
           updated_at?: string
           website?: string | null
