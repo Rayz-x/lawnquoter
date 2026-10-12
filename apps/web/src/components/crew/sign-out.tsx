@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FieldHint } from "@/components/entry";
 import { clearClocks, clearLiveLead } from "@/app/(crew)/crew/visits/visit";
 import { browserCrewStore, outboxBlocksSignOut, wipeRouteDataOnSignOut } from "@/lib/crew/queue";
 import { clearCrewCaches } from "@/lib/crew/sw-policy";
@@ -28,13 +29,18 @@ export function CrewSignOut() {
 
   return (
     <div className="flex flex-col gap-2">
-      <button
-        type="button"
-        onClick={() => void signOut()}
-        className="inline-flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold"
-      >
-        {warn ? "Sign out anyway" : "Sign out"}
-      </button>
+      <span className="flex min-w-0 flex-col gap-1">
+        <button
+          type="button"
+          onClick={() => void signOut()}
+          className="inline-flex min-h-14 w-full items-center justify-center rounded-xl border text-[17px] font-semibold"
+        >
+          {warn ? "Sign out anyway" : "Sign out"}
+        </button>
+        <FieldHint>
+          {warn ? "Leaves this phone even though some work has not sent." : "Leaves this phone. Unsent work stays until you sign in again."}
+        </FieldHint>
+      </span>
       {warn ? (
         <p className="text-[15px] text-warning">Unsent work stays on this phone until this lead signs in again.</p>
       ) : null}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { FieldHint } from "@/components/entry";
 import { Button } from "@/components/ui/button";
 import { WalkMap } from "@/components/bids/walk-map";
 import { addSiteWalkNote } from "@/app/(app)/bids/actions";
@@ -67,7 +68,7 @@ export function WalkForm({ packages, notes }: { packages: PackageOption[]; notes
 
   return (
     <form action={addSiteWalkNote} onSubmit={onSubmit} className="flex flex-col gap-3">
-      <label className="grid gap-1 text-sm">
+      <label className="grid min-w-0 gap-1 text-sm">
         Package
         <select
           name="package_id"
@@ -82,21 +83,27 @@ export function WalkForm({ packages, notes }: { packages: PackageOption[]; notes
             </option>
           ))}
         </select>
+        <FieldHint>The bid package this note belongs to.</FieldHint>
       </label>
-      <textarea
-        name="body"
-        required
-        value={body}
-        onChange={(event) => setBody(event.target.value)}
-        rows={4}
-        placeholder="What did you see?"
-        className="rounded-md border bg-background px-3 py-2 text-base"
-      />
+      <label className="grid min-w-0 gap-1 text-sm">
+        Note
+        <textarea
+          name="body"
+          required
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          rows={4}
+          placeholder="What did you see?"
+          className="rounded-md border bg-background px-3 py-2 text-base"
+        />
+        <FieldHint>What you saw on the property.</FieldHint>
+      </label>
       <input type="hidden" name="lat" value={lat} />
       <input type="hidden" name="lng" value={lng} />
-      <label className="grid gap-1 text-sm">
+      <label className="grid min-w-0 gap-1 text-sm">
         Photo
         <input name="photo" type="file" accept="image/*" capture="environment" className="text-base" />
+        <FieldHint>A photo of what you found. It stays with the pin on the map.</FieldHint>
       </label>
       <p className="text-sm text-muted-foreground">{lat && lng ? `${lat}, ${lng}` : "No pin yet."}</p>
       <WalkMap
@@ -106,14 +113,23 @@ export function WalkForm({ packages, notes }: { packages: PackageOption[]; notes
         ])}
       />
       {message ? <p className="text-sm">{message}</p> : null}
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" onClick={locate}>
-          Drop pin
-        </Button>
-        <Button type="button" variant="outline" onClick={dictate}>
-          Dictate
-        </Button>
-        <Button type="submit">Save note</Button>
+      <div className="flex flex-col gap-3">
+        <span className="flex min-w-0 flex-col gap-1">
+          <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal" onClick={locate}>
+            Drop pin
+          </Button>
+          <FieldHint>Uses this phone’s location so the photo lands on the map.</FieldHint>
+        </span>
+        <span className="flex min-w-0 flex-col gap-1">
+          <Button type="button" variant="outline" className="h-auto min-h-11 whitespace-normal" onClick={dictate}>
+            Dictate
+          </Button>
+          <FieldHint>Speaks the note instead of typing it.</FieldHint>
+        </span>
+        <span className="flex min-w-0 flex-col gap-1">
+          <Button type="submit" className="h-auto min-h-11 whitespace-normal">Save note</Button>
+          <FieldHint>Saves the note, pin, and photo on this walk.</FieldHint>
+        </span>
       </div>
     </form>
   );

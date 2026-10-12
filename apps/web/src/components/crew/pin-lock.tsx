@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { FieldHint } from "@/components/entry";
 import { createPinLockController, pinLooksValid, readLocalPinHash, wallTime } from "@/lib/crew/pin";
 import { crewPinIsSet, setCrewPin, verifyCrewPin } from "@/lib/crew/pin-sync";
 
@@ -94,23 +95,29 @@ export function CrewPinGate({ userId, children }: { userId: string; children: Re
           ? "This phone locks after a few idle minutes so the next person needs your PIN."
           : "Unlock to keep working. Gate codes stay hidden until you unlock."}
       </p>
-      <input
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        aria-label="Crew PIN"
-        value={pin}
-        onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
-        className="min-h-14 w-full max-w-xs rounded-xl border bg-background px-4 text-center text-2xl tracking-[0.4em]"
-      />
+      <label className="flex w-full max-w-xs min-w-0 flex-col gap-1">
+        <input
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          aria-label="Crew PIN"
+          value={pin}
+          onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 6))}
+          className="min-h-14 w-full rounded-xl border bg-background px-4 text-center text-2xl tracking-[0.4em]"
+        />
+        <FieldHint>{setup ? "A short number only you know. It locks this phone when it sits idle." : "The PIN you set for this phone."}</FieldHint>
+      </label>
       {error ? <p className="text-[15px] text-destructive">{error}</p> : null}
-      <button
-        type="button"
-        disabled={busy || !pinLooksValid(pin)}
-        onClick={() => void submit()}
-        className="inline-flex min-h-14 w-full max-w-xs items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50"
-      >
-        {setup ? "Save PIN" : "Unlock"}
-      </button>
+      <span className="flex w-full max-w-xs min-w-0 flex-col gap-1">
+        <button
+          type="button"
+          disabled={busy || !pinLooksValid(pin)}
+          onClick={() => void submit()}
+          className="inline-flex min-h-14 w-full items-center justify-center rounded-xl bg-primary text-[17px] font-semibold text-primary-foreground disabled:opacity-50"
+        >
+          {setup ? "Save PIN" : "Unlock"}
+        </button>
+        <FieldHint>{setup ? "Saves the PIN on this phone." : "Opens the route after the phone locked."}</FieldHint>
+      </span>
     </div>
   );
 }
