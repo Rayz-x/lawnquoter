@@ -4480,6 +4480,7 @@ export type Database = {
           template_id: string | null
           title: string
           updated_at: string
+          gone_quiet_at: string | null
           viewed_at: string | null
         }
         Insert: {
@@ -4506,6 +4507,7 @@ export type Database = {
           template_id?: string | null
           title?: string
           updated_at?: string
+          gone_quiet_at?: string | null
           viewed_at?: string | null
         }
         Update: {
@@ -4532,6 +4534,7 @@ export type Database = {
           template_id?: string | null
           title?: string
           updated_at?: string
+          gone_quiet_at?: string | null
           viewed_at?: string | null
         }
         Relationships: [

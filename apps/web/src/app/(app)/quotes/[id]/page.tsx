@@ -51,7 +51,7 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
   const { data: quote, error: quoteError } = await supabase
     .from("quotes")
     .select(
-      "id, number, title, status, site_check_status, created_at, current_version, intro, notes_customer, notes_internal, deposit_amount, public_token, expires_at, property_id, signwell_document_id, accounts(name, type), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs, drive_minutes, drive_miles)",
+      "id, number, title, status, site_check_status, created_at, current_version, intro, notes_customer, notes_internal, deposit_amount, public_token, expires_at, gone_quiet_at, property_id, signwell_document_id, accounts(name, type), properties(formatted_address, lot_sqft, slope, gate_width_in, obstacle_count, has_stairs, drive_minutes, drive_miles)",
     )
     .eq("id", id)
     .eq("org_id", session.orgId)
@@ -319,6 +319,9 @@ export default async function QuoteBuilderPage({ params }: { params: Promise<{ i
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="capitalize">{quote.status}</Badge>
+            {quote.gone_quiet_at ? (
+              <Badge variant="outline" className="border-transparent bg-warning/15 text-warning">Gone quiet</Badge>
+            ) : null}
             {finalPriceRequested ? (
               <Badge variant="outline" className="border-transparent bg-warning/15 text-warning">
                 {SITE_CHECK_REQUESTED_BADGE}
