@@ -75,6 +75,13 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     <div className={headingSturdy.variable}>
       <PageHeader title="Settings" description="Company profile and defaults" />
       <div className="page-pad flex flex-col gap-6">
+        {canEdit ? (
+          <p className="mb-4 text-sm">
+            <a className="underline" href="/settings/export">
+              Download CSV, JSON, and PDF exports
+            </a>
+          </p>
+        ) : null}
         {canEdit ? <UsageCard imagerySessions={usage?.imagerySessions ?? null} measurements={usage?.measurements ?? null} /> : null}
         <OrgSettingsForm
           org={org}
