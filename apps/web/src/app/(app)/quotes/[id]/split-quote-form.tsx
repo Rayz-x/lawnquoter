@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldHint, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { formatMoney } from "@/lib/money";
@@ -61,17 +61,15 @@ export function SplitQuoteForm({
                 <FieldLabel htmlFor={`split-title-${index}`}>Job {index + 1}</FieldLabel>
                 <Input
                   id={`split-title-${index}`}
-                  aria-describedby={`split-title-${index}-hint`}
+                 
                   value={title}
                   onChange={(event) =>
                     setTitles((current) => current.map((value, item) => (item === index ? event.target.value : value)))
                   }
                 />
-                <FieldHint id={`split-title-${index}-hint`}>The name of this job on the schedule.</FieldHint>
               </Field>
             ))}
           </div>
-          <FieldHint>Choose which job each line belongs on.</FieldHint>
           <ul className="flex flex-col gap-2">
             {lines.map((line) => (
               <li key={line.id} className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">

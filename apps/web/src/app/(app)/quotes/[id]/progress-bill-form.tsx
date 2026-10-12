@@ -3,8 +3,9 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { HelpTip } from "@/components/help/help-tip";
 import { Button } from "@/components/ui/button";
-import { Field, FieldHint, FieldLabel } from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { formatMoney } from "@/lib/money";
@@ -43,7 +44,6 @@ export function ProgressBillForm({
         });
       }}
     >
-      <FieldHint>Check the lines included in this draw.</FieldHint>
       <ul className="flex flex-col gap-2">
         {lines.map((line) => (
           <li key={line.id}>
@@ -56,9 +56,15 @@ export function ProgressBillForm({
         ))}
       </ul>
       <Field>
-        <FieldLabel htmlFor="progress-percent">Percent complete</FieldLabel>
-        <Input id="progress-percent" name="percent" aria-describedby="progress-percent-hint" type="number" min={1} max={100} required defaultValue={100} className="w-full" />
-        <FieldHint id="progress-percent-hint">How much of the checked lines to bill now.</FieldHint>
+        <FieldLabel htmlFor="progress-percent" className="inline-flex items-center gap-1">
+          Percent complete
+          <HelpTip
+            label="Help for progress billing"
+            text="Bill a percent of the selected lines before the whole job is done."
+            href="/help/quotes#bill-part-of-the-work"
+          />
+        </FieldLabel>
+        <Input id="progress-percent" name="percent" type="number" min={1} max={100} required defaultValue={100} className="w-full" />
       </Field>
       <Button type="submit" disabled={pending}>
         {pending ? <Spinner /> : null}

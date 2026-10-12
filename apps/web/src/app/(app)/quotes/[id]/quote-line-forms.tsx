@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { HelpTip } from "@/components/help/help-tip";
 import { Button } from "@/components/ui/button";
-import { FieldHint } from "@/components/ui/field";
+
 import { Input } from "@/components/ui/input";
 import { addLineItem } from "../actions";
 
@@ -50,17 +51,14 @@ export function NewSectionForm({
       }}
     >
       <div className="flex min-w-0 flex-col gap-1">
-        <Input name="section" aria-label="Section name" aria-describedby="section-name-hint" placeholder="Section name" autoFocus className="w-full" />
-        <FieldHint id="section-name-hint">The heading that groups these lines on the quote.</FieldHint>
+        <Input name="section" aria-label="Section name" placeholder="Section name" autoFocus className="w-full" />
       </div>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_8rem_auto] sm:items-end">
         <div className="flex min-w-0 flex-col gap-1">
-          <Input name="name" aria-label="First line name" aria-describedby="first-line-name-hint" placeholder="First line" className="w-full" />
-          <FieldHint id="first-line-name-hint">The first service the customer sees in this section.</FieldHint>
+          <Input name="name" aria-label="First line name" placeholder="First line" className="w-full" />
         </div>
         <div className="flex min-w-0 flex-col gap-1">
-          <Input name="price" aria-label="First line price" aria-describedby="first-line-price-hint" inputMode="decimal" placeholder="$ Price" className="w-full" />
-          <FieldHint id="first-line-price-hint">What the customer pays for that first line.</FieldHint>
+          <Input name="price" aria-label="First line price" inputMode="decimal" placeholder="$ Price" className="w-full" />
         </div>
         <Button type="submit" disabled={pending}>Add</Button>
       </div>
@@ -106,12 +104,10 @@ export function QuickAddForm({
     >
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_8rem_auto] sm:items-end">
         <div className="flex min-w-0 flex-col gap-1">
-          <Input name="name" aria-label="Line name" aria-describedby={`line-name-${sectionId ?? "open"}-hint`} placeholder="Name" className="w-full" />
-          <FieldHint id={`line-name-${sectionId ?? "open"}-hint`}>The service name the customer sees on the quote.</FieldHint>
+          <Input name="name" aria-label="Line name" placeholder="Name" className="w-full" />
         </div>
         <div className="flex min-w-0 flex-col gap-1">
-          <Input name="price" aria-label="Price" aria-describedby={`line-price-${sectionId ?? "open"}-hint`} inputMode="decimal" placeholder="$ Price" className="w-full" />
-          <FieldHint id={`line-price-${sectionId ?? "open"}-hint`}>What the customer pays for this line.</FieldHint>
+          <Input name="price" aria-label="Price" inputMode="decimal" placeholder="$ Price" className="w-full" />
         </div>
         <Button type="submit" disabled={pending}>Add</Button>
       </div>
@@ -119,33 +115,35 @@ export function QuickAddForm({
         <summary className="text-sm text-muted-foreground">More</summary>
         <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div className="flex min-w-0 flex-col gap-1">
-            <Input name="description" aria-label="Description" aria-describedby={`line-desc-${sectionId ?? "open"}-hint`} placeholder="Description" className="w-full" />
-            <FieldHint id={`line-desc-${sectionId ?? "open"}-hint`}>The sentence under this line on the quote.</FieldHint>
+            <Input name="description" aria-label="Description" placeholder="Description" className="w-full" />
           </div>
           <div className="flex min-w-0 flex-col gap-1">
-            <select name="option_tier" aria-label="Good, better, or best" aria-describedby={`line-tier-${sectionId ?? "open"}-hint`} defaultValue="none" className="h-11 min-h-11 w-full rounded-lg border bg-transparent px-2 text-sm md:h-8 md:min-h-0">
+            <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+              Good, better, or best
+              <HelpTip
+                label="Help for good, better, and best"
+                text="Lines in the same option group are choices. The customer picks one."
+                href="/help/quote-builder#good-better-and-best"
+              />
+            </span>
+            <select name="option_tier" aria-label="Good, better, or best" defaultValue="none" className="h-11 min-h-11 w-full rounded-lg border bg-transparent px-2 text-sm md:h-8 md:min-h-0">
               <option value="none">No tier</option>
               <option value="good">Good</option>
               <option value="better">Better</option>
               <option value="best">Best</option>
             </select>
-            <FieldHint id={`line-tier-${sectionId ?? "open"}-hint`}>Marks this line as a good, better, or best choice.</FieldHint>
           </div>
           <div className="flex min-w-0 flex-col gap-1">
-            <Input name="option_group" aria-label="Option group" aria-describedby={`line-group-${sectionId ?? "open"}-hint`} placeholder="Option group" className="w-full" />
-            <FieldHint id={`line-group-${sectionId ?? "open"}-hint`}>Groups choices so the customer picks one.</FieldHint>
+            <Input name="option_group" aria-label="Option group" placeholder="Option group" className="w-full" />
           </div>
           <div className="flex min-w-0 flex-col gap-1">
-            <Input name="photo_url" aria-label="Photo URL" aria-describedby={`line-photo-${sectionId ?? "open"}-hint`} placeholder="Photo URL" inputMode="url" className="w-full" />
-            <FieldHint id={`line-photo-${sectionId ?? "open"}-hint`}>A picture shown with this line on the quote.</FieldHint>
+            <Input name="photo_url" aria-label="Photo URL" placeholder="Photo URL" inputMode="url" className="w-full" />
           </div>
           <div className="flex min-w-0 flex-col gap-1">
-            <Input name="hours" aria-label="Hours" aria-describedby={`line-hours-${sectionId ?? "open"}-hint`} inputMode="decimal" placeholder="Hours" className="w-full" />
-            <FieldHint id={`line-hours-${sectionId ?? "open"}-hint`}>Crew hours for this line, which the customer does not see.</FieldHint>
+            <Input name="hours" aria-label="Hours" inputMode="decimal" placeholder="Hours" className="w-full" />
           </div>
           <div className="flex min-w-0 flex-col gap-1">
-            <Input name="cost" aria-label="Cost" aria-describedby={`line-cost-${sectionId ?? "open"}-hint`} inputMode="decimal" placeholder="Cost" className="w-full" />
-            <FieldHint id={`line-cost-${sectionId ?? "open"}-hint`}>Your cost for this line, which the customer does not see.</FieldHint>
+            <Input name="cost" aria-label="Cost" inputMode="decimal" placeholder="Cost" className="w-full" />
           </div>
         </div>
       </details>

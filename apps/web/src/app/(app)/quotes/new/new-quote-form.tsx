@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Field, FieldGroup, FieldHint, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { createQuoteAndGo } from "../actions";
 
@@ -46,7 +46,7 @@ export function NewQuoteForm({
             name="account_id"
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
-            aria-describedby="quote-account-hint"
+           
             className="native-control w-full"
           >
             {accounts.map((a) => (
@@ -55,11 +55,10 @@ export function NewQuoteForm({
               </option>
             ))}
           </select>
-          <FieldHint id="quote-account-hint">The customer this quote is written for.</FieldHint>
         </Field>
         <Field>
           <FieldLabel htmlFor="property_id">Property</FieldLabel>
-          <select id="property_id" name="property_id" aria-describedby="quote-property-hint" className="native-control w-full">
+          <select id="property_id" name="property_id" className="native-control w-full">
             <option value="">None yet</option>
             {props.map((p) => (
               <option key={p.id} value={p.id}>
@@ -67,7 +66,6 @@ export function NewQuoteForm({
               </option>
             ))}
           </select>
-          <FieldHint id="quote-property-hint">The lawn this quote prices, or none until you add one.</FieldHint>
         </Field>
       </FieldGroup>
       <Button type="submit" disabled={pending || accounts.length === 0}>
