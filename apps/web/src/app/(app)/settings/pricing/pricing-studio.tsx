@@ -18,6 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatMoney } from "@/lib/money";
+import type { VendorPriceStatus } from "@/lib/pricing/vendor-prices";
 import { deleteRule, raiseAllPrices, saveRule, toggleService, updateService } from "./actions";
 import { NumberBox } from "./number-box";
 import { allowClick, tierSaveOptions } from "./pricing-entry";
@@ -54,7 +55,7 @@ const span = (config: unknown) => { const tier = asTier(config); if (!tier) { co
 const qtyOf = (key: string) => ({ key, ...quantityLabel(key) });
 const heroStatus = (parts: SectionAutosaveStatus[]): SectionAutosaveStatus => (["error", "saving", "saved"] as const).find((item) => parts.includes(item)) ?? "idle";
 
-export function PricingHeaderActions({ priceListId, modifiers, materials }: { priceListId: string | null; modifiers: Modifiers; materials: Material[] }) {
+export function PricingHeaderActions({ priceListId, modifiers, materials, vendorPrices }: { priceListId: string | null; modifiers: Modifiers; materials: Material[]; vendorPrices: VendorPriceStatus }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   return (
@@ -71,7 +72,7 @@ export function PricingHeaderActions({ priceListId, modifiers, materials }: { pr
         <SheetTrigger render={<Button variant="outline" />}>Materials</SheetTrigger>
         <SheetContent className="overflow-y-auto sm:max-w-3xl">
           <SheetHeader><SheetTitle>Materials</SheetTitle><SheetDescription>What your materials cost you. Used to work out your margins.</SheetDescription></SheetHeader>
-          <div className="px-4 pb-4"><MaterialsPanel materials={materials.map((item) => ({ ...item, unit_cost: Number(item.unit_cost) }))} /></div>
+          <div className="px-4 pb-4"><MaterialsPanel materials={materials.map((item) => ({ ...item, unit_cost: Number(item.unit_cost) }))} vendorPrices={vendorPrices} /></div>
         </SheetContent>
       </Sheet>
       <Dialog open={open} onOpenChange={setOpen}>
