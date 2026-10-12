@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { importCustomersCsv, type CustomerImportResult } from "../import-action";
 
@@ -39,13 +39,13 @@ export function ImportCustomersForm() {
           value={csv}
           rows={12}
           required
+          aria-describedby="customer-csv-hint"
+          className="w-full"
           onChange={(event) => setCsv(event.target.value)}
           placeholder={SAMPLE}
         />
+        <FieldHint id="customer-csv-hint">One customer per row, and a matching phone or address is skipped.</FieldHint>
       </Field>
-      <p className="text-sm text-muted-foreground">
-        One customer per row. Leave the address blank, or include street, city, state, and ZIP. A matching phone or address is skipped.
-      </p>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <Button type="submit" disabled={pending} className="min-h-11 w-fit">
         {pending ? "Importing…" : "Import customers"}

@@ -10,6 +10,7 @@ import { PropertyMap, type PropertyMapProps } from "@/components/map/property-ma
 import { ChipGroup, FactStrip, InternalNote, resolveEntryTab, SectionCard, SectionMenu, Stepper, TabBox, ToggleRow, useSectionAutosave } from "@/components/entry";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FieldHint } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -102,7 +103,7 @@ export function PropertyWorkspace({ data }: { data: PropertyScreenData }) {
           <div>
             <h1 className="font-sans text-3xl font-semibold tracking-tight [overflow-wrap:anywhere]">{data.street}</h1>
             <p className="text-sm text-muted-foreground">{data.place}{label ? ` · ${label}` : ""}</p>
-            {renaming ? <Input autoFocus aria-label="Property label" value={label} className="mt-2 max-w-xs" onChange={(event) => setLabel(event.target.value)} onBlur={() => { setRenaming(false); const next = label.trim(); if (next !== (data.label ?? "")) void updatePropertyMeta(data.id, { name: next || null }).then((result) => { if (!result.ok) toast.error(result.error); }); }} onKeyDown={(event) => { if (event.key === "Escape") { setLabel(data.label ?? ""); setRenaming(false); } if (event.key === "Enter") event.currentTarget.blur(); }} /> : null}
+            {renaming ? <div className="mt-2 flex min-w-0 max-w-xs flex-col gap-1"><Input autoFocus aria-label="Property label" aria-describedby="property-label-hint" value={label} className="w-full" onChange={(event) => setLabel(event.target.value)} onBlur={() => { setRenaming(false); const next = label.trim(); if (next !== (data.label ?? "")) void updatePropertyMeta(data.id, { name: next || null }).then((result) => { if (!result.ok) toast.error(result.error); }); }} onKeyDown={(event) => { if (event.key === "Escape") { setLabel(data.label ?? ""); setRenaming(false); } if (event.key === "Enter") event.currentTarget.blur(); }} /><FieldHint id="property-label-hint">A short name so you can tell this site apart from the others.</FieldHint></div> : null}
           </div>
           <div className="flex items-center gap-2">
             {access.has_dogs ? <Badge className="border-transparent bg-warning/15 text-warning"><Dog data-icon="inline-start" />Dog on site</Badge> : null}
@@ -114,7 +115,8 @@ export function PropertyWorkspace({ data }: { data: PropertyScreenData }) {
         </div>
         {data.ungeocoded ? (addressOpen ? (
           <div className="flex max-w-xl flex-col gap-2">
-            <Input aria-label="Street address" value={address} placeholder="123 Main St, Springfield, IL 62704" onChange={(event) => setAddress(event.target.value)} />
+            <Input aria-label="Street address" aria-describedby="property-address-hint" value={address} placeholder="123 Main St, Springfield, IL 62704" onChange={(event) => setAddress(event.target.value)} />
+            <FieldHint id="property-address-hint">The address used to place this property on the map.</FieldHint>
             <div className="flex gap-2"><Button type="button" disabled={pending} onClick={saveAddress}>Save address</Button><Button type="button" variant="outline" onClick={() => setAddressOpen(false)}>Cancel</Button></div>
           </div>
         ) : <Button type="button" variant="outline" className="self-start" onClick={() => setAddressOpen(true)}>Fix address</Button>) : null}
@@ -133,21 +135,35 @@ export function PropertyWorkspace({ data }: { data: PropertyScreenData }) {
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_22.5rem]">
         <div className="flex min-w-0 flex-col gap-4">
           <SectionCard title="Mowing conditions" description={`These change the price. ${data.slopeHint}`} status={conditions.status} error={conditions.error} onRetry={conditions.retry}>
-            <ChipGroup label="Slope" options={SLOPE_CHIPS} value={cond.slope ?? ""} onValueChange={(value) => saveCond({ slope: value ? value as Exclude<Slope, null> : null })} />
-            <ChipGroup label="Narrowest gate" options={GATE_WIDTH_CHIPS} value={selectedGateChip} onValueChange={onGateChip} />
+            <div className="flex min-w-0 flex-col gap-1">
+              <ChipGroup label="Slope" options={SLOPE_CHIPS} value={cond.slope ?? ""} onValueChange={(value) => saveCond({ slope: value ? value as Exclude<Slope, null> : null })} />
+              <FieldHint>How steep the lawn is, which changes the mowing price.</FieldHint>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1">
+              <ChipGroup label="Narrowest gate" options={GATE_WIDTH_CHIPS} value={selectedGateChip} onValueChange={onGateChip} />
+              <FieldHint>The narrowest opening, which decides which mower fits.</FieldHint>
+            </div>
             <button type="button" className="self-start text-sm underline-offset-4 hover:underline" onClick={() => setExactOpen((open) => !open)}>{exactOpen ? "Hide exact inches" : "Exact inches"}</button>
-            {exactOpen ? <Input ref={gateWidthRef} className="max-w-32" inputMode="numeric" aria-label="Gate width in inches" placeholder="12–240" value={gateInches} onChange={(event) => { const raw = event.target.value; if (raw === "" || /^\d+$/.test(raw)) setGateInches(raw); }} onBlur={commitGateInches} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitGateInches(); } }} /> : null}
-            <Stepper label="Obstacles" min={0} max={50} value={cond.obstacle_count} onValueChange={(count) => saveCond({ obstacle_count: count })} />
-            <ToggleRow label="Stairs to the turf" checked={cond.has_stairs} onCheckedChange={(checked) => saveCond({ has_stairs: checked })} />
-            <div className="flex flex-wrap gap-3">
-              <label className="grid gap-1 text-sm">
-                <span className="text-muted-foreground">Drive from the shop (minutes)</span>
-                <Input className="w-28" inputMode="decimal" aria-label="Drive minutes from the shop" value={cond.drive_minutes ?? ""} onChange={(event) => { const raw = event.target.value; if (raw === "" || /^\d{0,3}(\.\d?)?$/.test(raw)) setCond((current) => ({ ...current, drive_minutes: raw === "" ? null : Number(raw) })); }} onBlur={(event) => { const raw = event.target.value.trim(); saveCond({ drive_minutes: raw === "" ? null : Number(raw) }); }} />
-              </label>
-              <label className="grid gap-1 text-sm">
-                <span className="text-muted-foreground">Drive distance (miles)</span>
-                <Input className="w-28" inputMode="decimal" aria-label="Drive miles from the shop" value={cond.drive_miles ?? ""} onChange={(event) => { const raw = event.target.value; if (raw === "" || /^\d{0,3}(\.\d{0,2})?$/.test(raw)) setCond((current) => ({ ...current, drive_miles: raw === "" ? null : Number(raw) })); }} onBlur={(event) => { const raw = event.target.value.trim(); saveCond({ drive_miles: raw === "" ? null : Number(raw) }); }} />
-              </label>
+            {exactOpen ? <div className="flex min-w-0 max-w-full flex-col gap-1"><Input ref={gateWidthRef} className="w-full max-w-32" inputMode="numeric" aria-label="Gate width in inches" aria-describedby="gate-inches-hint" placeholder="12–240" value={gateInches} onChange={(event) => { const raw = event.target.value; if (raw === "" || /^\d+$/.test(raw)) setGateInches(raw); }} onBlur={commitGateInches} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitGateInches(); } }} /><FieldHint id="gate-inches-hint">The exact width of the narrowest gate, in inches.</FieldHint></div> : null}
+            <div className="flex min-w-0 flex-col gap-1">
+              <Stepper label="Obstacles" min={0} max={50} value={cond.obstacle_count} onValueChange={(count) => saveCond({ obstacle_count: count })} />
+              <FieldHint>Things the crew mows around, which add time to the visit.</FieldHint>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1">
+              <ToggleRow label="Stairs to the turf" checked={cond.has_stairs} onCheckedChange={(checked) => saveCond({ has_stairs: checked })} />
+              <FieldHint>Crews have to carry equipment up or down to the lawn.</FieldHint>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="flex min-w-0 flex-col gap-1 text-sm">
+                <label htmlFor="drive-minutes" className="text-muted-foreground">Drive from the shop (minutes)</label>
+                <Input id="drive-minutes" className="w-full max-w-28" inputMode="decimal" aria-label="Drive minutes from the shop" aria-describedby="drive-minutes-hint" value={cond.drive_minutes ?? ""} onChange={(event) => { const raw = event.target.value; if (raw === "" || /^\d{0,3}(\.\d?)?$/.test(raw)) setCond((current) => ({ ...current, drive_minutes: raw === "" ? null : Number(raw) })); }} onBlur={(event) => { const raw = event.target.value.trim(); saveCond({ drive_minutes: raw === "" ? null : Number(raw) }); }} />
+                <FieldHint id="drive-minutes-hint">How long it takes to drive here from the shop.</FieldHint>
+              </div>
+              <div className="flex min-w-0 flex-col gap-1 text-sm">
+                <label htmlFor="drive-miles" className="text-muted-foreground">Drive distance (miles)</label>
+                <Input id="drive-miles" className="w-full max-w-28" inputMode="decimal" aria-label="Drive miles from the shop" aria-describedby="drive-miles-hint" value={cond.drive_miles ?? ""} onChange={(event) => { const raw = event.target.value; if (raw === "" || /^\d{0,3}(\.\d{0,2})?$/.test(raw)) setCond((current) => ({ ...current, drive_miles: raw === "" ? null : Number(raw) })); }} onBlur={(event) => { const raw = event.target.value.trim(); saveCond({ drive_miles: raw === "" ? null : Number(raw) }); }} />
+                <FieldHint id="drive-miles-hint">How far this property is from the shop.</FieldHint>
+              </div>
             </div>
           </SectionCard>
           <TabBox label="Property categories" value={tab} onValueChange={(next) => { setTab(next); router.replace(`?tab=${next}`, { scroll: false }); }} tabs={[
@@ -158,16 +174,19 @@ export function PropertyWorkspace({ data }: { data: PropertyScreenData }) {
         </div>
         <aside className="flex flex-col gap-4">
           <SectionCard title="Access & crew" description="Dog warning, gate code, and notes." tone={access.has_dogs ? "warning" : undefined} status={accessSave.status} error={accessSave.error} onRetry={accessSave.retry}>
-            <ToggleRow label={<span className="inline-flex items-center gap-2"><Dog className="size-4" />Dogs on site</span>} checked={access.has_dogs} onCheckedChange={(checked) => saveAccess({ has_dogs: checked }, true)} />
-            <label className="flex flex-col gap-1 text-sm"><span className="inline-flex items-center gap-2"><Lock className="size-4" />Gate code</span><span className="flex items-center gap-2"><Input className="min-w-0 flex-1" type={revealGate ? "text" : "password"} inputMode="numeric" aria-label="Gate code" autoComplete="off" spellCheck={false} placeholder="Crews see it on visit day only" value={access.gate_code ?? ""} onChange={(event) => setAccess((current) => ({ ...current, gate_code: event.target.value }))} onBlur={(event) => commitGate(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitGate(event.currentTarget.value); } }} /><Button type="button" variant="outline" size="icon" aria-pressed={revealGate} aria-label={revealGate ? "Hide gate code" : "Show gate code"} onClick={() => setRevealGate((open) => !open)}>{revealGate ? <EyeOff /> : <Eye />}</Button></span></label>
-            <label className="flex flex-col gap-1 text-sm"><span className="inline-flex items-center gap-2"><Eye aria-hidden="true" className="size-4" />Access notes for customer</span><Textarea aria-label="Access notes for customer" value={access.access_notes ?? ""} rows={2} onChange={(event) => saveAccess({ access_notes: event.target.value })} onBlur={(event) => saveAccess({ access_notes: event.target.value.trim() || null })} /></label>
-            <InternalNote label="Crew notes"><Textarea className="field-sizing-fixed min-h-24 w-full" rows={3} value={access.crew_notes ?? ""} onChange={(event) => saveAccess({ crew_notes: event.target.value })} onBlur={(event) => saveAccess({ crew_notes: event.target.value.trim() || null })} /></InternalNote>
+            <div className="flex min-w-0 flex-col gap-1">
+              <ToggleRow label={<span className="inline-flex items-center gap-2"><Dog className="size-4" />Dogs on site</span>} checked={access.has_dogs} onCheckedChange={(checked) => saveAccess({ has_dogs: checked }, true)} />
+              <FieldHint>Warns the crew that a dog is on the property.</FieldHint>
+            </div>
+            <div className="flex min-w-0 flex-col gap-1 text-sm"><span className="inline-flex items-center gap-2"><Lock className="size-4" />Gate code</span><span className="flex items-center gap-2"><Input className="min-w-0 flex-1" type={revealGate ? "text" : "password"} inputMode="numeric" aria-label="Gate code" aria-describedby="gate-code-hint" autoComplete="off" spellCheck={false} placeholder="Crews see it on visit day only" value={access.gate_code ?? ""} onChange={(event) => setAccess((current) => ({ ...current, gate_code: event.target.value }))} onBlur={(event) => commitGate(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitGate(event.currentTarget.value); } }} /><Button type="button" variant="outline" size="icon" aria-pressed={revealGate} aria-label={revealGate ? "Hide gate code" : "Show gate code"} onClick={() => setRevealGate((open) => !open)}>{revealGate ? <EyeOff /> : <Eye />}</Button></span><FieldHint id="gate-code-hint">The code crews use to open the gate on visit day.</FieldHint></div>
+            <div className="flex min-w-0 flex-col gap-1 text-sm"><span className="inline-flex items-center gap-2"><Eye aria-hidden="true" className="size-4" />Access notes for customer</span><Textarea aria-label="Access notes for customer" aria-describedby="access-notes-hint" className="w-full" value={access.access_notes ?? ""} rows={2} onChange={(event) => saveAccess({ access_notes: event.target.value })} onBlur={(event) => saveAccess({ access_notes: event.target.value.trim() || null })} /><FieldHint id="access-notes-hint">What the customer should know about getting onto the property.</FieldHint></div>
+            <InternalNote label="Crew notes"><Textarea aria-label="Crew notes" aria-describedby="crew-notes-hint" className="field-sizing-fixed min-h-24 w-full" rows={3} value={access.crew_notes ?? ""} onChange={(event) => saveAccess({ crew_notes: event.target.value })} onBlur={(event) => saveAccess({ crew_notes: event.target.value.trim() || null })} /><FieldHint id="crew-notes-hint">Notes the crew sees on the visit, which the customer does not.</FieldHint></InternalNote>
           </SectionCard>
           <SectionCard title="Parcel & records" description="Filled from the parcel and footprint." status={zoneSave.status} error={zoneSave.error} onRetry={zoneSave.retry}>
             <p className="text-sm">Lot <span className="text-muted-foreground">{data.lot}{data.lotAuto ? " ✦" : ""}</span></p>
             <p className="text-sm">Building <span className="text-muted-foreground">{data.building} ✦</span></p>
             <p className="text-sm">APN <span className="text-muted-foreground">{data.apn ?? "—"} ✦</span></p>
-            <label className="flex flex-col gap-1 text-sm">Route zone<Input list="property-zones" aria-label="Route zone" value={zone} onChange={(event) => { setZone(event.target.value); zoneSave.save(event.target.value); }} onBlur={(event) => { const next = event.target.value.trim(); setZone(next); zoneSave.save(next); }} /><datalist id="property-zones">{data.zones.map((item) => <option key={item} value={item} />)}</datalist></label>
+            <div className="flex min-w-0 flex-col gap-1 text-sm"><label htmlFor="route-zone">Route zone</label><Input id="route-zone" list="property-zones" aria-label="Route zone" aria-describedby="route-zone-hint" value={zone} onChange={(event) => { setZone(event.target.value); zoneSave.save(event.target.value); }} onBlur={(event) => { const next = event.target.value.trim(); setZone(next); zoneSave.save(next); }} /><datalist id="property-zones">{data.zones.map((item) => <option key={item} value={item} />)}</datalist><FieldHint id="route-zone-hint">The route this property is grouped with.</FieldHint></div>
           </SectionCard>
           <SectionCard title="Nearby" description="Within 800 m.">
             {data.nearby.length === 0 ? <p className="text-sm text-muted-foreground">None yet.</p> : data.nearby.map((item) => <Link key={item.id} href={`/properties/${item.id}`} className="flex justify-between gap-2 text-sm hover:underline"><span className="truncate">{item.address}</span><span className="text-muted-foreground">{item.meters} m</span></Link>)}

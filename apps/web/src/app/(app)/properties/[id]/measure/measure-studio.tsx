@@ -19,7 +19,7 @@ import { MeasureMap, type DrawMode } from "@/components/map/measure-map";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { scoreMeasurementConfidence } from "@/lib/geo/confidence";
@@ -222,10 +222,13 @@ export function MeasureStudio({
           className="h-[min(70vh,40rem)] w-full overflow-hidden rounded-lg"
         />
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          <label className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-col gap-1">
+          <label htmlFor="imagery-date" className="flex flex-col gap-1">
             Imagery date
             <select
-              className="native-control"
+              id="imagery-date"
+              aria-describedby="imagery-date-hint"
+              className="native-control w-full"
               value={imagery.id}
               onChange={(event) => {
                 const next = IMAGERY_CHOICES.find((choice) => choice.id === event.target.value);
@@ -239,6 +242,8 @@ export function MeasureStudio({
               ))}
             </select>
           </label>
+          <FieldHint id="imagery-date-hint">Which photo you trace, when a newer one is blocked by trees or construction.</FieldHint>
+          </div>
           <p>Esri World Imagery (tracing permitted). Yellow dashed = parcel. Red = building. An older photo helps when the latest view is trees or construction. Import takeoff reads GeoJSON, or a CSV saved from Excel with columns category and area_sqft.</p>
         </div>
         <Card>
@@ -352,17 +357,19 @@ export function MeasureStudio({
               <FieldGroup>
                 <Field>
                   <FieldLabel htmlFor="manual_cat">Category</FieldLabel>
-                  <select id="manual_cat" name="category" className="native-control" defaultValue="turf_front">
+                  <select id="manual_cat" name="category" aria-describedby="manual-cat-hint" className="native-control w-full" defaultValue="turf_front">
                     {FEATURE_CATEGORIES.map((c) => (
                       <option key={c} value={c}>
                         {FEATURE_LABELS[c]}
                       </option>
                     ))}
                   </select>
+                  <FieldHint id="manual-cat-hint">The kind of area you are adding by hand.</FieldHint>
                 </Field>
                 <Field>
                   <FieldLabel htmlFor="manual_size">Square feet or linear feet</FieldLabel>
-                  <Input id="manual_size" name="size" type="number" min={1} step={1} required />
+                  <Input id="manual_size" name="size" aria-describedby="manual-size-hint" type="number" min={1} step={1} required className="w-full" />
+                  <FieldHint id="manual-size-hint">How big that area is, in square feet or linear feet.</FieldHint>
                 </Field>
               </FieldGroup>
               <Button type="submit" variant="outline">
