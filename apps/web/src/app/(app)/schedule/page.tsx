@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OFFICE_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
+import { parseDispatchView, scheduleHref, weekDates, type DispatchView } from "@/lib/scheduling/dispatch-view";
 import { addDays } from "@/lib/scheduling/recurrence";
 import { formatOfficeDay, isIsoDate, orgToday } from "@/lib/scheduling/office-date";
 import {
@@ -18,6 +19,7 @@ import { parseRevokePhoneResult, type RevokedUnsyncedVisit } from "@/lib/schedul
 import { boardPhonesForCrew } from "@/lib/scheduling/phone-sync";
 import { createClient } from "@/lib/supabase/server";
 import { DayBoard, type BoardColumn, type BoardVisit, type PhoneSync } from "./day-board";
+import { DispatchGrid, type GridVisit } from "./dispatch-grid";
 
 export const metadata: Metadata = { title: "Schedule" };
 
@@ -99,7 +101,11 @@ function windowLabel(start: string | null, end: string | null): string | null {
   return open ?? null;
 }
 
-export default async function SchedulePage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
+export default async function SchedulePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string; view?: string; crew?: string }>;
+}) {
   const session = await requireOrg();
   if (!hasRole(session.orgRole, OFFICE_ROLES)) {
     return (
@@ -115,7 +121,8 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     );
   }
 
-  const { date: requested } = await searchParams;
+  const { date: requested, view: requestedView, crew: requestedCrew } = await searchParams;
+  const view: DispatchView = parseDispatchView(requestedView);
   const supabase = await createClient();
   const { data: org } = await supabase
     .from("orgs")
@@ -190,6 +197,52 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
   const routeByCrew = new Map((routes ?? []).map((route) => [route.crew_id, route]));
   const routeIds = new Set((routes ?? []).map((route) => route.id));
   const visibleCrews = (crews ?? []).filter((crew) => crew.active || routeByCrew.has(crew.id));
+  const span = weekDates(date);
+  const selectedCrew = visibleCrews.some((crew) => crew.id === requestedCrew)
+    ? requestedCrew!
+    : (visibleCrews[0]?.id ?? null);
+  let gridError: string | null = null;
+  let gridVisits: GridVisit[] = [];
+  if (view !== "day") {
+    const gridSelect =
+      "id, route_id, scheduled_date, status, jobs(title), properties(accounts(name))";
+    const [{ data: weekVisits, error: weekVisitError }, { data: weekRoutes, error: weekRouteError }] =
+      await Promise.all([
+        supabase
+          .from("visits")
+          .select(gridSelect)
+          .eq("org_id", session.orgId)
+          .gte("scheduled_date", span[0]!)
+          .lte("scheduled_date", span[6]!),
+        supabase
+          .from("routes")
+          .select("id, crew_id")
+          .eq("org_id", session.orgId)
+          .gte("date", span[0]!)
+          .lte("date", span[6]!),
+      ]);
+    gridError = weekVisitError?.message ?? weekRouteError?.message ?? null;
+    const crewByRoute = new Map((weekRoutes ?? []).map((route) => [route.id, route.crew_id]));
+    gridVisits = (weekVisits ?? []).flatMap((visit) => {
+      if (!visit.scheduled_date) return [];
+      const property = one(visit.properties);
+      const account = property ? one(property.accounts) : null;
+      return [
+        {
+          id: visit.id,
+          title: one(visit.jobs)?.title ?? "Visit",
+          customer: account?.name ?? "Account",
+          status: visit.status,
+          crewId: visit.route_id ? (crewByRoute.get(visit.route_id) ?? null) : null,
+          date: visit.scheduled_date,
+        },
+      ];
+    });
+  }
+  const gridCrews =
+    view === "crew"
+      ? visibleCrews.filter((crew) => crew.id === selectedCrew).map((crew) => ({ id: crew.id, name: crew.name }))
+      : visibleCrews.map((crew) => ({ id: crew.id, name: crew.name }));
 
   const toVisit = (visit: NonNullable<typeof visits>[number]): BoardVisit => {
     const property = one(visit.properties);
@@ -277,24 +330,39 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
     };
   });
 
-  const previous = addDays(date, -1);
-  const next = addDays(date, 1);
+  const step = view === "day" ? 1 : 7;
+  const previous = addDays(date, -step);
+  const next = addDays(date, step);
+  const loadError = error ?? gridError;
+  const views = [
+    ["day", "Day"],
+    ["week", "Week"],
+    ["crew", "Crew"],
+  ] as const;
 
   return (
     <>
       <PageHeader
-        title={formatOfficeDay(date)}
-        description={canWrite ? "Assign visits, set the stop order, then publish." : "Office view. Dispatch assigns and publishes."}
+        title={view === "day" ? formatOfficeDay(date) : "Schedule"}
+        description={
+          view === "day"
+            ? canWrite
+              ? "Assign visits, set the stop order, then publish."
+              : "Office view. Dispatch assigns and publishes."
+            : canWrite
+              ? "Drag a scheduled stop onto another day or crew."
+              : "Office view of the week."
+        }
         actions={
           <>
-            <Button variant="outline" render={<Link href={`/schedule?date=${previous}`} />}>
-              Previous day
+            <Button variant="outline" render={<Link href={scheduleHref(previous, view, selectedCrew)} />}>
+              {view === "day" ? "Previous day" : "Previous week"}
             </Button>
-            <Button variant="outline" render={<Link href={`/schedule?date=${next}`} />}>
-              Next day
+            <Button variant="outline" render={<Link href={scheduleHref(next, view, selectedCrew)} />}>
+              {view === "day" ? "Next day" : "Next week"}
             </Button>
             {date !== today ? (
-              <Button variant="outline" render={<Link href="/schedule" />}>
+              <Button variant="outline" render={<Link href={scheduleHref(today, view, selectedCrew)} />}>
                 Today
               </Button>
             ) : null}
@@ -302,21 +370,48 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         }
       />
       <div className="page-body">
+        <div className="flex flex-wrap items-center gap-2">
+          {views.map(([value, label]) => (
+            <Button
+              key={value}
+              variant={view === value ? "default" : "outline"}
+              render={<Link href={scheduleHref(date, value, selectedCrew)} />}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
         <form className="flex flex-wrap items-center gap-2" action="/schedule">
           <label htmlFor="schedule-date" className="text-sm text-muted-foreground">
-            Day
+            {view === "day" ? "Day" : "Starting"}
           </label>
           <Input id="schedule-date" type="date" name="date" defaultValue={date} required className="w-auto" />
+          {view !== "day" ? <input type="hidden" name="view" value={view} /> : null}
+          {view === "crew" && selectedCrew ? <input type="hidden" name="crew" value={selectedCrew} /> : null}
           <Button type="submit" variant="outline">
-            Show day
+            Show
           </Button>
         </form>
-        {error ? (
+        {view === "crew" && visibleCrews.length > 1 ? (
+          <div className="flex flex-wrap gap-2">
+            {visibleCrews.map((crew) => (
+              <Button
+                key={crew.id}
+                size="sm"
+                variant={crew.id === selectedCrew ? "default" : "outline"}
+                render={<Link href={scheduleHref(date, "crew", crew.id)} />}
+              >
+                {crew.name}
+              </Button>
+            ))}
+          </div>
+        ) : null}
+        {loadError ? (
           <Alert variant="destructive">
-            <AlertTitle>Could not load this day</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+            <AlertTitle>Could not load this schedule</AlertTitle>
+            <AlertDescription>{loadError}</AlertDescription>
           </Alert>
-        ) : (
+        ) : view === "day" ? (
           <DayBoard
             date={date}
             canWrite={canWrite}
@@ -325,6 +420,8 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
             tray={tray}
             columns={columns}
           />
+        ) : (
+          <DispatchGrid dates={span} crews={gridCrews} visits={gridVisits} canWrite={canWrite} />
         )}
       </div>
     </>
