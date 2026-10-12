@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { formatMoney, formatMoneyRange } from "@/lib/money";
+import { wisetackHref } from "@/lib/billing/wisetack";
 import { formatNotToExceedAmount, notToExceedClause } from "@/lib/quotes/legal-copy";
 import { acceptanceTotals, displayedRangeTotals, lineHasRange } from "@/lib/quotes/not-to-exceed";
 import type { PublicAcceptance, PublicQuote, PublicSiteCheck } from "@/lib/quotes/public-quote";
@@ -221,8 +222,10 @@ function groupNames(items: Item[]) {
 export function ProposalView({
   token,
   payload,
+  wisetackUrl = null,
 }: {
   token: string;
+  wisetackUrl?: string | null;
   payload: {
     title: string;
     number: number;
@@ -306,6 +309,7 @@ export function ProposalView({
   ].filter((bucket) => bucket.items.length > 0);
 
   const totalLabel = hasRanges ? formatMoneyRange(estimateRange.low, estimateRange.high) : formatMoney(estimate, { cents: true });
+  const financeHref = wisetackHref(wisetackUrl, hasRanges ? estimateRange.high : estimate);
 
   return (
     <div className="min-h-svh">
@@ -420,6 +424,11 @@ export function ProposalView({
             {payload.org.email ? (
               <a className="mt-3 block text-center text-sm underline" href={`mailto:${payload.org.email}`}>
                 Ask a question
+              </a>
+            ) : null}
+            {financeHref ? (
+              <a className="mt-3 block text-center text-sm underline" href={financeHref} target="_blank" rel="noopener noreferrer">
+                See financing options
               </a>
             ) : null}
           </section>

@@ -23,10 +23,11 @@ type Props = {
   features: StudioFeature[];
   mode: DrawMode;
   onDrawn: (geometry: Geometry) => void;
+  imageryRelease?: number | null;
   className?: string;
 };
 
-export function MeasureMap({ location, parcel, footprint, features, mode, onDrawn, className }: Props) {
+export function MeasureMap({ location, parcel, footprint, features, mode, onDrawn, imageryRelease = null, className }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
   const drawRef = useRef<TerraDraw | null>(null);
@@ -39,7 +40,7 @@ export function MeasureMap({ location, parcel, footprint, features, mode, onDraw
     if (!containerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: imageryStyle(),
+      style: imageryStyle(imageryRelease),
       center: location?.type === "Point" ? location.coordinates : [-98.5, 39.8],
       zoom: location ? 18 : 3,
       attributionControl: mapAttributionControl,

@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { Bell, ChevronDown, Plus, Search } from "lucide-react";
 import { useTheme } from "next-themes";
 import type { OrgRole } from "@lawnquoter/shared";
+import { activateOrg } from "@/lib/auth/activate-org";
+import { createClient } from "@/lib/supabase/client";
 import { visibleNav } from "./nav-config";
 import { CommandPalette, type PaletteCommand } from "./command-palette";
 import { NavSectionTitle, OfficeMenubar, OfficeTabBar, useFineHover } from "./office-nav";
@@ -38,6 +40,8 @@ export function OfficeShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const [switching, setSwitching] = useState<string | null>(null);
+  const [switchError, setSwitchError] = useState<string | null>(null);
   const router = useRouter();
   const fineHover = useFineHover();
   const { resolvedTheme, setTheme } = useTheme();
@@ -54,6 +58,21 @@ export function OfficeShell({
   const categories = visibleNav(role);
   const items = categories.flatMap((category) => category.items);
   const canQuote = items.some((item) => item.href === "/quotes");
+  const chooseOrg = (orgId: string) => {
+    if (orgId === currentOrgId || switching) return;
+    setSwitching(orgId);
+    setSwitchError(null);
+    void activateOrg(createClient(), orgId).then((result) => {
+      setSwitching(null);
+      if (!result.ok) {
+        setSwitchError(result.error);
+        return;
+      }
+      setOrgOpen(false);
+      router.replace("/dashboard");
+      router.refresh();
+    });
+  };
 
   useEffect(() => {
     const bar = barRef.current;
@@ -128,12 +147,19 @@ export function OfficeShell({
               <div role="menu" className="absolute start-0 top-[calc(100%+0.35rem)] z-50 min-w-56 rounded-lg border border-white/10 bg-[oklch(0.22_0.01_160)] p-1 text-sm shadow-lg">
                 <p className="px-2 py-1 text-[10px] tracking-wide text-[oklch(0.72_0.01_160)] uppercase">Organizations</p>
                 {(orgs.length > 0 ? orgs : [{ id: currentOrgId, name: orgName }]).map((org) => (
-                  <div key={org.id} role="menuitem" className="flex items-center justify-between gap-3 rounded-md px-2 py-2">
+                  <button
+                    key={org.id}
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-start hover:bg-white/5 disabled:opacity-70"
+                    disabled={org.id === currentOrgId || switching !== null}
+                    onClick={() => chooseOrg(org.id)}
+                  >
                     <span className="truncate">{org.name}</span>
-                    {org.id === currentOrgId ? <span className="text-[10px] text-[var(--lime)]">Active</span> : null}
-                  </div>
+                    {org.id === currentOrgId ? <span className="text-[10px] text-[var(--lime)]">Active</span> : switching === org.id ? <span className="text-[10px]">Switching</span> : null}
+                  </button>
                 ))}
-                <p className="px-2 py-1.5 text-xs text-[oklch(0.72_0.01_160)]">This session stays in the active company.</p>
+                {switchError ? <p className="px-2 py-1.5 text-xs text-red-300">{switchError}</p> : null}
               </div>
             ) : null}
           </div>
