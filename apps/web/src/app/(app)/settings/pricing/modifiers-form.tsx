@@ -39,6 +39,13 @@ export function ModifiersForm({ priceListId, modifiers, canEdit = true }: { pric
   return (
     <SectionCard
       title="Property adjustments"
+      hint={
+        <HelpTip
+          label="Help for property adjustments"
+          text="Slope, a narrow gate, the drive, a dense route, and the season change the price on top of every service."
+          href="/help/pricing#slope-gate-obstacles-and-stairs"
+        />
+      }
       description="Automatic price changes for tricky yards. They apply on top of every service's price."
       error={error}
       actions={
@@ -68,11 +75,6 @@ export function ModifiersForm({ priceListId, modifiers, canEdit = true }: { pric
       }
     >
       <div className="grid gap-5">
-        <HelpTip
-          label="Help for property adjustments"
-          text="Slope, a narrow gate, the drive, a dense route, and the season change the price on top of every service."
-          href="/help/pricing#slope-gate-obstacles-and-stairs"
-        />
         <div className="grid gap-1">
           <NumberBox label="Minimum charge per visit" prefix="$" value={fields.minimumPrice} onChange={(v) => set("minimumPrice", v)} disabled={off} />
           {ex ? <Example>a {formatMoney(10)} job is billed {formatMoney(ex.small)}.</Example> : null}
