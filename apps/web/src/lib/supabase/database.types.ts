@@ -4019,6 +4019,30 @@ export type Database = {
         }
         Relationships: []
       },
+      qbo_oauth_tokens: {
+        Row: {
+          access_expires_at: string
+          access_token: string
+          org_id: string
+          refresh_token: string
+          updated_at: string
+        }
+        Insert: {
+          access_expires_at: string
+          access_token: string
+          org_id: string
+          refresh_token: string
+          updated_at?: string
+        }
+        Update: {
+          access_expires_at?: string
+          access_token?: string
+          org_id?: string
+          refresh_token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      },
       qbo_sync_log: {
         Row: {
           created_at: string
