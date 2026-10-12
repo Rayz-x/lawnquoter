@@ -61,6 +61,7 @@ export function WalkForm({ packages, notes }: { packages: PackageOption[]; notes
       const said = event.results[0]?.[0]?.transcript ?? "";
       setBody((current) => (current ? `${current} ${said}` : said));
     };
+    recognition.onerror = () => setMessage("This browser has no speech recognition. Type the note.");
     recognition.start();
   }
 
@@ -121,4 +122,5 @@ export function WalkForm({ packages, notes }: { packages: PackageOption[]; notes
 type SpeechRecognition = {
   start: () => void;
   onresult: ((event: { results: { [index: number]: { [index: number]: { transcript: string } } } }) => void) | null;
+  onerror: (() => void) | null;
 };
