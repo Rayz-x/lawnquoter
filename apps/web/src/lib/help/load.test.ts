@@ -16,5 +16,7 @@ describe("loadHelpArticle", () => {
     expect(loadHelpArticle("export-data")?.headings.map((heading) => heading.id)).toEqual(["download-the-zip", "what-is-in-the-file"]);
     expect(loadHelpArticle("customers")?.headings.map((heading) => heading.id)).toContain("duplicates");
     expect(loadHelpArticle("properties")?.headings.map((heading) => heading.id)).toContain("what-changes-the-price");
+    expect(loadHelpArticle("quotes")?.headings.map((heading) => heading.id)).toContain("send-the-proposal");
+    expect(loadHelpArticle("quote-builder")?.headings.map((heading) => heading.id)).toContain("good-better-and-best");
   });
 });
