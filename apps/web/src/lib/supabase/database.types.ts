@@ -6,6 +6,7 @@
 // crew_status added for 20261016001100.
 // irrigation plan columns and set_agreement_irrigation_plan added for 20261016000800.
 // snow_events and activate_snow_event added for 20261016000400.
+// org_subscriptions added for 20261017002000.
 // instant_quote_events added for 20261014110000.
 
 export type Json =
@@ -3088,6 +3089,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "org_stripe_connect_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          org_id: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          tier: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          org_id: string
+          status: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tier: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          org_id?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tier?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_subscriptions_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: true
             referencedRelation: "orgs"

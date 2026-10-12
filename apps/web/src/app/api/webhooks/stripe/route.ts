@@ -6,6 +6,7 @@ import { applyStripePaymentEvent } from "@/lib/billing/stripe-payment-webhook";
 import { applyStripeRefundDisputeEvent } from "@/lib/billing/stripe-refund-dispute-webhook";
 import { createStripePaymentWebhookStore } from "@/lib/billing/supabase-stripe-payment-store";
 import { createStripeRefundDisputeStore } from "@/lib/billing/supabase-stripe-refund-dispute-store";
+import { orgBillingGate, orgPlanPatch, orgPlanPrices, type OrgPlanWrite } from "@/lib/billing/org-plan";
 import { applyAccountUpdated, type ConnectStatus } from "@/lib/stripe/connect";
 import { getStripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -103,6 +104,9 @@ export async function POST(request: Request) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
+    if (session.metadata?.lawnquoter_purpose === "org_plan") {
+      return NextResponse.json({ received: true, ignored: true });
+    }
     if (session.mode === "setup") {
       const stripeAccount = typeof event.account === "string" && event.account.length > 0 ? event.account : undefined;
       const expanded =
@@ -139,6 +143,9 @@ export async function POST(request: Request) {
 
   if (PAYMENT_TYPES.has(event.type)) {
     const object = event.data.object as Stripe.Checkout.Session | Stripe.PaymentIntent;
+    if (object.metadata?.lawnquoter_purpose === "org_plan") {
+      return NextResponse.json({ received: true, ignored: true });
+    }
     const stripeAccount =
       typeof event.account === "string" && event.account.length > 0 ? event.account : undefined;
     const result = await applyStripePaymentEvent({
@@ -154,5 +161,59 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true, outcome: result.outcome });
   }
 
+  const plan = orgPlanFromEvent(event);
+  const billing = orgBillingGate({ secretKey: process.env.STRIPE_SECRET_KEY, enabled: process.env.STRIPE_BILLING_ENABLED });
+  if (plan && billing.ok) {
+    await writeOrgPlan(admin, plan);
+    return NextResponse.json({ received: true });
+  }
+
   return NextResponse.json({ received: true });
+}
+
+function orgPlanFromEvent(event: Stripe.Event): OrgPlanWrite | null {
+  if (
+    event.type !== "customer.subscription.created" &&
+    event.type !== "customer.subscription.updated" &&
+    event.type !== "customer.subscription.deleted"
+  ) {
+    return null;
+  }
+  if (typeof event.account === "string" && event.account.length > 0) return null;
+  const sub = event.data.object as Stripe.Subscription;
+  const price = sub.items?.data?.[0]?.price;
+  const priceId = typeof price === "string" ? price : price?.id ?? null;
+  const periodEnd = sub.items?.data?.[0]?.current_period_end;
+  const customer = sub.customer;
+  return orgPlanPatch({
+    type: event.type,
+    purpose: sub.metadata?.lawnquoter_purpose ?? null,
+    orgId: sub.metadata?.lawnquoter_org_id ?? null,
+    priceId,
+    status: sub.status,
+    customerId: typeof customer === "string" ? customer : customer?.id ?? null,
+    subscriptionId: sub.id,
+    periodEnd: typeof periodEnd === "number" ? periodEnd : null,
+    prices: orgPlanPrices(process.env),
+  });
+}
+
+async function writeOrgPlan(admin: ReturnType<typeof createAdminClient>, write: OrgPlanWrite) {
+  if (write.kind === "cancel") {
+    const { error } = await admin.from("org_subscriptions").update({ status: "canceled" }).eq("stripe_subscription_id", write.stripeSubscriptionId);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  const { error } = await admin.from("org_subscriptions").upsert(
+    {
+      org_id: write.orgId,
+      tier: write.tier,
+      status: write.status,
+      stripe_customer_id: write.stripeCustomerId,
+      stripe_subscription_id: write.stripeSubscriptionId,
+      current_period_end: write.currentPeriodEnd,
+    },
+    { onConflict: "org_id" },
+  );
+  if (error) throw new Error(error.message);
 }
