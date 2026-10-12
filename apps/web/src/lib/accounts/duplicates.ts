@@ -28,30 +28,17 @@ export type AccountDuplicate = {
   detail: string;
 };
 
-const STREET_SUFFIX: Record<string, string> = {
-  street: "st",
-  st: "st",
-  avenue: "ave",
-  ave: "ave",
-  road: "rd",
-  rd: "rd",
-  drive: "dr",
-  dr: "dr",
-  boulevard: "blvd",
-  blvd: "blvd",
-  lane: "ln",
-  ln: "ln",
-  court: "ct",
-  ct: "ct",
-  place: "pl",
-  pl: "pl",
-  circle: "cir",
-  cir: "cir",
-  trail: "trl",
-  trl: "trl",
-  parkway: "pkwy",
-  pkwy: "pkwy",
-};
+const STREET_SUFFIX: Record<string, string> = Object.fromEntries(
+  ["street st", "avenue ave", "road rd", "drive dr", "boulevard blvd", "lane ln", "court ct", "place pl", "circle cir", "trail trl", "parkway pkwy"].flatMap(
+    (pair) => {
+      const [long, short] = pair.split(" ");
+      return [
+        [long, short],
+        [short, short],
+      ];
+    },
+  ),
+);
 
 const REASON_RANK: Record<DuplicateReason, number> = {
   phone_and_address: 0,

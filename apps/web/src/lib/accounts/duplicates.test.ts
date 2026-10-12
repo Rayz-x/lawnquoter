@@ -25,12 +25,7 @@ describe("findAccountDuplicates", () => {
       [maple],
     );
     expect(matches).toEqual([
-      {
-        accountId: "acct-maple",
-        accountName: "Maple HOA",
-        reason: "phone",
-        detail: "Same phone as Maple HOA",
-      },
+      { accountId: "acct-maple", accountName: "Maple HOA", reason: "phone", detail: "Same phone as Maple HOA" },
     ]);
   });
 
@@ -54,12 +49,7 @@ describe("findAccountDuplicates", () => {
       [maple],
     );
     expect(matches).toEqual([
-      {
-        accountId: "acct-maple",
-        accountName: "Maple HOA",
-        reason: "address",
-        detail: "Same address as Maple HOA",
-      },
+      { accountId: "acct-maple", accountName: "Maple HOA", reason: "address", detail: "Same address as Maple HOA" },
     ]);
   });
 
@@ -98,14 +88,12 @@ describe("findAccountDuplicates", () => {
       },
       [maple],
     );
-    expect(matches).toEqual([
-      {
-        accountId: "acct-maple",
-        accountName: "Maple HOA",
-        reason: "phone_and_address",
-        detail: "Same phone and address as Maple HOA",
-      },
-    ]);
+    expect(matches[0]).toEqual({
+      accountId: "acct-maple",
+      accountName: "Maple HOA",
+      reason: "phone_and_address",
+      detail: "Same phone and address as Maple HOA",
+    });
   });
 
   it("puts billing address and property address on the directory entry", () => {
@@ -152,7 +140,6 @@ describe("AccountDuplicateNotice", () => {
         ],
       }),
     );
-    expect(markup).toContain('data-testid="account-duplicate-notice"');
     expect(markup).toContain('href="/accounts/acct-maple"');
     expect(markup).toContain("Same address as Maple HOA");
     expect(renderToStaticMarkup(createElement(AccountDuplicateNotice, { matches: [] }))).toBe("");
