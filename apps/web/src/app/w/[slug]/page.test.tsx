@@ -18,7 +18,7 @@ const org = {
   services: ["Mowing"],
   consentText: "SMS consent line",
   responseTargetMinutes: 60,
-  config: { serviceAreaZips: ["37064"], ratePerSqft: 0.01, statedMinimum: 50 },
+  config: { serviceAreaZips: ["37064"], statedMinimum: 50 },
 };
 
 describe("InstantQuotePage", () => {
