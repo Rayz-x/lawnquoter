@@ -5,6 +5,7 @@ import {
   sendPaymentReminders,
   type PaymentReminderStage,
   type ReminderInvoice,
+  type ReminderText,
 } from "./payment-reminders";
 
 export type ReminderOrg = {
@@ -12,6 +13,7 @@ export type ReminderOrg = {
   name: string;
   timezone: string | null;
   email: string | null;
+  smsNumber?: string | null;
 };
 
 export type PaymentReminderStore = {
@@ -38,10 +40,13 @@ export async function runPaymentRemindersJob(input: {
   store: PaymentReminderStore;
   now?: Date;
   send?: ReturnType<typeof createEmailProvider>["send"];
+  sendText?: (message: ReminderText & { from: string | null }) => Promise<{ sent: boolean }>;
+  templateForOrg?: (orgId: string) => Promise<string | null>;
 }): Promise<{
   orgsConsidered: number;
   remindersSent: number;
   remindersSkipped: number;
+  remindersTexted: number;
   accountsFlagged: number;
 }> {
   const now = input.now ?? new Date();
@@ -51,6 +56,7 @@ export async function runPaymentRemindersJob(input: {
   let orgsConsidered = 0;
   let remindersSent = 0;
   let remindersSkipped = 0;
+  let remindersTexted = 0;
   let accountsFlagged = 0;
 
   for (const org of orgs) {
@@ -65,14 +71,18 @@ export async function runPaymentRemindersJob(input: {
       orgEmail: org.email,
       appBaseUrl: appBaseUrl(),
       send,
+      sendText: input.sendText,
+      orgSmsNumber: org.smsNumber,
+      templateBody: input.templateForOrg ? await input.templateForOrg(org.id) : null,
       claim: (invoiceId, stage, reminderOn) =>
         input.store.claimReminder(invoiceId, org.id, stage, reminderOn),
       flagAccount: (accountId) => input.store.flagAccountCollections(accountId, org.id),
     });
     remindersSent += result.remindersSent;
     remindersSkipped += result.remindersSkipped;
+    remindersTexted += result.remindersTexted;
     accountsFlagged += result.accountsFlagged;
   }
 
-  return { orgsConsidered, remindersSent, remindersSkipped, accountsFlagged };
+  return { orgsConsidered, remindersSent, remindersSkipped, remindersTexted, accountsFlagged };
 }
