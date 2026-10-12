@@ -6,7 +6,7 @@ import { hasRole, ADMIN_ROLES } from "@lawnquoter/shared";
 import { requireOrg } from "@/lib/auth/session";
 import { A2P_ALREADY_SUBMITTED, a2pCanSubmit, parseA2pDraft, submitA2p } from "@/lib/messaging/a2p";
 import { readTwilioConfig, TWILIO_NOT_CONNECTED } from "@/lib/messaging/sms";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 function back(message: string): never {
   redirect(`/settings/texting?error=${encodeURIComponent(message)}`);
@@ -64,7 +64,8 @@ export async function submitA2pForm(): Promise<void> {
   };
   const parsed = parseA2pDraft(draft);
   if (!parsed.ok) back(parsed.error);
-  const { data: claimed, error: claimError } = await supabase
+  const admin = createAdminClient();
+  const { data: claimed, error: claimError } = await admin
     .from("org_sms_registrations")
     .update({ brand_status: "pending", campaign_status: "pending", last_error: null })
     .eq("org_id", session.orgId)
@@ -83,11 +84,11 @@ export async function submitA2pForm(): Promise<void> {
   });
   if (!result.ok) {
     if (result.error !== A2P_ALREADY_SUBMITTED) {
-      await supabase.from("org_sms_registrations").update({ brand_status: "failed", campaign_status: "failed", last_error: result.error }).eq("org_id", session.orgId);
+      await admin.from("org_sms_registrations").update({ brand_status: "failed", campaign_status: "failed", last_error: result.error }).eq("org_id", session.orgId);
     }
     back(result.error);
   }
-  const { error } = await supabase.from("org_sms_registrations").update({
+  const { error } = await admin.from("org_sms_registrations").update({
     brand_status: "pending",
     campaign_status: "pending",
     brand_sid: result.brandSid,
