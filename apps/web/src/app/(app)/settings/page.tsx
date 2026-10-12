@@ -6,11 +6,14 @@ import { requireOrg } from "@/lib/auth/session";
 import type { ConnectStatus } from "@/lib/stripe/connect";
 import { createClient } from "@/lib/supabase/server";
 import { headingSturdy } from "@/app/q/[token]/heading-font";
+import { usageFromRpc } from "@/lib/billing/usage";
 import { leadFormSlugFromOrg } from "@/lib/leads/embed-snippets";
 import { BrandingForm } from "./branding-form";
+import { LeadConnectorsCard } from "./lead-connectors-card";
 import { LeadFormEmbedCard } from "./lead-form-embed-card";
 import { OrgSettingsForm } from "./org-settings-form";
 import { StripeConnectCard } from "./stripe-connect-card";
+import { UsageCard } from "./usage-card";
 import { WisetackCard } from "./wisetack-card";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -43,6 +46,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const isOwner = session.orgRole === "owner";
   const appOrigin = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   const formSlug = leadFormSlugFromOrg(org);
+  let usage: { imagerySessions: number; measurements: number } | null = null;
+  if (canEdit) {
+    const { data, error: usageError } = await supabase.rpc("usage_totals");
+    usage = usageError ? null : usageFromRpc(data);
+  }
 
   let connectStatus: ConnectStatus = "not_connected";
   let stripeAccountId: string | null = null;
@@ -64,7 +72,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   return (
     <div className={headingSturdy.variable}>
       <PageHeader title="Settings" description="Company profile and defaults" />
-      <div className="page-pad">
+      <div className="page-pad flex flex-col gap-6">
+        {canEdit ? <UsageCard imagerySessions={usage?.imagerySessions ?? null} measurements={usage?.measurements ?? null} /> : null}
         <OrgSettingsForm
           org={org}
           canEdit={canEdit}
@@ -82,7 +91,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               <WisetackCard />
             </>
           }
-          leadForm={<LeadFormEmbedCard isOwner={isOwner} origin={appOrigin} slug={formSlug} />}
+          leadForm={
+            <>
+              <LeadFormEmbedCard isOwner={isOwner} origin={appOrigin} slug={formSlug} />
+              <LeadConnectorsCard isOwner={isOwner} />
+            </>
+          }
         />
       </div>
     </div>

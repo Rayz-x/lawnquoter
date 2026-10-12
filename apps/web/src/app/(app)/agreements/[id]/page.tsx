@@ -16,6 +16,7 @@ import { formatOfficeDay } from "@/lib/scheduling/office-date";
 import { DEFAULT_SEASON } from "@/lib/scheduling/season";
 import { createClient } from "@/lib/supabase/server";
 import { AgreementLifecycleForm } from "./agreement-lifecycle-form";
+import { EnhancementForm } from "./enhancement-form";
 import { AgreementHoldForm } from "./agreement-hold-form";
 import { AgreementScheduleForm } from "./agreement-schedule-form";
 import { FixedRouteDayForm } from "./fixed-route-day-form";
@@ -54,7 +55,7 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
   }
 
   const supabase = await createClient();
-  const [{ data: agreement, error: agreementError }, { data: org }] = await Promise.all([
+  const [{ data: agreement, error: agreementError }, { data: org }, { data: enhancements }] = await Promise.all([
     supabase
       .from("agreements")
       .select(
@@ -68,6 +69,7 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
       .select("season_start_month, season_start_day, season_end_month, season_end_day")
       .eq("id", session.orgId)
       .maybeSingle(),
+    supabase.from("agreement_enhancements").select("id, title, quote_id").eq("agreement_id", id).order("created_at"),
   ]);
 
   if (agreementError) {
@@ -437,6 +439,22 @@ export default async function AgreementDetailPage({ params }: { params: Promise<
                 </CardContent>
               </Card>
             ) : null}
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Enhancements</CardTitle>
+                <CardDescription>A proposal attached to this agreement.</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3 text-sm">
+                {(enhancements ?? []).length === 0 ? <p className="text-muted-foreground">No enhancement proposals yet.</p> : null}
+                {(enhancements ?? []).map((item) => (
+                  <Link key={item.id} href={`/quotes/${item.quote_id}`} className="font-medium">
+                    {item.title}
+                  </Link>
+                ))}
+                {canEditSchedule ? <EnhancementForm agreementId={agreement.id} /> : null}
+              </CardContent>
+            </Card>
 
             {agreement.notes_office ? (
               <Card>

@@ -109,6 +109,55 @@ export function ModifiersForm({ priceListId, modifiers, canEdit = true }: { pric
           ) : null}
         </div>
 
+        <div className="grid gap-2 border-t pt-4">
+          <ToggleRow label="Trip charge by drive time and distance" description="The closest zone that fits every drive measure you know. Farther is anything beyond town." checked={fields.travelOn} disabled={off} onCheckedChange={(v) => set("travelOn", v)} />
+          {fields.travelOn ? (
+            <>
+              <div className="flex flex-wrap gap-3">
+                <NumberBox label="Nearby, within" suffix="min" min={1} max={600} value={fields.nearbyMinutes} onChange={(v) => set("nearbyMinutes", v)} disabled={off} />
+                <NumberBox label="and" suffix="mi" min={0.1} max={200} value={fields.nearbyMiles} onChange={(v) => set("nearbyMiles", v)} disabled={off} />
+                <NumberBox label="Add" prefix="$" value={fields.nearbyPrice} onChange={(v) => set("nearbyPrice", v)} disabled={off} />
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <NumberBox label="Town, within" suffix="min" min={1} max={600} value={fields.townMinutes} onChange={(v) => set("townMinutes", v)} disabled={off} />
+                <NumberBox label="and" suffix="mi" min={0.1} max={200} value={fields.townMiles} onChange={(v) => set("townMiles", v)} disabled={off} />
+                <NumberBox label="Add" prefix="$" value={fields.townPrice} onChange={(v) => set("townPrice", v)} disabled={off} />
+              </div>
+              <NumberBox label="Farther, add" prefix="$" value={fields.farPrice} onChange={(v) => set("farPrice", v)} disabled={off} />
+              {ex ? <Example>a 45 minute, 30 mile drive on a {formatMoney(SAMPLE_VISIT)} visit becomes {formatMoney(ex.farDrive)}.</Example> : null}
+            </>
+          ) : null}
+        </div>
+
+        <div className="grid gap-2 border-t pt-4">
+          <ToggleRow label="Discount stops on a dense route" description="When enough other properties are already nearby." checked={fields.densityOn} disabled={off} onCheckedChange={(v) => set("densityOn", v)} />
+          {fields.densityOn ? (
+            <>
+              <div className="flex flex-wrap gap-3">
+                <NumberBox label="At least" suffix="stops" min={1} max={50} value={fields.densityStops} onChange={(v) => set("densityStops", v)} disabled={off} />
+                <NumberBox label="within" suffix="mi" min={0.1} max={50} value={fields.densityMiles} onChange={(v) => set("densityMiles", v)} disabled={off} />
+                <NumberBox label="Take off" suffix="%" max={50} value={fields.densityPct} onChange={(v) => set("densityPct", v)} disabled={off} />
+              </div>
+              {ex ? <Example>a {formatMoney(SAMPLE_VISIT)} visit with that many neighbors becomes {formatMoney(ex.denseRoute)}.</Example> : null}
+            </>
+          ) : null}
+        </div>
+
+        <div className="grid gap-2 border-t pt-4">
+          <ToggleRow label="Seasonal price change" description="Percent added or taken off, by the month the quote is priced." checked={fields.seasonOn} disabled={off} onCheckedChange={(v) => set("seasonOn", v)} />
+          {fields.seasonOn ? (
+            <>
+              <div className="flex flex-wrap gap-3">
+                <NumberBox label="Spring" suffix="%" min={-50} max={100} value={fields.springPct} onChange={(v) => set("springPct", v)} disabled={off} />
+                <NumberBox label="Summer" suffix="%" min={-50} max={100} value={fields.summerPct} onChange={(v) => set("summerPct", v)} disabled={off} />
+                <NumberBox label="Fall" suffix="%" min={-50} max={100} value={fields.fallPct} onChange={(v) => set("fallPct", v)} disabled={off} />
+                <NumberBox label="Winter" suffix="%" min={-50} max={100} value={fields.winterPct} onChange={(v) => set("winterPct", v)} disabled={off} />
+              </div>
+              {ex ? <Example>a {formatMoney(SAMPLE_VISIT)} summer visit becomes {formatMoney(ex.summer)}.</Example> : null}
+            </>
+          ) : null}
+        </div>
+
         <MoreDisclosure label="More options">
           <div className="grid gap-5 pt-2">
             <div className="grid gap-2">

@@ -1,6 +1,6 @@
-import { mergeModifiers } from "@lawnquoter/pricing-engine";
+import { defaultModifiers, mergeModifiers } from "@lawnquoter/pricing-engine";
 import { describe, expect, it } from "vitest";
-import { catalogPickerRules, measurementQuantities, priceCatalogLine } from "./catalog-price";
+import { catalogPickerRules, measurementQuantities, monthInTimeZone, priceCatalogLine, serviceMinimumPrice } from "./catalog-price";
 
 describe("measurementQuantities", () => {
   it("maps measured areas to pricing quantity keys", () => {
@@ -32,5 +32,23 @@ describe("priceCatalogLine", () => {
       property: null,
     });
     expect(priced).toEqual({ ok: false, error: "Pricing rule is not valid" });
+  });
+
+  it("adds the farther trip charge from the property drive time", () => {
+    const priced = priceCatalogLine({
+      config: { type: "catalog", materialCost: 0, laborCost: 20, laborHours: 1, materialMarkupPct: 0, laborMarkupPct: 0 },
+      modifiers: { ...defaultModifiers(), minimum: { price: 0, hours: 0 }, travelZones: [{ label: "Farther", maxMinutes: null, maxMiles: null, extraPrice: 15 }] },
+      features: [],
+      property: { driveMinutes: 40 },
+    });
+    expect(priced).toMatchObject({ ok: true, priced: { price: 35 } });
+  });
+});
+
+describe("pricing context helpers", () => {
+  it("reads the month in the company timezone and a joined service minimum", () => {
+    expect(monthInTimeZone(new Date("2026-07-15T04:00:00.000Z"), "America/Chicago")).toBe(7);
+    expect(serviceMinimumPrice({ services: { minimum_price: "80" } })).toBe(80);
+    expect(serviceMinimumPrice({ services: null })).toBeUndefined();
   });
 });
