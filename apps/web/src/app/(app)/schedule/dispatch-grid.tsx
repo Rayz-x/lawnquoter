@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { FieldHint } from "@/components/entry";
 import { assignVisit } from "@/lib/actions/scheduling";
 import { shouldMoveVisit } from "@/lib/scheduling/dispatch-view";
 import { formatOfficeDay } from "@/lib/scheduling/office-date";
@@ -47,6 +48,8 @@ export function DispatchGrid({
   };
 
   return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <FieldHint>Drag a scheduled stop onto another day or crew. Dropping it on the same cell leaves it put.</FieldHint>
     <div className="overflow-x-auto">
       <table className="w-full min-w-[48rem] border-separate border-spacing-2 text-sm">
         <thead>
@@ -109,6 +112,7 @@ export function DispatchGrid({
           ))}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }

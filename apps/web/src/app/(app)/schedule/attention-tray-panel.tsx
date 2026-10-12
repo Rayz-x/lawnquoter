@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { SectionMenu, type SectionMenuItem } from "@/components/entry";
+import { FieldHint, SectionMenu, type SectionMenuItem } from "@/components/entry";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -228,14 +228,20 @@ function BucketSection({
         />
       ))}
       {hidden > 0 ? (
-        <Button type="button" variant="outline" size="sm" className="self-start" onClick={onToggleExpand}>
-          Show all {visits.length}
-        </Button>
+        <span className="flex min-w-0 flex-col items-start gap-1">
+          <Button type="button" variant="outline" size="sm" className="self-start" onClick={onToggleExpand}>
+            Show all {visits.length}
+          </Button>
+          <FieldHint>Shows every stop in this list.</FieldHint>
+        </span>
       ) : null}
       {expanded && visits.length > TRAY_BUCKET_LIMIT ? (
-        <Button type="button" variant="ghost" size="sm" className="self-start" onClick={onToggleExpand}>
-          Show fewer
-        </Button>
+        <span className="flex min-w-0 flex-col items-start gap-1">
+          <Button type="button" variant="ghost" size="sm" className="self-start" onClick={onToggleExpand}>
+            Show fewer
+          </Button>
+          <FieldHint>Hides the extra stops again.</FieldHint>
+        </span>
       ) : null}
     </section>
   );
@@ -262,12 +268,14 @@ function TrayCard({
     items.push({
       id: "reschedule",
       label: "Move to day…",
+      hint: "Picks a new day and crew for this stop.",
       onSelect: () => onMenuAction({ kind: "reschedule", visit }),
     });
   } else if (canWrite && canAssign(visit.status) && (bucket === "unassigned" || bucket === "overdue")) {
     items.push({
       id: "assign",
       label: "Assign…",
+      hint: "Puts this stop on a crew.",
       onSelect: () => onMenuAction({ kind: "assign", visit }),
     });
   }
@@ -275,11 +283,13 @@ function TrayCard({
     items.push({
       id: "skip",
       label: "Skip…",
+      hint: "Marks it skipped and keeps it off the route.",
       onSelect: () => onMenuAction({ kind: "skip", visit }),
     });
     items.push({
       id: "cancel",
       label: "Cancel…",
+      hint: "Cancels the stop. It will not be done.",
       onSelect: () => onMenuAction({ kind: "cancel", visit }),
     });
   }
@@ -288,6 +298,7 @@ function TrayCard({
     items.push({
       id: "approve-same-day",
       label: "Approve same day",
+      hint: "Lets the crew do this extra work today.",
       onSelect: () => onApproveSameDay(enhancementId),
     });
   }
@@ -295,6 +306,7 @@ function TrayCard({
     items.push({
       id: "open",
       label: "Open visit",
+      hint: "Opens the property for this stop.",
       onSelect: () => {
         router.push(`/properties/${visit.property_id}`);
       },
@@ -402,6 +414,7 @@ function AssignDialogBody({
             <label htmlFor="tray-assign-date" className="text-xs text-muted-foreground">
               Day
             </label>
+            <FieldHint>The day this stop should run.</FieldHint>
             <Input
               id="tray-assign-date"
               type="date"
@@ -413,6 +426,7 @@ function AssignDialogBody({
             <label htmlFor="tray-assign-crew" className="text-xs text-muted-foreground">
               Crew
             </label>
+            <FieldHint>The crew that should run it.</FieldHint>
             <NativeSelect id="tray-assign-crew" value={selected} onChange={(event) => setCrewId(event.target.value)}>
               {crews.map((crew) => (
                 <option key={crew.id} value={crew.id}>
@@ -424,16 +438,22 @@ function AssignDialogBody({
         </div>
       )}
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose}>
-          Back
-        </Button>
-        <Button
-          type="button"
-          disabled={pending || crews.length === 0 || !selected || !serviceDate}
-          onClick={() => onConfirm(selected, serviceDate)}
-        >
-          {mode === "reschedule" ? "Move" : "Assign"}
-        </Button>
+        <span className="flex min-w-0 flex-col gap-1">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Back
+          </Button>
+          <FieldHint>Closes this without saving.</FieldHint>
+        </span>
+        <span className="flex min-w-0 flex-col gap-1">
+          <Button
+            type="button"
+            disabled={pending || crews.length === 0 || !selected || !serviceDate}
+            onClick={() => onConfirm(selected, serviceDate)}
+          >
+            {mode === "reschedule" ? "Move" : "Assign"}
+          </Button>
+          <FieldHint>Saves the day and crew.</FieldHint>
+        </span>
       </DialogFooter>
     </>
   );
@@ -487,6 +507,7 @@ function SkipDialogBody({
         <label htmlFor="tray-skip-reason" className="text-xs text-muted-foreground">
           Skip reason
         </label>
+        <FieldHint>Why this stop will not be done today.</FieldHint>
         <NativeSelect
           id="tray-skip-reason"
           value={reason}
@@ -500,12 +521,18 @@ function SkipDialogBody({
         </NativeSelect>
       </div>
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose}>
-          Back
-        </Button>
-        <Button type="button" disabled={pending} onClick={() => onConfirm(reason)}>
-          Skip
-        </Button>
+        <span className="flex min-w-0 flex-col gap-1">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Back
+          </Button>
+          <FieldHint>Closes this without saving.</FieldHint>
+        </span>
+        <span className="flex min-w-0 flex-col gap-1">
+          <Button type="button" disabled={pending} onClick={() => onConfirm(reason)}>
+            Skip
+          </Button>
+          <FieldHint>Marks the stop skipped.</FieldHint>
+        </span>
       </DialogFooter>
     </>
   );
@@ -559,20 +586,27 @@ function CancelDialogBody({
         <label htmlFor="tray-cancel-reason" className="text-xs text-muted-foreground">
           Cancel reason
         </label>
+        <FieldHint>Why this stop is cancelled.</FieldHint>
         <Input id="tray-cancel-reason" value={reason} onChange={(event) => setReason(event.target.value)} />
       </div>
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onClose}>
-          Back
-        </Button>
-        <Button
-          type="button"
-          variant="destructive"
-          disabled={pending || reason.trim().length === 0}
-          onClick={() => onConfirm(reason.trim())}
-        >
-          Cancel visit
-        </Button>
+        <span className="flex min-w-0 flex-col gap-1">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Back
+          </Button>
+          <FieldHint>Closes this without saving.</FieldHint>
+        </span>
+        <span className="flex min-w-0 flex-col gap-1">
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={pending || reason.trim().length === 0}
+            onClick={() => onConfirm(reason.trim())}
+          >
+            Cancel visit
+          </Button>
+          <FieldHint>Cancels the stop. It will not be done.</FieldHint>
+        </span>
       </DialogFooter>
     </>
   );
