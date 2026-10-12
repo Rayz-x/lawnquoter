@@ -60,7 +60,7 @@ Optional:
 - `ARCGIS_API_KEY` — server-only key for stored Esri geocoding. It needs the geocode (stored) privilege.
 - `NEXT_PUBLIC_ARCGIS_API_KEY` — public browser key for Esri World Imagery tiles. It is not used for geocoding.
 - `REGRID_API_TOKEN` — parcel lookup while measuring. Without it, the lot is traced by hand.
-- `RESEND_API_KEY` and `EMAIL_FROM` — email the sealed acceptance copy, and the morning follow-up list. Leave both unset to skip sending.
+- `RESEND_API_KEY` and `EMAIL_FROM` — email the sealed acceptance copy, and the morning follow-up list. Leave both unset to skip sending. Settings → Sending then says email is not connected. With the key set, that page lists the SPF and DKIM records Resend returns for the domain.
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER` — send and receive texts. Leave them unset and the Texts page says texting is not connected. Set the company's texting number in Texts so inbound messages land on the right company. Point Twilio's inbound webhook at `/api/webhooks/twilio/sms`. Texting registration under Settings saves a draft either way, and submits the brand and campaign only when these three are set.
 - `CALLRAIL_WEBHOOK_SECRET` — CallRail posts calls to `/api/webhooks/callrail` with this value in `x-callrail-signature`. Leave it unset and Calls says CallRail is not connected. Set the tracking number on Calls so a recording lands on the right company. Twilio recordings use the same Twilio keys and `/api/webhooks/twilio/voice`.
 - `CRON_SECRET` — shared secret for the hourly follow-up, quiet-quote, and abandoned-quote jobs (`Authorization: Bearer`). Leave unset and those jobs refuse the request. A send still needs the email or texting keys above.

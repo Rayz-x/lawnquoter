@@ -127,6 +127,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       { title: "QuickBooks", href: "/settings/quickbooks", icon: Landmark, roles: ADMIN_ROLES },
       { title: "Texting", href: "/settings/texting", icon: MessageSquare, roles: OFFICE_ROLES },
       { title: "Follow-ups", href: "/settings/follow-ups", icon: Mail, roles: OFFICE_ROLES },
+      { title: "Sending", href: "/settings/sending", icon: Mail, roles: OFFICE_ROLES },
       { title: "Team", href: "/settings/team", icon: Users, roles: ADMIN_ROLES },
       { title: "Crew App", href: "/crew/today", icon: Smartphone, roles: FIELD_ROLES },
     ],
