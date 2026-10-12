@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { FieldHint } from "@/components/entry";
 import { isLowStorage, lowStorageWarning, type StorageEstimate } from "@/lib/crew/photo-pending";
 import {
   browserCrewStore,
@@ -96,14 +97,17 @@ export function OutboxPanel({ userId, orgId }: { userId: string; orgId: string }
           </li>
         ))}
       </ul>
-      <button
-        type="button"
-        disabled={sending || mine.length === 0}
-        onClick={() => void send()}
-        className="inline-flex min-h-14 w-full items-center justify-center rounded-xl border bg-background text-[17px] font-semibold disabled:opacity-50"
-      >
-        {sending ? "Sending" : "Try sending now"}
-      </button>
+      <span className="flex min-w-0 flex-col gap-1">
+        <button
+          type="button"
+          disabled={sending || mine.length === 0}
+          onClick={() => void send()}
+          className="inline-flex min-h-14 w-full items-center justify-center rounded-xl border bg-background text-[17px] font-semibold disabled:opacity-50"
+        >
+          {sending ? "Sending" : "Try sending now"}
+        </button>
+        <FieldHint>Sends the work saved on this phone as soon as you have signal.</FieldHint>
+      </span>
     </section>
   );
 }

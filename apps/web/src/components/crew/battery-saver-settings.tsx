@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { FieldHint } from "@/components/entry";
 import { Switch } from "@/components/ui/switch";
 import {
   readBatterySaver,
@@ -18,9 +19,7 @@ export function BatterySaverSettings() {
       <label className="flex min-h-12 items-center justify-between gap-3">
         <span>
           <span className="block text-[17px] font-semibold">Battery saver</span>
-          <span className="mt-0.5 block text-[15px] text-muted-foreground">
-            Outline map and fewer animations. Keeps Sun mode when you picked it. Saved on this phone.
-          </span>
+          <FieldHint>Outline map and fewer animations. Keeps Sun mode when you picked it. Saved on this phone.</FieldHint>
         </span>
         <Switch
           checked={enabled}
