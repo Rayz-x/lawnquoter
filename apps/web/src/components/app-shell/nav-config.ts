@@ -8,7 +8,6 @@ import {
   Landmark,
   HardHat,
   Inbox,
-  Landmark,
   LayoutDashboard,
   Mail,
   MapPinned,
