@@ -3,6 +3,7 @@
 // stage_entered_at added for 20261014090000.
 // usage_meters added for 20261017003000.
 // auto_charge added for 20261016001800.
+// crew_status added for 20261016001100.
 
 export type Json =
   | string
