@@ -36,6 +36,7 @@ function factText(fact: SectionFact) {
 
 export function SectionCard({
   title,
+  hint,
   description,
   status = "idle",
   error,
@@ -52,6 +53,8 @@ export function SectionCard({
   children,
 }: {
   title: string;
+  /** A help tip beside the title. Stays out of the heading so the title name stays the label. */
+  hint?: ReactNode;
   description?: string;
   status?: SectionAutosaveStatus;
   error?: string | null;
@@ -101,10 +104,11 @@ export function SectionCard({
     >
       <section aria-labelledby={titleId} className="min-w-0">
         <CardHeader className="min-w-0">
-          <CardTitle className="min-w-0">
+          <CardTitle className="flex min-w-0 items-center gap-1">
             <HeadingTag id={titleId} className={tone === "warning" ? "text-base leading-snug font-medium text-warning" : "text-base leading-snug font-medium"}>
               {title}
             </HeadingTag>
+            {hint}
           </CardTitle>
           {description ? <CardDescription className="min-w-0 text-pretty">{description}</CardDescription> : null}
           <CardAction>
