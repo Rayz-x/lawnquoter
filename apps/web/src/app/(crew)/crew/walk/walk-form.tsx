@@ -1,16 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { WalkMap } from "@/components/bids/walk-map";
 import { addSiteWalkNote } from "@/app/(app)/bids/actions";
+import { downscalePhoto } from "@/lib/crew/photo";
+import { walkPins } from "@/lib/bids/walk";
 
 type PackageOption = { id: string; title: string };
+type SavedNote = { id: string; package_id: string; body: string; lat: number | null; lng: number | null };
 
-export function WalkForm({ packages }: { packages: PackageOption[] }) {
+export function WalkForm({ packages, notes }: { packages: PackageOption[]; notes: SavedNote[] }) {
+  const [packageId, setPackageId] = useState(packages[0]?.id ?? "");
   const [body, setBody] = useState("");
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
   const [message, setMessage] = useState("");
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    const file = (event.currentTarget.elements.namedItem("photo") as HTMLInputElement | null)?.files?.[0];
+    if (!file || file.size === 0) return;
+    event.preventDefault();
+    if (!lat || !lng) {
+      setMessage("Drop a pin so the photo is on the map.");
+      return;
+    }
+    try {
+      const jpeg = await downscalePhoto(file);
+      const data = new FormData(event.currentTarget);
+      data.set("photo", new File([jpeg], "walk.jpg", { type: "image/jpeg" }));
+      await addSiteWalkNote(data);
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : "Could not save that photo.");
+    }
+  }
 
   function locate() {
     if (!navigator.geolocation) {
@@ -42,10 +65,16 @@ export function WalkForm({ packages }: { packages: PackageOption[] }) {
   }
 
   return (
-    <form action={addSiteWalkNote} className="flex flex-col gap-3">
+    <form action={addSiteWalkNote} onSubmit={onSubmit} className="flex flex-col gap-3">
       <label className="grid gap-1 text-sm">
         Package
-        <select name="package_id" required className="h-12 rounded-md border bg-background px-2 text-base">
+        <select
+          name="package_id"
+          required
+          value={packageId}
+          onChange={(event) => setPackageId(event.target.value)}
+          className="h-12 rounded-md border bg-background px-2 text-base"
+        >
           {packages.map((pkg) => (
             <option key={pkg.id} value={pkg.id}>
               {pkg.title}
@@ -64,7 +93,17 @@ export function WalkForm({ packages }: { packages: PackageOption[] }) {
       />
       <input type="hidden" name="lat" value={lat} />
       <input type="hidden" name="lng" value={lng} />
+      <label className="grid gap-1 text-sm">
+        Photo
+        <input name="photo" type="file" accept="image/*" capture="environment" className="text-base" />
+      </label>
       <p className="text-sm text-muted-foreground">{lat && lng ? `${lat}, ${lng}` : "No pin yet."}</p>
+      <WalkMap
+        pins={walkPins([
+          ...notes.filter((note) => note.package_id === packageId),
+          ...(lat && lng ? [{ id: "draft", body: body || "This note", lat: Number(lat), lng: Number(lng) }] : []),
+        ])}
+      />
       {message ? <p className="text-sm">{message}</p> : null}
       <div className="flex flex-wrap gap-2">
         <Button type="button" variant="outline" onClick={locate}>
