@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { callrailCall, readCallrailSecret, trackedCallActivityMeta, twilioRecording } from "./calls";
+import { callrailCall, readCallrailSecret, trackedCallActivityMeta, trackingNumberAssignedToOrg, twilioRecording } from "./calls";
 import { CALLRAIL_NOT_CONNECTED } from "./calls";
 
 const voiceUrl = "https://app.example.com/api/webhooks/twilio/voice";
@@ -65,6 +65,40 @@ describe("call tracking", () => {
       error: "not_connected",
     });
     expect(twilioRecording({ config, url: voiceUrl, params: voiceParams, signature: "nope" }).ok).toBe(false);
+  });
+
+  it("accepts only a tracking number Twilio assigned to this company", async () => {
+    const config = { accountSid: "AC1", authToken: "secret", fromNumber: "+15552220000" };
+    const calls: string[] = [];
+    const disconnected = await trackingNumberAssignedToOrg({
+      config: null,
+      orgId: "org-a",
+      trackingNumber: "+15552220000",
+      fetch: async (target) => {
+        calls.push(String(target));
+        return new Response("{}", { status: 200 });
+      },
+    });
+    expect(disconnected).toEqual({ ok: false, error: "Not connected - add Twilio keys to enable" });
+    expect(calls).toEqual([]);
+
+    const listed = async (numbers: { phone_number?: string; friendly_name?: string }[]) =>
+      trackingNumberAssignedToOrg({
+        config,
+        orgId: "org-a",
+        trackingNumber: "(555) 222-0000",
+        fetch: async () => new Response(JSON.stringify({ incoming_phone_numbers: numbers }), { status: 200 }),
+      });
+
+    expect(await listed([{ phone_number: "+15552220000", friendly_name: "org-a" }])).toEqual({
+      ok: true,
+      trackingNumber: "+15552220000",
+    });
+    expect(await listed([{ phone_number: "+15552220000", friendly_name: "org-b" }])).toEqual({
+      ok: false,
+      error: "That number is not assigned to this company.",
+    });
+    expect(await listed([])).toEqual({ ok: false, error: "That number is not assigned to this company." });
   });
 
   it("keeps the recording on the call, not on the activity the whole company can read", () => {

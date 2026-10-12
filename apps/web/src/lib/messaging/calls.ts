@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { toE164, type TwilioConfig } from "./sms";
+import { smsNumberAssignedToOrg, toE164, type TwilioConfig } from "./sms";
 
 export const CALLRAIL_NOT_CONNECTED = "Not connected - add CallRail key to enable";
 
@@ -48,6 +48,23 @@ export function callrailCall(input: {
     providerId,
     direction,
   };
+}
+
+/** A tracking number is this company's only when Twilio lists it under the company id. */
+export async function trackingNumberAssignedToOrg(input: {
+  config: TwilioConfig | null;
+  orgId: string;
+  trackingNumber: string;
+  fetch: (url: string, init?: RequestInit) => Promise<Response>;
+}): Promise<{ ok: true; trackingNumber: string } | { ok: false; error: string }> {
+  const assigned = await smsNumberAssignedToOrg({
+    config: input.config,
+    orgId: input.orgId,
+    smsNumber: input.trackingNumber,
+    fetch: input.fetch,
+  });
+  if (!assigned.ok) return assigned;
+  return { ok: true, trackingNumber: assigned.smsNumber };
 }
 
 export function trackedCallActivityMeta(providerId: string): { provider_id: string } {
