@@ -279,10 +279,10 @@ export function DayBoard({
                         onClick={() => {
                           const routeId = column.routeId;
                           if (!routeId) return;
-                          run(() => optimizeRoute(routeId, "heuristic"), "Drive times estimated");
+                          run(() => optimizeRoute(routeId, "heuristic"), "Stops reordered by drive time");
                         }}
                       >
-                        Estimate drive times
+                        Reorder by drive time
                       </Button>
                     ) : null}
                     {paidRouting && column.routeId && scheduledIds(column.visits).length >= 2 ? (
