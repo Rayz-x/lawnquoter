@@ -3,6 +3,7 @@ import { hasRole, ADMIN_ROLES } from "@lawnquoter/shared";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FieldHint } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { OFFICE_ROLES } from "@/lib/auth/office-roles";
 import { requireOrg } from "@/lib/auth/session";
@@ -53,11 +54,11 @@ export default async function TextingSetupPage({ searchParams }: { searchParams:
         {row?.last_error ? <p className="text-sm text-destructive">{row.last_error}</p> : null}
         {canEdit ? (
           <form action={saveA2p} className="flex flex-col gap-3">
-            <label className="flex flex-col gap-1 text-sm">Legal business name<Input name="legal_name" defaultValue={row?.legal_name ?? ""} required /></label>
-            <label className="flex flex-col gap-1 text-sm">EIN<Input name="ein" defaultValue={row?.ein ?? ""} inputMode="numeric" required /></label>
-            <label className="flex flex-col gap-1 text-sm">Website<Input name="website" type="url" defaultValue={row?.website ?? ""} required /></label>
-            <label className="flex flex-col gap-1 text-sm">Business email<Input name="contact_email" type="email" defaultValue={row?.contact_email ?? ""} required /></label>
-            <label className="flex flex-col gap-1 text-sm">Sample text<textarea name="sample_message" defaultValue={row?.sample_message ?? ""} required rows={3} className="rounded-md border bg-background px-3 py-2" /></label>
+            <div className="flex min-w-0 flex-col gap-1 text-sm"><label htmlFor="legal_name">Legal business name</label><Input id="legal_name" name="legal_name" aria-describedby="legal-name-hint" defaultValue={row?.legal_name ?? ""} required /><FieldHint id="legal-name-hint">The legal name carriers use when they approve your texts.</FieldHint></div>
+            <div className="flex min-w-0 flex-col gap-1 text-sm"><label htmlFor="ein">EIN</label><Input id="ein" name="ein" aria-describedby="ein-hint" defaultValue={row?.ein ?? ""} inputMode="numeric" required /><FieldHint id="ein-hint">The tax number carriers match to this business.</FieldHint></div>
+            <div className="flex min-w-0 flex-col gap-1 text-sm"><label htmlFor="website">Website</label><Input id="website" name="website" aria-describedby="texting-website-hint" type="url" defaultValue={row?.website ?? ""} required /><FieldHint id="texting-website-hint">A public page carriers can open to confirm the business.</FieldHint></div>
+            <div className="flex min-w-0 flex-col gap-1 text-sm"><label htmlFor="contact_email">Business email</label><Input id="contact_email" name="contact_email" aria-describedby="texting-email-hint" type="email" defaultValue={row?.contact_email ?? ""} required /><FieldHint id="texting-email-hint">Where carriers send questions about this registration.</FieldHint></div>
+            <div className="flex min-w-0 flex-col gap-1 text-sm"><label htmlFor="sample_message">Sample text</label><textarea id="sample_message" name="sample_message" aria-describedby="sample-text-hint" defaultValue={row?.sample_message ?? ""} required rows={3} className="w-full rounded-md border bg-background px-3 py-2" /><FieldHint id="sample-text-hint">An example of the text customers will receive.</FieldHint></div>
             <div className="flex flex-wrap gap-2">
               <Button type="submit">Save draft</Button>
             </div>

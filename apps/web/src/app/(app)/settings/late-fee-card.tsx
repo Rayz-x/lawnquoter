@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { applyLateFees, saveLateFees } from "./late-fee-actions";
@@ -59,15 +59,18 @@ export function LateFeeCard({
             <p className="text-sm text-muted-foreground">Leave both amounts at zero to keep late fees off.</p>
             <Field>
               <FieldLabel htmlFor="late-flat">Flat amount</FieldLabel>
-              <Input id="late-flat" type="number" min="0" step="0.01" value={flat} onChange={(event) => setFlat(event.target.value)} />
+              <Input id="late-flat" aria-describedby="late-flat-hint" type="number" min="0" step="0.01" value={flat} onChange={(event) => setFlat(event.target.value)} />
+              <FieldHint id="late-flat-hint">A fixed dollar fee added after the grace period.</FieldHint>
             </Field>
             <Field>
               <FieldLabel htmlFor="late-percent">Percent of the open balance</FieldLabel>
-              <Input id="late-percent" type="number" min="0" max="100" step="0.01" value={percent} onChange={(event) => setPercent(event.target.value)} />
+              <Input id="late-percent" aria-describedby="late-percent-hint" type="number" min="0" max="100" step="0.01" value={percent} onChange={(event) => setPercent(event.target.value)} />
+              <FieldHint id="late-percent-hint">A percent of what is still unpaid, added after the grace period.</FieldHint>
             </Field>
             <Field>
               <FieldLabel htmlFor="late-grace">Grace days</FieldLabel>
-              <Input id="late-grace" type="number" min="0" max="365" value={grace} onChange={(event) => setGrace(event.target.value)} />
+              <Input id="late-grace" aria-describedby="late-grace-hint" type="number" min="0" max="365" value={grace} onChange={(event) => setGrace(event.target.value)} />
+              <FieldHint id="late-grace-hint">How many days after the due date to wait before a late-fee bill is created.</FieldHint>
             </Field>
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={pending}>
