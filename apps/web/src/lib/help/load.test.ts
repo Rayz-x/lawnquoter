@@ -25,5 +25,7 @@ describe("loadHelpArticle", () => {
     expect(loadHelpArticle("chemical-logs")?.headings.map((heading) => heading.id)).toEqual(["log-an-application"]);
     expect(loadHelpArticle("late-fees")?.headings.map((heading) => heading.id)).toEqual(["set-the-fee", "add-the-month"]);
     expect(loadHelpArticle("payments")?.headings.map((heading) => heading.id)).toContain("charge-after-a-visit");
+    expect(loadHelpArticle("integrations")?.headings.map((heading) => heading.id)).toContain("imagery");
+    expect(loadHelpArticle("instant-quote")?.headings.map((heading) => heading.id)).toContain("paste-it-on-your-site");
   });
 });
