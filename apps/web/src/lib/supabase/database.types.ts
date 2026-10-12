@@ -1064,6 +1064,85 @@ export type Database = {
           },
         ]
       }
+      automation_runs: {
+        Row: {
+          created_at: string
+          id: string
+          org_id: string
+          quote_id: string
+          status: string
+          steps_sent: number
+          stop_reason: string | null
+          task_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          org_id: string
+          quote_id: string
+          status?: string
+          steps_sent?: number
+          stop_reason?: string | null
+          task_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          org_id?: string
+          quote_id?: string
+          status?: string
+          steps_sent?: number
+          stop_reason?: string | null
+          task_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_runs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automations: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          org_id: string
+          purpose: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          org_id: string
+          purpose: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          org_id?: string
+          purpose?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contacts: {
         Row: {
           account_id: string
@@ -5248,6 +5327,50 @@ export type Database = {
             columns: ["visit_id"]
             isOneToOne: false
             referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          due_on: string | null
+          id: string
+          kind: string
+          org_id: string
+          quote_id: string | null
+          status: string
+          title: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          due_on?: string | null
+          id?: string
+          kind?: string
+          org_id: string
+          quote_id?: string | null
+          status?: string
+          title: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          due_on?: string | null
+          id?: string
+          kind?: string
+          org_id?: string
+          quote_id?: string | null
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "orgs"
             referencedColumns: ["id"]
           },
         ]

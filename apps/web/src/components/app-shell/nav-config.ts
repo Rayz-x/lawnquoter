@@ -82,6 +82,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     items: [
       { title: "Quotes", href: "/quotes", icon: FileText, roles: SALES_ROLES },
       { title: "Bids", href: "/bids", icon: Landmark, roles: SALES_ROLES },
+      { title: "Tasks", href: "/tasks", icon: Phone, roles: OFFICE_ROLES },
       { title: "Price book", href: "/settings/pricing", icon: Tags, roles: ADMIN_ROLES },
     ],
   },
@@ -125,6 +126,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
       { title: "Messages", href: "/settings/messages", icon: Mail, roles: OFFICE_ROLES },
       { title: "QuickBooks", href: "/settings/quickbooks", icon: Landmark, roles: ADMIN_ROLES },
       { title: "Texting", href: "/settings/texting", icon: MessageSquare, roles: OFFICE_ROLES },
+      { title: "Follow-ups", href: "/settings/follow-ups", icon: Mail, roles: OFFICE_ROLES },
       { title: "Team", href: "/settings/team", icon: Users, roles: ADMIN_ROLES },
       { title: "Crew App", href: "/crew/today", icon: Smartphone, roles: FIELD_ROLES },
     ],
