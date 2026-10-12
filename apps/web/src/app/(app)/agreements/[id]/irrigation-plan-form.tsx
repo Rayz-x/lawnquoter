@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FieldHint, Stepper } from "@/components/entry";
+import { Stepper } from "@/components/entry";
+import { HelpTip } from "@/components/help/help-tip";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -59,25 +60,29 @@ export function IrrigationPlanForm({
       }}
     >
       <div className="flex min-w-0 flex-col gap-1">
+        <span className="inline-flex items-center gap-1 text-sm">
+          Zones
+          <HelpTip
+            label="Help for irrigation zones"
+            text="Zone count is 1 to 200. Visit length is the zone count times the minutes per zone."
+            href="/help/irrigation#on-the-agreement"
+          />
+        </span>
         <Stepper label="Zones" value={zoneCount} min={1} max={200} onValueChange={setZoneCount} />
-        <FieldHint>How many zones this property has. The visit length is this count times the minutes below.</FieldHint>
       </div>
       <Field>
         <FieldLabel htmlFor="irr-minutes">Minutes per zone</FieldLabel>
         <Input id="irr-minutes" inputMode="numeric" value={minutes} onChange={(event) => setMinutes(event.target.value)} required />
-        <FieldHint>Minutes of work for each zone.</FieldHint>
       </Field>
       <Field>
         <FieldLabel htmlFor="irr-price">Price per zone</FieldLabel>
         <Input id="irr-price" inputMode="decimal" value={price} onChange={(event) => setPrice(event.target.value)} required />
-        <FieldHint>What you charge for each zone.</FieldHint>
       </Field>
       <span className="flex min-w-0 flex-col gap-1">
         <Button type="submit" disabled={pending}>
           {pending ? <Spinner data-icon="inline-start" /> : null}
           Save irrigation plan
         </Button>
-        <FieldHint>Saves the plan and sets the visit length from the zone count.</FieldHint>
       </span>
     </form>
   );
