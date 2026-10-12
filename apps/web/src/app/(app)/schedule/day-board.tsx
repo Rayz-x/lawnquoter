@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
+import { FieldHint } from "@/components/entry";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -190,29 +191,35 @@ export function DayBoard({
 
       <div className="grid gap-4">
         {canWrite ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={pending}
-              onClick={() =>
-                runRain(() =>
-                  rainDayPush({
-                    date,
-                    visitIds: selectedIds.length > 0 ? selectedIds : undefined,
-                  }),
-                )
-              }
-            >
-              {pending ? <Spinner data-icon="inline-start" /> : null}
-              {selectedIds.length > 0
-                ? `Rain day · selection → ${targetLabel}`
-                : `Rain day · all crews → ${targetLabel}`}
-            </Button>
-            {selectedIds.length > 0 ? (
-              <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setSelected({})}>
-                Clear selection
+          <div className="flex flex-wrap items-start gap-2">
+            <span className="flex min-w-0 max-w-full flex-col gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() =>
+                  runRain(() =>
+                    rainDayPush({
+                      date,
+                      visitIds: selectedIds.length > 0 ? selectedIds : undefined,
+                    }),
+                  )
+                }
+              >
+                {pending ? <Spinner data-icon="inline-start" /> : null}
+                {selectedIds.length > 0
+                  ? `Rain day · selection → ${targetLabel}`
+                  : `Rain day · all crews → ${targetLabel}`}
               </Button>
+              <FieldHint>Pushes the selected stops, or every stop, to the next open day.</FieldHint>
+            </span>
+            {selectedIds.length > 0 ? (
+              <span className="flex min-w-0 max-w-full flex-col gap-1">
+                <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setSelected({})}>
+                  Clear selection
+                </Button>
+                <FieldHint>Unchecks the stops you picked for the rain day.</FieldHint>
+              </span>
             ) : null}
           </div>
         ) : null}
@@ -260,45 +267,54 @@ export function DayBoard({
                   {presenceLabel(presence, column.crewId)}
                 </CardDescription>
                 {canWrite && scheduledIds(column.visits).length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={pending}
-                      onClick={() => runRain(() => rainDayPush({ date, crewId: column.crewId }))}
-                    >
-                      Rain day → {targetLabel}
-                    </Button>
-                    {column.routeId && scheduledIds(column.visits).length >= 2 ? (
+                  <div className="flex flex-wrap items-start gap-2">
+                    <span className="flex min-w-0 max-w-full flex-col gap-1">
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
                         disabled={pending}
-                        onClick={() => {
-                          const routeId = column.routeId;
-                          if (!routeId) return;
-                          run(() => optimizeRoute(routeId, "heuristic"), "Stops reordered by drive time");
-                        }}
+                        onClick={() => runRain(() => rainDayPush({ date, crewId: column.crewId }))}
                       >
-                        Reorder by drive time
+                        Rain day → {targetLabel}
                       </Button>
+                      <FieldHint>Pushes this crew’s scheduled stops to the next open day.</FieldHint>
+                    </span>
+                    {column.routeId && scheduledIds(column.visits).length >= 2 ? (
+                      <span className="flex min-w-0 max-w-full flex-col gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={pending}
+                          onClick={() => {
+                            const routeId = column.routeId;
+                            if (!routeId) return;
+                            run(() => optimizeRoute(routeId, "heuristic"), "Stops reordered by drive time");
+                          }}
+                        >
+                          Reorder by drive time
+                        </Button>
+                        <FieldHint>Orders this crew’s stops by a free drive-time estimate.</FieldHint>
+                      </span>
                     ) : null}
                     {paidRouting && column.routeId && scheduledIds(column.visits).length >= 2 ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={pending}
-                        onClick={() => {
-                          const routeId = column.routeId;
-                          if (!routeId) return;
-                          run(() => optimizeRoute(routeId, "api"), "Route ordered by the routing service");
-                        }}
-                      >
-                        Use paid routing
-                      </Button>
+                      <span className="flex min-w-0 max-w-full flex-col gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={pending}
+                          onClick={() => {
+                            const routeId = column.routeId;
+                            if (!routeId) return;
+                            run(() => optimizeRoute(routeId, "api"), "Route ordered by the routing service");
+                          }}
+                        >
+                          Use paid routing
+                        </Button>
+                        <FieldHint>Orders this crew’s stops with the paid routing service.</FieldHint>
+                      </span>
                     ) : null}
                   </div>
                 ) : null}
@@ -337,41 +353,47 @@ export function DayBoard({
                           }
                         >
                           {canWrite && column.routeId && visit.status === "scheduled" ? (
-                            <div className="flex flex-wrap gap-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                disabled={pending || index === 0}
-                                aria-label={`Move ${visit.title} up`}
-                                onClick={() => {
-                                  const routeId = column.routeId;
-                                  if (!routeId) return;
-                                  const next = moveIds(column.visits.map((item) => item.id), index, -1);
-                                  const ordered = next.filter((id) => scheduledIds(column.visits).includes(id));
-                                  if (ordered.length === 0) return;
-                                  run(() => reorderVisits(routeId, ordered), "Order updated");
-                                }}
-                              >
-                                Move up
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                disabled={pending || index === column.visits.length - 1}
-                                aria-label={`Move ${visit.title} down`}
-                                onClick={() => {
-                                  const routeId = column.routeId;
-                                  if (!routeId) return;
-                                  const next = moveIds(column.visits.map((item) => item.id), index, 1);
-                                  const ordered = next.filter((id) => scheduledIds(column.visits).includes(id));
-                                  if (ordered.length === 0) return;
-                                  run(() => reorderVisits(routeId, ordered), "Order updated");
-                                }}
-                              >
-                                Move down
-                              </Button>
+                            <div className="flex flex-wrap items-start gap-2">
+                              <span className="flex min-w-0 flex-col gap-1">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={pending || index === 0}
+                                  aria-label={`Move ${visit.title} up`}
+                                  onClick={() => {
+                                    const routeId = column.routeId;
+                                    if (!routeId) return;
+                                    const next = moveIds(column.visits.map((item) => item.id), index, -1);
+                                    const ordered = next.filter((id) => scheduledIds(column.visits).includes(id));
+                                    if (ordered.length === 0) return;
+                                    run(() => reorderVisits(routeId, ordered), "Order updated");
+                                  }}
+                                >
+                                  Move up
+                                </Button>
+                                <FieldHint>Moves this stop earlier in the crew’s day.</FieldHint>
+                              </span>
+                              <span className="flex min-w-0 flex-col gap-1">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={pending || index === column.visits.length - 1}
+                                  aria-label={`Move ${visit.title} down`}
+                                  onClick={() => {
+                                    const routeId = column.routeId;
+                                    if (!routeId) return;
+                                    const next = moveIds(column.visits.map((item) => item.id), index, 1);
+                                    const ordered = next.filter((id) => scheduledIds(column.visits).includes(id));
+                                    if (ordered.length === 0) return;
+                                    run(() => reorderVisits(routeId, ordered), "Order updated");
+                                  }}
+                                >
+                                  Move down
+                                </Button>
+                                <FieldHint>Moves this stop later in the crew’s day.</FieldHint>
+                              </span>
                             </div>
                           ) : null}
                           {canWrite && visit.status === "scheduled" ? (
@@ -403,18 +425,21 @@ export function DayBoard({
                   column.visits.length === 0 ? (
                     <p className="text-xs text-muted-foreground">Add a visit before publishing.</p>
                   ) : (
-                    <Button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => {
-                        const routeId = column.routeId;
-                        if (!routeId) return;
-                        run(() => publishRoute(routeId), "Route published");
-                      }}
-                    >
-                      {pending ? <Spinner data-icon="inline-start" /> : null}
-                      Publish route
-                    </Button>
+                    <span className="flex min-w-0 max-w-full flex-col gap-1">
+                      <Button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => {
+                          const routeId = column.routeId;
+                          if (!routeId) return;
+                          run(() => publishRoute(routeId), "Route published");
+                        }}
+                      >
+                        {pending ? <Spinner data-icon="inline-start" /> : null}
+                        Publish route
+                      </Button>
+                      <FieldHint>Sends this crew’s stop order to their phones.</FieldHint>
+                    </span>
                   )
                 ) : null}
               </CardContent>
@@ -443,13 +468,16 @@ function VisitCard({
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2">
           {select ? (
-            <input
-              type="checkbox"
-              className="mt-1 size-4 accent-primary"
-              checked={select.checked}
-              onChange={(event) => select.onChange(event.target.checked)}
-              aria-label={`Select ${visit.title} for rain day`}
-            />
+            <span className="flex min-w-0 flex-col gap-1">
+              <input
+                type="checkbox"
+                className="mt-1 size-4 accent-primary"
+                checked={select.checked}
+                onChange={(event) => select.onChange(event.target.checked)}
+                aria-label={`Select ${visit.title} for rain day`}
+              />
+              <FieldHint>Includes this stop in the rain-day push.</FieldHint>
+            </span>
           ) : null}
           <div
             className={draggable ? "cursor-grab" : undefined}
@@ -512,6 +540,7 @@ function AssignControls({
         <label htmlFor={`assign-${visit.id}-${date}`} className="text-xs text-muted-foreground">
           {fieldLabel}
         </label>
+        <FieldHint>The crew that should run this stop.</FieldHint>
         <NativeSelect id={`assign-${visit.id}-${date}`} value={selected} onChange={(event) => setCrewId(event.target.value)}>
           {crews.map((crew) => (
             <option key={crew.id} value={crew.id}>
@@ -520,9 +549,12 @@ function AssignControls({
           ))}
         </NativeSelect>
       </div>
-      <Button type="button" size="sm" disabled={pending} onClick={() => onAssign(selected)}>
-        {fieldLabel === "Move to" ? "Move" : "Assign"}
-      </Button>
+      <span className="flex min-w-0 flex-col gap-1">
+        <Button type="button" size="sm" disabled={pending} onClick={() => onAssign(selected)}>
+          {fieldLabel === "Move to" ? "Move" : "Assign"}
+        </Button>
+        <FieldHint>Puts this stop on the crew you picked, for this day.</FieldHint>
+      </span>
     </div>
   );
 }
@@ -576,16 +608,19 @@ function PhoneSyncLines({
                 </ul>
               ) : null}
               {canWrite ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={pending}
-                  className="h-7 w-fit px-2 text-xs"
-                  onClick={() => onClear(phone.profileId)}
-                >
-                  Allow phone
-                </Button>
+                <span className="flex min-w-0 flex-col items-start gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={pending}
+                    className="h-7 w-fit px-2 text-xs"
+                    onClick={() => onClear(phone.profileId)}
+                  >
+                    Allow phone
+                  </Button>
+                  <FieldHint>Lets this phone sync the route again.</FieldHint>
+                </span>
               ) : null}
             </li>
           );
@@ -619,16 +654,19 @@ function PhoneSyncLines({
               <span>{text}</span>
             </div>
             {canWrite ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={pending}
-                className="h-7 w-fit px-2 text-xs"
-                onClick={() => onRevoke(phone.profileId)}
-              >
-                Revoke phone
-              </Button>
+              <span className="flex min-w-0 flex-col items-start gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={pending}
+                  className="h-7 w-fit px-2 text-xs"
+                  onClick={() => onRevoke(phone.profileId)}
+                >
+                  Revoke phone
+                </Button>
+                <FieldHint>Stops this phone from syncing until you allow it again.</FieldHint>
+              </span>
             ) : null}
           </li>
         );
@@ -658,6 +696,7 @@ function StopControls({
           <label htmlFor={`skip-${visit.id}`} className="text-xs text-muted-foreground">
             Skip reason
           </label>
+          <FieldHint>Why this stop will not be done today.</FieldHint>
           <NativeSelect
             id={`skip-${visit.id}`}
             value={skipReason}
@@ -670,15 +709,19 @@ function StopControls({
             ))}
           </NativeSelect>
         </div>
-        <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => onSkip(skipReason)}>
-          Skip
-        </Button>
+        <span className="flex min-w-0 flex-col gap-1">
+          <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => onSkip(skipReason)}>
+            Skip
+          </Button>
+          <FieldHint>Marks the stop skipped and keeps it off the route.</FieldHint>
+        </span>
       </div>
       <div className="flex flex-wrap items-end gap-2">
         <div className="flex min-w-36 flex-col gap-1">
           <label htmlFor={`cancel-${visit.id}`} className="text-xs text-muted-foreground">
             Cancel reason
           </label>
+          <FieldHint>Why this stop is cancelled.</FieldHint>
           <Input id={`cancel-${visit.id}`} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} />
         </div>
         <Button
@@ -690,6 +733,7 @@ function StopControls({
         >
           Cancel
         </Button>
+        <FieldHint>Cancels the stop. It will not be done.</FieldHint>
       </div>
     </>
   );

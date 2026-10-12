@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
+import { FieldHint } from "./field-hint";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -11,10 +12,20 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 export type SectionMenuItem = {
   id: string;
   label: string;
+  hint?: string;
   onSelect: () => void;
   destructive?: boolean;
   confirm?: string;
 };
+
+function MenuLabel({ item }: { item: SectionMenuItem }) {
+  return (
+    <span className="flex min-w-0 max-w-full flex-col items-start gap-0.5 whitespace-normal text-start">
+      <span>{item.label}</span>
+      {item.hint ? <FieldHint>{item.hint}</FieldHint> : null}
+    </span>
+  );
+}
 
 export function splitSectionMenuItems(items: SectionMenuItem[]) {
   return {
@@ -59,7 +70,7 @@ export function SectionMenu({ label = "Section actions", items }: { label?: stri
             {actions.length > 0 ? (
               <DropdownMenuGroup>
                 {actions.map((item) => (
-                  <DropdownMenuItem key={item.id} onClick={() => choose(item, desktopRef.current)}>{item.label}</DropdownMenuItem>
+                  <DropdownMenuItem key={item.id} onClick={() => choose(item, desktopRef.current)}><MenuLabel item={item} /></DropdownMenuItem>
                 ))}
               </DropdownMenuGroup>
             ) : null}
@@ -67,7 +78,7 @@ export function SectionMenu({ label = "Section actions", items }: { label?: stri
             {destructive.length > 0 ? (
               <DropdownMenuGroup>
                 {destructive.map((item) => (
-                  <DropdownMenuItem key={item.id} variant="destructive" onClick={() => choose(item, desktopRef.current)}>{item.label}</DropdownMenuItem>
+                  <DropdownMenuItem key={item.id} variant="destructive" onClick={() => choose(item, desktopRef.current)}><MenuLabel item={item} /></DropdownMenuItem>
                 ))}
               </DropdownMenuGroup>
             ) : null}
@@ -85,14 +96,14 @@ export function SectionMenu({ label = "Section actions", items }: { label?: stri
             </SheetHeader>
             <div className="flex flex-col gap-2 px-4 pb-4">
               {actions.map((item) => (
-                <Button key={item.id} type="button" variant="outline" className="min-h-11 justify-start" onClick={() => choose(item, mobileRef.current)}>
-                  {item.label}
+                <Button key={item.id} type="button" variant="outline" className="min-h-11 h-auto justify-start py-2 whitespace-normal" onClick={() => choose(item, mobileRef.current)}>
+                  <MenuLabel item={item} />
                 </Button>
               ))}
               {divided ? <Separator /> : null}
               {destructive.map((item) => (
-                <Button key={item.id} type="button" variant="destructive" className="min-h-11 justify-start" onClick={() => choose(item, mobileRef.current)}>
-                  {item.label}
+                <Button key={item.id} type="button" variant="destructive" className="min-h-11 h-auto justify-start py-2 whitespace-normal" onClick={() => choose(item, mobileRef.current)}>
+                  <MenuLabel item={item} />
                 </Button>
               ))}
             </div>
