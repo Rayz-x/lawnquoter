@@ -19,5 +19,7 @@ describe("loadHelpArticle", () => {
     expect(loadHelpArticle("quotes")?.headings.map((heading) => heading.id)).toContain("send-the-proposal");
     expect(loadHelpArticle("quote-builder")?.headings.map((heading) => heading.id)).toContain("good-better-and-best");
     expect(loadHelpArticle("pricing")?.headings.map((heading) => heading.id)).toContain("drive-and-a-dense-route");
+    expect(loadHelpArticle("weather")?.headings.map((heading) => heading.id)).toEqual(["save-a-rule", "run-it-on-a-day"]);
+    expect(loadHelpArticle("snow")?.headings.map((heading) => heading.id)).toEqual(["activate-a-snow-day"]);
   });
 });
