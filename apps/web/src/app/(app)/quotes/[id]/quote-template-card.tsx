@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { QUOTE_TEMPLATE_KINDS } from "@/lib/quotes/template-config";
@@ -58,16 +58,18 @@ export function QuoteTemplateCard({
         >
           <Field>
             <FieldLabel htmlFor="template-name">Save these lines</FieldLabel>
-            <Input id="template-name" value={name} required placeholder="Weekly mowing" onChange={(event) => setName(event.target.value)} />
+            <Input id="template-name" aria-describedby="quote-template-name-hint" value={name} required placeholder="Weekly mowing" onChange={(event) => setName(event.target.value)} />
+            <FieldHint id="quote-template-name-hint">The name you see when you reuse these lines later.</FieldHint>
           </Field>
           <Field>
             <FieldLabel htmlFor="template-kind">Service line</FieldLabel>
-            <NativeSelect id="template-kind" value={serviceKind} onChange={(event) => setServiceKind(event.target.value)}>
+            <NativeSelect id="template-kind" aria-describedby="quote-template-kind-hint" value={serviceKind} onChange={(event) => setServiceKind(event.target.value)}>
               <option value="">Any</option>
               {QUOTE_TEMPLATE_KINDS.map((kind) => (
                 <option key={kind} value={kind}>{KIND_LABEL[kind]}</option>
               ))}
             </NativeSelect>
+            <FieldHint id="quote-template-kind-hint">Which kind of work this template is offered for.</FieldHint>
           </Field>
           <Button type="submit" variant="outline" disabled={pending} className="min-h-11 w-fit">Save template</Button>
         </form>
@@ -89,13 +91,14 @@ export function QuoteTemplateCard({
           >
             <Field>
               <FieldLabel htmlFor="template-apply">Add a template</FieldLabel>
-              <NativeSelect id="template-apply" value={templateId} onChange={(event) => setTemplateId(event.target.value)}>
+              <NativeSelect id="template-apply" aria-describedby="quote-template-apply-hint" value={templateId} onChange={(event) => setTemplateId(event.target.value)}>
                 {templates.map((template) => (
                   <option key={template.id} value={template.id}>
                     {template.name}{template.service_kind ? ` · ${KIND_LABEL[template.service_kind as keyof typeof KIND_LABEL] ?? template.service_kind}` : ""}
                   </option>
                 ))}
               </NativeSelect>
+              <FieldHint id="quote-template-apply-hint">Adds that template's lines onto this quote.</FieldHint>
             </Field>
             <Button type="submit" disabled={pending} className="min-h-11 w-fit">Add lines</Button>
           </form>

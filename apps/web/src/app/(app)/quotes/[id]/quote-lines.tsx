@@ -9,6 +9,7 @@ import { MoneyBlurInput } from "@/components/entry";
 import { SectionMenu } from "@/components/entry/section-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FieldHint } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
 import { hasSiteCheck, siteCheckReasonsSummary } from "@/lib/quotes/site-check";
@@ -117,11 +118,15 @@ export function QuoteLines({
 
   return (
     <section className="flex flex-col gap-3" aria-label="Quote lines">
-      <div className="flex flex-wrap items-center gap-2">
-        <Input aria-label="Search the catalog" placeholder="Search catalog" value={query} disabled={!editable || pending} className="min-w-0 flex-1" onChange={(event) => setQuery(event.target.value)} />
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Input aria-label="Search the catalog" aria-describedby="catalog-search-hint" placeholder="Search catalog" value={query} disabled={!editable || pending} className="min-w-0 w-full flex-1" onChange={(event) => setQuery(event.target.value)} />
         <span className="text-xs text-muted-foreground">{basis}</span>
         {editable ? <Button type="button" variant="outline" onClick={() => setNaming(true)}>Add section</Button> : null}
+        </div>
+        <FieldHint id="catalog-search-hint">Finds a service on the price list to add to this quote.</FieldHint>
       </div>
+      <FieldHint>Edit a line name here, and choose whether it is included, optional, or declined.</FieldHint>
       {naming && editable && versionId ? <NewSectionForm quoteId={quoteId} versionId={versionId} onCreated={(sectionId) => { setTab(sectionId); setNaming(false); }} /> : null}
       {query.trim() ? (
         <ul className="flex flex-col gap-1">

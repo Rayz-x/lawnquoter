@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { MoneyBlurInput } from "@/components/entry";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldHint, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { updateQuoteTerms } from "../actions";
 
@@ -69,17 +69,20 @@ export function QuoteTermsForm({
               {depositAmount == null ? "—" : `$${depositAmount.toFixed(2)}`}
             </p>
           )}
+          <FieldHint id="quote-deposit-hint">The amount collected before the work starts.</FieldHint>
         </Field>
         <Field>
           <FieldLabel htmlFor="quote-expires">Expires</FieldLabel>
           <Input
             id="quote-expires"
+            aria-describedby="quote-expires-hint"
             type="date"
             value={expiry}
             disabled={!editable || pending}
             onChange={(event) => setExpiry(event.target.value)}
             onBlur={(event) => saveExpiry(event.target.value)}
           />
+          <FieldHint id="quote-expires-hint">The last day the customer can accept this price.</FieldHint>
         </Field>
       </CardContent>
     </Card>

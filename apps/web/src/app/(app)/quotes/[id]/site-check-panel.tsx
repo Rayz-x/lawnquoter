@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { FieldHint } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/money";
 import {
@@ -116,6 +117,8 @@ export function SiteCheckPanel({
           </label>
           <Input
             id="waive-reason"
+            aria-describedby="waive-reason-hint"
+            className="w-full"
             value={reason}
             required
             maxLength={2000}
@@ -123,6 +126,7 @@ export function SiteCheckPanel({
             onChange={(event) => setReason(event.target.value)}
             placeholder="e.g. Customer confirmed bed depth on site last year"
           />
+          <FieldHint id="waive-reason-hint">Why this line can be priced as firm without a site visit.</FieldHint>
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={pending || !reason.trim()}>
               Lock at estimate
