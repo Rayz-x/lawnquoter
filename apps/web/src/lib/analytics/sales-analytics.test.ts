@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  estimatedVsActual,
   funnelByRep,
   funnelByService,
   funnelBySource,
+  marginBy,
   overallFunnel,
   pipelineForecast,
+  routeDensity,
+  widgetStages,
   winLoss,
   type SalesLead,
 } from "./sales-analytics";
@@ -92,6 +96,26 @@ describe("sales analytics", () => {
       { month: "2026-06", cents: 500, quotes: 1 },
       { month: "2026-07", cents: 1000, quotes: 1 },
       { month: "2026-08", cents: 0, quotes: 0 },
+    ]);
+  });
+
+  it("compares hours, widget stages, margin, and postal density", () => {
+    expect(estimatedVsActual([{ crew: "North", estimatedMinutes: 120, actualMinutes: 90 }])).toEqual([
+      { crew: "North", estimatedHours: 2, actualHours: 1.5, varianceHours: -0.5 },
+    ]);
+    const stages = widgetStages([
+      { addressEntered: true, qualified: true, contactCaptured: true, quoteViewed: false, depositPaid: false },
+    ]);
+    expect(stages[0]).toEqual({ stage: "Address entered", count: 1, fromStart: 100 });
+    expect(stages.at(-1)).toEqual({ stage: "Deposit", count: 0, fromStart: 0 });
+    expect(
+      marginBy(
+        [{ service: "Mowing", crew: "North", revenueCents: 12_000, laborMinutes: 60, laborCostCents: 4_000 }],
+        (row) => row.service,
+      ),
+    ).toEqual([{ key: "Mowing", revenueCents: 12_000, dollarsPerManHour: 120, marginPercent: 67 }]);
+    expect(routeDensity([{ postalCode: "75201-1234", status: "new" }, { postalCode: "75201", status: "spam" }])).toEqual([
+      { postalCode: "75201", count: 1 },
     ]);
   });
 });
