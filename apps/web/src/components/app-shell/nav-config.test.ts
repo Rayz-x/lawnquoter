@@ -85,6 +85,7 @@ describe("office nav categories", () => {
       "Import customers",
       "Requests",
       "Texts",
+      "Calls",
     ]);
     expect(item("owner", "Import customers")?.href).toBe("/accounts/import");
     expect(item("admin", "Import customers")).toBeUndefined();

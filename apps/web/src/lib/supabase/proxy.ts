@@ -15,6 +15,7 @@ const PUBLIC_PREFIXES = [
   "/w/",
   "/api/leads/intake",
   "/api/webhooks/twilio",
+  "/api/webhooks/callrail",
   "/api/public",
   // Linked from every page. A login redirect is HTML, which the browser reports as a manifest syntax error.
   "/manifest.webmanifest",
