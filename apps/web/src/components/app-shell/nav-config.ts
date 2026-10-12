@@ -5,6 +5,7 @@ import {
   CalendarDays,
   CircleDollarSign,
   FileText,
+  Landmark,
   HardHat,
   Inbox,
   LayoutDashboard,
@@ -73,6 +74,7 @@ export const NAV_CATEGORIES: NavCategory[] = [
     place: "bar",
     items: [
       { title: "Quotes", href: "/quotes", icon: FileText, roles: SALES_ROLES },
+      { title: "Bids", href: "/bids", icon: Landmark, roles: SALES_ROLES },
       { title: "Price book", href: "/settings/pricing", icon: Tags, roles: ADMIN_ROLES },
     ],
   },

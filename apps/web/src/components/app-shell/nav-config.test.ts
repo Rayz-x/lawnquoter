@@ -86,6 +86,7 @@ describe("office nav categories", () => {
     ]);
     expect(owner.find((category) => category.label === "Sales")?.items.map((entry) => entry.href)).toEqual([
       "/quotes",
+      "/bids",
       "/settings/pricing",
     ]);
     expect(owner.find((category) => category.label === "Money")?.items.map((entry) => entry.title)).toEqual([
