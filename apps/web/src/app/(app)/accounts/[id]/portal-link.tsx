@@ -13,12 +13,14 @@ export async function PortalLink({
   canEdit: boolean;
 }) {
   const supabase = await createClient();
-  const { data: links } = await supabase
-    .from("portal_links")
-    .select("token, email, expires_at")
-    .eq("account_id", accountId)
-    .order("created_at", { ascending: false })
-    .limit(1);
+  const { data: links } = canEdit
+    ? await supabase
+        .from("portal_links")
+        .select("token, email, expires_at")
+        .eq("account_id", accountId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+    : { data: null };
   const latest = links?.[0];
   const origin = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   return (

@@ -3,7 +3,7 @@ import { loadPortalAccess } from "@/lib/portal/load";
 import { cardPortalRequest } from "@/lib/portal/scope";
 import { getStripe } from "@/lib/stripe/client";
 
-export async function GET(_req: Request, { params }: { params: Promise<{ token: string }> }) {
+export async function POST(_req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const access = await loadPortalAccess(token);
   if (!access) return new NextResponse("This link has expired.", { status: 404 });

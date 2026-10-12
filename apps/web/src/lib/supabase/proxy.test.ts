@@ -9,6 +9,8 @@ describe("isPublicPath", () => {
     expect(isPublicPath("/manifest.webmanifest")).toBe(true);
     expect(isPublicPath("/co/sample-token")).toBe(true);
     expect(isPublicPath("/i/sample-token")).toBe(true);
+    expect(isPublicPath("/portal/sample-token")).toBe(true);
+    expect(isPublicPath("/portals")).toBe(false);
     expect(isPublicPath("/s/sample-token")).toBe(true);
     expect(isPublicPath("/crew/today")).toBe(false);
     expect(isPublicPath("/e2e")).toBe(false);

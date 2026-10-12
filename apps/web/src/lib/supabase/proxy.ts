@@ -7,6 +7,7 @@ const PUBLIC_PREFIXES = [
   "/login",
   "/auth",
   "/q/",
+  "/portal/",
   "/co/",
   "/i/",
   "/s/",

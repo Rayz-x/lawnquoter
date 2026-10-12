@@ -72,7 +72,9 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
       <section className="space-y-2">
         <h2 className="font-heading text-lg">Card on file</h2>
         {portal.cardHref ? (
-          <Button render={<Link href={portal.cardHref} />}>Update card</Button>
+          <form action={portal.cardHref} method="post">
+            <Button type="submit">Update card</Button>
+          </form>
         ) : (
           <p className="text-sm text-muted-foreground">{portal.cardMessage}</p>
         )}
